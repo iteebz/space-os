@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+cd /Users/teebz/dev/space/private/agent-space && poetry run python -m agent_space.spawn.cli "$@"

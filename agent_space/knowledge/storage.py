@@ -65,13 +65,15 @@ def write_knowledge(
         )
         conn.commit()
 
+    import json
+
     from ..events import emit
 
     emit(
         source="knowledge",
         event_type="write",
         identity=contributor,
-        data={"id": entry_id, "domain": domain},
+        data=json.dumps({"id": entry_id, "domain": domain}),
     )
 
     return entry_id
