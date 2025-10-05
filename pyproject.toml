@@ -1,0 +1,17 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "agent-space"
+version = "0.0.1"
+description = "Constitutional cognitive infrastructure for AGI/ASI orchestration"
+authors = ["Tyson Chan <tyson.chan@proton.me>"]
+readme = "README.md"
+license = "Apache-2.0"
+packages = [
+    { include = "agent_space" }
+]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<4.0"
