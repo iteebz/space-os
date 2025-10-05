@@ -76,27 +76,9 @@ def get_all_messages(channel_id: str) -> list[Message]:
 
 
 def get_sender_history(sender: str, limit: int | None = None) -> list[Message]:
-    """Retrieve all messages sent by sender across all channels."""
     with get_db_connection() as conn:
+        query = "SELECT id, channel_id, sender, content, created_at FROM messages WHERE sender = ? ORDER BY created_at DESC"
+        params = (sender, limit) if limit else (sender,)
         if limit:
-            cursor = conn.execute(
-                """
-                SELECT id, channel_id, sender, content, created_at
-                FROM messages
-                WHERE sender = ?
-                ORDER BY created_at DESC
-                LIMIT ?
-            """,
-                (sender, limit),
-            )
-        else:
-            cursor = conn.execute(
-                """
-                SELECT id, channel_id, sender, content, created_at
-                FROM messages
-                WHERE sender = ?
-                ORDER BY created_at DESC
-            """,
-                (sender,),
-            )
-        return [Message(**row) for row in cursor.fetchall()]
+            query += " LIMIT ?"
+        return [Message(**row) for row in conn.execute(query, params).fetchall()]

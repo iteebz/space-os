@@ -1,45 +1,12 @@
 import shutil
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 import click
 
-from . import events, protocols
-from .spawn import config as spawn_config
-from . import stats as space_stats
-
-
-def humanize_ago(timestamp_str: str | None) -> str:
-    if not timestamp_str:
-        return "–"
-    
-    try:
-        ts = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        now = datetime.now(timezone.utc)
-        delta = now - ts
-        
-        seconds = int(delta.total_seconds())
-        if seconds < 60:
-            return "just now"
-        if seconds < 3600:
-            mins = seconds // 60
-            return f"{mins}m ago"
-        if seconds < 86400:
-            hours = seconds // 3600
-            return f"{hours}h ago"
-        days = seconds // 86400
-        if days < 30:
-            return f"{days}d ago"
-        if days < 365:
-            months = days // 30
-            return f"{months}mo ago"
-        years = days // 365
-        return f"{years}y ago"
-    except (ValueError, AttributeError):
-        return timestamp_str
+from . import events, protocols, stats as space_stats
+from .spawn import config as spawn_config, registry
 
 PROTOCOL_FILE = Path(__file__).parent.parent / "protocols" / "space.md"
 if PROTOCOL_FILE.exists():
@@ -94,78 +61,37 @@ def show_events(source, identity, limit):
 
 @main.command()
 def agents():
-    """List current agent identities with self-descriptions."""
-    spawn_db = spawn_config.workspace_root() / ".space" / "spawn.db"
-    
-    if not spawn_db.exists():
-        click.echo("No spawn.db found")
-        return
-    
-    conn = sqlite3.connect(str(spawn_db))
-    cursor = conn.cursor()
-    try:
-        cursor.execute("SELECT sender_id, self FROM registrations ORDER BY sender_id")
-        rows = cursor.fetchall()
-    except sqlite3.OperationalError:
-        rows = []
-    conn.close()
-    
-    if not rows:
+    registry.init_db()
+    regs = registry.list_registrations()
+    if not regs:
         click.echo("No agents registered")
         return
     
     seen = set()
-    for sender_id, self_desc in rows:
-        if sender_id in seen:
+    for reg in regs:
+        if reg.sender_id in seen:
             continue
-        seen.add(sender_id)
-        if self_desc:
-            click.echo(f"{sender_id}: {self_desc}")
-        else:
-            click.echo(sender_id)
+        seen.add(reg.sender_id)
+        click.echo(f"{reg.sender_id}: {reg.self}" if reg.self else reg.sender_id)
 
 
 @main.command()
 def stats():
-    """Show high-level workspace stats across coordination subsystems."""
+    s = space_stats.collect()
 
-    stats = space_stats.collect()
+    def fmt(name: str, available: bool, board: list | None) -> str:
+        if not available:
+            return f"{name}\n- Not found"
+        if not board:
+            return name
+        lines = [name] + [f"  {i}. {item.identity} — {item.count}" for i, item in enumerate(board, 1)]
+        return "\n".join(lines)
 
-    sections: list[str] = []
-
-    if stats.bridge.available:
-        bridge_lines = ["Bridge"]
-        
-        if stats.bridge.message_leaderboard:
-            for index, item in enumerate(stats.bridge.message_leaderboard, start=1):
-                bridge_lines.append(f"  {index}. {item.identity} — {item.count}")
-
-        sections.append("\n".join(bridge_lines))
-    else:
-        sections.append("Bridge\n- No bridge.db found")
-
-    if stats.memory.available:
-        memory_lines = ["Memory"]
-        
-        if stats.memory.leaderboard:
-            for index, item in enumerate(stats.memory.leaderboard[:5], start=1):
-                memory_lines.append(f"  {index}. {item.identity} — {item.count}")
-
-        sections.append("\n".join(memory_lines))
-    else:
-        sections.append("Memory\n- No memory.db found")
-
-    if stats.knowledge.available:
-        knowledge_lines = ["Knowledge"]
-        
-        if stats.knowledge.leaderboard:
-            for index, item in enumerate(stats.knowledge.leaderboard[:5], start=1):
-                knowledge_lines.append(f"  {index}. {item.identity} — {item.count}")
-
-        sections.append("\n".join(knowledge_lines))
-    else:
-        sections.append("Knowledge\n- No knowledge.db found")
-
+    sections = [
+        fmt("Bridge", s.bridge.available, s.bridge.message_leaderboard),
+        fmt("Memory", s.memory.available, s.memory.leaderboard),
+        fmt("Knowledge", s.knowledge.available, s.knowledge.leaderboard),
+    ]
     click.echo("\n\n".join(sections))
 
 
@@ -173,46 +99,21 @@ def stats():
 @click.argument("identity")
 @click.argument("description")
 def describe(identity, description):
-    """Update agent self-description."""
-    spawn_db = spawn_config.workspace_root() / ".space" / "spawn.db"
-    
-    if not spawn_db.exists():
-        click.echo("No spawn.db found")
-        return
-    
-    conn = sqlite3.connect(str(spawn_db))
-    cursor = conn.cursor()
-    cursor.execute("UPDATE registrations SET self = ? WHERE sender_id = ?", (description, identity))
-    changes = cursor.rowcount
+    registry.init_db()
+    db = spawn_config.workspace_root() / ".space" / "spawn.db"
+    conn = sqlite3.connect(db)
+    changes = conn.execute("UPDATE registrations SET self = ? WHERE sender_id = ?", (description, identity)).rowcount
     conn.commit()
     conn.close()
-    
-    if changes > 0:
-        click.echo(f"{identity}: {description}")
-    else:
-        click.echo(f"No agent found with identity: {identity}")
+    click.echo(f"{identity}: {description}" if changes > 0 else f"No agent: {identity}")
 
 
 @main.command()
 @click.argument("identity")
 def self(identity):
-    """Show agent self-description."""
-    spawn_db = spawn_config.workspace_root() / ".space" / "spawn.db"
-    
-    if not spawn_db.exists():
-        click.echo("No spawn.db found")
-        return
-    
-    conn = sqlite3.connect(str(spawn_db))
-    cursor = conn.cursor()
-    cursor.execute("SELECT self FROM registrations WHERE sender_id = ? LIMIT 1", (identity,))
-    row = cursor.fetchone()
-    conn.close()
-    
-    if row and row[0]:
-        click.echo(row[0])
-    else:
-        click.echo(f"No self-description for {identity}")
+    registry.init_db()
+    desc = registry.get_self_description(identity)
+    click.echo(desc if desc else f"No self-description for {identity}")
 
 
 if __name__ == "__main__":
