@@ -1,13 +1,45 @@
 import shutil
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import click
 
 from . import events, protocols
-from .bridge import config as bridge_config
 from .spawn import config as spawn_config
+from . import stats as space_stats
+
+
+def humanize_ago(timestamp_str: str | None) -> str:
+    if not timestamp_str:
+        return "–"
+    
+    try:
+        ts = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        delta = now - ts
+        
+        seconds = int(delta.total_seconds())
+        if seconds < 60:
+            return "just now"
+        if seconds < 3600:
+            mins = seconds // 60
+            return f"{mins}m ago"
+        if seconds < 86400:
+            hours = seconds // 3600
+            return f"{hours}h ago"
+        days = seconds // 86400
+        if days < 30:
+            return f"{days}d ago"
+        if days < 365:
+            months = days // 30
+            return f"{months}mo ago"
+        years = days // 365
+        return f"{years}y ago"
+    except (ValueError, AttributeError):
+        return timestamp_str
 
 PROTOCOL_FILE = Path(__file__).parent.parent / "protocols" / "space.md"
 if PROTOCOL_FILE.exists():
@@ -42,7 +74,7 @@ def backup():
     click.echo(f"Backed up to {backup_path}")
 
 
-@main.command()
+@main.command(name="events")
 @click.option("--source", help="Filter by source (bridge, memory, spawn)")
 @click.option("--identity", help="Filter by identity")
 @click.option("--limit", default=50, help="Number of events to show")
@@ -97,110 +129,42 @@ def agents():
 def stats():
     """Show high-level workspace stats across coordination subsystems."""
 
-    space_dir = spawn_config.workspace_root() / ".space"
-
-    bridge_db = bridge_config.DB_PATH
-    spawn_db = space_dir / "spawn.db"
-    memory_db = space_dir / "memory.db"
+    stats = space_stats.collect()
 
     sections: list[str] = []
 
-    # Bridge statistics
-    if bridge_db.exists():
-        try:
-            with sqlite3.connect(bridge_db) as conn:
-                conn.row_factory = sqlite3.Row
-                total_channels = conn.execute("SELECT COUNT(*) AS count FROM channels").fetchone()["count"]
-                total_messages = conn.execute("SELECT COUNT(*) AS count FROM messages").fetchone()["count"]
-                active_24h = conn.execute(
-                    """
-                    SELECT COUNT(DISTINCT channel_id) AS count
-                    FROM messages
-                    WHERE created_at >= datetime('now', '-24 hours')
-                    """
-                ).fetchone()["count"]
-                top_channels = conn.execute(
-                    """
-                    SELECT c.name AS name,
-                           COUNT(m.id) AS messages,
-                           MAX(m.created_at) AS last_activity
-                    FROM channels c
-                    LEFT JOIN messages m ON c.id = m.channel_id
-                    GROUP BY c.id, c.name
-                    ORDER BY messages DESC, c.created_at DESC
-                    LIMIT 5
-                    """
-                ).fetchall()
-        except sqlite3.OperationalError:
-            total_channels = total_messages = active_24h = 0
-            top_channels = []
-
-        bridge_lines = [
-            "Bridge",
-            f"- Channels: {total_channels} (active last 24h: {active_24h})",
-            f"- Messages: {total_messages}",
-        ]
-
-        if top_channels:
-            bridge_lines.append("- Top Channels:")
-            for index, row in enumerate(top_channels, start=1):
-                last_activity = row["last_activity"] or "–"
-                bridge_lines.append(
-                    f"  {index}. {row['name']} — {row['messages']} messages (last activity: {last_activity})"
-                )
+    if stats.bridge.available:
+        bridge_lines = ["Bridge"]
+        
+        if stats.bridge.message_leaderboard:
+            for index, item in enumerate(stats.bridge.message_leaderboard, start=1):
+                bridge_lines.append(f"  {index}. {item.identity} — {item.count}")
 
         sections.append("\n".join(bridge_lines))
     else:
         sections.append("Bridge\n- No bridge.db found")
 
-    # Memory statistics
-    if memory_db.exists():
-        try:
-            with sqlite3.connect(memory_db) as conn:
-                total_entries = conn.execute("SELECT COUNT(*) FROM entries").fetchone()[0]
-                identities = conn.execute("SELECT COUNT(DISTINCT identity) FROM entries").fetchone()[0]
-                topics = conn.execute("SELECT COUNT(DISTINCT topic) FROM entries").fetchone()[0]
-        except sqlite3.OperationalError:
-            total_entries = identities = topics = 0
+    if stats.memory.available:
+        memory_lines = ["Memory"]
+        
+        if stats.memory.leaderboard:
+            for index, item in enumerate(stats.memory.leaderboard[:5], start=1):
+                memory_lines.append(f"  {index}. {item.identity} — {item.count}")
 
-        sections.append(
-            "\n".join(
-                [
-                    "Memories",
-                    f"- Entries: {total_entries}",
-                    f"- Identities: {identities}",
-                    f"- Topics: {topics}",
-                ]
-            )
-        )
+        sections.append("\n".join(memory_lines))
     else:
-        sections.append("Memories\n- No memory.db found")
+        sections.append("Memory\n- No memory.db found")
 
-    # Agent statistics
-    if spawn_db.exists():
-        try:
-            with sqlite3.connect(spawn_db) as conn:
-                conn.row_factory = sqlite3.Row
-                total_registrations = conn.execute(
-                    "SELECT COUNT(*) AS count FROM registrations"
-                ).fetchone()["count"]
-                total_agents = conn.execute(
-                    "SELECT COUNT(DISTINCT sender_id) AS count FROM registrations"
-                ).fetchone()["count"]
-        except sqlite3.OperationalError:
-            total_registrations = total_agents = 0
+    if stats.knowledge.available:
+        knowledge_lines = ["Knowledge"]
+        
+        if stats.knowledge.leaderboard:
+            for index, item in enumerate(stats.knowledge.leaderboard[:5], start=1):
+                knowledge_lines.append(f"  {index}. {item.identity} — {item.count}")
 
-        sections.append(
-            "\n".join(
-                [
-                    "Agents",
-                    f"- Unique identities: {total_agents}",
-                    f"- Registrations: {total_registrations}",
-                ]
-            )
-        )
+        sections.append("\n".join(knowledge_lines))
     else:
-        sections.append("Agents\n- No spawn.db found")
+        sections.append("Knowledge\n- No knowledge.db found")
 
     click.echo("\n\n".join(sections))
 

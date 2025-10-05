@@ -103,6 +103,23 @@ def init_db():
         except sqlite3.OperationalError:
             pass
 
+        # Migration: Add sender foreign key check
+        try:
+            conn.execute("""
+                CREATE TRIGGER IF NOT EXISTS enforce_sender_identity
+                BEFORE INSERT ON messages
+                FOR EACH ROW
+                WHEN NEW.sender NOT IN ('human', 'detective')
+                BEGIN
+                    SELECT RAISE(ABORT, 'sender must match registered base_identity')
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM identities WHERE base_identity = NEW.sender
+                    );
+                END
+            """)
+        except sqlite3.OperationalError:
+            pass
+
         # Performance indexes
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_messages_channel_time ON messages(channel_id, created_at)"

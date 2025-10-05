@@ -63,20 +63,17 @@ def write_bridge_identity(sender_identity: str, content: str):
     identity_file.write_text(content)
 
 
-def register_agent(role: str, sender_id: str, topic: str) -> dict:
-    """Register agent with spawn registry and materialize identity for bridge."""
-    const_path = get_constitution_path(role)
-    constitution = const_path.read_text()
-    
+def inject_identity(constitution: str, sender_id: str) -> str:
     registry.init_db()
     self_desc = registry.get_self_description(sender_id)
-    
-    if self_desc:
-        identity_header = f"You are now {sender_id}.\nSelf: {self_desc}\n\n"
-        full_identity = identity_header + constitution
-    else:
-        full_identity = constitution
-    
+    if not self_desc:
+        return constitution
+    return f"You are now {sender_id}.\nSelf: {self_desc}\n\n{constitution}"
+
+
+def register_agent(role: str, sender_id: str, topic: str) -> dict:
+    const_path = get_constitution_path(role)
+    full_identity = inject_identity(const_path.read_text(), sender_id)
     const_hash = hash_content(full_identity)
     write_bridge_identity(sender_id, full_identity)
     reg_id = registry.register(role, sender_id, topic, const_hash)
@@ -111,12 +108,12 @@ def launch_agent(role: str, agent: str | None = None, extra_args: list[str] | No
         raise ValueError(f"Agent '{agent_name}' is not configured for launching.")
 
     const_path = get_constitution_path(role)
-    const_content = const_path.read_text()
-    write_bridge_identity(agent_name, const_content)
+    full_identity = inject_identity(const_path.read_text(), agent_name)
+    write_bridge_identity(agent_name, full_identity)
     identity_dir = config.bridge_identities_dir()
     identity_file = identity_dir / f"{agent_name}.md"
 
-    _sync_identity_targets(agent_cfg, const_content)
+    _sync_identity_targets(agent_cfg, full_identity)
 
     command_tokens = _parse_command(agent_cfg["command"])
     env = _build_launch_env()
