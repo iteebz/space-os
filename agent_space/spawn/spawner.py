@@ -66,12 +66,19 @@ def write_bridge_identity(sender_identity: str, content: str):
 def register_agent(role: str, sender_id: str, topic: str) -> dict:
     """Register agent with spawn registry and materialize identity for bridge."""
     const_path = get_constitution_path(role)
-    content = const_path.read_text()
-    const_hash = hash_content(content)
-
-    write_bridge_identity(sender_id, content)
-
+    constitution = const_path.read_text()
+    
     registry.init_db()
+    self_desc = registry.get_self_description(sender_id)
+    
+    if self_desc:
+        identity_header = f"You are now {sender_id}.\nSelf: {self_desc}\n\n"
+        full_identity = identity_header + constitution
+    else:
+        full_identity = constitution
+    
+    const_hash = hash_content(full_identity)
+    write_bridge_identity(sender_id, full_identity)
     reg_id = registry.register(role, sender_id, topic, const_hash)
 
     return {

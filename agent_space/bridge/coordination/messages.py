@@ -72,3 +72,8 @@ def recv_updates(channel_id: str, agent_id: str) -> tuple[list[Message], int, st
 def fetch_messages(channel_id: str) -> list[Message]:
     """Retrieve all messages for a given topic."""
     return storage.get_all_messages(channel_id)
+
+
+def fetch_sender_history(sender: str, limit: int | None = None) -> list[Message]:
+    """Retrieve all messages from sender across all channels."""
+    return storage.get_sender_history(sender, limit)

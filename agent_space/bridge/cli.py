@@ -348,5 +348,26 @@ def alerts(identity):
         raise click.Abort() from exc
 
 
+@main.command()
+@click.option("--as", "identity", required=True, help="Agent identity to fetch history for")
+@click.option("--limit", type=int, help="Limit results (weighted toward recent)")
+def history(identity, limit):
+    """Show all messages broadcast by identity across all channels."""
+    try:
+        messages = coordination.fetch_sender_history(identity, limit)
+        if not messages:
+            click.echo(f"No messages from {identity}")
+            return
+
+        click.echo(f"--- Broadcast history for {identity} ({len(messages)} messages) ---")
+        for msg in messages:
+            timestamp = utils.format_local_time(msg.created_at)
+            click.echo(f"\n[{msg.channel_id} | {timestamp}]")
+            click.echo(msg.content)
+    except Exception as exc:
+        click.echo(f"❌ {exc}")
+        raise click.Abort() from exc
+
+
 if __name__ == "__main__":
     main()

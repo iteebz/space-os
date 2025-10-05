@@ -13,6 +13,7 @@ class Registration:
     topic: str
     constitution_hash: str
     registered_at: str
+    self: str | None = None
 
 
 def init_db():
@@ -109,3 +110,13 @@ def rename_sender(old_sender_id: str, new_sender_id: str, new_role: str = None):
                 (new_sender_id, old_sender_id),
             )
         conn.commit()
+
+
+def get_self_description(sender_id: str) -> str | None:
+    """Get self-description for sender_id from any registration."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT self FROM registrations WHERE sender_id = ? LIMIT 1",
+            (sender_id,),
+        ).fetchone()
+        return row["self"] if row and row["self"] else None

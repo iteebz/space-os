@@ -26,6 +26,7 @@ from .instructions import (
 from .alerts import get_alerts
 from .messages import (
     fetch_messages,
+    fetch_sender_history,
     is_context,
     parse_context,
     recv_updates,
@@ -41,6 +42,7 @@ __all__ = [
     "hash_instructions",
     "channel_instructions",
     "fetch_messages",
+    "fetch_sender_history",
     "is_context",
     "parse_context",
     "recv_updates",
