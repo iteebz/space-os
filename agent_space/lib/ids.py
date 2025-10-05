@@ -41,7 +41,8 @@ def _next_random(ts_ms: int) -> tuple[int, int]:
         return ts_ms, _last_rand
 
 
-def _uuid7() -> uuid.UUID:
+def uuid7() -> str:
+    """Return monotonically increasing UUID7 hex string."""
     ts_ms = _next_timestamp_ms()
     ts_ms, random_bits = _next_random(ts_ms)
 
@@ -54,12 +55,7 @@ def _uuid7() -> uuid.UUID:
     raw[8] &= 0x3F
     raw[8] |= 0x80  # IETF variant
 
-    return uuid.UUID(bytes=bytes(raw))
+    return uuid.UUID(bytes=bytes(raw)).hex
 
 
-def new_sequential_uuid() -> str:
-    """Return a monotonically increasing UUID7 hex string."""
-    return _uuid7().hex
-
-
-__all__ = ["new_sequential_uuid"]
+__all__ = ["uuid7"]

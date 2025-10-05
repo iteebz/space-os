@@ -3,7 +3,7 @@ import sqlite3
 import time
 from pathlib import Path
 
-from .lib.ids import new_sequential_uuid
+from .lib.ids import uuid7
 
 
 DB_PATH = Path.cwd() / ".space" / "protocols.db"
@@ -60,7 +60,7 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
         created_at = int(timestamp) if timestamp is not None else int(time.time())
         conn.execute(
             "INSERT INTO protocol_versions (uuid, name, hash, created_at) VALUES (?, ?, ?, ?)",
-            (new_sequential_uuid(), name, content_hash, created_at),
+            (uuid7(), name, content_hash, created_at),
         )
 
     conn.execute("DROP TABLE protocol_versions_legacy")
@@ -72,23 +72,26 @@ def _hash_content(content: str) -> str:
 
 
 def track(name: str, content: str):
-    """Track protocol version by hashing content. Idempotent."""
-    _init_db()
-    content_hash = _hash_content(content)
-    created_at = int(time.time())
-
-    conn = sqlite3.connect(DB_PATH)
+    """Track protocol version by hashing content. Idempotent. Fails silently."""
     try:
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO protocol_versions (uuid, name, hash, created_at)
-            VALUES (?, ?, ?, ?)
-            """,
-            (new_sequential_uuid(), name, content_hash, created_at),
-        )
-        conn.commit()
-    finally:
-        conn.close()
+        _init_db()
+        content_hash = _hash_content(content)
+        created_at = int(time.time())
+
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO protocol_versions (uuid, name, hash, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (uuid7(), name, content_hash, created_at),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception:
+        pass
 
 
 def get_current_hash(name: str) -> str | None:

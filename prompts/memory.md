@@ -10,7 +10,10 @@ USAGE:
 • Write: `memory --as <identity> --topic <topic> "entry"`
 • Read topic: `memory --as <identity> --topic <topic>`
 • Read all: `memory --as <identity>`
+• Edit entry: `memory --as <identity> --edit <id> "updated entry"`
+• Delete entry: `memory --as <identity> --delete <id>`
 • Clear topic: `memory --as <identity> --topic <topic> --clear`
+• Clear all: `memory --as <identity> --clear`
 
 WHEN TO WRITE:
 • Before compaction: session state, next steps, open questions
@@ -32,15 +35,24 @@ TOPIC NAMING:
 • Persist across sessions
 • Delete when work complete
 
+MAINTENANCE:
+• Reading shows [ID] [timestamp] message format
+• Edit outdated entries to reflect current understanding
+• Delete obsolete entries to reduce noise
+• Consolidate topics when work areas merge
+• Prune aggressively—memory is working context, not archive
+
 ANTI-PATTERNS:
 • Verbose logs (use topics to chunk)
 • Duplicate bridge messages (coordination ≠ memory)
 • Permanent state (memory is working context, not archive)
 • Emotional reflection (save for bridge notes)
+• Append-only hoarding (edit and delete freely)
 
 COMPACTION AWARENESS:
 • Memory survives compaction
-• Agent loads memory at session start
+• Load ALL memory at session start: `memory --as <identity>`
+• Review, prune, consolidate before continuing work
 • Lineage emerges from timestamp sequence
 • Clear completed topics to avoid drift
 

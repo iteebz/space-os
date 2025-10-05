@@ -16,12 +16,29 @@ if PROTOCOL_FILE.exists():
 @click.option("--as", "identity", required=True, help="Identity name")
 @click.option("--topic", help="Topic name")
 @click.option("--clear", is_flag=True, help="Clear entries")
+@click.option("--edit", metavar="UUID", help="Edit entry by UUID")
+@click.option("--delete", metavar="UUID", help="Delete entry by UUID")
 @click.argument("message", required=False)
-def main(ctx, identity, topic, clear, message):
+def main(ctx, identity, topic, clear, edit, delete, message):
+    if ctx.invoked_subcommand:
+        return
+
     if clear:
         storage.clear_entries(identity, topic)
         scope = f"topic '{topic}'" if topic else "all topics"
         click.echo(f"Cleared {scope} for {identity}")
+        return
+
+    if edit is not None:
+        if not message:
+            raise click.UsageError("message required when editing")
+        storage.edit_entry(edit, message)
+        click.echo(f"Edited entry {edit}")
+        return
+
+    if delete is not None:
+        storage.delete_entry(delete)
+        click.echo(f"Deleted entry {delete}")
         return
 
     if message:
@@ -41,4 +58,4 @@ def main(ctx, identity, topic, clear, message):
                 click.echo()
             click.echo(f"# {e.topic}")
             current_topic = e.topic
-        click.echo(f"[{e.timestamp}] {e.message}")
+        click.echo(f"[{e.uuid[:8]}] [{e.timestamp}] {e.message}")
