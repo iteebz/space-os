@@ -27,12 +27,17 @@ def init_db():
                 sender_id TEXT NOT NULL,
                 topic TEXT NOT NULL,
                 constitution_hash TEXT NOT NULL,
-                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                self TEXT
             )
         """)
         conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_sender_topic ON registrations(sender_id, topic)
         """)
+        try:
+            conn.execute("ALTER TABLE registrations ADD COLUMN self TEXT")
+        except sqlite3.OperationalError:
+            pass
         conn.commit()
 
 
