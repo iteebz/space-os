@@ -4,7 +4,7 @@ This module exposes the public functions from the various storage modules
 as a single, unified interface for the business logic layer.
 """
 
-from .alerts import load_alert, save_alert
+from .alerts import get_alerts
 from .bookmarks import set_bookmark
 from .channels import (
     archive_channel,
@@ -64,6 +64,5 @@ __all__ = [
     "save_instructions",
     "get_topic_instructions",
     "set_bookmark",
-    "save_alert",
-    "load_alert",
+    "get_alerts",
 ]

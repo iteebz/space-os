@@ -36,7 +36,8 @@ def init_db():
                 sender TEXT NOT NULL,
                 content TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                prompt_hash TEXT
+                prompt_hash TEXT,
+                priority TEXT DEFAULT 'normal'
             )
         """)
 
@@ -96,14 +97,11 @@ def init_db():
             )
         """)
 
-        # Alerts table for identity notifications
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS alerts (
-                identity TEXT PRIMARY KEY,
-                payload TEXT NOT NULL,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+        # Migration: Add priority column to existing messages table
+        try:
+            conn.execute("ALTER TABLE messages ADD COLUMN priority TEXT DEFAULT 'normal'")
+        except sqlite3.OperationalError:
+            pass
 
         # Performance indexes
         conn.execute(
@@ -111,5 +109,6 @@ def init_db():
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_bookmarks ON bookmarks(agent_id, channel_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_notes ON notes(channel_id, created_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_messages_priority ON messages(priority)")
 
         conn.commit()

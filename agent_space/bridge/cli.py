@@ -9,9 +9,7 @@ import click
 
 from .. import protocols
 from . import config, coordination, utils
-from .coordination import sentinel
 from .council import Council
-from .sidecar import load_alert_payload
 from .storage.migration import MigrationError, migrate_store_db
 
 if config.INSTRUCTIONS_FILE.exists():
@@ -181,22 +179,19 @@ def send(channel, content, identity, decode_base64):
         raise click.Abort() from exc
 
 
-@main.group("sentinel-log")
-def sentinel_log_group():
-    """Manage sentinel security audit log."""
-
-
-@sentinel_log_group.command("append")
-@click.argument("message")
-@click.option("--severity", default=None, help="Override severity tag (INFO, HIGH, etc.)")
-@click.option("--sender", default="human", help="Identity appended to the log entry")
-@click.option("--channel", default="manual", help="Channel context for the log entry")
-def sentinel_log_append(message, severity, sender, channel):
-    """Append a manual entry to the sentinel audit log."""
-
-    payload = message if severity is None else f"[{severity}] {message}"
-    sentinel.log_security_event(channel, sender, payload, force=True)
-    click.echo(f"Logged sentinel event for {sender}@{channel}")
+@main.command()
+@click.argument("channel")
+@click.argument("content")
+@click.option("--as", "identity", required=True, help="Identity sending alert")
+def alert(channel, content, identity):
+    """Send high-priority alert to a channel."""
+    try:
+        channel_id = coordination.resolve_channel_id(channel)
+        coordination.send_message(channel_id, identity, content, priority="alert")
+        click.echo(f"Alert sent to {channel} as {identity}")
+    except Exception as exc:
+        click.echo(f"❌ {exc}")
+        raise click.Abort() from exc
 
 
 @main.command()
@@ -335,28 +330,22 @@ def backup():
 
 
 @main.command()
-@click.option("--as", "identity", required=True, help="Agent identity to inspect")
-@click.option(
-    "--alerts-dir",
-    type=click.Path(path_type=Path),
-    default=None,
-    help="Override alerts directory",
-)
-def alerts(identity, alerts_dir):
-    """Show the latest alert payload for an identity."""
-    payload = load_alert_payload(identity, alerts_dir)
-    if not payload:
-        click.echo(f"No alerts for {identity}")
-        return
+@click.option("--as", "identity", required=True, help="Agent identity to check alerts for")
+def alerts(identity):
+    """Show all unread alerts across all channels."""
+    try:
+        alert_messages = coordination.get_alerts(identity)
+        if not alert_messages:
+            click.echo(f"No alerts for {identity}")
+            return
 
-    click.echo(f"Channel: {payload.get('channel') or payload.get('topic', 'unknown')}")
-    click.echo(f"Sender: {payload.get('sender', 'unknown')}")
-    if payload.get("timestamp"):
-        click.echo(f"Timestamp: {payload['timestamp']}")
-    click.echo(payload.get("body", ""))
-    flags = payload.get("flags") or []
-    if flags:
-        click.echo(f"Flags: {', '.join(flags)}")
+        click.echo(f"--- Alerts for {identity} ({len(alert_messages)} unread) ---")
+        for msg in alert_messages:
+            click.echo(f"\n[{msg.sender} | {msg.channel_id}]")
+            click.echo(msg.content)
+    except Exception as exc:
+        click.echo(f"❌ {exc}")
+        raise click.Abort() from exc
 
 
 if __name__ == "__main__":

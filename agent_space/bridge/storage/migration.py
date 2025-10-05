@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .. import config
-from ..coordination import sentinel
 from .db import ensure_bridge_dir
 
 
@@ -67,13 +66,6 @@ def migrate_store_db() -> MigrationResult:
     message = (
         "Migrated bridge store -> ~/.space/bridge.db "
         f"(messages={_table_count(new_path, 'messages')}, channels={_table_count(new_path, 'channels')})."
-    )
-
-    sentinel.log_security_event(
-        channel="bridge-migrate",
-        sender="bridge-cli",
-        content=f"[INFO] {message} Backup={backup_path}",
-        force=True,
     )
 
     return MigrationResult(status="migrated", message=message, backup_path=backup_path)

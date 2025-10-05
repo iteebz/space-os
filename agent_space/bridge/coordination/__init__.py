@@ -23,6 +23,7 @@ from .instructions import (
     get_instructions,
     hash_instructions,
 )
+from .alerts import get_alerts
 from .messages import (
     fetch_messages,
     is_context,
@@ -46,6 +47,7 @@ __all__ = [
     "send_message",
     "add_note",
     "get_notes",
+    "get_alerts",
     "active_channels",
     "all_channels",
     "archive_channel",

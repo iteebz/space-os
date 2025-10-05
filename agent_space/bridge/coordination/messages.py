@@ -5,7 +5,6 @@ import re
 from .. import storage
 from ..models import Message
 from .identities import load_identity
-from .sentinel import log_security_event
 
 
 def is_context(content: str) -> bool:
@@ -38,7 +37,7 @@ def _store_identity(sender_id: str, topic: str):
     return new_hash
 
 
-def send_message(channel_id: str, sender: str, content: str) -> str:
+def send_message(channel_id: str, sender: str, content: str, priority: str = "normal") -> str:
     """Orchestrate sending a message: validate, ensure identity, and store."""
     topic = storage.get_channel_name(channel_id)
     prompt_hash = _store_identity(sender, topic)
@@ -48,13 +47,12 @@ def send_message(channel_id: str, sender: str, content: str) -> str:
         sender=sender,
         content=content,
         prompt_hash=prompt_hash,
+        priority=priority,
     )
 
     if is_context(content):
         context = parse_context(content)
         storage.set_context(channel_id, context)
-
-    log_security_event(topic, sender, content)
 
     return sender
 

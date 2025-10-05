@@ -4,21 +4,26 @@ from ..models import Message
 from .db import get_db_connection
 
 
-def create_message(channel_id: str, sender: str, content: str, prompt_hash: str) -> int:
+def create_message(
+    channel_id: str, sender: str, content: str, prompt_hash: str, priority: str = "normal"
+) -> int:
     """Insert a message record into the database."""
     with get_db_connection() as conn:
         cursor = conn.execute(
             """
-            INSERT INTO messages (channel_id, sender, content, prompt_hash) VALUES (?, ?, ?, ?)
+            INSERT INTO messages (channel_id, sender, content, prompt_hash, priority)
+            VALUES (?, ?, ?, ?, ?)
         """,
-            (channel_id, sender, content, prompt_hash),
+            (channel_id, sender, content, prompt_hash, priority),
         )
         message_id = cursor.lastrowid
         conn.commit()
     return message_id
 
 
-def get_new_messages(channel_id: str, agent_id: str) -> tuple[list[Message], int]:
+def get_new_messages(
+    channel_id: str, agent_id: str, alerts_only: bool = False
+) -> tuple[list[Message], int]:
     """Get unread messages for a specific agent in a channel."""
     with get_db_connection() as conn:
         # Get agent's last seen message ID
@@ -30,15 +35,26 @@ def get_new_messages(channel_id: str, agent_id: str) -> tuple[list[Message], int
         last_seen_id = result["last_seen_id"] if result else 0
 
         # Get messages since last seen
-        cursor = conn.execute(
-            """
-            SELECT id, channel_id, sender, content, created_at
-            FROM messages
-            WHERE channel_id = ? AND id > ?
-            ORDER BY created_at ASC
-        """,
-            (channel_id, last_seen_id),
-        )
+        if alerts_only:
+            cursor = conn.execute(
+                """
+                SELECT id, channel_id, sender, content, created_at
+                FROM messages
+                WHERE channel_id = ? AND id > ? AND priority = 'alert'
+                ORDER BY created_at ASC
+            """,
+                (channel_id, last_seen_id),
+            )
+        else:
+            cursor = conn.execute(
+                """
+                SELECT id, channel_id, sender, content, created_at
+                FROM messages
+                WHERE channel_id = ? AND id > ?
+                ORDER BY created_at ASC
+            """,
+                (channel_id, last_seen_id),
+            )
         messages = [Message(**row) for row in cursor.fetchall()]
 
     return messages, len(messages)
