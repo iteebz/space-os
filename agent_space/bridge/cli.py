@@ -7,11 +7,16 @@ from pathlib import Path
 
 import click
 
+from .. import protocols
 from . import config, coordination, utils
 from .coordination import sentinel
 from .council import Council
 from .sidecar import load_alert_payload
 from .storage.migration import MigrationError, migrate_store_db
+
+
+if config.INSTRUCTIONS_FILE.exists():
+    protocols.track("bridge", config.INSTRUCTIONS_FILE.read_text())
 
 
 @click.group(invoke_without_command=True)

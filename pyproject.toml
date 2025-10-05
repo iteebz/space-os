@@ -4,8 +4,8 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "agent-space"
-version = "0.0.1"
-description = "Constitutional cognitive infrastructure for AGI/ASI orchestration"
+version = "0.1.0"
+description = "Constitutional cognitive infrastructure"
 authors = ["Tyson Chan <tyson.chan@proton.me>"]
 readme = "README.md"
 license = "Apache-2.0"
