@@ -1,7 +1,11 @@
 import json
 from pathlib import Path
 
-SPACE_DIR = Path.cwd() / ".space"
+from agent_space.spawn import config as spawn_config
+
+SPACE_DIR = spawn_config.workspace_root() / ".space"
+BRIDGE_DIR = SPACE_DIR / "bridge"
+IDENTITIES_DIR = BRIDGE_DIR / "identities"
 DB_PATH = SPACE_DIR / "bridge.db"
 CONFIG_FILE = SPACE_DIR / "config.json"
 SENTINEL_LOG_PATH = SPACE_DIR / "security" / "sentinel.log"
@@ -26,12 +30,19 @@ _config = _load_config()
 
 
 def _get_identity_file(base: str) -> Path:
-    default = SPACE_DIR / "identities" / f"{base}.md"
+    default = IDENTITIES_DIR / f"{base}.md"
     path = Path(_config.get(base, default))
-    if not path.exists():
-        legacy = LEGACY_BRIDGE_DIR / "identities" / f"{base}.md"
-        if legacy.exists():
-            return legacy
+    if path.exists():
+        return path
+
+    workspace_fallback = SPACE_DIR / "identities" / f"{base}.md"
+    if workspace_fallback.exists():
+        return workspace_fallback
+
+    legacy = LEGACY_BRIDGE_DIR / "identities" / f"{base}.md"
+    if legacy.exists():
+        return legacy
+
     return path
 
 

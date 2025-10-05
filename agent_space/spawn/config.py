@@ -46,8 +46,8 @@ def registry_db() -> Path:
 
 
 def bridge_dir() -> Path:
-    """Return the bridge configuration directory under the current home."""
-    return Path.home() / ".bridge"
+    """Return the bridge configuration directory scoped to the workspace."""
+    return workspace_root() / ".space" / "bridge"
 
 
 def bridge_identities_dir() -> Path:

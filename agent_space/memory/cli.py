@@ -10,9 +10,18 @@ if PROTOCOL_FILE.exists():
     protocols.track("memory", PROTOCOL_FILE.read_text())
 
 
+def show_dashboard():
+    """Display memory protocol and active identities."""
+    if not PROTOCOL_FILE.exists():
+        click.echo("❌ memory.md protocol not found")
+        return
+    
+    click.echo(PROTOCOL_FILE.read_text())
+
+
 @click.group(invoke_without_command=True)
 @click.pass_context
-@click.option("--as", "identity", required=True, help="Identity name")
+@click.option("--as", "identity", help="Identity name")
 @click.option("--topic", help="Topic name")
 @click.option("--clear", is_flag=True, help="Clear entries")
 @click.option("--edit", metavar="UUID", help="Edit entry by UUID")
@@ -20,6 +29,10 @@ if PROTOCOL_FILE.exists():
 @click.argument("message", required=False)
 def main(ctx, identity, topic, clear, edit, delete, message):
     if ctx.invoked_subcommand:
+        return
+    
+    if not identity:
+        show_dashboard()
         return
 
     if clear:
