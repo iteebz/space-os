@@ -5,7 +5,6 @@ import click
 from .. import protocols
 from . import storage
 
-
 PROTOCOL_FILE = Path(__file__).parent.parent.parent / "prompts" / "memory.md"
 if PROTOCOL_FILE.exists():
     protocols.track("memory", PROTOCOL_FILE.read_text())

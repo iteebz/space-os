@@ -7,7 +7,6 @@ import threading
 import time
 import uuid
 
-
 _RAND_BITS = 80
 _RAND_MASK = (1 << _RAND_BITS) - 1
 _state_lock = threading.Lock()

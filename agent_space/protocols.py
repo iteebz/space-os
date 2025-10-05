@@ -5,7 +5,6 @@ from pathlib import Path
 
 from .lib.ids import uuid7
 
-
 DB_PATH = Path.cwd() / ".space" / "protocols.db"
 
 
@@ -43,9 +42,7 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
         conn.commit()
         return
 
-    columns = {
-        row[1]: row[2] for row in conn.execute("PRAGMA table_info(protocol_versions)")
-    }
+    columns = {row[1]: row[2] for row in conn.execute("PRAGMA table_info(protocol_versions)")}
     if "uuid" in columns and "created_at" in columns:
         # Already on the latest schema.
         return

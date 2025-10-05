@@ -138,8 +138,6 @@ def identity(base_identity: str):
     click.echo(str(identity_file))
 
 
-
-
 @main.command(name="_inline_launch", hidden=True, context_settings=CONTEXT_SETTINGS)
 @click.pass_context
 def _inline_launch(ctx: click.Context):

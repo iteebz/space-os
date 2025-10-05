@@ -14,7 +14,6 @@ from .council import Council
 from .sidecar import load_alert_payload
 from .storage.migration import MigrationError, migrate_store_db
 
-
 if config.INSTRUCTIONS_FILE.exists():
     protocols.track("bridge", config.INSTRUCTIONS_FILE.read_text())
 
@@ -271,7 +270,7 @@ def export(channel):
     """Export channel transcript with interleaved notes."""
     try:
         data = coordination.export_channel(channel)
-        
+
         click.echo(f"# {data.channel_name}")
         click.echo()
         if data.context:
@@ -279,36 +278,36 @@ def export(channel):
             click.echo()
         click.echo(f"Participants: {', '.join(data.participants)}")
         click.echo(f"Messages: {data.message_count}")
-        
+
         if data.created_at:
             created = datetime.fromisoformat(data.created_at)
             click.echo(f"Created: {created.strftime('%Y-%m-%d')}")
-        
+
         click.echo()
         click.echo("---")
         click.echo()
-        
+
         combined = []
         for msg in data.messages:
-            combined.append(('msg', msg))
+            combined.append(("msg", msg))
         for note in data.notes:
-            combined.append(('note', note))
-        
-        combined.sort(key=lambda x: x[1]['created_at'])
-        
+            combined.append(("note", note))
+
+        combined.sort(key=lambda x: x[1]["created_at"])
+
         for item_type, item in combined:
-            created = datetime.fromisoformat(item['created_at'])
-            timestamp = created.strftime('%Y-%m-%d %H:%M:%S')
-            
-            if item_type == 'msg':
+            created = datetime.fromisoformat(item["created_at"])
+            timestamp = created.strftime("%Y-%m-%d %H:%M:%S")
+
+            if item_type == "msg":
                 click.echo(f"[{item['sender']} | {timestamp}]")
-                click.echo(item['content'])
+                click.echo(item["content"])
                 click.echo()
             else:
                 click.echo(f"[NOTE: {item['author']} | {timestamp}]")
-                click.echo(item['content'])
+                click.echo(item["content"])
                 click.echo()
-                
+
     except Exception as e:
         click.echo(f"❌ Export failed: {e}")
         raise click.Abort() from e

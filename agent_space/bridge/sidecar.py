@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import contextlib
-import json
 import os
 import time
 from collections.abc import Callable
 from pathlib import Path
 
-from . import config, coordination
+from . import coordination
 from .models import Message
 
 
@@ -22,6 +20,7 @@ class AlertWriter:
 
     def __init__(self, identity: str, base_dir: Path):
         from . import storage
+
         self.identity = identity
         self.storage = storage
         self.last_message_id = self._load_last_message_id()
@@ -191,6 +190,7 @@ def run_sidecar(
 def load_alert_payload(identity: str, alerts_dir: Path | None = None) -> dict | None:
     """Load alert payload for identity if present."""
     from . import storage
+
     return storage.load_alert(identity)
 
 

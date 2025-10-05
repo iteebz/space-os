@@ -24,7 +24,7 @@ def test_track_prefers_latest_hash():
     protocols.track("space", "first version")
     protocols.track("space", "second version")
 
-    latest_hash = hashlib.sha256("second version".encode()).hexdigest()[:16]
+    latest_hash = hashlib.sha256(b"second version").hexdigest()[:16]
 
     assert protocols.get_current_hash("space") == latest_hash
 

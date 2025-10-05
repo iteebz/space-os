@@ -6,7 +6,6 @@ import click
 
 from . import protocols
 
-
 PROTOCOL_FILE = Path(__file__).parent.parent / "prompts" / "space.md"
 if PROTOCOL_FILE.exists():
     protocols.track("space", PROTOCOL_FILE.read_text())

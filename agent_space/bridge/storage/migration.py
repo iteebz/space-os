@@ -7,7 +7,6 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict
 
 from .. import config
 from ..coordination import sentinel
@@ -93,8 +92,7 @@ def _verify_copy(source: Path, target: Path) -> None:
 
     if source_counts != target_counts:
         raise MigrationError(
-            "Row count mismatch after copy: "
-            f"source={source_counts} target={target_counts}"
+            f"Row count mismatch after copy: source={source_counts} target={target_counts}"
         )
 
     if source_sequences != target_sequences:
@@ -104,7 +102,7 @@ def _verify_copy(source: Path, target: Path) -> None:
         )
 
 
-def _snapshot_db(db_path: Path) -> tuple[Dict[str, int], Dict[str, int]]:
+def _snapshot_db(db_path: Path) -> tuple[dict[str, int], dict[str, int]]:
     with sqlite3.connect(db_path) as conn:
         rows = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         tables = [row[0] for row in rows if row[0] != "sqlite_sequence"]
@@ -113,7 +111,7 @@ def _snapshot_db(db_path: Path) -> tuple[Dict[str, int], Dict[str, int]]:
             for table in tables
         }
 
-        sequences: Dict[str, int] = {}
+        sequences: dict[str, int] = {}
         if any(row[0] == "sqlite_sequence" for row in rows):
             sequences = {
                 name: int(seq)

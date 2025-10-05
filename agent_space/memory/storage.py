@@ -24,8 +24,8 @@ CREATE INDEX IF NOT EXISTS idx_uuid ON entries(uuid);
 """
 
 MIGRATION_CHECK = """
-SELECT COUNT(*) FROM sqlite_master 
-WHERE type='table' AND name='entries' 
+SELECT COUNT(*) FROM sqlite_master
+WHERE type='table' AND name='entries'
 AND sql LIKE '%id INTEGER PRIMARY KEY%'
 """
 
@@ -56,13 +56,13 @@ CREATE INDEX idx_uuid ON entries(uuid);
 def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
-    
+
     needs_migration = conn.execute(MIGRATION_CHECK).fetchone()[0] > 0
     if needs_migration:
         conn.executescript(LEGACY_MIGRATION)
     else:
         conn.executescript(SCHEMA)
-    
+
     conn.commit()
     conn.close()
 
