@@ -41,8 +41,8 @@ def spawn_dir() -> Path:
 
 
 def registry_db() -> Path:
-    """Return the registry database path under the current home."""
-    return Path.home() / ".space" / "spawn.db"
+    """Return the registry database path in workspace .space directory."""
+    return workspace_root() / ".space" / "spawn.db"
 
 
 def bridge_dir() -> Path:

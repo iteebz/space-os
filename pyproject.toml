@@ -22,6 +22,7 @@ pyyaml = "^6.0"
 [tool.poetry.scripts]
 bridge = "agent_space.bridge.cli:main"
 spawn = "agent_space.spawn.cli:main"
+memory = "agent_space.memory.cli:main"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.13.0"
