@@ -23,6 +23,7 @@ pyyaml = "^6.0"
 bridge = "agent_space.bridge.cli:main"
 spawn = "agent_space.spawn.cli:main"
 memory = "agent_space.memory.cli:main"
+knowledge = "agent_space.knowledge.cli:main"
 space = "agent_space.space_cli:main"
 
 [tool.poetry.group.dev.dependencies]

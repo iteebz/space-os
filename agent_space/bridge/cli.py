@@ -125,6 +125,15 @@ def council(channel):
 
 
 @main.command()
+@click.argument("channels", nargs=-1, required=True)
+def archive(channels):
+    """Archive channels by setting creation date to 30 days ago."""
+    for channel in channels:
+        coordination.archive_channel(channel)
+        click.echo(f"Archived channel: {channel}")
+
+
+@main.command()
 @click.argument("channel")
 def delete(channel):
     """Permanently delete channel and all messages (HUMAN ONLY)."""

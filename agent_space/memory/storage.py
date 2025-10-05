@@ -3,6 +3,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from .. import events
 from ..lib.ids import uuid7
 from .models import Entry
 
@@ -79,6 +80,8 @@ def add_entry(identity: str, topic: str, message: str):
     )
     conn.commit()
     conn.close()
+    
+    events.emit("memory", "entry.add", identity, f"{topic}:{message[:50]}")
 
 
 def get_entries(identity: str, topic: str | None = None) -> list[Entry]:
@@ -108,6 +111,8 @@ def edit_entry(entry_uuid: str, new_message: str):
     )
     conn.commit()
     conn.close()
+    
+    events.emit("memory", "entry.edit", None, f"{entry_uuid[:8]}")
 
 
 def delete_entry(entry_uuid: str):
@@ -116,6 +121,8 @@ def delete_entry(entry_uuid: str):
     conn.execute("DELETE FROM entries WHERE uuid = ?", (entry_uuid,))
     conn.commit()
     conn.close()
+    
+    events.emit("memory", "entry.delete", None, f"{entry_uuid[:8]}")
 
 
 def clear_entries(identity: str, topic: str | None = None):

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from . import protocols
+from . import events, protocols
 
 PROTOCOL_FILE = Path(__file__).parent.parent / "protocols" / "space.md"
 if PROTOCOL_FILE.exists():
@@ -37,6 +37,24 @@ def backup():
 
     shutil.copytree(workspace_space, backup_path)
     click.echo(f"Backed up to {backup_path}")
+
+
+@main.command()
+@click.option("--source", help="Filter by source (bridge, memory, spawn)")
+@click.option("--identity", help="Filter by identity")
+@click.option("--limit", default=50, help="Number of events to show")
+def show_events(source, identity, limit):
+    """Show recent events from append-only log."""
+    rows = events.query(source=source, identity=identity, limit=limit)
+    if not rows:
+        click.echo("No events found")
+        return
+    
+    for uuid, src, ident, event_type, data, created_at in rows:
+        ts = datetime.fromtimestamp(created_at).strftime("%Y-%m-%d %H:%M:%S")
+        ident_str = f" [{ident}]" if ident else ""
+        data_str = f" {data}" if data else ""
+        click.echo(f"[{uuid[:8]}] {ts} {src}.{event_type}{ident_str}{data_str}")
 
 
 if __name__ == "__main__":
