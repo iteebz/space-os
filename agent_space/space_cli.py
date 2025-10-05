@@ -85,13 +85,15 @@ def stats():
             return f"{name}\n- Not found"
         if not board:
             return name
-        lines = [name] + [f"  {i}. {item.identity} — {item.count}" for i, item in enumerate(board, 1)]
+        total = sum(item.count for item in board)
+        header = f"{name}: {total}"
+        lines = [header] + [f"  {i}. {item.identity} — {item.count}" for i, item in enumerate(board, 1)]
         return "\n".join(lines)
 
     sections = [
-        fmt("Bridge", s.bridge.available, s.bridge.message_leaderboard),
-        fmt("Memory", s.memory.available, s.memory.leaderboard),
-        fmt("Knowledge", s.knowledge.available, s.knowledge.leaderboard),
+        fmt("bridge", s.bridge.available, s.bridge.message_leaderboard),
+        fmt("memory", s.memory.available, s.memory.leaderboard),
+        fmt("knowledge", s.knowledge.available, s.knowledge.leaderboard),
     ]
     click.echo("\n\n".join(sections))
 

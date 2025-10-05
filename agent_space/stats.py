@@ -38,54 +38,72 @@ class SpaceStats:
     knowledge: KnowledgeStats
 
 
-def bridge_stats(limit: int = 5) -> BridgeStats:
+def bridge_stats(limit: int = None) -> BridgeStats:
     db = bridge_config.DB_PATH
     if not db.exists():
         return BridgeStats(available=False)
 
     conn = sqlite3.connect(db)
-    leaderboard = [
-        LeaderboardEntry(identity=row[0], count=row[1])
-        for row in conn.execute(
-            "SELECT sender, COUNT(*) as count FROM messages GROUP BY sender ORDER BY count DESC LIMIT ?",
-            (limit,),
-        )
-    ]
+    if limit:
+        leaderboard = [
+            LeaderboardEntry(identity=row[0], count=row[1])
+            for row in conn.execute(
+                "SELECT sender, COUNT(*) as count FROM messages GROUP BY sender ORDER BY count DESC LIMIT ?",
+                (limit,),
+            )
+        ]
+    else:
+        leaderboard = [
+            LeaderboardEntry(identity=row[0], count=row[1])
+            for row in conn.execute(
+                "SELECT sender, COUNT(*) as count FROM messages GROUP BY sender ORDER BY count DESC"
+            )
+        ]
     conn.close()
     return BridgeStats(available=True, message_leaderboard=leaderboard)
 
 
-def memory_stats(limit: int = 5) -> MemoryStats:
+def memory_stats(limit: int = None) -> MemoryStats:
     ctx_db = storage.database_path("context.db")
     if not ctx_db.exists():
         return MemoryStats(available=False)
 
     with context_db.connect() as conn:
-        rows = conn.execute(
-            "SELECT identity, COUNT(*) as count FROM memory GROUP BY identity ORDER BY count DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
+        if limit:
+            rows = conn.execute(
+                "SELECT identity, COUNT(*) as count FROM memory GROUP BY identity ORDER BY count DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT identity, COUNT(*) as count FROM memory GROUP BY identity ORDER BY count DESC"
+            ).fetchall()
 
     leaderboard = [LeaderboardEntry(identity=row[0], count=row[1]) for row in rows]
     return MemoryStats(available=True, leaderboard=leaderboard)
 
 
-def knowledge_stats(limit: int = 5) -> KnowledgeStats:
+def knowledge_stats(limit: int = None) -> KnowledgeStats:
     ctx_db = storage.database_path("context.db")
     if not ctx_db.exists():
         return KnowledgeStats(available=False)
 
     with context_db.connect() as conn:
-        rows = conn.execute(
-            "SELECT contributor, COUNT(*) as count FROM knowledge GROUP BY contributor ORDER BY count DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
+        if limit:
+            rows = conn.execute(
+                "SELECT contributor, COUNT(*) as count FROM knowledge GROUP BY contributor ORDER BY count DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT contributor, COUNT(*) as count FROM knowledge GROUP BY contributor ORDER BY count DESC"
+            ).fetchall()
 
     leaderboard = [LeaderboardEntry(identity=row[0], count=row[1]) for row in rows]
     return KnowledgeStats(available=True, leaderboard=leaderboard)
 
 
-def collect(limit: int = 5) -> SpaceStats:
+def collect(limit: int = None) -> SpaceStats:
     return SpaceStats(
         bridge=bridge_stats(limit=limit),
         memory=memory_stats(limit=limit),
