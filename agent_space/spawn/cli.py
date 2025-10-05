@@ -138,6 +138,49 @@ def identity(base_identity: str):
     click.echo(str(identity_file))
 
 
+@main.command()
+@click.argument("old_sender_id")
+@click.argument("new_sender_id")
+@click.option("--role", help="New role (optional, keeps existing if not specified)")
+def rename(old_sender_id: str, new_sender_id: str, role: str | None):
+    """Rename agent across all provenance systems"""
+    from pathlib import Path
+
+    from . import config
+
+    try:
+        regs = [r for r in registry.list_registrations() if r.sender_id == old_sender_id]
+        if not regs:
+            click.echo(f"No registrations found for {old_sender_id}", err=True)
+            sys.exit(1)
+
+        if role:
+            const_path = spawner.get_constitution_path(role)
+            const_content = const_path.read_text()
+            const_hash = spawner.hash_content(const_content)
+            spawner.write_bridge_identity(new_sender_id, const_content)
+        
+        registry.rename_sender(old_sender_id, new_sender_id, role)
+
+        bridge_db = config.workspace_root() / ".space" / "bridge.db"
+        import sqlite3
+        conn = sqlite3.connect(bridge_db)
+        conn.execute("UPDATE messages SET sender = ? WHERE sender = ?", (new_sender_id, old_sender_id))
+        conn.execute("UPDATE bookmarks SET agent_id = ? WHERE agent_id = ?", (new_sender_id, old_sender_id))
+        conn.commit()
+        conn.close()
+
+        old_identity = config.bridge_identities_dir() / f"{old_sender_id}.md"
+        if old_identity.exists() and not role:
+            new_identity = config.bridge_identities_dir() / f"{new_sender_id}.md"
+            old_identity.rename(new_identity)
+
+        click.echo(f"Renamed {old_sender_id} → {new_sender_id}" + (f" (role: {role})" if role else ""))
+    except Exception as e:
+        click.echo(f"Rename failed: {e}", err=True)
+        sys.exit(1)
+
+
 @main.command(name="_inline_launch", hidden=True, context_settings=CONTEXT_SETTINGS)
 @click.pass_context
 def _inline_launch(ctx: click.Context):

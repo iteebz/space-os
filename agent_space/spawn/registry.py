@@ -94,3 +94,18 @@ def get_registration_by_sender(sender_id: str, topic: str) -> Registration | Non
         if row:
             return Registration(**dict(row))
         return None
+
+
+def rename_sender(old_sender_id: str, new_sender_id: str, new_role: str = None):
+    with get_db() as conn:
+        if new_role:
+            conn.execute(
+                "UPDATE registrations SET sender_id = ?, role = ? WHERE sender_id = ?",
+                (new_sender_id, new_role, old_sender_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE registrations SET sender_id = ? WHERE sender_id = ?",
+                (new_sender_id, old_sender_id),
+            )
+        conn.commit()
