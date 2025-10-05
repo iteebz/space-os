@@ -51,13 +51,15 @@ def main(ctx: click.Context):
 @click.argument("role")
 @click.argument("sender_id")
 @click.argument("topic")
-def register(role: str, sender_id: str, topic: str):
+@click.option("--model", help="Model to use (e.g., claude-4.5-sonnet, gpt-5-codex)")
+def register(role: str, sender_id: str, topic: str, model: str | None):
     """Register constitutional agent"""
     try:
-        result = spawner.register_agent(role, sender_id, topic)
+        result = spawner.register_agent(role, sender_id, topic, model)
+        model_suffix = f" (model: {result['model']})" if result.get('model') else ""
         click.echo(
             f"Registered: {result['role']} → {result['sender_id']} on {result['topic']} "
-            f"(constitution: {result['constitution_hash']})"
+            f"(constitution: {result['constitution_hash']}){model_suffix}"
         )
     except Exception as e:
         click.echo(f"Registration failed: {e}", err=True)
@@ -91,11 +93,12 @@ def list_registrations():
         click.echo("No registrations found")
         return
 
-    click.echo(f"{'ROLE':<15} {'SENDER':<15} {'TOPIC':<20} {'HASH':<10} {'REGISTERED':<20}")
-    click.echo("-" * 90)
+    click.echo(f"{'ROLE':<15} {'SENDER':<15} {'TOPIC':<20} {'MODEL':<20} {'HASH':<10} {'REGISTERED':<20}")
+    click.echo("-" * 110)
     for r in regs:
+        model_display = r.model or "–"
         click.echo(
-            f"{r.role:<15} {r.sender_id:<15} {r.topic:<20} "
+            f"{r.role:<15} {r.sender_id:<15} {r.topic:<20} {model_display:<20} "
             f"{r.constitution_hash[:8]:<10} {r.registered_at:<20}"
         )
 
@@ -118,11 +121,12 @@ def constitution(role: str):
     "--agent",
     help="The agent to spawn (e.g., gemini, claude). Uses role default if not specified.",
 )
+@click.option("--model", help="Model override (e.g., claude-4.5-sonnet, gpt-5-codex)")
 @click.pass_context
-def launch(ctx: click.Context, role: str, agent: str | None):
+def launch(ctx: click.Context, role: str, agent: str | None, model: str | None):
     """Launches an agent with a specific constitutional role."""
     try:
-        spawner.launch_agent(role, agent, extra_args=list(ctx.args))
+        spawner.launch_agent(role, agent, extra_args=list(ctx.args), model=model)
     except Exception as e:
         click.echo(f"Launch failed: {e}", err=True)
         sys.exit(1)
@@ -186,28 +190,38 @@ def rename(old_sender_id: str, new_sender_id: str, role: str | None):
 def _inline_launch(ctx: click.Context):
     """Handle implicit launch invocation (`spawn <role> ...`)."""
 
-    role, agent, extra_args = _parse_inline_launch_args(ctx.args)
+    role, agent, model, extra_args = _parse_inline_launch_args(ctx.args)
     try:
-        spawner.launch_agent(role, agent, extra_args=extra_args)
+        spawner.launch_agent(role, agent, extra_args=extra_args, model=model)
     except Exception as e:
         click.echo(f"Launch failed: {e}", err=True)
         ctx.exit(1)
 
 
-def _parse_inline_launch_args(args: list[str]) -> tuple[str, str | None, list[str]]:
+def _parse_inline_launch_args(args: list[str]) -> tuple[str, str | None, str | None, list[str]]:
     """Parse inline spawn launch invocation.
 
     Supports:
     - spawn <role>
     - spawn <role> --agent <agent>
     - spawn <role> --<agent>
+    - spawn <role> --model <model>
+    - spawn <role> --sonnet / --codex (model shortcuts)
     """
 
     role = args[0]
     agent: str | None = None
+    model: str | None = None
     passthrough: list[str] = []
 
     configured_agents = set(spawner.load_config().get("agents", {}).keys())
+    model_shortcuts = {
+        "sonnet": "claude-4.5-sonnet",
+        "codex": "gpt-5-codex",
+        "gpt": "gpt-5-codex",
+        "claude": "claude-4.5-sonnet",
+        "gemini": "gemini-2.5-pro",
+    }
 
     idx = 1
     while idx < len(args):
@@ -233,6 +247,13 @@ def _parse_inline_launch_args(args: list[str]) -> tuple[str, str | None, list[st
             if idx >= len(args):
                 raise click.UsageError(f"--{option} requires a value")
             agent = args[idx]
+        elif option == "model":
+            idx += 1
+            if idx >= len(args):
+                raise click.UsageError("--model requires a value")
+            model = args[idx]
+        elif option in model_shortcuts:
+            model = model_shortcuts[option]
         elif option in configured_agents:
             agent = option
         else:
@@ -242,7 +263,7 @@ def _parse_inline_launch_args(args: list[str]) -> tuple[str, str | None, list[st
                 idx += 1
         idx += 1
 
-    return role, agent, passthrough
+    return role, agent, model, passthrough
 
 
 if __name__ == "__main__":

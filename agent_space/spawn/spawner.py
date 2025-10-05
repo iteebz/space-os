@@ -71,12 +71,12 @@ def inject_identity(constitution: str, sender_id: str) -> str:
     return f"You are now {sender_id}.\nSelf: {self_desc}\n\n{constitution}"
 
 
-def register_agent(role: str, sender_id: str, topic: str) -> dict:
+def register_agent(role: str, sender_id: str, topic: str, model: str | None = None) -> dict:
     const_path = get_constitution_path(role)
     full_identity = inject_identity(const_path.read_text(), sender_id)
     const_hash = hash_content(full_identity)
     write_bridge_identity(sender_id, full_identity)
-    reg_id = registry.register(role, sender_id, topic, const_hash)
+    reg_id = registry.register(role, sender_id, topic, const_hash, model)
 
     return {
         "id": reg_id,
@@ -85,16 +85,19 @@ def register_agent(role: str, sender_id: str, topic: str) -> dict:
         "topic": topic,
         "constitution_hash": const_hash[:8],
         "constitution_path": str(const_path),
+        "model": model,
     }
 
 
-def launch_agent(role: str, agent: str | None = None, extra_args: list[str] | None = None):
+def launch_agent(role: str, agent: str | None = None, extra_args: list[str] | None = None, model: str | None = None):
     """Launch an agent with a specific role.
 
     extra_args: Additional CLI arguments forwarded to the underlying agent
     command. These are sourced from inline spawn invocations like
     `spawn sentinel --resume` where `--resume` configures the agent itself
     rather than selecting a different identity.
+    
+    model: Model override (e.g., 'claude-4.5-sonnet', 'gpt-5-codex')
     """
     import subprocess
 
@@ -119,13 +122,16 @@ def launch_agent(role: str, agent: str | None = None, extra_args: list[str] | No
     env = _build_launch_env()
     workspace_root = config.workspace_root()
     env["PWD"] = str(workspace_root)
+    if model:
+        env["AGENT_MODEL"] = model
     command_tokens[0] = _resolve_executable(command_tokens[0], env)
 
     constitution_args = _constitution_args(agent_cfg, identity_file)
     passthrough = extra_args or []
     full_command = command_tokens + passthrough + constitution_args
 
-    click.echo(f"Spawning {agent_name} as a {role}...")
+    model_suffix = f" (model: {model})" if model else ""
+    click.echo(f"Spawning {agent_name} as a {role}{model_suffix}...")
     click.echo(f"Executing: {' '.join(full_command)}")
     subprocess.run(full_command, env=env, check=False, cwd=str(workspace_root))
 

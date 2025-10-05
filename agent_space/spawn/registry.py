@@ -14,6 +14,7 @@ class Registration:
     constitution_hash: str
     registered_at: str
     self: str | None = None
+    model: str | None = None
 
 
 def init_db():
@@ -28,7 +29,8 @@ def init_db():
                 topic TEXT NOT NULL,
                 constitution_hash TEXT NOT NULL,
                 registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                self TEXT
+                self TEXT,
+                model TEXT
             )
         """)
         conn.execute("""
@@ -36,6 +38,10 @@ def init_db():
         """)
         try:
             conn.execute("ALTER TABLE registrations ADD COLUMN self TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE registrations ADD COLUMN model TEXT")
         except sqlite3.OperationalError:
             pass
         conn.commit()
@@ -51,14 +57,14 @@ def get_db():
         conn.close()
 
 
-def register(role: str, sender_id: str, topic: str, constitution_hash: str) -> int:
+def register(role: str, sender_id: str, topic: str, constitution_hash: str, model: str | None = None) -> int:
     with get_db() as conn:
         cursor = conn.execute(
             """
-            INSERT INTO registrations (role, sender_id, topic, constitution_hash)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO registrations (role, sender_id, topic, constitution_hash, model)
+            VALUES (?, ?, ?, ?, ?)
         """,
-            (role, sender_id, topic, constitution_hash),
+            (role, sender_id, topic, constitution_hash, model),
         )
         conn.commit()
         return cursor.lastrowid
