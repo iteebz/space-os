@@ -9,11 +9,13 @@ from agent_space.memory import storage
 
 
 @pytest.fixture
-def temp_db(monkeypatch):
+def temp_db():
     """Use temporary database for tests."""
+    from agent_space.lib import context_db
+
     with tempfile.TemporaryDirectory() as tmpdir:
-        db_path = Path(tmpdir) / "memory.db"
-        monkeypatch.setattr(storage, "DB_PATH", db_path)
+        db_path = Path(tmpdir) / "context.db"
+        context_db.set_context_db_path(db_path)
         yield db_path
 
 

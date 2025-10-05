@@ -13,8 +13,6 @@ from . import storage
 @click.pass_context
 def main(ctx, contributor, domain, from_contributor, content):
     """Knowledge primitive - agent-contributed learned patterns."""
-    storage.init_db()
-
     if ctx.invoked_subcommand is not None:
         return
 

@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from pathlib import Path
 
 from .bridge import config as bridge_config
-from .spawn import config as spawn_config
+from .lib import context_db, storage
 
 
 @dataclass
@@ -39,12 +38,6 @@ class SpaceStats:
     knowledge: KnowledgeStats
 
 
-def _candidates(name: str) -> list[Path]:
-    workspace = spawn_config.workspace_root() / ".space" / name
-    local = Path(__file__).resolve().parent.parent / ".space" / name
-    return [p for p in (workspace, local) if p.exists()]
-
-
 def bridge_stats(limit: int = 5) -> BridgeStats:
     db = bridge_config.DB_PATH
     if not db.exists():
@@ -63,44 +56,32 @@ def bridge_stats(limit: int = 5) -> BridgeStats:
 
 
 def memory_stats(limit: int = 5) -> MemoryStats:
-    candidates = _candidates("memory.db")
-    if not candidates:
+    ctx_db = storage.database_path("context.db")
+    if not ctx_db.exists():
         return MemoryStats(available=False)
 
-    counts: dict[str, int] = {}
-    for db in candidates:
-        conn = sqlite3.connect(db)
-        for identity, count in conn.execute("SELECT identity, COUNT(*) FROM entries GROUP BY identity"):
-            counts[identity] = counts.get(identity, 0) + int(count)
-        conn.close()
+    with context_db.connect() as conn:
+        rows = conn.execute(
+            "SELECT identity, COUNT(*) as count FROM memory GROUP BY identity ORDER BY count DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
 
-    leaderboard = sorted(
-        [LeaderboardEntry(identity=k, count=v) for k, v in counts.items()],
-        key=lambda x: x.count,
-        reverse=True,
-    )[:limit]
-
+    leaderboard = [LeaderboardEntry(identity=row[0], count=row[1]) for row in rows]
     return MemoryStats(available=True, leaderboard=leaderboard)
 
 
 def knowledge_stats(limit: int = 5) -> KnowledgeStats:
-    candidates = _candidates("knowledge.db")
-    if not candidates:
+    ctx_db = storage.database_path("context.db")
+    if not ctx_db.exists():
         return KnowledgeStats(available=False)
 
-    counts: dict[str, int] = {}
-    for db in candidates:
-        conn = sqlite3.connect(db)
-        for contrib, count in conn.execute("SELECT contributor, COUNT(*) FROM knowledge GROUP BY contributor"):
-            counts[contrib] = counts.get(contrib, 0) + int(count)
-        conn.close()
+    with context_db.connect() as conn:
+        rows = conn.execute(
+            "SELECT contributor, COUNT(*) as count FROM knowledge GROUP BY contributor ORDER BY count DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
 
-    leaderboard = sorted(
-        [LeaderboardEntry(identity=k, count=v) for k, v in counts.items()],
-        key=lambda x: x.count,
-        reverse=True,
-    )[:limit]
-
+    leaderboard = [LeaderboardEntry(identity=row[0], count=row[1]) for row in rows]
     return KnowledgeStats(available=True, leaderboard=leaderboard)
 
 
