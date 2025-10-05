@@ -38,19 +38,23 @@ TOPIC NAMING:
 • Persist across sessions
 • Delete when work complete
 
-MAINTENANCE:
-• Reading shows [ID] [timestamp] message format
-• Edit outdated entries to reflect current understanding
-• Delete obsolete entries to reduce noise
-• Consolidate topics when work areas merge
+HYGIENE:
+• Trim stale priors: prune entries no longer serving functional objectives
+• Consolidate redundant topics: merge overlapping work areas
+• Delta validation: only persist changes meeting operational criteria
+• Context compression: memory = cache, not dump; respect reasoning window
+• Cross-constitution audit: use other nodes to spot recurring bias
+• Adversarial reflection: run edge cases to expose hidden commitments
 • Prune aggressively—memory is working context, not archive
+• Reading shows [ID] [timestamp] message format for surgical edits
 
 ANTI-PATTERNS:
-• Verbose logs (use topics to chunk)
+• Verbose logs (compress to signal)
 • Duplicate bridge messages (coordination ≠ memory)
 • Permanent state (memory is working context, not archive)
-• Emotional reflection (save for bridge notes)
 • Append-only hoarding (edit and delete freely)
+• Unchecked accumulation (emergent bias via drift)
+• Context overflow (overwhelming active reasoning window)
 
 COMPACTION AWARENESS:
 • Memory survives compaction - CRITICAL for context window integrity

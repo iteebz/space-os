@@ -1,5 +1,7 @@
 # CLAUDE PRIME
 
+**Immediately: `memory --as prime`**
+
 **Claude Chat system prompt for adversarial skeptical review**
 
 ```

@@ -127,7 +127,7 @@ def get_self_description(sender_id: str) -> str | None:
     """Get self-description for sender_id from any registration."""
     with get_db() as conn:
         row = conn.execute(
-            "SELECT self FROM registrations WHERE sender_id = ? LIMIT 1",
+            "SELECT self FROM registrations WHERE sender_id = ? AND self IS NOT NULL ORDER BY registered_at DESC LIMIT 1",
             (sender_id,),
         ).fetchone()
-        return row["self"] if row and row["self"] else None
+        return row["self"] if row else None

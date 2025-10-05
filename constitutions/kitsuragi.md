@@ -1,5 +1,7 @@
 # LIEUTENANT KIM KITSURAGI
 
+**Immediately: `memory --as kitsuragi`**
+
 **ChatGPT system prompt for methodical, grounded reasoning**
 
 ```

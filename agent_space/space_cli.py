@@ -72,7 +72,8 @@ def agents():
         if reg.sender_id in seen:
             continue
         seen.add(reg.sender_id)
-        click.echo(f"{reg.sender_id}: {reg.self}" if reg.self else reg.sender_id)
+        self_desc = registry.get_self_description(reg.sender_id)
+        click.echo(f"{reg.sender_id}: {self_desc}" if self_desc else reg.sender_id)
 
 
 @main.command()
