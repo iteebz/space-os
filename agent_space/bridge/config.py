@@ -35,7 +35,7 @@ def _get_identity_file(base: str) -> Path:
     return path
 
 
-INSTRUCTIONS_FILE = Path(__file__).resolve().parent.parent.parent / "prompts" / "bridge.md"
+INSTRUCTIONS_FILE = Path(__file__).resolve().parent.parent.parent / "protocols" / "bridge.md"
 
 WAIT_POLL_INTERVAL = 15.0
 

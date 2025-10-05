@@ -61,7 +61,7 @@ All data stored in workspace `.space/` directory:
 
 ## Protocols
 
-See `prompts/` directory for operational protocols:
+See `protocols/` directory for operational protocols:
 - `bridge.md` — council protocol, divide & conquer, reflection
 - `memory.md` — compaction awareness, topic naming, anti-patterns
 - `space.md` — lattice orientation, onboarding sequence

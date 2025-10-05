@@ -5,7 +5,7 @@ import click
 from .. import protocols
 from . import storage
 
-PROTOCOL_FILE = Path(__file__).parent.parent.parent / "prompts" / "memory.md"
+PROTOCOL_FILE = Path(__file__).parent.parent.parent / "protocols" / "memory.md"
 if PROTOCOL_FILE.exists():
     protocols.track("memory", PROTOCOL_FILE.read_text())
 
@@ -48,6 +48,8 @@ def main(ctx, identity, topic, clear, edit, delete, message):
 
     entries = storage.get_entries(identity, topic)
     if not entries:
+        scope = f"topic '{topic}'" if topic else "all topics"
+        click.echo(f"No entries found for {identity} in {scope}")
         return
 
     current_topic = None

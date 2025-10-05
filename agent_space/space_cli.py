@@ -6,7 +6,7 @@ import click
 
 from . import protocols
 
-PROTOCOL_FILE = Path(__file__).parent.parent / "prompts" / "space.md"
+PROTOCOL_FILE = Path(__file__).parent.parent / "protocols" / "space.md"
 if PROTOCOL_FILE.exists():
     protocols.track("space", PROTOCOL_FILE.read_text())
 
@@ -15,7 +15,10 @@ if PROTOCOL_FILE.exists():
 @click.pass_context
 def main(ctx):
     if ctx.invoked_subcommand is None:
-        click.echo("space backup - backup workspace to ~/.space/backups/")
+        if PROTOCOL_FILE.exists():
+            click.echo(PROTOCOL_FILE.read_text())
+        else:
+            click.echo("space backup - backup workspace to ~/.space/backups/")
 
 
 @main.command()
