@@ -1,4 +1,5 @@
 import shutil
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 
@@ -55,6 +56,43 @@ def show_events(source, identity, limit):
         ident_str = f" [{ident}]" if ident else ""
         data_str = f" {data}" if data else ""
         click.echo(f"[{uuid[:8]}] {ts} {src}.{event_type}{ident_str}{data_str}")
+
+
+@main.command()
+def agents():
+    """List current agent identities."""
+    space_dir = Path.cwd() / ".space"
+    spawn_db = space_dir / "spawn.db"
+    bridge_db = space_dir / "bridge.db"
+    
+    identities = set()
+    
+    if spawn_db.exists():
+        conn = sqlite3.connect(spawn_db)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT DISTINCT sender_id FROM registrations ORDER BY sender_id")
+            identities.update(row[0] for row in cursor.fetchall())
+        except sqlite3.OperationalError:
+            pass
+        conn.close()
+    
+    if bridge_db.exists():
+        conn = sqlite3.connect(bridge_db)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT DISTINCT sender FROM messages ORDER BY sender")
+            identities.update(row[0] for row in cursor.fetchall())
+        except sqlite3.OperationalError:
+            pass
+        conn.close()
+    
+    if not identities:
+        click.echo("No agents found")
+        return
+    
+    for sender_id in sorted(identities):
+        click.echo(sender_id)
 
 
 if __name__ == "__main__":
