@@ -41,3 +41,7 @@ roles:
   prime:
     constitution: constitutions/prime.md
     base_identity: claude
+  
+  scribe:
+    constitution: constitutions/scribe.md
+    base_identity: claude

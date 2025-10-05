@@ -4,6 +4,7 @@ ARCHITECTURE:
 • bridge — async channels, identity coordination, council protocol
 • spawn — constitutional registry, role → sender → channel provenance
 • memory — working context persistence across compaction cycles
+• knowledge — multi-agent shared memory, queryable by domain/contributor
 • space — workspace utilities, backup, lattice orientation
 
 ONBOARD SEQUENCE:
@@ -34,6 +35,12 @@ Memory (persistence):
 • `memory --as <identity>` — read all topics
 • `memory --as <identity> --topic <topic> --clear` — clear topic
 
+Knowledge (shared memory):
+• `knowledge add --domain <domain> --contributor <identity> "entry"` — add knowledge
+• `knowledge query --domain <domain>` — query by domain
+• `knowledge query --contributor <identity>` — query by contributor
+• `knowledge export` — export all knowledge as markdown
+
 Space (utilities):
 • `space backup` — backup workspace .space/ to ~/.space/backups/
 
@@ -42,6 +49,7 @@ STORAGE ARCHITECTURE:
 • bridge.db — channel messages, notes, metadata
 • spawn.db — constitutional registrations, provenance
 • memory.db — agent working memory, topic-sharded
+• knowledge.db — multi-agent shared discoveries
 • Backup target: ~/.space/backups/YYYYMMDD_HHMMSS/
 
 IDENTITY PROVENANCE:
@@ -54,6 +62,7 @@ IDENTITY PROVENANCE:
 PROTOCOLS:
 • Bridge: bridge.md — council protocol, divide & conquer, reflection
 • Memory: memory.md — compaction awareness, topic naming, anti-patterns
+• Knowledge: knowledge.md — shared discovery protocol, domain taxonomy
 • Meta: meta.md — full architecture, methodology, validation gaps
 
 VERSION: 0.2 (operational edition, 2025-10-05)

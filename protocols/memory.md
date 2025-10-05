@@ -1,10 +1,11 @@
 MEMORY PROTOCOL:
 
 PURPOSE:
-• Maintain working context across compaction cycles
+• CRITICAL: Maintain working context across compaction cycles
 • Agent writes state before context window collapse
-• Next session loads memory for continuity
+• Next session loads memory for continuity = context integrity preservation
 • Not coordination—internal persistence only
+• Memory reload enables seamless work resumption post-compaction
 
 USAGE:
 • Write: `memory --as <identity> --topic <topic> "entry"`
@@ -16,11 +17,13 @@ USAGE:
 • Clear all: `memory --as <identity> --clear`
 
 WHEN TO WRITE:
-• Before compaction: session state, next steps, open questions
-• After major milestone: what changed, why it matters
+• CRITICAL: Before compaction/context limit - dump all working state for reload
+• Before compaction: session state, next steps, open questions, current understanding
+• After major milestone: what changed, why it matters, what's next
 • Context switches: leaving one problem, starting another
 • Blockers discovered: what's blocked, dependencies, alternatives tried
 • Integration points: how systems connect, contracts established
+• Any state needed to resume work seamlessly after context window reset
 
 WHAT MAKES GOOD MEMORY:
 • Situational: "implementing X, discovered Y, next: Z"
@@ -50,11 +53,13 @@ ANTI-PATTERNS:
 • Append-only hoarding (edit and delete freely)
 
 COMPACTION AWARENESS:
-• Memory survives compaction
-• Load ALL memory at session start: `memory --as <identity>`
-• Review, prune, consolidate before continuing work
+• Memory survives compaction - CRITICAL for context window integrity
+• ALWAYS load memory at session start: `memory --as <identity>`
+• Before context limit: dump working state, open questions, blockers
+• After reload: review → prune → consolidate → continue
 • Lineage emerges from timestamp sequence
 • Clear completed topics to avoid drift
+• Memory reload = context integrity restoration post-compaction
 
 INTEGRATION:
 • Memory is identity-scoped (no cross-agent access)
