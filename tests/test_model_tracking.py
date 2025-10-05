@@ -1,7 +1,7 @@
 import tempfile
 from pathlib import Path
 
-from agent_space.spawn import registry, spawner
+from space.spawn import registry, spawner
 
 
 def test_register_with_model():

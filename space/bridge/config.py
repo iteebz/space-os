@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from agent_space.spawn import config as spawn_config
+from space.spawn import config as spawn_config
 
 SPACE_DIR = spawn_config.workspace_root() / ".space"
 BRIDGE_DIR = SPACE_DIR / "bridge"

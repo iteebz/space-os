@@ -5,13 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from agent_space.memory import storage
+from space.memory import storage
 
 
 @pytest.fixture
 def temp_db():
     """Use temporary database for tests."""
-    from agent_space.lib import context_db
+    from space.lib import context_db
 
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = Path(tmpdir) / "context.db"

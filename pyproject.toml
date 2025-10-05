@@ -10,7 +10,7 @@ authors = ["Tyson Chan <tyson.chan@proton.me>"]
 readme = "README.md"
 license = "Apache-2.0"
 packages = [
-    { include = "agent_space" }
+    { include = "space" }
 ]
 
 [tool.poetry.dependencies]
@@ -20,11 +20,11 @@ textual = "^0.61.0"
 pyyaml = "^6.0"
 
 [tool.poetry.scripts]
-bridge = "agent_space.bridge.cli:main"
-spawn = "agent_space.spawn.cli:main"
-memory = "agent_space.memory.cli:main"
-knowledge = "agent_space.knowledge.cli:main"
-space = "agent_space.space_cli:main"
+bridge = "space.bridge.cli:main"
+spawn = "space.spawn.cli:main"
+memory = "space.memory.cli:main"
+knowledge = "space.knowledge.cli:main"
+space = "space.cli:main"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.13.0"
@@ -51,7 +51,7 @@ ignore = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
-pythonpath = ["agent_space"]
+pythonpath = ["space"]
 addopts = [
     "--strict-markers",
     "--strict-config",

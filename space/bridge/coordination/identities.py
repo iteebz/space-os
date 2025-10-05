@@ -1,4 +1,4 @@
-from agent_space.spawn import registry
+from space.spawn import registry
 
 from .. import config, utils
 
