@@ -14,4 +14,55 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.11,<4.0"
+python = "^3.12"
+click = ">=8.0.0"
+textual = "^0.61.0"
+pyyaml = "^6.0"
+
+[tool.poetry.scripts]
+bridge = "agent_space.bridge.cli:main"
+spawn = "agent_space.spawn.cli:main"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.13.0"
+pytest = "^8.4.1"
+pytest-asyncio = "^1.1.0"
+pytest-timeout = "^2.4.0"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "N", "UP", "B", "C4", "SIM", "RET",
+]
+ignore = [
+    "SIM108", "SIM117", "E501",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+pythonpath = ["agent_space"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "-ra"
+]
+markers = [
+    "asyncio: Async tests using pytest-asyncio",
+    "unit: Unit tests (can run in parallel)",
+    "integration: Integration tests (may need isolation)",
+    "contract: API contract validation tests",
+    "schema: Schema validation tests",
+    "slow: Slow tests that should run last",
+    "timeout: Test timeout marker for pytest-timeout"
+]
+
+[tool.pytest_asyncio]
+asyncio_mode = "auto"
