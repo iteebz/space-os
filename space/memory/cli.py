@@ -44,13 +44,19 @@ def main(ctx, identity, topic, clear, edit, delete, message):
     if edit is not None:
         if not message:
             raise click.UsageError("message required when editing")
-        storage.edit_entry(edit, message)
-        click.echo(f"Edited entry {edit}")
+        try:
+            storage.edit_entry(edit, message)
+            click.echo(f"Edited entry {edit}")
+        except ValueError as e:
+            raise click.UsageError(str(e))
         return
 
     if delete is not None:
-        storage.delete_entry(delete)
-        click.echo(f"Deleted entry {delete}")
+        try:
+            storage.delete_entry(delete)
+            click.echo(f"Deleted entry {delete}")
+        except ValueError as e:
+            raise click.UsageError(str(e))
         return
 
     if message:
@@ -72,4 +78,7 @@ def main(ctx, identity, topic, clear, edit, delete, message):
                 click.echo()
             click.echo(f"# {e.topic}")
             current_topic = e.topic
-        click.echo(f"[{e.uuid[:8]}] [{e.timestamp}] {e.message}")
+        click.echo(f"[{e.uuid[-8:]}] [{e.timestamp}] {e.message}")
+
+if __name__ == "__main__":
+    main()

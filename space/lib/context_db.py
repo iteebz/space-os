@@ -8,7 +8,6 @@ from typing import Iterator
 from . import storage
 
 CONTEXT_DB_NAME = "context.db"
-CONTEXT_DB_PATH: Path = storage.database_path(CONTEXT_DB_NAME)
 _MIGRATED = False
 
 _MEMORY_SCHEMA = """
@@ -43,16 +42,18 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_contributor ON knowledge(contributor);
 
 def set_context_db_path(path: Path) -> None:
     """Override context database path (test hook)."""
-    global CONTEXT_DB_PATH, _MIGRATED
-    CONTEXT_DB_PATH = path
-    CONTEXT_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    global _MIGRATED
+    # This is a test hook, so we don't need to worry about the global path
+    # for the main application.
+    path.parent.mkdir(parents=True, exist_ok=True)
     _MIGRATED = False
 
 
 def ensure() -> None:
     """Ensure the context database exists, schema is applied, and legacy data migrated."""
     global _MIGRATED
-    with sqlite3.connect(CONTEXT_DB_PATH) as conn:
+    db_path = storage.database_path(CONTEXT_DB_NAME)
+    with sqlite3.connect(db_path) as conn:
         conn.execute("PRAGMA journal_mode=WAL")
         conn.executescript(_MEMORY_SCHEMA)
         conn.executescript(_KNOWLEDGE_SCHEMA)
@@ -66,7 +67,8 @@ def ensure() -> None:
 def connect(row_factory: type | None = None) -> Iterator[sqlite3.Connection]:
     """Yield a connection to the context database, ensuring schema beforehand."""
     ensure()
-    conn = sqlite3.connect(CONTEXT_DB_PATH)
+    db_path = storage.database_path(CONTEXT_DB_NAME)
+    conn = sqlite3.connect(db_path)
     if row_factory is not None:
         conn.row_factory = row_factory
     try:

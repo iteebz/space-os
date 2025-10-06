@@ -5,12 +5,41 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Iterator
 
-def workspace_root() -> Path:
-    """Return current working directory as workspace root."""
+def root() -> Path:
+    """Return the workspace root that owns the spawn project.
+
+    Prefer the directory the user invoked Spawn from when it already
+    contains this project, so agents inherit the caller's context. Fall back
+    to repository markers when the invocation directory is unrelated.
+    """
+
+    current = Path.cwd()
+
+    # Prefer the first directory in the cwd->root chain that exposes the
+    # workspace anchors we expect (`AGENTS.md` today). This avoids trapping the
+    # runtime inside `private/spawn` when the invocation happens there.
+    for candidate in (current, *current.parents):
+        if (candidate / "AGENTS.md").exists():
+            return candidate
+
+    # This is a bit of a hack, but it's the best we can do for now.
+    # We need to find the root of the project, but we can't rely on
+    # the current working directory, because it might be different
+    # from the project root.
+    # So, we search for a file that is likely to be at the root of
+    # the project, and then we go up from there.
+    for parent in Path(__file__).resolve().parents:
+        if (parent / ".git").exists():
+            return parent
+
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "pyproject.toml").exists():
+            return parent
+
     return Path.cwd()
 
 
-SPACE_DIR = workspace_root() / ".space"
+SPACE_DIR = root() / ".space"
 
 
 def database_path(name: str) -> Path:

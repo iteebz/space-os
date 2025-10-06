@@ -8,6 +8,20 @@ from ..lib.ids import uuid7
 from .models import Entry
 
 
+def _resolve_uuid(short_uuid: str) -> str:
+    with context_db.connect() as conn:
+        # Find all uuids that end with the short_uuid
+        rows = conn.execute("SELECT uuid FROM memory WHERE uuid LIKE ?", (f"%{short_uuid}",)).fetchall()
+    
+    if not rows:
+        raise ValueError(f"No entry found with UUID ending in '{short_uuid}'")
+    
+    if len(rows) > 1:
+        ambiguous_uuids = [row[0] for row in rows]
+        raise ValueError(f"Ambiguous UUID: '{short_uuid}' matches multiple entries: {ambiguous_uuids}")
+    
+    return rows[0][0]
+
 def add_entry(identity: str, topic: str, message: str):
     entry_uuid = uuid7()
     now = int(time.time())
@@ -37,21 +51,23 @@ def get_entries(identity: str, topic: str | None = None) -> list[Entry]:
 
 
 def edit_entry(entry_uuid: str, new_message: str):
+    full_uuid = _resolve_uuid(entry_uuid)
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
     with context_db.connect() as conn:
         conn.execute(
             "UPDATE memory SET message = ?, timestamp = ? WHERE uuid = ?",
-            (new_message, ts, entry_uuid),
+            (new_message, ts, full_uuid),
         )
         conn.commit()
-    events.emit("memory", "entry.edit", None, f"{entry_uuid[:8]}")
+    events.emit("memory", "entry.edit", None, f"{full_uuid[-8:]}")
 
 
 def delete_entry(entry_uuid: str):
+    full_uuid = _resolve_uuid(entry_uuid)
     with context_db.connect() as conn:
-        conn.execute("DELETE FROM memory WHERE uuid = ?", (entry_uuid,))
+        conn.execute("DELETE FROM memory WHERE uuid = ?", (full_uuid,))
         conn.commit()
-    events.emit("memory", "entry.delete", None, f"{entry_uuid[:8]}")
+    events.emit("memory", "entry.delete", None, f"{full_uuid[-8:]}")
 
 
 def clear_entries(identity: str, topic: str | None = None):
