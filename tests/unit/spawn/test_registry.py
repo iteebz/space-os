@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from space.spawn import registry
+from space.registry import registry
 
 
 @pytest.fixture

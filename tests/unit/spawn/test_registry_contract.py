@@ -3,7 +3,8 @@ import time
 
 import pytest
 
-from space.spawn import config, registry
+from space.registry import registry
+from space.spawn import config
 
 
 @pytest.fixture

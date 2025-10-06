@@ -1,7 +1,7 @@
 import tempfile
 from pathlib import Path
 
-from space.spawn import registry
+from space.registry import registry
 
 # def test_register_with_model():
 #     with tempfile.TemporaryDirectory() as tmpdir:
@@ -46,7 +46,11 @@ def test_mixed_model_registrations():
             identity="dummy_content",
         )
         registry.register(
-            role="scribe", agent_id="scribe-1", channels=["test"], identity_hash="ghi", identity="dummy_content"
+            role="scribe",
+            agent_id="scribe-1",
+            channels=["test"],
+            identity_hash="ghi",
+            identity="dummy_content",
         )
 
         regs = registry.list()

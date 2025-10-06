@@ -2,9 +2,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
+from space.registry.models import Registration  # Import Registration directly
 from space.spawn import spawner
-from space.spawn.registry import Registration  # Import Registration directly
 
 
 @pytest.fixture
@@ -13,7 +12,7 @@ def mock_config_file(tmp_path):
     config_content = """
 roles:
   test_role:
-    constitution: constitutions/test_constitution.md
+    constitution: prompts/identity/test_constitution.md
     base_identity: test_agent
 agents:
   test_agent:

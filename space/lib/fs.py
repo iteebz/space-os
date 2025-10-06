@@ -11,17 +11,21 @@ def root() -> Path:
 
     return Path.cwd()
 
+
 def guides_dir() -> Path:
     """Return the absolute path to the guides directory."""
-    return root() / "guides"
+    return root() / "space" / "prompts" / "guide"
+
 
 def guide_path(name: str) -> Path:
     """Return absolute path to a guide file."""
     return guides_dir() / name
 
+
 def constitutions_dir() -> Path:
     """Return the absolute path to the constitutions directory."""
     return root() / "constitutions"
+
 
 def resolve_constitution_path(value: str) -> Path:
     """Resolve a constitution path from config entry."""

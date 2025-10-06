@@ -2,7 +2,7 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
-from space.spawn import registry, spawner
+from space.registry import registry, spawner
 
 
 def test_inject_identity_no_self():
@@ -55,9 +55,7 @@ def test_self_identity_evolution():
         )
         conn.commit()
 
-        row = conn.execute(
-            "SELECT self FROM registry WHERE agent_id = ?", ("zealot-1",)
-        ).fetchone()
+        row = conn.execute("SELECT self FROM registry WHERE agent_id = ?", ("zealot-1",)).fetchone()
         conn.close()
 
         assert row[0] == "Purges bullshit"

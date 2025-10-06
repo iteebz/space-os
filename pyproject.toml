@@ -20,7 +20,7 @@ textual = "^0.61.0"
 pyyaml = "^6.0"
 
 [tool.poetry.scripts]
-space = "space.cli.main:main"
+space = "space.cli:main"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.13.0"

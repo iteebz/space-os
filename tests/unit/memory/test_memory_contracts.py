@@ -4,14 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from space.lib.storage.memory import add_entry, clear_entries, delete_entry, edit_entry, get_entries
+from space.memory.db import add_entry, clear_entries, delete_entry, edit_entry, get_entries
 
 
 @pytest.fixture
 def temp_db(monkeypatch):
     """Use a unique in-memory database for each test."""
-    from space.lib.storage import context as context_db
-    from space.lib.storage import utils
+    from space.context import db as context_db
+    from space.lib import db_utils as utils
 
     # Patch storage.database_path to return a unique in-memory path for each test
     # This ensures context_db.ensure() and context_db.connect() use the in-memory db

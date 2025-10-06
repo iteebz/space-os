@@ -10,9 +10,9 @@ from space.bridge import coordination
 from space.bridge import storage as bridge_storage
 from space.cli.bridge import bridge_group as bridge_cli_main
 from space.cli.main import main as memory_cli_main
-from space.lib.storage import context as context_db
-from space.lib.storage import memory as memory_storage
-from space.lib.storage import utils as storage
+from space.context import db as context_db
+from space.lib import db_utils as storage
+from space.memory import db as memory_storage
 from space.spawn import config as spawn_config
 from space.spawn import registry
 
@@ -66,6 +66,7 @@ def setup_bridge_env(monkeypatch):
             with contextlib.suppress(ValueError):
                 coordination.delete_channel(channel_name)
                 registry.unregister(identity, channel_name)
+
 
 # Fixture to set up a clean test environment for memory commands
 @pytest.fixture

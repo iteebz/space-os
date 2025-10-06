@@ -6,7 +6,7 @@ from pathlib import Path
 
 BACKUP_DB_PATH = Path("/Users/teebz/dev/space/20251006_194600/spawn.db")
 NEW_DB_PATH = Path("/Users/teebz/dev/space/private/agent-space/space/spawn.db")
-GUIDES_DIR = Path("/Users/teebz/dev/space/private/agent-space/guides")
+GUIDES_DIR = Path("/Users/teebz/dev/space/private/agent-space/space/prompts/guide")
 
 CONSTITUTIONS_TABLE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS constitutions (
@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS registry (
 );
 """
 
+
 def migrate():
     """Migrates the data from the old spawn.db and guide files to the new spawn.db."""
     if not BACKUP_DB_PATH.exists():
@@ -68,8 +69,8 @@ def migrate():
 
         # Insert into new registry table
         new_db_conn.execute(
-            """INSERT INTO registry 
-                (agent_id, role, channels, registered_at, constitution_hash, self_description, provider, model) 
+            """INSERT INTO registry
+                (agent_id, role, channels, registered_at, constitution_hash, self_description, provider, model)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 row["agent_id"],
@@ -98,6 +99,7 @@ def migrate():
     backup_db_conn.close()
 
     print("Migration completed successfully.")
+
 
 if __name__ == "__main__":
     migrate()

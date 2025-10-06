@@ -1,6 +1,6 @@
 import hashlib
 
-from space.lib.hash import sha256
+from space.lib.hashing import sha256
 
 
 def test_sha256_full_hash():

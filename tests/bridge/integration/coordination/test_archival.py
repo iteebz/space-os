@@ -45,8 +45,9 @@ def setup_channel():
     # Clean up after test
     with contextlib.suppress(ValueError):
         coordination.delete_channel(channel_name)
-    # Unregister the identity
+        # Unregister the identity
         registry.unregister(identity, channel_name)
+
 
 def test_recv_does_not_return_messages_from_archived_channel(setup_channel):
     channel_name, channel_id, identity, message_content = setup_channel
