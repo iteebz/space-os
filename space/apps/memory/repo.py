@@ -1,12 +1,27 @@
 from pathlib import Path
 from datetime import datetime
+import sqlite3 # Import sqlite3
 
 from space.os.lib import uuid7
-from space.os.core.storage import Storage # Import Storage
+from space.os.core.storage import Repo # Import the new Repo
 from .models import Memory
 
-class MemoryRepository(Storage): # Inherit from Storage
-    # __init__ is handled by Storage
+class MemoryRepo(Repo): # Inherit from Repo
+    SCHEMA_FILES = [
+        "V1__initial_schema.py",
+    ]
+
+    def __init__(self, app_name: str):
+        super().__init__(app_name)
+
+    def _row_to_entity(self, row: sqlite3.Row) -> Memory:
+        return Memory(
+            uuid=row["uuid"],
+            identity=row["identity"],
+            topic=row["topic"],
+            message=row["message"],
+            created_at=row["created_at"],
+        )
 
     def _resolve_uuid(self, short_uuid: str) -> str:
         rows = self._fetch_all(
@@ -26,10 +41,10 @@ class MemoryRepository(Storage): # Inherit from Storage
 
     def add(self, identity: str, topic: str, message: str) -> str:
         entry_uuid = uuid7.uuid7()
-        created_at_timestamp = datetime.now().timestamp()
+        created_at_timestamp = int(datetime.now().timestamp())
         self._execute(
             "INSERT INTO memory (uuid, identity, topic, message, created_at) VALUES (?, ?, ?, ?, ?)",
-            (entry_uuid, identity, topic, message, created_at_timestamp),
+            (str(entry_uuid), identity, topic, message, created_at_timestamp),
         )
         return str(entry_uuid)
 
@@ -44,7 +59,7 @@ class MemoryRepository(Storage): # Inherit from Storage
                 "SELECT uuid, identity, topic, message, created_at FROM memory WHERE identity = ? ORDER BY created_at DESC",
                 (identity,),
             )
-        return [Memory(*row) for row in rows]
+        return [self._row_to_entity(row) for row in rows]
 
     def update(self, entry_uuid: str, new_message: str):
         full_uuid = self._resolve_uuid(entry_uuid)

@@ -5,10 +5,18 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 from space.os.lib import fs
-from space.os.core.storage import Storage
-from space.os.db.migration_manager import apply_migrations # Import apply_migrations
+from space.os.lib.config import load_config # Import load_config
+from space.os.core.storage import Repo
 
-SPACE_DIR = fs.root() / ".space"
+# Load configuration
+config = load_config()
+
+# Define SPACE_DIR based on config, defaulting to project root/.space
+_database_root_dir = config.get("database_root_dir")
+if _database_root_dir:
+    SPACE_DIR = Path(_database_root_dir).expanduser() # Expand ~ to home directory
+else:
+    SPACE_DIR = fs.root() / ".space"
 
 class App:
     """
@@ -16,7 +24,7 @@ class App:
     """
     def __init__(self, name: str):
         self._name = name
-        self._db_path = SPACE_DIR / name
+        self._db_path = SPACE_DIR / "apps" / f"{name}.db" # App databases now in ~/.space/apps/{app_name}.db
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._repositories = {} # New: To store repository instances
 
@@ -63,13 +71,13 @@ class App:
         This can be overridden by the subclass.
         """
         self.ensure_db() # Ensure the database file exists
-        with self.get_db_connection() as conn:
-            apply_migrations(self.name, conn) # Apply migrations for this app
+        # Migrations are now handled by the Repository itself
 
     # New: Method to register and get repositories
-    def register_repository(self, name: str, repo_class: type[Storage]):
+    def register_repository(self, name: str, repo_class: type[Repo]):
         """Registers a repository class for this app."""
-        self._repositories[name] = repo_class(self.db_path)
+        # The Repository now derives its own paths, so we only need to pass the app_name
+        self._repositories[name] = repo_class(self.name)
 
     @property
     def repositories(self):

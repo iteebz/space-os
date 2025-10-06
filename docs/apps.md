@@ -22,20 +22,18 @@ The `space/os/core/app.py` file defines the `App` class. This class is the core 
 Here is the definition of the `App` class in `space/os/core/app.py`:
 
 ```python
+```python
 # space/os/core/app.py
 
 import click
 from pathlib import Path
 import sqlite3
-from collections.abc import Iterator, Callable
+from collections.abc import Iterator
 from contextlib import contextmanager
 
 from space.os.lib import fs
-from space.os.core.storage import Storage # Import the Storage base class
+from space.os.core.storage import Repo
 
-# SPACE_DIR is the root directory for all application-specific data,
-# typically located at the project root's .space directory.
-# fs.root() resolves to the project's absolute root path.
 SPACE_DIR = fs.root() / ".space"
 
 class App:
@@ -44,7 +42,7 @@ class App:
     """
     def __init__(self, name: str):
         self._name = name
-        self._db_path = SPACE_DIR / name
+        self._db_path = SPACE_DIR / "apps" / f"{name}.db" # App databases now in ~/.space/apps/{app_name}.db
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._repositories = {} # New: To store repository instances
 
@@ -59,12 +57,13 @@ class App:
         finally:
             conn.close()
 
-    def ensure_db(self, initializer: Callable[[sqlite3.Connection], None] | None = None):
-        """Create database if missing and run optional initializer inside a transaction."""
+    def ensure_db(self):
+        """Create database if missing."""
+        # Simply ensure the database file exists. Migrations will handle schema.
+        # The act of connecting to sqlite3.connect(self.db_path) will create the file if it doesn't exist.
+        # No need for an initializer here anymore.
         with sqlite3.connect(self.db_path) as conn:
-            if initializer is not None:
-                initializer(conn)
-            conn.commit()
+            conn.commit() # Ensure the file is created and committed.
 
     @property
     def name(self) -> str:
@@ -85,21 +84,24 @@ class App:
 
     def initialize(self):
         """
-        A hook for the app to perform any necessary initialization,
-        such as creating database schemas.
+        A hook for the app to perform any necessary initialization.
+        This now includes applying database migrations.
         This can be overridden by the subclass.
         """
-        self.ensure_db()
+        self.ensure_db() # Ensure the database file exists
+        # Migrations are now handled by the Repository itself
 
     # New: Method to register and get repositories
-    def register_repository(self, name: str, repo_class: type[Storage]):
+    def register_repository(self, name: str, repo_class: type[Repo]):
         """Registers a repository class for this app."""
-        self._repositories[name] = repo_class(self.db_path)
+        # The Repository now derives its own paths, so we only need to pass the app_name
+        self._repositories[name] = repo_class(self.name)
 
     @property
     def repositories(self):
         """Provides access to registered repository instances."""
         return self._repositories
+```
 ```
 
 ### How Applications Use the `App` Class
@@ -113,19 +115,18 @@ Here's an example for the `memory` app:
 
 from space.os.core.app import App
 from .cli import memory_group
-from .db import ensure_schema
-from .repository import MemoryRepository # New import
+from .repository import MemoryRepo # Import MemoryRepo
 
 class Memory(App):
     def __init__(self):
         super().__init__("memory")
-        self.register_repository("memory", MemoryRepository) # New line
+        self.register_repository("memory", MemoryRepo) # Register the repository
 
     def cli_group(self):
         return memory_group
 
     def initialize(self):
-        self.ensure_db(ensure_schema)
+        self.ensure_db()
 
 # Instantiate the app
 memory_app = Memory()
@@ -147,7 +148,6 @@ space/
         ├── app.py              # Defines the App class for this application.
         ├── api.py              # Defines the stable, public API for OTHER apps.
         ├── cli.py              # The CLI for THIS app.
-        ├── db.py               # Internal: Handles all raw database operations.
         └── memory.py           # Internal: Core business logic for "memory".
 ```
 
@@ -159,16 +159,13 @@ space/
     *   It is considered **private** to the app.
     *   **It must never be imported by any file outside of its own app directory.**
 
-2.  **Repository (`repository.py`):
-    *   This file encapsulates data access logic for specific entities (e.g., `MemoryRepository` for `Memory` objects).
-    *   It inherits from `space.os.core.storage.Storage`, leveraging the OS-provided storage abstraction.
+2.  **Repository (`repo.py` or `repository.py`):
+    *   **Convention:** Apps requiring data persistence **must** define their data access logic in a `repo.py` (or `repository.py`) file.
+    *   This file encapsulates data access logic for specific entities (e.g., `MemoryRepo` for `Memory` objects).
+    *   It inherits from `space.os.core.storage.Repo`, leveraging the OS-provided storage abstraction.
     *   It is considered **private** to the app.
     *   **It must never be imported by any file outside of its own app directory.**
 
-3.  **Database Migrations (`db.py`):
-    *   This file primarily handles database schema migrations and the `ensure_schema` function.
-    *   It is considered **private** to the app.
-    *   **It must never be imported by any file outside of its own app directory.**
 
 4.  **The App's Own CLI (`cli.py`):**
     *   This file contains all `click` commands related to the app.

@@ -1,10 +1,9 @@
 import click
 
 from space.os.lib.base64 import decode_b64
-from space.os import events
 from space.apps.register import api as register_api
 
-from . import memory, app
+from . import app, api
 
 
 @click.group(invoke_without_command=True)
@@ -14,7 +13,6 @@ def memory_group(ctx):
     if ctx.invoked_subcommand is None:
         memory_guide_content = register_api.load_guide_content("memory")
         if memory_guide_content:
-            events.track("memory", memory_guide_content)
             click.echo(memory_guide_content)
         else:
             click.echo("No memory guide found. Create space/apps/memory/prompts/guides/memory.md")
@@ -30,7 +28,7 @@ def add_memory(identity, topic, decode_base64, message):
     """Memorize a message."""
     if decode_base64:
         message = decode_b64(message)
-    memory.memorize(app.db_path, identity, topic, message)
+    api.add_memory_entry(identity, topic, message)
 
 
 @memory_group.command("recall")
@@ -38,7 +36,7 @@ def add_memory(identity, topic, decode_base64, message):
 @click.option("--topic", help="Topic name")
 def recall_memory(identity, topic):
     """Recall messages for a topic."""
-    entries = memory.recall(app.db_path, identity, topic)
+    entries = api.get_memory_entries(identity, topic)
     if not entries:
         scope = f"topic '{topic}'" if topic else "all topics"
         click.echo(f"No entries found for {identity} in {scope}")
@@ -59,7 +57,7 @@ def recall_memory(identity, topic):
 @click.option("--topic", help="Topic name")
 def clear_memory(identity, topic):
     """Clear memory entries."""
-    memory.clear(app.db_path, identity, topic)
+    api.clear_memory_entries(identity, topic)
     scope = f"topic '{topic}'" if topic else "all topics"
     click.echo(f"Cleared {scope} for {identity}")
 
@@ -74,7 +72,7 @@ def edit_memory(identity, decode_base64, uuid, message):
     if decode_base64:
         message = decode_b64(message)
     try:
-        memory.edit(app.db_path, uuid, message)
+        api.edit_memory_entry(uuid, message)
     except ValueError as e:
         raise click.UsageError(str(e)) from e
 
@@ -85,6 +83,6 @@ def edit_memory(identity, decode_base64, uuid, message):
 def delete_memory(identity, uuid):
     """Delete a memory entry by UUID."""
     try:
-        memory.delete(app.db_path, uuid)
+        api.delete_memory_entry(uuid)
     except ValueError as e:
         raise click.UsageError(str(e)) from e

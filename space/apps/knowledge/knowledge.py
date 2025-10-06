@@ -5,7 +5,7 @@ from space.os import events
 from space.os.lib import uuid7
 
 from .db import connect
-from . import app
+from .app import knowledge_app as app
 
 
 @dataclass

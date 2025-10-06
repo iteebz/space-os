@@ -6,8 +6,9 @@ from typing import Callable
 import importlib.util
 import sys
 
-# Define the root directory for all app migrations
-MIGRATIONS_ROOT = Path(__file__).parent / "migrations"
+from space.os.lib import fs # Import fs to get root path
+
+MIGRATIONS_ROOT = fs.root() / "private" / "agent-space" / "space" / "os" / "db" / "migrations" # Define the root directory for all app migrations
 
 @dataclass(frozen=True)
 class Migration:

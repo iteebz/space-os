@@ -5,7 +5,10 @@ from .api import (
     edit_memory_entry,
     delete_memory_entry,
     clear_memory_entries,
+    _set_memory_app_instance # Import the setter function
 )
+
+_set_memory_app_instance(app) # Set the app instance for the API module
 
 __all__ = [
     "add_memory_entry",

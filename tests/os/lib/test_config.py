@@ -5,7 +5,7 @@ from pathlib import Path
 
 # Assuming config_loader.py will be in space/os/lib/
 # and config.py will be in space/os/
-from space.os.lib.config_loader import load_config
+from space.os.lib.config import load_config
 from space.os.config import DEFAULT_CONFIG
 
 @pytest.fixture(autouse=True)

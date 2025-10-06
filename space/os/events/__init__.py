@@ -1,4 +1,4 @@
-from .events import query, track
+from .events import emit
 from .storage.db import init_db
 
-__all__ = ["track", "query", "init_db"]
+__all__ = ["emit", "init_db"]
