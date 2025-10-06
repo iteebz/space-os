@@ -6,7 +6,7 @@ from .db import connect
 Message = models.Message
 
 
-def create_message(
+def create(
     channel_id: str,
     sender: str,
     content: str,
@@ -28,7 +28,7 @@ def create_message(
     return message_id
 
 
-def get_new_messages(channel_id: str, last_seen_id: int | None = None) -> list[Message]:
+def fetch_new(channel_id: str, last_seen_id: int | None = None) -> list[Message]:
     """Retrieve new messages since the last seen message ID."""
     with connect() as conn:
         cursor = conn.cursor()
@@ -58,7 +58,7 @@ def get_new_messages(channel_id: str, last_seen_id: int | None = None) -> list[M
         return messages, len(messages)
 
 
-def get_all_messages(channel_id: str) -> list[Message]:
+def fetch_all(channel_id: str) -> list[Message]:
     """Retrieve all messages for a given channel from storage."""
     with connect() as conn:
         cursor = conn.execute(
@@ -73,7 +73,7 @@ def get_all_messages(channel_id: str) -> list[Message]:
         return [Message(**row) for row in cursor.fetchall()]
 
 
-def get_sender_history(sender: str, limit: int | None = None) -> list[Message]:
+def fetch_history(sender: str, limit: int | None = None) -> list[Message]:
     with connect() as conn:
         query = "SELECT id, channel_id, sender, content, created_at FROM messages WHERE sender = ? ORDER BY created_at DESC"
         params = (sender, limit) if limit else (sender,)

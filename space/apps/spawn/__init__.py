@@ -1,2 +1,8 @@
-from .api import *
-from .cli import spawn_group
+# Make the public API from api.py available on the package level
+from .api import (
+    spawn,
+)
+
+__all__ = [
+    "spawn",
+]

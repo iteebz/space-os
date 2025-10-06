@@ -14,6 +14,11 @@ def track_constitution(constitution_hash: str, constitution_content: str):
     db.track_constitution(constitution_hash, constitution_content)
 
 
+def get_constitution_content(constitution_hash: str) -> str | None:
+    """Retrieve constitution content by its hash."""
+    return db.get_constitution_content(constitution_hash)
+
+
 def link(
     agent_id: str,
     role: str,

@@ -3,7 +3,7 @@
 from .db import connect
 
 
-def create_note(channel_id: str, author: str, content: str, prompt_hash: str) -> int:
+def create(channel_id: str, author: str, content: str, prompt_hash: str) -> int:
     """Append a note to a channel, tracking author and prompt hash. Returns the new note ID."""
     with connect() as conn:
         cursor = conn.execute(
@@ -15,7 +15,7 @@ def create_note(channel_id: str, author: str, content: str, prompt_hash: str) ->
     return note_id
 
 
-def get_notes(channel_id: str) -> list[dict]:
+def fetch(channel_id: str) -> list[dict]:
     """Get all notes for a channel, identified by its ID."""
     with connect() as conn:
         cursor = conn.execute(

@@ -61,7 +61,7 @@ def init():
                 context TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 notes TEXT,
-                instruction_hash TEXT,
+                guide_hash TEXT,
                 archived_at TIMESTAMP
             )
         """)
@@ -69,6 +69,10 @@ def init():
         # Migration: Add archived_at column to existing channels table
         with suppress(sqlite3.OperationalError):
             conn.execute("ALTER TABLE channels ADD COLUMN archived_at TIMESTAMP")
+
+        # Migration: Rename instruction_hash to guide_hash in channels table
+        with suppress(sqlite3.OperationalError):
+            conn.execute("ALTER TABLE channels RENAME COLUMN instruction_hash TO guide_hash")
 
         # Data Migration: Populate archived_at for channels previously archived by created_at
         conn.execute("""
@@ -91,9 +95,9 @@ def init():
             )
         """)
 
-        # Coordination instructions versioning
+        # Coordination guides versioning
         conn.execute("""
-            CREATE TABLE IF NOT EXISTS instructions (
+            CREATE TABLE IF NOT EXISTS guides (
                 hash TEXT PRIMARY KEY,
                 content TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

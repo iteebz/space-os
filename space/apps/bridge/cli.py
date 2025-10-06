@@ -7,14 +7,8 @@ import click
 
 from space import config, events
 from space.apps import registry
-from space.apps.bridge import config as bridge_config
-from space.apps.bridge import channel
-from space.apps.bridge import message
-from space.apps.bridge import alert
-from space.apps.bridge import note
-from space.apps.bridge import instructions
-from space.apps.bridge import utils
-from space.apps.bridge.renderer import Event
+from . import notes
+from .renderer import Event
 from space.lib.base64 import decode_b64
 
 from .db import init
@@ -60,6 +54,14 @@ def _display_channels(all_channels, is_dashboard: bool = False) -> None:
                 f"{channel.message_count} msgs",
                 f"{len(channel.participants)} units",
             ]
+
+
+@bridge_group.command(name="channels")
+def bridge_channels():
+    """List all channels."""
+    all_channels = get_all_channels()
+    _display_channels(all_channels)
+
 
 
 @bridge_group.command(name="rename")
@@ -155,9 +157,7 @@ def alert(channel, content, identity):
             source="bridge",
             event_type="alert_triggering",
             data={"channel": channel, "identity": identity, "content": content},
-            identity=identity,
-        )
-        channel_id = coordination.resolve_channel_id(channel)
+        channel_id = channel.resolve_channel_id(channel)
         message.send_message(channel_id, identity, content, priority="alert")
         events.emit(
             source="bridge",
@@ -223,7 +223,7 @@ def recv(channel, identity):
         events.emit(
             "messages_receiving", {"channel": channel, "identity": identity}, identity=identity
         )
-        channel_id = coordination.resolve_channel_id(channel)
+        channel_id = channel.resolve_channel_id(channel)
         messages, count, context, participants = message.recv_updates(channel_id, identity)
         for msg in messages:
             events.emit(

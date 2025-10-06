@@ -7,19 +7,19 @@ from .db import connect
 from .models import Channel, ExportData
 
 
-def create_channel_record(channel_name: str, instruction_hash: str) -> str:
-    """Create channel record in DB, locking instruction version. Returns channel_id."""
+def create(channel_name: str, guide_hash: str) -> str:
+    """Create channel record in DB, locking guide version. Returns channel_id."""
     channel_id = str(uuid.uuid4())
     with connect() as conn:
         conn.execute(
-            "INSERT INTO channels (id, name, instruction_hash) VALUES (?, ?, ?)",
-            (channel_id, channel_name, instruction_hash),
+            "INSERT INTO channels (id, name, guide_hash) VALUES (?, ?, ?)",
+            (channel_id, channel_name, guide_hash),
         )
         conn.commit()
     return channel_id
 
 
-def ensure_channel_exists(channel_name: str) -> str:
+def ensure_exists(channel_name: str) -> str:
     """Ensure channel exists and return stable UUID."""
     with connect() as conn:
         cursor = conn.execute("SELECT id FROM channels WHERE name = ?", (channel_name,))
@@ -29,11 +29,11 @@ def ensure_channel_exists(channel_name: str) -> str:
         return result["id"]
 
     raise ValueError(
-        f"Channel '{channel_name}' does not exist. Use coordination layer to create channels."
+        f"Channel '{channel_name}' does not exist. Use API to create channels."
     )
 
 
-def get_channel_id(channel_name: str) -> str:
+def get_id(channel_name: str) -> str:
     """Get stable channel ID from human-readable name."""
     with connect() as conn:
         cursor = conn.execute("SELECT id FROM channels WHERE name = ?", (channel_name,))
@@ -44,7 +44,7 @@ def get_channel_id(channel_name: str) -> str:
     return result["id"]
 
 
-def get_channel_name(channel_id: str) -> str | None:
+def get_name(channel_id: str) -> str | None:
     """Resolve a channel UUID back to its human-readable name."""
     with connect() as conn:
         cursor = conn.execute("SELECT name FROM channels WHERE id = ?", (channel_id,))
@@ -80,7 +80,7 @@ def get_participants(channel_id: str) -> list[str]:
         return [row["sender"] for row in cursor.fetchall()]
 
 
-def fetch_channels(agent_id: str = None, time_filter: str = None) -> list[Channel]:
+def fetch(agent_id: str = None, time_filter: str = None) -> list[Channel]:
     """Get channels with metadata, optionally filtered by activity time and including unread counts for an agent."""
     with connect() as conn:
         # The main query to get channel details and message/note counts
@@ -152,7 +152,7 @@ def fetch_channels(agent_id: str = None, time_filter: str = None) -> list[Channe
     return channels
 
 
-def get_export_data(channel_id: str) -> ExportData:
+def export(channel_id: str) -> ExportData:
     """Export a complete channel conversation for research purposes."""
     with connect() as conn:
         channel_cursor = conn.execute(
@@ -186,7 +186,7 @@ def get_export_data(channel_id: str) -> ExportData:
     )
 
 
-def archive_channel(channel_id: str):
+def archive(channel_id: str):
     """Archive a channel by setting its archived_at timestamp."""
     with connect() as conn:
         conn.execute(
@@ -196,7 +196,7 @@ def archive_channel(channel_id: str):
         conn.commit()
 
 
-def delete_channel(channel_id: str):
+def delete(channel_id: str):
     """Permanently delete a channel and all associated messages and bookmarks."""
     with connect() as conn:
         conn.execute("DELETE FROM messages WHERE channel_id = ?", (channel_id,))
@@ -205,8 +205,8 @@ def delete_channel(channel_id: str):
         conn.commit()
 
 
-def rename_channel(old_name: str, new_name: str) -> bool:
-    """Rename channel name only - UUID references remain stable. Returns True on success."""
+def rename(old_name: str, new_name: str) -> bool:
+    """Rename channel across all guide data."""
     try:
         with connect() as conn:
             cursor = conn.execute("SELECT 1 FROM channels WHERE name = ?", (old_name,))
@@ -226,31 +226,31 @@ def rename_channel(old_name: str, new_name: str) -> bool:
 # Topic compatibility -------------------------------------------------------
 
 
-def create_topic_record(topic_name: str, instruction_hash: str) -> str:
+def create_topic_record(topic_name: str, guide_hash: str) -> str:
     """Backward compatible alias for channel creation."""
-    return create_channel_record(topic_name, instruction_hash)
+    return create(topic_name, guide_hash)
 
 
 def ensure_topic_exists(topic_name: str) -> str:
     """Backward compatible alias for channel existence check."""
-    return ensure_channel_exists(topic_name)
+    return ensure_exists(topic_name)
 
 
 def get_topic_id(topic_name: str) -> str:
     """Backward compatible alias for channel lookup."""
-    return get_channel_id(topic_name)
+    return get_id(topic_name)
 
 
 def archive_topic(topic_id: str) -> None:
     """Backward compatible alias for channel archival."""
-    archive_channel(topic_id)
+    archive(topic_id)
 
 
 def delete_topic(topic_id: str) -> None:
     """Backward compatible alias for channel deletion."""
-    delete_channel(topic_id)
+    delete(topic_id)
 
 
 def rename_topic(old_name: str, new_name: str) -> bool:
     """Backward compatible alias for channel renaming."""
-    return rename_channel(old_name, new_name)
+    return rename(old_name, new_name)

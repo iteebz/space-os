@@ -2,13 +2,10 @@ import sys
 
 import click
 
-from space import events
-from space.lib import fs
 from space.lib.base64 import decode_b64
 
 from . import knowledge, memory
-
-GUIDE_FILE = fs.guide_path("memory.md")
+from .guide_manager import memory_guide_manager
 
 
 @click.group()
@@ -27,17 +24,14 @@ def context_group():
 @click.argument("message", required=False)
 def memory(identity, topic, clear, edit, delete, decode_base64, message):
     """Memory primitive - agent-contributed learned patterns."""
-    if GUIDE_FILE.exists():
-        events.track("memory", GUIDE_FILE.read_text())
+    if memory_guide_manager.exists():
+        memory_guide_manager.track_and_echo()
 
     all_options_are_default = (
         not identity and not topic and not clear and not edit and not delete and not message
     )
     if all_options_are_default:
-        if GUIDE_FILE.exists():
-            click.echo(GUIDE_FILE.read_text())
-        else:
-            click.echo("memory.md not found")
+        memory_guide_manager.track_and_echo()
         return
 
     if not identity:
@@ -125,9 +119,7 @@ def query_knowledge(contributor, domain, from_contributor, content):
             click.echo(entry.content)
         return
 
-    if from_contributor:
-        entries = context.knowledge.query_by_contributor(from_contributor)
-        if not entries:
+                entries = knowledge.query_by_contributor(from_contributor)        if not entries:
             click.echo(f"No knowledge from: {from_contributor}")
             return
 
@@ -156,10 +148,10 @@ def query_knowledge(contributor, domain, from_contributor, content):
 def export(domain, from_contributor):
     """Export knowledge entries as markdown."""
     if domain:
-        entries = context.knowledge.query_by_domain(domain)
+        entries = knowledge.query_by_domain(domain)
         title = f"Knowledge: {domain}"
     elif from_contributor:
-        entries = context.knowledge.query_by_contributor(from_contributor)
+        entries = knowledge.query_by_contributor(from_contributor)
         title = f"Knowledge from {from_contributor}"
     else:
         entries = knowledge.query()

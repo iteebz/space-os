@@ -3,7 +3,7 @@
 from .db import connect
 
 
-def set_bookmark(
+def set(
     agent_id: str, channel_id: str, last_seen_id: int, constitution_hash: str | None = None
 ):
     """Update agent's bookmark for a channel."""

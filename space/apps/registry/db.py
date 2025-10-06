@@ -57,6 +57,16 @@ def track_constitution(constitution_hash: str, constitution_content: str):
         conn.commit()
 
 
+def get_constitution_content(constitution_hash: str) -> str | None:
+    """Retrieve constitution content by its hash."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            "SELECT content FROM constitutions WHERE hash = ?", (constitution_hash,)
+        )
+        result = cursor.fetchone()
+        return result["content"] if result else None
+
+
 def link(
     agent_id: str,
     role: str,
