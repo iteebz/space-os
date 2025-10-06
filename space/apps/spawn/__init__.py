@@ -1,4 +1,4 @@
-from .app import registry_app # Import the instantiated app
+from .app import spawn_app # Import the instantiated app
 from .api import ( # Import public API functions
     add_identity,
     get_identity,
@@ -10,7 +10,7 @@ from .api import ( # Import public API functions
 )
 
 __all__ = [
-    "registry_app",
+    "spawn_app",
     "add_identity",
     "get_identity",
     "add_constitution_version",

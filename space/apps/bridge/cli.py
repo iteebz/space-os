@@ -6,7 +6,7 @@ from datetime import datetime
 import click
 
 from space.os import config, events
-from space.apps import registry
+
 from space.os.lib.base64 import decode_b64
 
 from . import alerts, channels, db, messages, notes, streamer, utils

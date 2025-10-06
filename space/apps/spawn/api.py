@@ -31,6 +31,7 @@ def add_constitution_version(
 ) -> Constitution:
     """Adds a new version of a constitution or guide."""
     if not spawn_app_instance:
+        raise RuntimeError("Spawn app instance not set.")
     repo = spawn_app_instance.repositories["spawn"]
     constitution_hash = sha256.sha256(content)
     return repo.add_constitution_version(name, content, constitution_hash, change_description, created_by)
@@ -44,6 +45,8 @@ def get_constitution_version(id: str) -> Optional[Constitution]:
     return repo.get_constitution_version(id)
 
 def get_constitution_history_for_identity(identity_id: str) -> List[Constitution]:
+    """Retrieves all historical versions of constitutions for an identity."""
+    if not spawn_app_instance:
         raise RuntimeError("Spawn app instance not set.")
     repo = spawn_app_instance.repositories["spawn"]
     return repo.get_constitution_history_for_identity(identity_id)

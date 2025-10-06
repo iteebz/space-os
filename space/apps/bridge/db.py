@@ -2,21 +2,23 @@
 
 import sqlite3
 from contextlib import contextmanager, suppress
+from pathlib import Path
 
-from space.os import config
+from space.os.core.app import SPACE_DIR # Import SPACE_DIR
 
+# Define the database path for the bridge app
+BRIDGE_DB_PATH = SPACE_DIR / "apps" / "bridge.db"
 
 def ensure_bridge_dir():
     """Ensure Bridge data directories exist."""
-    config.SPACE_DIR.mkdir(exist_ok=True)
-    config.DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    BRIDGE_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 @contextmanager
 def connect():
     """Provide a database connection with row factory set to sqlite3.Row."""
     ensure_bridge_dir()
-    conn = sqlite3.connect(config.DB_PATH)
+    conn = sqlite3.connect(BRIDGE_DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
         yield conn
@@ -26,6 +28,7 @@ def connect():
 
 def init():
     """Initialize SQLite database with Bridge schema."""
+    print("DEBUG: Initializing Bridge DB schema...") # Added print statement
     ensure_bridge_dir()
     with connect() as conn:
         # Messages table with prompt hash tracking

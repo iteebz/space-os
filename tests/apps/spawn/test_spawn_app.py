@@ -6,8 +6,8 @@ from datetime import datetime # Import datetime
 import shutil # Import shutil
 
 # Import RegistryRepo directly, not through registry_app
-from space.apps.registry.repo import RegistryRepo
-from space.apps.registry.models import Identity, Constitution
+from space.apps.spawn.repo import SpawnRepo
+from space.apps.spawn.models import Identity, Constitution
 from space.os.lib import uuid7
 
 @pytest.fixture
@@ -16,20 +16,20 @@ def clean_registry_db(tmp_path):
     Provides a clean RegistryRepo instance with a temporary database for each test.
     """
     # Define the temporary database path
-    temp_db_path = tmp_path / "registry.db"
+    temp_db_path = tmp_path / "spawn.db"
 
     # Define the actual app root path to copy migrations from
-    actual_app_root = Path.cwd() / "space" / "apps" / "registry"
-    
+    actual_app_root = Path.cwd() / "space" / "apps" / "spawn"
+
     # Create a temporary directory for migrations within tmp_path
-    temp_migrations_dir = tmp_path / "migrations" / "registry"
+    temp_migrations_dir = tmp_path / "migrations" / "spawn"
     temp_migrations_dir.mkdir(parents=True, exist_ok=True)
 
     # Copy the migrations directory from the actual app to the temporary location
     shutil.copytree(actual_app_root / "migrations", temp_migrations_dir, dirs_exist_ok=True)
 
-    # Create a RegistryRepo instance directly, passing the temporary db_path and app_root_path
-    repo = RegistryRepo("registry", db_path=temp_db_path)
+    # Create a SpawnRepo instance directly, passing the temporary db_path and app_root_path
+    repo = SpawnRepo("spawn", db_path=temp_db_path)
     yield repo
 
     # Clean up: database will be removed with tmp_path
@@ -87,11 +87,17 @@ def test_add_identity_with_initial_constitution(clean_registry_db, mock_uuid7):
     identity_type = "agent"
     initial_content = "This is the initial constitution for agent 2."
 
-    # Add the constitution first
+    # Add the identity first
+    added_identity = repo.add_identity(identity_id, identity_type)
+
+    # Add the constitution
     constitution = repo.add_constitution("initial_constitution", "1.0", initial_content, identity_id, created_by="test_user", change_description="Initial constitution")
 
-    # Add an identity with initial constitution
-    added_identity = repo.add_identity(identity_id, identity_type, initial_constitution_hash=constitution.hash)
+    # Update the identity with the initial constitution
+    repo.update_identity_current_constitution(identity_id, constitution.id)
+
+    # Re-fetch the identity to get the updated current_constitution_id
+    added_identity = repo.get_identity(identity_id)
 
     assert added_identity is not None
     assert added_identity.id == identity_id
@@ -106,11 +112,11 @@ def test_add_identity_with_initial_constitution(clean_registry_db, mock_uuid7):
     constitution = repo.get_constitution_version(retrieved_identity.current_constitution_id)
     assert constitution is not None
     assert constitution.id == retrieved_identity.current_constitution_id
-    assert constitution.name == f"{identity_id}_constitution"
+    assert constitution.name == "initial_constitution"
     assert constitution.content == initial_content
     assert constitution.identity_id == identity_id
     assert constitution.previous_version_id is None
-    assert constitution.created_by == "system"
+    assert constitution.created_by == "test_user"
     assert constitution.change_description == "Initial constitution"
 
 def test_add_constitution_to_existing_identity(clean_registry_db, mock_uuid7):
@@ -120,23 +126,33 @@ def test_add_constitution_to_existing_identity(clean_registry_db, mock_uuid7):
     initial_content = "Initial constitution for agent 3."
     new_content = "Updated constitution for agent 3."
 
+    # Add the identity first
+    added_identity = repo.add_identity(identity_id, identity_type)
+
     # Add an initial constitution
     initial_constitution = repo.add_constitution("initial_constitution", "1.0", initial_content, identity_id, created_by="test_user", change_description="Initial constitution")
 
-    # Add the identity first
-    added_identity = repo.add_identity(identity_id, identity_type, initial_constitution_hash=initial_constitution.hash)
-    initial_constitution_id = added_identity.current_constitution_id
+    # Update the identity with the initial constitution
+    repo.update_identity_current_constitution(identity_id, initial_constitution.id)
+    initial_constitution_id = initial_constitution.id # Use the ID directly
     assert initial_constitution_id is not None
 
     # Add a new constitution to the existing identity
-    updated_identity = repo.add_constitution(
+    new_constitution = repo.add_constitution(
         identity_id=identity_id,
         name=f"{identity_id}_constitution",
         version="V2",
         content=new_content,
+        previous_version_id=initial_constitution_id, # <--- Add this line
         created_by="test_user",
         change_description="Updated constitution"
     )
+
+    # Update the identity with the new constitution
+    repo.update_identity_current_constitution(identity_id, new_constitution.id)
+
+    # Re-fetch the identity to get the updated current_constitution_id
+    updated_identity = repo.get_identity(identity_id)
 
     assert updated_identity is not None
     assert updated_identity.id == identity_id

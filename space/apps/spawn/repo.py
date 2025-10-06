@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import sqlite3
 
@@ -43,23 +43,20 @@ class SpawnRepo(Repo):
         )
         return self.get_constitution_by_hash(constitution_hash)
 
-    def add_identity(self, id: str, type: str, initial_constitution_hash: str | None = None) -> Identity:
-        created_at = int(datetime.now().timestamp())
-        updated_at = created_at
-        current_constitution_id = None
-
-        if initial_constitution_hash:
-            constitution = self.get_constitution_by_hash(initial_constitution_hash)
-            if constitution:
-                current_constitution_id = constitution.id
-            else:
-                raise ValueError(f"Constitution with hash '{initial_constitution_hash}' not found.")
-
+    def add_identity(self, id: str, type: str, initial_constitution_id: str | None = None) -> Identity:
+        now = int(datetime.now(timezone.utc).timestamp())
         self._execute(
             "INSERT INTO identities (id, type, current_constitution_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-            (id, type, current_constitution_id, created_at, updated_at)
+            (id, type, initial_constitution_id, now, now),
         )
         return self.get_identity(id)
+
+    def update_identity_current_constitution(self, identity_id: str, constitution_id: str) -> None:
+        now = int(datetime.now(timezone.utc).timestamp())
+        self._execute(
+            "UPDATE identities SET current_constitution_id = ?, updated_at = ? WHERE id = ?",
+            (constitution_id, now, identity_id),
+        )
 
     def get_identity(self, id: str) -> Identity | None:
         with self._connect(row_factory=sqlite3.Row) as conn:
@@ -71,7 +68,7 @@ class SpawnRepo(Repo):
 
     def get_constitution_version(self, constitution_id: str) -> Constitution | None:
         with self._connect(row_factory=sqlite3.Row) as conn:
-            cursor = conn.execute("SELECT id, name, version, content, identity_id, previous_version_id, created_at, created_by, change_description FROM constitutions WHERE id = ?", (constitution_id,))
+            cursor = conn.execute("SELECT id, name, version, content, identity_id, previous_version_id, created_at, created_by, change_description, hash FROM constitutions WHERE id = ?", (constitution_id,))
             row = cursor.fetchone()
             if row:
                 return Constitution(**row)

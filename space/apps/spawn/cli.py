@@ -12,26 +12,25 @@ def spawn_group(): # Renamed from register_group
 @click.argument("type")
 @click.option("--initial-constitution-content", help="Initial constitution content for the identity.")
 def add_identity(id: str, type: str, initial_constitution_content: str | None):
-    """Adds a new identity to the spawn."""
-    if not registry_app_instance:
-        click.echo("Registry app instance not set.")
+    if not spawn_app_instance:
+        click.echo("Spawn app instance not set.")
         return
 
-    repo = registry_app_instance.repositories["registry"]
+    repo = spawn_app_instance.repositories["spawn"]
     identity = repo.add_identity(id, type, initial_constitution_content)
     click.echo(f"Identity '{identity.id}' ({identity.type}) added.")
     if identity.current_constitution_id:
         click.echo(f"Initial constitution registered: {identity.current_constitution_id}")
 
-@registry_group.command()
+@spawn_group.command()
 @click.argument("id")
 def get_identity(id: str):
     """Retrieves an identity by ID."""
-    if not registry_app_instance:
-        click.echo("Registry app instance not set.")
+    if not spawn_app_instance:
+        click.echo("Spawn app instance not set.")
         return
 
-    repo = registry_app_instance.repositories["registry"]
+    repo = spawn_app_instance.repositories["spawn"]
     identity = repo.get_identity(id)
     if identity:
         click.echo(f"Identity ID: {identity.id}")
@@ -42,7 +41,7 @@ def get_identity(id: str):
     else:
         click.echo(f"Identity with ID '{id}' not found.")
 
-@registry_group.command()
+@spawn_group.command()
 @click.argument("identity_id")
 @click.argument("name")
 @click.argument("content")
@@ -50,11 +49,11 @@ def get_identity(id: str):
 @click.option("--created-by", default="user", help="Identifier of the entity creating this version.")
 def add_constitution_version(identity_id: str, name: str, content: str, change_description: str | None, created_by: str):
     """Adds a new version of a constitution for an identity."""
-    if not registry_app_instance:
-        click.echo("Registry app instance not set.")
+    if not spawn_app_instance:
+        click.echo("Spawn app instance not set.")
         return
 
-    repo = registry_app_instance.repositories["registry"]
+    repo = spawn_app_instance.repositories["spawn"]
     constitution = repo.add_constitution_version(
         name=name,
         content=content,
@@ -65,15 +64,15 @@ def add_constitution_version(identity_id: str, name: str, content: str, change_d
     click.echo(f"Constitution version '{constitution.id}' added for identity '{identity_id}'.")
     click.echo(f"Version: {constitution.version}")
 
-@registry_group.command()
+@spawn_group.command()
 @click.argument("identity_id")
 def get_current_constitution(identity_id: str):
     """Retrieves the current constitution for an identity."""
-    if not registry_app_instance:
-        click.echo("Registry app instance not set.")
+    if not spawn_app_instance:
+        click.echo("Spawn app instance not set.")
         return
 
-    repo = registry_app_instance.repositories["registry"]
+    repo = spawn_app_instance.repositories["spawn"]
     constitution = repo.get_current_constitution_for_identity(identity_id)
     if constitution:
         click.echo(f"Current Constitution ID: {constitution.id}")
@@ -85,15 +84,15 @@ def get_current_constitution(identity_id: str):
     else:
         click.echo(f"No current constitution found for identity '{identity_id}'.")
 
-@registry_group.command()
+@spawn_group.command()
 @click.argument("identity_id")
 def list_constitution_history(identity_id: str):
     """Lists the history of constitutions for an identity."""
-    if not registry_app_instance:
-        click.echo("Registry app instance not set.")
+    if not spawn_app_instance:
+        click.echo("Spawn app instance not set.")
         return
 
-    repo = registry_app_instance.repositories["registry"]
+    repo = spawn_app_instance.repositories["spawn"]
     history = repo.get_constitution_history_for_identity(identity_id)
     if history:
         for const in history:
