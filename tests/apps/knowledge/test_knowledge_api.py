@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 from space.apps.knowledge.api import write_knowledge, query_knowledge
 from space.apps.knowledge import app as knowledge_app
 
@@ -6,10 +7,24 @@ from space.apps.knowledge import app as knowledge_app
 def setup_knowledge_app_db(tmp_path):
     """Fixture to set up a temporary database for the knowledge app."""
     original_db_path = knowledge_app.db_path
-    knowledge_app._db_path = tmp_path / "knowledge.db"
-    knowledge_app.initialize()
-    yield
+    original_repositories = knowledge_app._repositories.copy()
+
+    # Patch the db_path
+    patched_db_path = tmp_path / "knowledge.db"
+    with patch.object(knowledge_app, '_db_path', patched_db_path):
+        # Explicitly re-register the repository so it gets the patched db_path
+        # This will call Repo.__init__ again, which calls create_table and apply_migrations
+        from space.apps.knowledge.repo import KnowledgeRepo # Use absolute import
+        knowledge_app.register_repository("knowledge", KnowledgeRepo)
+        knowledge_app.initialize() # Ensure any other app-level initialization runs
+        knowledge_app.repositories["knowledge"].clear() # Clear the database before each test
+
+        with patch("space.os.events.events.track"): # Mock events.track
+            yield
+
+    # Restore original db_path and repositories after tests
     knowledge_app._db_path = original_db_path
+    knowledge_app._repositories = original_repositories
 
 def test_write_and_query_knowledge():
     """Test writing and querying a single knowledge entry."""

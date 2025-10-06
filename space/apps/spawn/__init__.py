@@ -2,7 +2,7 @@ import sys
 from typing import cast
 import click
 
-from space.os.protocols import App
+from space.os.core.app import App
 from .cli import spawn_group
 
 @property

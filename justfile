@@ -20,7 +20,8 @@ build:
     @poetry build
 
 clean:
-    @rm -rf dist build .pytest_cache .ruff_cache __pycache__ .venv
+    @rm -rf dist build .pytest_cache .ruff_cache __pycache__
     @find . -type d -name "__pycache__" -exec rm -rf {} +
+    @rm -f .space/apps/*.db
 
 ci: format fix test build

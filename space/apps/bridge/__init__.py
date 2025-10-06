@@ -1,7 +1,8 @@
 import sys
 from typing import cast
 
-from space.os.protocols import App
+# from space.os.core.app import App # Moved to app.py
+from .app import bridge_app # Import the instantiated app
 
 from .api import (
     fetch_alerts,
@@ -23,7 +24,6 @@ from .api import (
     emit_bridge_event,
     Event,
     Renderer,
-    utils_hash_content,
     hash_digest,
     format_local_time,
     format_time_ago,
@@ -51,17 +51,16 @@ __all__ = [
     "emit_bridge_event",
     "Event",
     "Renderer",
-    "utils_hash_content",
     "hash_digest",
     "format_local_time",
     "format_time_ago",
+    "bridge_app", # Expose the instantiated app
 ]
 
 
-name = "bridge"
+# name = "bridge" # Handled by app.py
+# def cli_group(): # Handled by app.py
+#     return bridge_group
 
-def cli_group():
-    return bridge_group
 
-
-cast(App, sys.modules[__name__])
+# cast(App, sys.modules[__name__]) # No longer needed

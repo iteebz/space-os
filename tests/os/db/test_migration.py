@@ -88,77 +88,80 @@ def test_get_applied_migrations_returns_empty_set_if_none_applied(mock_db_connec
 
 # --- Tests for get_available_migrations ---
 def test_get_available_migrations_discovers_and_sorts_correctly(mock_migrations_dir):
-    with patch("space.os.db.migration.MIGRATIONS_ROOT", mock_migrations_dir):
-        available = get_available_migrations("test_app")
-        expected = [
-            "V20231027000000_init",
-            "V20231027003000_add_settings",
-            "V20231027010000_add_email_to_users",
-        ]
-        assert [m.version for m in available] == expected
+    app_migrations_dir = mock_migrations_dir / "test_app"
+    available = get_available_migrations(app_migrations_dir)
+    expected = [
+        "V20231027000000_init",
+        "V20231027003000_add_settings",
+        "V20231027010000_add_email_to_users",
+    ]
+    assert [m.version for m in available] == expected
 
 def test_get_available_migrations_returns_empty_for_non_existent_app(mock_migrations_dir):
-    with patch("space.os.db.migration.MIGRATIONS_ROOT", mock_migrations_dir):
-        available = get_available_migrations("non_existent_app")
-        assert available == []
+    non_existent_app_dir = mock_migrations_dir / "non_existent_app"
+    available = get_available_migrations(non_existent_app_dir)
+    assert available == []
 
 def test_get_available_migrations_returns_empty_for_empty_dir(tmp_path):
     migrations_root = tmp_path / "os" / "db" / "migrations"
-    (migrations_root / "empty_app").mkdir(parents=True)
-    with patch("space.os.db.migration.MIGRATIONS_ROOT", migrations_root):
-        available = get_available_migrations("empty_app")
-        assert available == []
+    empty_app_migrations_dir = migrations_root / "empty_app"
+    empty_app_migrations_dir.mkdir(parents=True)
+    available = get_available_migrations(empty_app_migrations_dir)
+    assert available == []
 
 # --- Tests for apply_migrations ---
 def test_apply_migrations_applies_all_pending(mock_db_connection, mock_migrations_dir):
-    with patch("space.os.db.migration.MIGRATIONS_ROOT", mock_migrations_dir):
-        apply_migrations("test_app", mock_db_connection)
+    app_name = "test_app"
+    app_migrations_dir = mock_migrations_dir / app_name
+    apply_migrations(app_name, app_migrations_dir, mock_db_connection)
 
-        applied = get_applied_migrations(mock_db_connection)
-        assert applied == {
-            "V20231027000000_init",
-            "V20231027003000_add_settings",
-            "V20231027010000_add_email_to_users",
-        }
+    applied = get_applied_migrations(mock_db_connection)
+    assert applied == {
+        "V20231027000000_init",
+        "V20231027003000_add_settings",
+        "V20231027010000_add_email_to_users",
+    }
 
-        cursor = mock_db_connection.cursor()
-        cursor.execute("PRAGMA table_info(users)")
-        user_cols = [col[1] for col in cursor.fetchall()]
-        assert "id" in user_cols
-        assert "name" in user_cols
-        assert "email" in user_cols
+    cursor = mock_db_connection.cursor()
+    cursor.execute("PRAGMA table_info(users)")
+    user_cols = [col[1] for col in cursor.fetchall()]
+    assert "id" in user_cols
+    assert "name" in user_cols
+    assert "email" in user_cols
 
-        cursor.execute("PRAGMA table_info(settings)")
-        setting_cols = [col[1] for col in cursor.fetchall()]
-        assert "key" in setting_cols
-        assert "value" in setting_cols
+    cursor.execute("PRAGMA table_info(settings)")
+    setting_cols = [col[1] for col in cursor.fetchall()]
+    assert "key" in setting_cols
+    assert "value" in setting_cols
 
 def test_apply_migrations_skips_already_applied(mock_db_connection, mock_migrations_dir):
-    with patch("space.os.db.migration.MIGRATIONS_ROOT", mock_migrations_dir):
-        # Manually apply the first migration and record it
-        init_migrations_table(mock_db_connection)
-        cursor = mock_db_connection.cursor()
-        cursor.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)")
-        cursor.execute("INSERT INTO _migrations (version) VALUES ('V20231027000000_init')")
-        mock_db_connection.commit()
+    app_name = "test_app"
+    app_migrations_dir = mock_migrations_dir / app_name
 
-        apply_migrations("test_app", mock_db_connection)
+    # Manually apply the first migration and record it
+    init_migrations_table(mock_db_connection)
+    cursor = mock_db_connection.cursor()
+    cursor.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)")
+    cursor.execute("INSERT INTO _migrations (version) VALUES ('V20231027000000_init')")
+    mock_db_connection.commit()
 
-        applied = get_applied_migrations(mock_db_connection)
-        assert applied == {
-            "V20231027000000_init",
-            "V20231027003000_add_settings",
-            "V20231027010000_add_email_to_users",
-        }
+    apply_migrations(app_name, app_migrations_dir, mock_db_connection)
 
-        cursor = mock_db_connection.cursor()
-        cursor.execute("PRAGMA table_info(users)")
-        user_cols = [col[1] for col in cursor.fetchall()]
-        assert "id" in user_cols
-        assert "name" in user_cols
-        assert "email" in user_cols
+    applied = get_applied_migrations(mock_db_connection)
+    assert applied == {
+        "V20231027000000_init",
+        "V20231027003000_add_settings",
+        "V20231027010000_add_email_to_users",
+    }
 
-        cursor.execute("PRAGMA table_info(settings)")
-        setting_cols = [col[1] for col in cursor.fetchall()]
-        assert "key" in setting_cols
-        assert "value" in setting_cols
+    cursor = mock_db_connection.cursor()
+    cursor.execute("PRAGMA table_info(users)")
+    user_cols = [col[1] for col in cursor.fetchall()]
+    assert "id" in user_cols
+    assert "name" in user_cols
+    assert "email" in user_cols
+
+    cursor.execute("PRAGMA table_info(settings)")
+    setting_cols = [col[1] for col in cursor.fetchall()]
+    assert "key" in setting_cols
+    assert "value" in setting_cols

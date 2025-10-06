@@ -4,7 +4,7 @@ import click
 
 from space.os.lib.base64 import decode_b64
 from space.os import events
-from space.apps.register import api as register_api
+from space.apps.registry import api as registry_api
 
 from . import knowledge
 from .app import knowledge_app as app

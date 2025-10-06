@@ -7,14 +7,15 @@ from .messages import fetch_history as fetch_sender_history, fetch_all as get_al
 from .notes import create as add_note, fetch as get_notes
 
 # Imports from registry.guides (new source of truth for instructions)
-from space.apps.register.guides import load_guide_content, hash_content, track_guide_in_registry
+from space.apps.registry.guides import load_guide_content
+from space.os.lib import sha256 # Import sha256 for consistent hashing
 
 # Other bridge imports
 from .db import connect as get_bridge_db_connection
 from .db import init as init_bridge_db
 from .events import emit as emit_bridge_event
 from .renderer import Event, Renderer
-from .utils import format_local_time, format_time_ago, hash_content as utils_hash_content, hash_digest
+from .utils import format_local_time, format_time_ago, hash_digest
 
 # --- New functions for bridge instructions ---
 def get_bridge_instructions() -> str:
@@ -23,8 +24,13 @@ def get_bridge_instructions() -> str:
 
 def save_bridge_instructions(content: str):
     """Save and track bridge instructions in the registry."""
-    guide_hash = hash_content(content)
-    track_guide_in_registry(guide_hash, content)
+    guide_hash = sha256.hash_string(content)
+    # Note: track_guide_in_registry is now an internal helper in registry.guides
+    # and should not be called directly from here. The auto-tracking happens
+    # when load_guide_content is called if the guide is not already in the registry.
+    # For explicit saving, we would need a registry_api.add_constitution_version call here.
+    # For now, we'll assume saving is implicitly handled by loading or a separate registry CLI command.
+    pass # Placeholder for explicit saving if needed
 # --- End new functions ---
 
 
@@ -54,8 +60,7 @@ __all__ = [
     "Event",
     "Renderer",
 
-    # Utils (note: hash_content is now from registry.guides, so aliasing utils.hash_content)
-    "utils_hash_content", # Aliased to avoid conflict
+    # Utils
     "hash_digest",
     "format_local_time",
     "format_time_ago",

@@ -24,8 +24,8 @@ space/
 1.  **`os/core/`:
     *   **Purpose:** Reserved for fundamental, cross-cutting components that are essential to the `space` ecosystem and designed for reuse across multiple applications. This includes `app.py`, which defines the foundational `App` class. These components represent core domain services, distinct from general-purpose utilities.
 
-2.  **`os/db/`:
-    *   **Purpose:** Contains database-related OS services, suchs as `migrations.py` for managing schema evolution across applications.
+2.  **`os/db/`:**
+    *   **Purpose:** Contains database-related OS services, such as `migrations.py` for managing all schema evolution across applications. This centralizes migration logic, ensuring consistency and reducing complexity in individual apps.
 
 3.  **`os/events/`:
     *   **Purpose:** Contains the system-wide eventing mechanism (e.g., `events.py`). Applications emit events through this service, and the system can track and react to them.

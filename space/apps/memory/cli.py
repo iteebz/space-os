@@ -1,7 +1,7 @@
 import click
 
 from space.os.lib.base64 import decode_b64
-from space.apps.register import api as register_api
+from space.os import events # Import events
 
 from . import app, api
 
@@ -11,11 +11,8 @@ from . import app, api
 def memory_group(ctx):
     """Memory primitive - agent-contributed learned patterns."""
     if ctx.invoked_subcommand is None:
-        memory_guide_content = register_api.load_guide_content("memory")
-        if memory_guide_content:
-            click.echo(memory_guide_content)
-        else:
-            click.echo("No memory guide found. Create space/apps/memory/prompts/guides/memory.md")
+        click.echo("Memory guide not yet implemented. Create space/apps/memory/prompts/guides/memory.md")
+        events.track(source="memory", event_type="guide.accessed", identity="cli_user") # Track guide access
         return
 
 

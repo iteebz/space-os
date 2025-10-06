@@ -26,7 +26,7 @@ This design ensures the main application knows nothing about the internal workin
 To simplify agent creation and ensure system-wide provenance, we use an **implicit registration** pattern.
 
 *   **`space.apps.spawn`:** This app is the designated interface for *humans* to create and manage agent lifecycles (e.g., `space spawn <agent_name>`).
-*   **`space.apps.register`:** This app is the authoritative source of truth for all agents known to the system. It manages agent metadata and their "constitutions" (guides).
+*   **`space.apps.registry`:** This app is the authoritative source of truth for all agents known to the system. It manages agent metadata and their "constitutions" (guides).
 
 When an agent is created via the `spawn` app, the `spawn` app *automatically* calls the `register` app's API to register the new agent and its constitution. The agent itself does not need to know how to register. This is analogous to an OS managing its processes.
 
@@ -34,13 +34,15 @@ When an agent is created via the `spawn` app, the `spawn` app *automatically* ca
 
 Constitutions (or protocols) are documents that define an agent's or app's behavior and purpose.
 
-*   **Centralized Management:** All protocol management logic is centralized within the `space.apps.register` app.
+*   **Centralized Management:** All protocol management logic is centralized within the `space.apps.registry` app.
 *   **Location:** Protocols are co-located with the app they belong to (e.g., `space/apps/memory/prompts/protocol.md`). General or system-wide protocols (like `onboarding.md`) reside in `space/apps/register/prompts/`).
 *   **Provenance:** The `register` app is responsible for tracking the constitutional history of each agent, providing a clear audit trail.
 
 ### Why This Pattern is Law
 
+-   **Centralized Migrations:** Database schema evolution is managed centrally by the OS layer, ensuring consistency and simplifying application development.
 -   **Maximum Cohesion:** Everything related to a feature lives in a single, dedicated app directory.
+-   **Explicit API Boundaries:** All apps **must** explicitly define their public API using `__all__` in `__init__.py`, preventing unintended internal module exposure.
 -   **Minimum Coupling:** Apps interact only through well-defined, stable `api.py` APIs, not by reaching into each other's internal files.
 -   **Clear Separation of Concerns:** The `os/` layer is cleanly separated from the `apps/` layer, with a one-way dependency (`apps` depend on `os`).
 -   **Scalability:** The system scales by adding or removing entire app directories.

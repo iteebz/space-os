@@ -1,21 +1,10 @@
 import sqlite3
-from dataclasses import dataclass
 
 from space.os import events
 from space.os.lib import uuid7
 
-from .db import connect
 from .app import knowledge_app as app
-
-
-@dataclass
-class Knowledge:
-    id: str
-    domain: str
-    contributor: str
-    content: str
-    confidence: float | None
-    created_at: str
+from .models import Knowledge # Import Knowledge from models.py
 
 
 def write(
@@ -24,13 +13,8 @@ def write(
     content: str,
     confidence: float | None = None,
 ) -> str:
-    entry_id = uuid7.uuid7()
-    with app.get_db_connection() as conn:
-        conn.execute(
-            "INSERT INTO knowledge (id, domain, contributor, content, confidence) VALUES (?, ?, ?, ?, ?)",
-            (entry_id, domain, contributor, content, confidence),
-        )
-        conn.commit()
+    repo = app.repositories["knowledge"]
+    entry_id = repo.add(domain, contributor, content, confidence)
 
     events.track(
         source="knowledge",
@@ -46,21 +30,5 @@ def query(
     contributor: str | None = None,
     entry_id: str | None = None,
 ) -> list[Knowledge]:
-    with app.get_db_connection(row_factory=sqlite3.Row) as conn:
-        if entry_id:
-            row = conn.execute("SELECT * FROM knowledge WHERE id = ?", (entry_id,)).fetchone()
-            return [Knowledge(**dict(row))] if row else []
-        if domain:
-            rows = conn.execute(
-                "SELECT * FROM knowledge WHERE domain = ? ORDER BY created_at DESC",
-                (domain,),
-            ).fetchall()
-            return [Knowledge(**dict(row)) for row in rows]
-        if contributor:
-            rows = conn.execute(
-                "SELECT * FROM knowledge WHERE contributor = ? ORDER BY created_at DESC",
-                (contributor,),
-            ).fetchall()
-            return [Knowledge(**dict(row)) for row in rows]
-        rows = conn.execute("SELECT * FROM knowledge ORDER BY created_at DESC").fetchall()
-        return [Knowledge(**dict(row)) for row in rows]
+    repo = app.repositories["knowledge"]
+    return repo.get(domain, contributor, entry_id)

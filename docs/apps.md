@@ -85,11 +85,11 @@ class App:
     def initialize(self):
         """
         A hook for the app to perform any necessary initialization.
-        This now includes applying database migrations.
+        This now includes triggering the centralized OS migration service.
         This can be overridden by the subclass.
         """
         self.ensure_db() # Ensure the database file exists
-        # Migrations are now handled by the Repository itself
+        # The App's initialize method now triggers the centralized OS migration service.
 
     # New: Method to register and get repositories
     def register_repository(self, name: str, repo_class: type[Repo]):
@@ -159,8 +159,8 @@ space/
     *   It is considered **private** to the app.
     *   **It must never be imported by any file outside of its own app directory.**
 
-2.  **Repository (`repo.py` or `repository.py`):
-    *   **Convention:** Apps requiring data persistence **must** define their data access logic in a `repo.py` (or `repository.py`) file.
+2.  **Repository (`repo.py`):
+    *   **Convention:** Apps requiring data persistence **must** define their data access logic in a `repo.py` file.
     *   This file encapsulates data access logic for specific entities (e.g., `MemoryRepo` for `Memory` objects).
     *   It inherits from `space.os.core.storage.Repo`, leveraging the OS-provided storage abstraction.
     *   It is considered **private** to the app.
@@ -184,7 +184,7 @@ space/
 
 4.  **The Package Initializer (`__init__.py`):**
     *   This file is the **true public API gatekeeper** for the app. It defines what is exposed when other parts of the `space` application import the app.
-    *   It should explicitly import specific, high-level functions from `api.py` and define an `__all__` list.
+    *   It **must** explicitly import specific, high-level functions from `api.py` and define an `__all__` list.
     *   It will import the instantiated `App` class (e.g., `memory_app`) from `app.py` and expose it.
 
 ## Agent Lifecycle: Implicit Registration
@@ -192,7 +192,7 @@ space/
 To simplify agent creation and ensure system-wide provenance, we use an **implicit registration** pattern.
 
 *   **`space.apps.spawn`:** This app is the designated interface for *humans* to create and manage agent lifecycles (e.g., `space spawn <agent_name>`).
-*   **`space.apps.register`:** This app is the authoritative source of truth for all agents known to the system. It manages agent metadata and their "constitutions" (guides).
+*   **`space.apps.registry`:** This app is the authoritative source of truth for all agents known to the system. It manages agent metadata and their "constitutions" (guides).
 
 When an agent is created via the `spawn` app, the `spawn` app *automatically* calls the `register` app's API to register the new agent and its constitution. The agent itself does not need to know how to register. This is analogous to an OS managing its processes.
 
@@ -200,7 +200,7 @@ When an agent is created via the `spawn` app, the `spawn` app *automatically* ca
 
 Constitutions (or protocols) are documents that define an agent's or app's behavior and purpose.
 
-*   **Centralized Management:** All protocol management logic is centralized within the `space.apps.register` app.
+*   **Centralized Management:** All protocol management logic is centralized within the `space.apps.registry` app.
 *   **Location:** Protocols are co-located with the app they belong to (e.g., `space/apps/memory/prompts/protocol.md`). General or system-wide protocols (like `onboarding.md`) reside in `space/apps/register/prompts/`).
 *   **Provenance:** The `register` app is responsible for tracking the constitutional history of each agent, providing a clear audit trail.
 

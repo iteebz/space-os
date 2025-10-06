@@ -1,8 +1,60 @@
-# System-wide eventing mechanism
+from datetime import datetime
+from typing import Callable, Any
+from collections import defaultdict
+import json
 
-def emit(event_type: str, event_name: str, identity: str | None = None, payload: dict | None = None):
+from space.os.lib import uuid7
+from .models import Event
+from .repo import EventRepo
+
+# Initialize the EventRepo
+_event_repo = EventRepo()
+
+# In-memory listener registry
+_listeners = defaultdict(list) # { (event_type, source): [listeners] }
+
+def track(source: str, event_type: str, identity: str | None = None, data: dict | None = None, metadata: dict | None = None):
     """
-    Placeholder for emitting a system-wide event.
+    Records and dispatches an event.
     """
-    # In a real implementation, this would publish the event to a message bus or similar.
-    pass
+    event_id = str(uuid7.uuid7())
+    timestamp = datetime.now().isoformat()
+
+    event = Event(
+        id=event_id,
+        timestamp=timestamp,
+        source=source,
+        event_type=event_type,
+        identity=identity,
+        data=data,
+        metadata=metadata,
+    )
+
+    _event_repo.add(event)
+    emit(event)
+
+def emit(event: Event):
+    """
+    Dispatches an event to registered listeners.
+    """
+    # Dispatch to specific listeners (event_type, source)
+    for listener in _listeners[(event.event_type, event.source)]:
+        listener(event)
+    # Dispatch to general listeners (event_type, None)
+    for listener in _listeners[(event.event_type, None)]:
+        listener(event)
+    # Dispatch to general listeners (None, source)
+    for listener in _listeners[(None, event.source)]:
+        listener(event)
+    # Dispatch to global listeners (None, None)
+    for listener in _listeners[(None, None)]:
+        listener(event)
+
+def on(event_type: str | None = None, source: str | None = None) -> Callable:
+    """
+    Decorator to register a function as an event listener.
+    """
+    def decorator(func: Callable):
+        _listeners[(event_type, source)].append(func)
+        return func
+    return decorator

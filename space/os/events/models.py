@@ -1,11 +1,12 @@
 from dataclasses import dataclass
+from typing import Any
 
-
-@dataclass
+@dataclass(frozen=True)
 class Event:
-    uuid: str
+    id: str
+    timestamp: str
     source: str
-    identity: str | None
     event_type: str
-    data: str | None
-    created_at: int
+    identity: str | None = None
+    data: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None

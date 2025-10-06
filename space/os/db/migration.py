@@ -5,10 +5,9 @@ from dataclasses import dataclass
 from typing import Callable
 import importlib.util
 import sys
+from datetime import datetime
 
 from space.os.lib import fs # Import fs to get root path
-
-MIGRATIONS_ROOT = fs.root() / "private" / "agent-space" / "space" / "os" / "db" / "migrations" # Define the root directory for all app migrations
 
 @dataclass(frozen=True)
 class Migration:
@@ -38,20 +37,23 @@ def get_applied_migrations(conn: sqlite3.Connection) -> set[str]:
     cursor.execute("SELECT version FROM _migrations")
     return {row[0] for row in cursor.fetchall()}
 
-def get_available_migrations(app_name: str) -> list[Migration]:
+def get_available_migrations(migrations_dir: Path) -> list[Migration]:
     """
-    Discovers and returns a sorted list of available migrations for a given app.
+    Discovers and returns a sorted list of available migrations from a given directory.
     """
-    app_migrations_dir = MIGRATIONS_ROOT / app_name
-    if not app_migrations_dir.is_dir():
+    print(f"DEBUG: get_available_migrations - migrations_dir: {migrations_dir}")
+    if not migrations_dir.is_dir():
+        print(f"DEBUG: get_available_migrations - {migrations_dir} is not a directory.")
         return []
 
     migrations = []
-    migration_pattern = re.compile(r"^(V\d{14}_.*)\.py$")
+    migration_pattern = re.compile(r"^(V\d+_.*)\.py$")
 
-    for f in app_migrations_dir.iterdir():
+    for f in migrations_dir.iterdir():
+        print(f"DEBUG: get_available_migrations - Found file: {f.name}")
         if f.is_file() and f.suffix == ".py":
             match = migration_pattern.match(f.name)
+            print(f"DEBUG: get_available_migrations - Matching {f.name} with regex, match: {match}")
             if match:
                 version = match.group(1) # Capture the full version string
                 migrations.append(Migration(version=version, filename=f))
@@ -60,16 +62,19 @@ def get_available_migrations(app_name: str) -> list[Migration]:
     migrations.sort(key=lambda m: m.version)
     return migrations
 
-def apply_migrations(app_name: str, conn: sqlite3.Connection):
+def apply_migrations(app_name: str, migrations_dir: Path, conn: sqlite3.Connection):
     """
-    Applies all pending migrations for a given app.
+    Applies all pending migrations for a given app from the specified directory.
     """
+    print(f"DEBUG: apply_migrations - App: {app_name}, Migrations Dir: {migrations_dir}")
     init_migrations_table(conn)
     applied_versions = get_applied_migrations(conn)
-    available_migrations = get_available_migrations(app_name)
+    available_migrations = get_available_migrations(migrations_dir)
+    print(f"DEBUG: apply_migrations - Available migrations for {app_name}: {[m.version for m in available_migrations]}")
 
     for migration in available_migrations:
         if migration.version not in applied_versions:
+            print(f"DEBUG: apply_migrations - Applying migration: {migration.version}")
             # Dynamically load the migration module
             spec = importlib.util.spec_from_file_location(migration.version, migration.filename)
             if spec and spec.loader:
@@ -83,11 +88,12 @@ def apply_migrations(app_name: str, conn: sqlite3.Connection):
                         module.upgrade(cursor)
                         cursor.execute("INSERT INTO _migrations (version) VALUES (?) ", (migration.version,))
                         conn.commit()
+                        print(f"DEBUG: apply_migrations - Successfully applied {migration.version}")
                     except Exception as e:
                         conn.rollback()
-                        print(f"Error applying migration {migration.version}: {e}")
+                        print(f"ERROR: apply_migrations - Failed to apply {migration.version}: {e}")
                         raise
                 else:
-                    print(f"Migration {migration.version} is missing an 'upgrade' function.")
+                    print(f"WARNING: apply_migrations - Migration {migration.version} missing 'upgrade' function.")
             else:
-                print(f"Could not load migration module {migration.version}")
+                print(f"ERROR: apply_migrations - Could not load migration module for {migration.version}")
