@@ -3,78 +3,41 @@ from datetime import datetime
 import sqlite3 # Import sqlite3
 
 from space.os.lib import uuid7
-from space.os.core.storage import Repo # Import the new Repo
+import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
+
+from space.os.paths import data_for
 from .models import Memory
 
-class MemoryRepo(Repo): # Inherit from Repo
-    SCHEMA_FILES = [
-        "V1__initial_schema.py",
-    ]
+class MemoryRepo:
+    def __init__(self):
+        self._db_path = data_for("memory")
 
-    def __init__(self, app_name: str):
-        super().__init__(app_name)
+    @contextmanager
+    def get_db_connection(self, row_factory: type | None = None) -> Iterator[sqlite3.Connection]:
+        """Yield a connection to the app's dedicated database."""
+        conn = sqlite3.connect(self._db_path)
+        if row_factory is not None:
+            conn.row_factory = row_factory
+        try:
+            yield conn
+        finally:
+            conn.close()
 
-    def _row_to_entity(self, row: sqlite3.Row) -> Memory:
-        return Memory(
-            uuid=row["uuid"],
-            identity=row["identity"],
-            topic=row["topic"],
-            message=row["message"],
-            created_at=row["created_at"],
-        )
-
-    def _resolve_uuid(self, short_uuid: str) -> str:
-        rows = self._fetch_all(
-            "SELECT uuid FROM memory WHERE uuid LIKE ?", (f"%{short_uuid}",)
-        )
-
-        if not rows:
-            raise ValueError(f"No entry found with UUID ending in '{short_uuid}'")
-
-        if len(rows) > 1:
-            ambiguous_uuids = [row[0] for row in rows]
-            raise ValueError(
-                f"Ambiguous UUID: '{short_uuid}' matches multiple entries: {ambiguous_uuids}"
-            )
-
-        return rows[0][0]
-
-    def add(self, identity: str, topic: str, message: str, created_at: int | None = None) -> str:
-        entry_uuid = uuid7.uuid7()
-        if created_at is None:
+    def add(self, identity: str, topic: str, message: str):
+        with self.get_db_connection() as conn:
+            cursor = conn.cursor()
             created_at = int(datetime.now().timestamp())
-        self._execute(
-            "INSERT INTO memory (uuid, identity, topic, message, created_at) VALUES (?, ?, ?, ?, ?)",
-            (str(entry_uuid), identity, topic, message, created_at),
-        )
-        return str(entry_uuid)
-
-    def get(self, identity: str, topic: str | None = None) -> list[Memory]:
-        if topic:
-            rows = self._fetch_all(
-                "SELECT uuid, identity, topic, message, created_at FROM memory WHERE identity = ? AND topic = ? ORDER BY created_at DESC",
-                (identity, topic),
+            cursor.execute(
+                "INSERT INTO memories (uuid, identity, topic, message, created_at) VALUES (?, ?, ?, ?, ?)",
+                (uuid7(), identity, topic, message, created_at),
             )
-        else:
-            rows = self._fetch_all(
-                "SELECT uuid, identity, topic, message, created_at FROM memory WHERE identity = ? ORDER BY created_at DESC",
-                (identity,),
-            )
-        return [self._row_to_entity(row) for row in rows]
+            conn.commit()
 
-    def update(self, entry_uuid: str, new_message: str):
-        full_uuid = self._resolve_uuid(entry_uuid)
-        self._execute(
-            "UPDATE memory SET message = ? WHERE uuid = ?",
-            (new_message, full_uuid),
-        )
-
-    def delete(self, entry_uuid: str):
-        full_uuid = self._resolve_uuid(entry_uuid)
-        self._execute("DELETE FROM memory WHERE uuid = ?", (full_uuid,))
-
-    def clear(self, identity: str, topic: str | None = None):
-        if topic:
-            self._execute("DELETE FROM memory WHERE identity = ? AND topic = ?", (identity, topic))
-        else:
-            self._execute("DELETE FROM memory WHERE identity = ?", (identity,))
+    def get_all(self) -> list[Memory]:
+        with self.get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT uuid, identity, topic, message, created_at FROM memories ORDER BY created_at DESC")
+            rows = cursor.fetchall()
+            return [Memory.from_row(row) for row in rows]

@@ -1,88 +1,60 @@
-import sqlite3
 from datetime import datetime
-from typing import Any
+import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 import json
-
 from space.os.lib import uuid7
-from space.os.core.storage import Repo
-from space.os.core.app import SPACE_DIR # Import SPACE_DIR
-from .models import Event
 
-class EventRepo(Repo):
-    def __init__(self):
-        # Custom db_path for system-level events
-        db_path = SPACE_DIR / "events.db"
-        super().__init__("os.events", db_path=db_path) # Pass app_name and custom db_path
+from space.os.paths import data_for
+from space.os.events.models import Event
 
-    def _row_to_entity(self, row: sqlite3.Row) -> Event:
-        data = json.loads(row["data"]) if row["data"] else None
-        metadata = json.loads(row["metadata"]) if row["metadata"] else None
-        return Event(
-            id=row["id"],
-            timestamp=row["timestamp"],
-            source=row["source"],
-            event_type=row["event_type"],
-            identity=row["identity"],
-            data=data,
-            metadata=metadata,
-        )
+class EventRepo:
+    def __init__(self, db_path: str | None = None):
+        self._db_path = db_path or data_for("events")
+        self.create_table()
 
-    def add(self, event: Event) -> str:
-        self._execute(
-            "INSERT INTO events (id, timestamp, source, event_type, identity, data, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (
-                event.id,
-                event.timestamp,
-                event.source,
-                event.event_type,
-                event.identity,
-                json.dumps(event.data) if event.data else None,
-                json.dumps(event.metadata) if event.metadata else None,
-            ),
-        )
-        return event.id
+    @contextmanager
+    def get_db_connection(self, row_factory: type | None = None) -> Iterator[sqlite3.Connection]:
+        """Yield a connection to the app's dedicated database."""
+        conn = sqlite3.connect(self._db_path)
+        if row_factory is not None:
+            conn.row_factory = row_factory
+        try:
+            yield conn
+        finally:
+            conn.close()
 
-    def get(self, event_id: str) -> Event | None:
-        row = self._fetch_one("SELECT * FROM events WHERE id = ?", (event_id,))
-        return self._row_to_entity(row) if row else None
+    def create_table(self):
+        with self.get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS events (
+                    id TEXT PRIMARY KEY,
+                    source TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    identity TEXT,
+                    data TEXT,
+                    timestamp INTEGER NOT NULL
+                )
+            """)
+            conn.commit()
 
-    def query(
-        self,
-        source: str | None = None,
-        event_type: str | None = None,
-        identity: str | None = None,
-        start_time: str | None = None,
-        end_time: str | None = None,
-    ) -> list[Event]:
-        query = "SELECT * FROM events WHERE 1=1"
-        params = []
+    def add(self, source: str, event_type: str, identity: str | None, data: dict | None):
+        event_id = str(uuid7.uuid7())
+        timestamp = int(datetime.now().timestamp())
+        data_json = json.dumps(data) if data else None
 
-        if source:
-            query += " AND source = ?"
-            params.append(source)
-        if event_type:
-            query += " AND event_type = ?"
-            params.append(event_type)
-        if identity:
-            query += " AND identity = ?"
-            params.append(identity)
-        if start_time:
-            query += " AND timestamp >= ?"
-            params.append(start_time)
-        if end_time:
-            query += " AND timestamp <= ?"
-            params.append(end_time)
+        with self.get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO events (id, source, event_type, identity, data, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
+                (event_id, source, event_type, identity, data_json, timestamp)
+            )
+            conn.commit()
 
-        query += " ORDER BY timestamp DESC"
-
-        rows = self._fetch_all(query, tuple(params))
-        return [self._row_to_entity(row) for row in rows]
-
-    def update(self, *args, **kwargs):
-        raise NotImplementedError("Event records are immutable.")
-
-    def delete(self, event_id: str):
-        self._execute("DELETE FROM events WHERE id = ?", (event_id,))
-
-    def clear(self):
-        self._execute("DELETE FROM events")
+    def get_all(self) -> list[Event]:
+        with self.get_db_connection(row_factory=sqlite3.Row) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, source, event_type, identity, data, timestamp FROM events ORDER BY timestamp DESC")
+            rows = cursor.fetchall()
+            return [Event(**row) for row in rows]

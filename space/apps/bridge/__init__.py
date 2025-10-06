@@ -1,66 +1,33 @@
-import sys
-from typing import cast
+from .repo import BridgeRepo
 
-# from space.os.core.app import App # Moved to app.py
-from .app import bridge_app # Import the instantiated app
+# Instantiate the repository, which is now a self-contained component.
+repo = BridgeRepo()
 
-from .api import (
-    fetch_alerts,
-    archive,
-    delete,
-    export,
-    rename_channel,
-    resolve_channel_id,
-    create_message,
-    fetch_sender_history,
-    get_all_messages,
-    get_new_messages,
-    add_note,
-    get_notes,
-    get_bridge_instructions,
-    save_bridge_instructions,
-    init_bridge_db,
-    get_bridge_db_connection,
-    emit_bridge_event,
-    Event,
-    Renderer,
-    hash_digest,
-    format_local_time,
-    format_time_ago,
-)
-from .cli import bridge_group
+# Expose the repository methods as the public API of the app.
+def create_channel(channel_name: str, guide_hash: str) -> str:
+    return repo.create_channel(channel_name, guide_hash)
+
+def get_channel_id(channel_name: str) -> str | None:
+    return repo.get_channel_id(channel_name)
+
+def get_channel_name(channel_id: str) -> str | None:
+    return repo.get_channel_name(channel_id)
+
+def create_message(channel_id: str, sender: str, content: str, prompt_hash: str) -> int:
+    return repo.create_message(channel_id, sender, content, prompt_hash)
+
+def get_messages_for_channel(channel_id: str) -> list:
+    return repo.get_messages_for_channel(channel_id)
+
+def fetch_sender_history(sender: str, limit: int | None = None) -> list:
+    return repo.fetch_sender_history(sender, limit)
 
 __all__ = [
-    "fetch_alerts",
-    "archive",
-    "delete",
-    "export",
-    "rename_channel",
-    "resolve_channel_id",
+    "create_channel",
+    "get_channel_id",
+    "get_channel_name",
     "create_message",
+    "get_messages_for_channel",
     "fetch_sender_history",
-    "get_all_messages",
-    "get_new_messages",
-    "send_message",
-    "add_note",
-    "get_notes",
-    "get_bridge_instructions",
-    "save_bridge_instructions",
-    "init_bridge_db",
-    "get_bridge_db_connection",
-    "emit_bridge_event",
-    "Event",
-    "Renderer",
-    "hash_digest",
-    "format_local_time",
-    "format_time_ago",
-    "bridge_app", # Expose the instantiated app
+    "repo", # Exposing the repo directly for now
 ]
-
-
-# name = "bridge" # Handled by app.py
-# def cli_group(): # Handled by app.py
-#     return bridge_group
-
-
-# cast(App, sys.modules[__name__]) # No longer needed

@@ -1,17 +1,4 @@
-from .app import memory_app as app
-from .api import (
-    add_memory_entry,
-    get_memory_entries,
-    edit_memory_entry,
-    delete_memory_entry,
-    clear_memory_entries,
-)
+from .api import add_memory, get_all_memories
+from .cli import cli
 
-__all__ = [
-    "add_memory_entry",
-    "get_memory_entries",
-    "edit_memory_entry",
-    "delete_memory_entry",
-    "clear_memory_entries",
-    "app",
-]
+__all__ = ["add_memory", "get_all_memories", "cli"]

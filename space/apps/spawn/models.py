@@ -6,19 +6,13 @@ from typing import Optional
 class Identity:
     id: str
     type: str
-    current_constitution_id: Optional[str]
-    created_at: datetime
-    updated_at: datetime
+    created_at: int
+    updated_at: int
 
-@dataclass
-class Constitution:
-    id: str
-    name: str
-    version: str
-    content: str
-    identity_id: Optional[str]
-    previous_version_id: Optional[str]
-    created_at: datetime
-    created_by: str
-    change_description: Optional[str]
-    hash: str
+    @property
+    def created_at_iso(self) -> str:
+        return datetime.fromtimestamp(self.created_at, tz=timezone.utc).isoformat()
+
+    @property
+    def updated_at_iso(self) -> str:
+        return datetime.fromtimestamp(self.updated_at, tz=timezone.utc).isoformat()

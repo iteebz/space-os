@@ -28,8 +28,8 @@ def clean_registry_db(tmp_path):
     # Copy the migrations directory from the actual app to the temporary location
     shutil.copytree(actual_app_root / "migrations", temp_migrations_dir, dirs_exist_ok=True)
 
-    # Create a SpawnRepo instance directly, passing the temporary db_path and app_root_path
-    repo = SpawnRepo("spawn", db_path=temp_db_path)
+    # Create a SpawnRepo instance directly, passing the temporary db_path
+    repo = SpawnRepo(db_path=temp_db_path)
     yield repo
 
     # Clean up: database will be removed with tmp_path

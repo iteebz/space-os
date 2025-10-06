@@ -1,38 +1,40 @@
 import pytest
-from pathlib import Path
 import sqlite3
-import tempfile
-import os
 from unittest.mock import patch
+from contextlib import contextmanager
 
-from space.apps.memory.app import memory_app
 from space.apps.memory.repo import MemoryRepo
 
 @pytest.fixture
-def memory_db_path():
-    """
-    Provides a path to a temporary SQLite database for memory app tests.
-    """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        db_path = Path(tmpdir) / "test_memory.db"
-        yield db_path
+def memory_repo() -> MemoryRepo:
+    """Provides a MemoryRepo instance with a single, persistent in-memory SQLite connection for testing."""
+    # Create a single, shared in-memory database connection
+    conn = sqlite3.connect(":memory:")
 
-@pytest.fixture(autouse=True)
-def mock_memory_app_db_path(memory_db_path):
-    """
-    Patches the memory_app's db_path to use a temporary database for tests
-    and re-instantiates the MemoryRepository with this temporary path.
-    """
-    original_db_path = memory_app.db_path
-    original_repositories = memory_app._repositories.copy()
+    # Create the schema
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE memories (
+            uuid TEXT PRIMARY KEY,
+            identity TEXT NOT NULL,
+            topic TEXT NOT NULL,
+            message TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        )
+    """)
+    conn.commit()
 
-    # Patch the db_path
-    with patch.object(memory_app, '_db_path', memory_db_path):
-        # Re-instantiate the repository with the temporary db_path
-        # The MemoryRepository constructor now only takes app_name
-        memory_app._repositories["memory"] = MemoryRepo("memory")
-        yield
+    # Create a repo instance
+    repo = MemoryRepo()
 
-    # Restore original db_path and repositories after tests
-    memory_app._db_path = original_db_path
-    memory_app._repositories = original_repositories
+    # Create a context manager that will yield our single connection
+    @contextmanager
+    def mock_get_db_connection(*args, **kwargs):
+        yield conn
+
+    # Patch the repo's connection method
+    with patch.object(repo, 'get_db_connection', mock_get_db_connection):
+        yield repo
+
+    # Clean up the connection after the test
+    conn.close()

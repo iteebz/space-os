@@ -13,12 +13,12 @@ _event_repo = EventRepo()
 # In-memory listener registry
 _listeners = defaultdict(list) # { (event_type, source): [listeners] }
 
-def track(source: str, event_type: str, identity: str | None = None, data: dict | None = None, metadata: dict | None = None):
+def track(source: str, event_type: str, identity: str | None = None, data: dict | None = None):
     """
     Records and dispatches an event.
     """
     event_id = str(uuid7.uuid7())
-    timestamp = datetime.now().isoformat()
+    timestamp = int(datetime.now().timestamp())
 
     event = Event(
         id=event_id,
@@ -27,10 +27,9 @@ def track(source: str, event_type: str, identity: str | None = None, data: dict 
         event_type=event_type,
         identity=identity,
         data=data,
-        metadata=metadata,
     )
 
-    _event_repo.add(event)
+    _event_repo.add(event.source, event.event_type, event.identity, event.data)
     emit(event)
 
 def emit(event: Event):
