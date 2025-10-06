@@ -25,7 +25,7 @@ def write(
     confidence: float | None = None,
 ) -> str:
     entry_id = uuid7.uuid7()
-    with connect(app.db_path) as conn:
+    with app.get_db_connection() as conn:
         conn.execute(
             "INSERT INTO knowledge (id, domain, contributor, content, confidence) VALUES (?, ?, ?, ?, ?)",
             (entry_id, domain, contributor, content, confidence),
@@ -46,7 +46,7 @@ def query(
     contributor: str | None = None,
     entry_id: str | None = None,
 ) -> list[Knowledge]:
-    with connect(app.db_path, row_factory=sqlite3.Row) as conn:
+    with app.get_db_connection(row_factory=sqlite3.Row) as conn:
         if entry_id:
             row = conn.execute("SELECT * FROM knowledge WHERE id = ?", (entry_id,)).fetchone()
             return [Knowledge(**dict(row))] if row else []

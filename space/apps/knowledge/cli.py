@@ -31,7 +31,7 @@ def write_knowledge_command(contributor, domain, content):
     """Write a knowledge entry."""
     if not contributor or not domain:
         raise click.UsageError("--as and --domain are required when writing.")
-    entry_id = knowledge.write(app.db_path, domain, contributor, content)
+    entry_id = knowledge.write(domain, contributor, content)
     click.echo(f"Knowledge written: {entry_id[:8]}")
 
 
@@ -41,7 +41,7 @@ def write_knowledge_command(contributor, domain, content):
 @click.option("--id", "entry_id", help="Query by entry ID")
 def query_knowledge_command(domain, contributor, entry_id):
     """Query knowledge entries."""
-    entries = knowledge.query(app.db_path, domain=domain, contributor=contributor, entry_id=entry_id)
+    entries = knowledge.query(domain=domain, contributor=contributor, entry_id=entry_id)
     if not entries:
         click.echo("No knowledge entries found")
         return
@@ -69,7 +69,7 @@ def query_knowledge_command(domain, contributor, entry_id):
 @click.option("--contributor", help="Filter by contributor")
 def export(domain, contributor):
     """Export knowledge entries as markdown."""
-    entries = knowledge.query(app.db_path, domain=domain, contributor=contributor)
+    entries = knowledge.query(domain=domain, contributor=contributor)
     if not entries:
         click.echo("No entries found", err=True)
         sys.exit(1)
@@ -95,7 +95,7 @@ def export(domain, contributor):
 @click.argument("entry_id")
 def show(entry_id):
     """Show single knowledge entry."""
-    entries = knowledge.query(app.db_path, entry_id=entry_id)
+    entries = knowledge.query(entry_id=entry_id)
     if not entries:
         click.echo(f"Entry not found: {entry_id}", err=True)
         sys.exit(1)

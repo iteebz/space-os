@@ -1,80 +1,33 @@
-from datetime import datetime
+from pathlib import Path
 
-from space.os import events
-from space.os.lib import uuid7
+from space.os.core.events import emit
+from .repository import MemoryRepository
+from .models import Memory # Still need Memory for type hinting in recall
 
-from .db import connect
-from .models import Memory
+def memorize(db_path: Path, identity: str, topic: str, message: str) -> str:
+    repo = MemoryRepository(db_path)
+    entry_uuid = repo.add(identity, topic, message)
+    emit("memory", "entry.add", identity, {"topic": topic, "message": message[:50]})
+    return entry_uuid
 
+def recall(db_path: Path, identity: str, topic: str | None = None) -> list[Memory]:
+    repo = MemoryRepository(db_path)
+    return repo.get(identity, topic)
 
-def _resolve_uuid(short_uuid: str) -> str:
-    with connect() as conn:
-        # Find all uuids that end with the short_uuid
-        rows = conn.execute(
-            "SELECT uuid FROM memory WHERE uuid LIKE ?", (f"%{short_uuid}",)
-        ).fetchall()
+def edit(db_path: Path, entry_uuid: str, new_message: str):
+    repo = MemoryRepository(db_path)
+    repo.update(entry_uuid, new_message)
+    # The emit for edit needs the full_uuid, which is internal to repo.update.
+    # For now, we'll emit with the provided entry_uuid.
+    emit("memory", "entry.edit", None, {"uuid": entry_uuid[-8:]})
 
-    if not rows:
-        raise ValueError(f"No entry found with UUID ending in '{short_uuid}'")
+def delete(db_path: Path, entry_uuid: str):
+    repo = MemoryRepository(db_path)
+    repo.delete(entry_uuid)
+    # The emit for delete needs the full_uuid, which is internal to repo.delete.
+    # For now, we'll emit with the provided entry_uuid.
+    emit("memory", "entry.delete", None, {"uuid": entry_uuid[-8:]})
 
-    if len(rows) > 1:
-        ambiguous_uuids = [row[0] for row in rows]
-        raise ValueError(
-            f"Ambiguous UUID: '{short_uuid}' matches multiple entries: {ambiguous_uuids}"
-        )
-
-    return rows[0][0]
-
-
-def memorize(identity: str, topic: str, message: str):
-    entry_uuid = uuid7.uuid7()
-    created_at_timestamp = datetime.now().timestamp()
-    with connect() as conn:
-        conn.execute(
-            "INSERT INTO memory (uuid, identity, topic, message, created_at) VALUES (?, ?, ?, ?, ?)",
-            (entry_uuid, identity, topic, message, created_at_timestamp),
-        )
-        conn.commit()
-    events.emit("memory", "entry.add", identity, {"topic": topic, "message": message[:50]})
-
-
-def recall(identity: str, topic: str | None = None) -> list[Memory]:
-    with connect() as conn:
-        if topic:
-            rows = conn.execute(
-                "SELECT uuid, identity, topic, message, created_at FROM memory WHERE identity = ? AND topic = ? ORDER BY uuid",
-                (identity, topic),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT uuid, identity, topic, message, created_at FROM memory WHERE identity = ? ORDER BY topic, uuid",
-                (identity,),
-            ).fetchall()
-    return [Memory(*row) for row in rows]
-
-
-def edit(entry_uuid: str, new_message: str):
-    full_uuid = _resolve_uuid(entry_uuid)
-    with connect() as conn:
-        conn.execute(
-            "UPDATE memory SET message = ? WHERE uuid = ?",
-            (new_message, full_uuid),
-        )
-        conn.commit()
-    events.emit("memory", "entry.edit", None, {"uuid": full_uuid[-8:]})
-
-
-def delete(entry_uuid: str):
-    full_uuid = _resolve_uuid(entry_uuid)
-    with connect() as conn:
-        conn.execute("DELETE FROM memory WHERE uuid = ?", (full_uuid,))
-        conn.commit()
-    events.emit("memory", "entry.delete", None, {"uuid": full_uuid[-8:]})
-
-
-def clear(identity: str, topic: str | None = None):
-    with connect() as conn:
-        if topic:
-            conn.execute("DELETE FROM memory WHERE identity = ? AND topic = ?", (identity, topic))
-        else:
-            conn.execute("DELETE FROM memory WHERE identity = ?", (identity,))
+def clear(db_path: Path, identity: str, topic: str | None = None):
+    repo = MemoryRepository(db_path)
+    repo.clear(identity, topic)

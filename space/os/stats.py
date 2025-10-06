@@ -3,11 +3,11 @@ from __future__ import annotations
 from space.apps.bridge.db import connect as get_bridge_db_connection
 from space.apps.knowledge import db as knowledge_db
 from space.apps.memory import db as memory_db
-from space.os.lib import db_utils
+from space.os.lib.fs import get_database_path
 
 
 def memory_stats(limit: int = None) -> dict:
-    mem_db = db_utils.database_path("memory.db")
+    mem_db = get_database_path("memory.db")
     if not mem_db.exists():
         return {"available": False, "leaderboard": None}
 
@@ -27,7 +27,7 @@ def memory_stats(limit: int = None) -> dict:
 
 
 def knowledge_stats(limit: int = None) -> dict:
-    k_db = db_utils.database_path("knowledge.db")
+    k_db = get_database_path("knowledge.db")
     if not k_db.exists():
         return {"available": False, "leaderboard": None}
 

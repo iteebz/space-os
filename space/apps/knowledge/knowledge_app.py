@@ -1,4 +1,4 @@
-from space.os.app import App
+from space.os.core.app import App
 from .cli import knowledge_group
 from .db import ensure_schema
 

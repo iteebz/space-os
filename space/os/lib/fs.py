@@ -12,6 +12,15 @@ def root() -> Path:
     return Path.cwd()
 
 
+SPACE_DIR = root() / ".space"
+
+def get_database_path(name: str) -> Path:
+    """Return absolute path to a database file under the workspace .space directory."""
+    path = SPACE_DIR / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def guides_dir() -> Path:
     """Return the absolute path to the guides directory."""
     return root() / "space" / "prompts" / "guide"

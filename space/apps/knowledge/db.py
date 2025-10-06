@@ -5,7 +5,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from space.os.lib.db_utils import database_path
+# database_path is no longer directly used here
 
 _KNOWLEDGE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS knowledge (
