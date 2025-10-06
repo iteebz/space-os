@@ -1,6 +1,10 @@
 """Storage logic for messages."""
 
-from ..models import Message
+from space.lib import db
+from . import models
+
+Message = models.Message
+
 from .db import get_db_connection
 
 
@@ -22,42 +26,34 @@ def create_message(
 
 
 def get_new_messages(
-    channel_id: str, agent_id: str, alerts_only: bool = False
-) -> tuple[list[Message], int]:
-    """Get unread messages for a specific agent in a channel."""
-    with get_db_connection() as conn:
-        # Get agent's last seen message ID
-        cursor = conn.execute(
-            "SELECT last_seen_id FROM bookmarks WHERE agent_id = ? AND channel_id = ?",
-            (agent_id, channel_id),
-        )
-        result = cursor.fetchone()
-        last_seen_id = result["last_seen_id"] if result else 0
-
-        # Get messages since last seen
-        if alerts_only:
-            cursor = conn.execute(
+    channel_id: str, last_seen_id: int | None = None
+) -> list[Message]:
+    """Retrieve new messages since the last seen message ID."""
+    with db.connect() as conn:
+        cursor = conn.cursor()
+        if last_seen_id is None:
+            cursor.execute(
                 """
-                SELECT id, channel_id, sender, content, created_at
-                FROM messages
-                WHERE channel_id = ? AND id > ? AND priority = 'alert'
-                ORDER BY created_at ASC
-            """,
-                (channel_id, last_seen_id),
+                SELECT m.id, m.channel_id, m.sender, m.content, m.created_at
+                FROM messages m
+                JOIN channels c ON m.channel_id = c.id
+                WHERE m.channel_id = ? AND c.archived_at IS NULL
+                ORDER BY m.id
+                """,
+                (channel_id,),
             )
         else:
-            cursor = conn.execute(
+            cursor.execute(
                 """
-                SELECT id, channel_id, sender, content, created_at
-                FROM messages
-                WHERE channel_id = ? AND id > ?
-                ORDER BY created_at ASC
-            """,
+                SELECT m.id, m.channel_id, m.sender, m.content, m.created_at
+                FROM messages m
+                JOIN channels c ON m.channel_id = c.id
+                WHERE m.channel_id = ? AND m.id > ? AND c.archived_at IS NULL
+                ORDER BY m.id
+                """,
                 (channel_id, last_seen_id),
             )
-        messages = [Message(**row) for row in cursor.fetchall()]
-
-    return messages, len(messages)
+        return [Message(*row) for row in cursor.fetchall()]
 
 
 def get_all_messages(channel_id: str) -> list[Message]:

@@ -8,8 +8,9 @@ from pathlib import Path
 import click
 
 from .. import protocols
-from . import config, coordination, utils
-from .council import Council
+from . import config, coordination, utils, events as bridge_events
+from .renderer import Renderer, Event
+
 from .storage.migration import MigrationError, migrate_store_db
 
 if config.INSTRUCTIONS_FILE.exists():
@@ -115,11 +116,6 @@ def rename(old_channel, new_channel):
         click.echo(f"❌ Rename failed: {old_channel} not found or {new_channel} already exists")
 
 
-@main.command()
-@click.argument("channel")
-def council(channel):
-    """Interactive human coordination interface."""
-    Council(channel=channel, identity="detective").run()
 
 
 @main.command()
@@ -169,12 +165,15 @@ def send(channel, content, identity, decode_base64):
             raise click.BadParameter("Invalid base64 payload", param_hint="content") from exc
 
     try:
+        bridge_events.emit("message_sending", {"channel": channel, "identity": identity, "content": content}, identity=identity)
         channel_id = coordination.resolve_channel_id(channel)
         coordination.send_message(channel_id, identity, content)
+        bridge_events.emit("message_sent", {"channel": channel, "identity": identity}, identity=identity)
         click.echo(
             f"Sent to {channel}" if identity == "human" else f"Sent to {channel} as {identity}"
         )
     except Exception as exc:
+        bridge_events.emit("error_occurred", {"command": "send", "details": str(exc)}, identity=identity)
         click.echo(f"❌ {exc}")
         raise click.Abort() from exc
 
@@ -186,10 +185,13 @@ def send(channel, content, identity, decode_base64):
 def alert(channel, content, identity):
     """Send high-priority alert to a channel."""
     try:
+        bridge_events.emit("alert_triggering", {"channel": channel, "identity": identity, "content": content}, identity=identity)
         channel_id = coordination.resolve_channel_id(channel)
         coordination.send_message(channel_id, identity, content, priority="alert")
+        bridge_events.emit("alert_triggered", {"channel": channel, "identity": identity}, identity=identity)
         click.echo(f"Alert sent to {channel} as {identity}")
     except Exception as exc:
+        bridge_events.emit("error_occurred", {"command": "alert", "details": str(exc)}, identity=identity)
         click.echo(f"❌ {exc}")
         raise click.Abort() from exc
 
@@ -249,21 +251,15 @@ def instructions():
 def recv(channel, identity):
     """Receive updates from a channel."""
     try:
+        bridge_events.emit("messages_receiving", {"channel": channel, "identity": identity}, identity=identity)
         channel_id = coordination.resolve_channel_id(channel)
         messages, count, context, participants = coordination.recv_updates(channel_id, identity)
-
-        if not messages:
-            click.echo(f"No new messages in {channel}")
-            return
-
-        click.echo(f"--- {channel} ({count} new) ---")
-        if context:
-            click.echo(f"Context: {context}\n")
-
         for msg in messages:
+            bridge_events.emit("message_received", {"channel": channel, "identity": identity, "sender_id": msg.sender, "content": msg.content}, identity=identity)
             click.echo(f"[{msg.sender}] {msg.content}")
             click.echo()
     except Exception as e:
+        bridge_events.emit("error_occurred", {"command": "recv", "details": str(e)}, identity=identity)
         click.echo(f"❌ Receive failed: {e}")
         raise click.Abort() from e
 
@@ -334,7 +330,9 @@ def backup():
 def alerts(identity):
     """Show all unread alerts across all channels."""
     try:
+        bridge_events.emit("alerts_checking", {"identity": identity}, identity=identity)
         alert_messages = coordination.get_alerts(identity)
+        bridge_events.emit("alerts_checked", {"identity": identity, "count": len(alert_messages)}, identity=identity)
         if not alert_messages:
             click.echo(f"No alerts for {identity}")
             return
@@ -344,6 +342,7 @@ def alerts(identity):
             click.echo(f"\n[{msg.sender} | {msg.channel_id}]")
             click.echo(msg.content)
     except Exception as exc:
+        bridge_events.emit("error_occurred", {"command": "alerts", "details": str(exc)}, identity=identity)
         click.echo(f"❌ {exc}")
         raise click.Abort() from exc
 
@@ -368,6 +367,90 @@ def history(identity, limit):
         click.echo(f"❌ {exc}")
         raise click.Abort() from exc
 
+
+
+def _stream_events(channel: str | None = None):
+    """Helper function to stream bridge events, with optional channel filtering."""
+    from .. import events
+    import time
+
+    # 1. Render historic events
+    all_events = events.query(source="bridge", limit=1000) # Increased limit for history
+    historic_events = []
+    for event_tuple in reversed(all_events):
+        event = {
+            "uuid": event_tuple[0],
+            "source": event_tuple[1],
+            "identity": event_tuple[2],
+            "event_type": event_tuple[3],
+            "data": event_tuple[4],
+            "created_at": event_tuple[5],
+        }
+        if channel is None or (event.get("data") and event.get("data", {}).get("channel") == channel):
+            event_type = event.get("event_type")
+            data = event.get("data", {})
+            identity = event.get("identity")
+            if event_type == "message_sent":
+                click.echo(f"→ Sent to {data.get('channel')} as {identity}: {data.get('content')}")
+            elif event_type == "message_received":
+                click.echo(f"← Received from {data.get('sender_id')} in {data.get('channel')}: {data.get('content')}")
+
+    # 2. Start live stream
+    renderer = Renderer()
+
+    def event_stream():
+        last_event_uuid = all_events[0][0] if all_events else None
+        while True:
+            try:
+                all_events_live = events.query(source="bridge", limit=100)
+                new_events = []
+                if last_event_uuid:
+                    for i, event in enumerate(all_events_live):
+                        if event[0] == last_event_uuid:
+                            new_events = all_events_live[:i]
+                            break
+                else:
+                    new_events = all_events_live
+
+                if new_events:
+                    for event_tuple in reversed(new_events):
+                        event_data = {
+                            "uuid": event_tuple[0],
+                            "source": event_tuple[1],
+                            "identity": event_tuple[2],
+                            "event_type": event_tuple[3],
+                            "data": event_tuple[4],
+                            "created_at": event_tuple[5],
+                        }
+                        if channel is None or (event_data.get("data") and event_data.get("data", {}).get("channel") == channel):
+                            event_type = event_data.get("event_type")
+                            data = event_data.get("data", {})
+                            if event_type == "message_sent":
+                                yield Event(type="token", content=f"→ Sent to {data.get('channel')} as {event_data.get('identity')}: {data.get('content')}\n")
+                            elif event_type == "message_received":
+                                yield Event(type="token", content=f"← Received from {data.get('sender_id')} in {data.get('channel')}: {data.get('content')}\n")
+                            else:
+                                yield Event(type="status", content=f"Event: {event_type}")
+
+                    last_event_uuid = new_events[0][0]
+
+                time.sleep(1)
+            except KeyboardInterrupt:
+                yield Event(type="done")
+                break
+
+    renderer.render(event_stream())
+
+@main.command()
+def stream():
+    """Stream all bridge events in real-time."""
+    _stream_events()
+
+@main.command()
+@click.argument("channel")
+def council(channel):
+    """Stream bridge events for a specific channel."""
+    _stream_events(channel=channel)
 
 if __name__ == "__main__":
     main()
