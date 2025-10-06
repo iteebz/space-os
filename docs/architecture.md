@@ -48,6 +48,8 @@ Constitutions (or protocols) are documents that define an agent's or app's behav
 
 ## Styling and Naming Conventions
 
+These conventions are not merely stylistic preferences; they are crucial for maintaining architectural clarity, reducing cognitive load, and ensuring consistency across a modular system. Adhering to these guidelines is paramount for readability and maintainability.
+
 *   **Internal Modules:** Use plural nouns for internal modules that represent collections or domains (e.g., `channels.py`, `messages.py`).
 *   **Function Naming:** Prefer short, clear verbs. The module name provides context, so avoid redundancy (e.g., `channels.create()`, `messages.send()`).
 *   **API Naming:** Use clear, unambiguous aliases in `api.py` to prevent name collisions and provide context for external consumers (e.g., `from .memory import recall as get_memory_entries`).

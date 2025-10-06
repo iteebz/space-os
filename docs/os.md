@@ -28,7 +28,7 @@ space/
     *   **Purpose:** Contains database-related OS services, suchs as `migrations.py` for managing schema evolution across applications.
 
 3.  **`os/events/`:
-    *   **Purpose:** Provides a system-wide mechanism for logging and communication. Applications emit events, and the system can track and react to them.
+    *   **Purpose:** Contains the system-wide eventing mechanism (e.g., `events.py`). Applications emit events through this service, and the system can track and react to them.
 
 4.  **`os/lib/`:
     *   **Purpose:** Contains shared libraries and utilities (e.g., `fs` for filesystem operations, `sha256` for hashing, `uuid7` for UUID generation). These are the equivalent of system libraries in a traditional OS.

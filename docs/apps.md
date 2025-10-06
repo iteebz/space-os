@@ -31,7 +31,11 @@ from collections.abc import Iterator, Callable
 from contextlib import contextmanager
 
 from space.os.lib import fs
+from space.os.core.storage import Storage # Import the Storage base class
 
+# SPACE_DIR is the root directory for all application-specific data,
+# typically located at the project root's .space directory.
+# fs.root() resolves to the project's absolute root path.
 SPACE_DIR = fs.root() / ".space"
 
 class App:
