@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 import sqlite3
 from pathlib import Path
 from datetime import datetime
+import time
 
 from space.apps.memory.repo import MemoryRepo
 from space.apps.memory.models import Memory
@@ -56,8 +57,8 @@ def test_add_memory_entry(in_memory_repo):
 
 def test_get_memory_entries(in_memory_repo):
     repo, conn = in_memory_repo
-    repo.add("user1", "topicA", "message1")
-    repo.add("user1", "topicA", "message2")
+    repo.add("user1", "topicA", "message1", created_at=1)
+    repo.add("user1", "topicA", "message2", created_at=2)
     repo.add("user2", "topicB", "message3")
 
     entries = repo.get("user1", "topicA")
@@ -137,7 +138,7 @@ def test_row_to_entity(in_memory_repo):
         "created_at": 1678886400 # Example timestamp
     }
     mock_row = Mock()
-    mock_row.__getitem__ = lambda key: mock_row_data[key]
+    mock_row.__getitem__ = lambda s, key: mock_row_data[key] # Corrected lambda
 
     memory_obj = repo._row_to_entity(mock_row)
     assert isinstance(memory_obj, Memory)

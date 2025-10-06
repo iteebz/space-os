@@ -1,43 +1,60 @@
-from space.apps.registry import api as registry_api
-from space.os.lib import sha256 # Import sha256 for hashing
-from typing import Optional
+from typing import Optional, List
+from .models import Identity, Constitution
 
-def spawn(
-    agent_id: str,
-    role: str,
-    channels: list[str],
-    constitution_content: str, # Now accepts content directly
-    provider: Optional[str] = None,
-    model: Optional[str] = None,
-):
+# Module-level variable to hold the app instance
+spawn_app_instance = None
+
+def _set_spawn_app_instance(app_instance):
     """
-    Spawns an agent and implicitly registers it with the system.
+    Setter for the module-level app instance.
+    Called by the app's __init__.py to inject the app instance.
     """
-    # Here, you would have the logic to actually "spawn" the agent,
-    # e.g., by creating a new process, a Docker container, or a Kubernetes pod.
-    # For now, we will just simulate this by printing a message.
-    print(f"Spawning agent '{agent_id}' with role '{role}'...")
+    global spawn_app_instance
+    spawn_app_instance = app_instance
 
-    # Calculate the hash of the constitution content
-    constitution_hash = sha256.sha256(constitution_content)
+def add_identity(id: str, type: str, initial_constitution_hash: Optional[str] = None) -> Identity:
+    repo = spawn_app_instance.repositories["spawn"]
+    return repo.add_identity(id, type, initial_constitution_content)
 
-    # Register the constitution version with the registry
-    constitution = registry_api.add_constitution_version(
-        name=f"{agent_id}_constitution", # A name for this constitution version
-        content=constitution_content,
-        identity_id=agent_id, # Link to the agent being spawned
-        change_description="Initial constitution during agent spawn",
-        created_by="spawn_app",
-    )
-    print(f"Constitution version registered with hash: {constitution.hash}")
+def get_identity(id: str) -> Optional[Identity]:
+    if not spawn_app_instance:
+        raise RuntimeError("Spawn app instance not set.")
+    repo = spawn_app_instance.repositories["spawn"]
+    return repo.get_identity(id)
 
-    # Register the agent identity with the registry, linking to the constitution hash
-    identity = registry_api.add_identity(
-        id=agent_id,
-        type=role, # Using role as the identity type
-        initial_constitution_hash=constitution_hash, # Link to the registered constitution
-    )
-    print(f"Agent '{agent_id}' registered with ID: {identity.id}")
+def add_constitution_version(
+    name: str,
+    content: str,
+    identity_id: Optional[str] = None,
+    change_description: Optional[str] = None,
+    created_by: str = "system",
+) -> Constitution:
+    """Adds a new version of a constitution or guide."""
+    if not spawn_app_instance:
+    repo = spawn_app_instance.repositories["spawn"]
+    constitution_hash = sha256.sha256(content)
+    return repo.add_constitution_version(name, content, constitution_hash, change_description, created_by)
 
-    # Further logic for channels, provider, model can be added here if needed
-    # For example, linking channels to the identity in the registry or another app
+def get_current_constitution_for_identity(identity_id: str) -> Optional[Constitution]:
+    repo = spawn_app_instance.repositories["spawn"]
+    return repo.get_current_constitution_for_identity(identity_id)
+
+def get_constitution_version(id: str) -> Optional[Constitution]:
+    repo = spawn_app_instance.repositories["spawn"]
+    return repo.get_constitution_version(id)
+
+def get_constitution_history_for_identity(identity_id: str) -> List[Constitution]:
+        raise RuntimeError("Spawn app instance not set.")
+    repo = spawn_app_instance.repositories["spawn"]
+    return repo.get_constitution_history_for_identity(identity_id)
+
+def get_constitution_history_by_name(name: str) -> List[Constitution]:
+    repo = spawn_app_instance.repositories["spawn"]
+    return repo.get_constitution_history_by_name(name)
+
+def get_constitution_by_hash(constitution_hash: str) -> Optional[Constitution]:
+    """Retrieves a constitution by its SHA256 hash."""
+    if not spawn_app_instance:
+        raise RuntimeError("Spawn app instance not set.")
+    repo = spawn_app_instance.repositories["spawn"]
+    return repo.get_constitution_by_hash(constitution_hash)

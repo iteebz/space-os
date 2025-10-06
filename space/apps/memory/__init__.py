@@ -15,6 +15,6 @@ __all__ = [
     "get_memory_entries",
     "edit_memory_entry",
     "delete_memory_entry",
-    "clear_memory_entry",
+    "clear_memory_entries",
     "app",
 ]

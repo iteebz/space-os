@@ -13,7 +13,7 @@ class Memory(App):
         return memory_group
 
     def initialize(self):
-        self.ensure_db()
+        pass
 
 # Instantiate the app
 memory_app = Memory()

@@ -7,7 +7,7 @@ from .messages import fetch_history as fetch_sender_history, fetch_all as get_al
 from .notes import create as add_note, fetch as get_notes
 
 # Imports from registry.guides (new source of truth for instructions)
-from space.apps.registry.guides import load_guide_content
+from space.apps.spawn.guides import load_guide_content
 from space.os.lib import sha256 # Import sha256 for consistent hashing
 
 # Other bridge imports

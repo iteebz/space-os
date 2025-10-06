@@ -39,12 +39,13 @@ class MemoryRepo(Repo): # Inherit from Repo
 
         return rows[0][0]
 
-    def add(self, identity: str, topic: str, message: str) -> str:
+    def add(self, identity: str, topic: str, message: str, created_at: int | None = None) -> str:
         entry_uuid = uuid7.uuid7()
-        created_at_timestamp = int(datetime.now().timestamp())
+        if created_at is None:
+            created_at = int(datetime.now().timestamp())
         self._execute(
             "INSERT INTO memory (uuid, identity, topic, message, created_at) VALUES (?, ?, ?, ?, ?)",
-            (str(entry_uuid), identity, topic, message, created_at_timestamp),
+            (str(entry_uuid), identity, topic, message, created_at),
         )
         return str(entry_uuid)
 

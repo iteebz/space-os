@@ -2,7 +2,7 @@ import click
 
 from space.apps.memory.app import memory_app
 from space.apps.bridge.app import bridge_app
-from space.apps.registry.app import registry_app
+from space.apps.spawn.app import spawn_app
 from space.apps.backup.app import backup_app # Import backup_app
 from space.apps.stats.app import stats_app # Import stats_app
 from space.os.core.storage import Repo
@@ -37,7 +37,7 @@ def migrate(app_name: str):
 
 cli.add_command(memory_app.cli_group(), name="memory")
 cli.add_command(bridge_app.cli_group(), name="bridge")
-cli.add_command(registry_app.cli_group(), name="registry")
+
 cli.add_command(backup_app.cli_group(), name="backup") # Add backup_app's cli_group
 cli.add_command(stats_app.cli_group(), name="stats") # Add stats_app's cli_group
 cli.add_command(spawn_app.cli_group(), name="spawn") # Assuming a spawn app will exist

@@ -1,3 +1,4 @@
+from space.apps.memory import api
 import pytest
 from unittest.mock import Mock, patch
 from uuid import uuid4
@@ -12,6 +13,12 @@ from space.apps.memory.api import (
 )
 from space.apps.memory.models import Memory
 from space.apps.memory.app import memory_app
+
+@pytest.fixture(autouse=True)
+def setup_api_instance(mock_memory_repository):
+    api._set_memory_repo_instance(mock_memory_repository)
+    yield
+    api._set_memory_repo_instance(None) # Clean up global state after test
 
 @pytest.fixture
 def mock_memory_repository():

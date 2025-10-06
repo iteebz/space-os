@@ -5,12 +5,12 @@ import sqlite3
 from space.os.core.storage import Repo
 from space.os.db.migration import apply_migrations
 from space.os.lib import uuid7
-from space.apps.registry.models import Identity, Constitution
+from space.apps.spawn.models import Identity, Constitution
 import hashlib
 
-class RegistryRepo(Repo):
+class SpawnRepo(Repo):
     SCHEMA_FILES = [
-        "V1__initial_registry_schema.py",
+        "V1__initial_spawn_schema.py",
     ]
 
     def __init__(self, app_name: str, db_path: Path | None = None):

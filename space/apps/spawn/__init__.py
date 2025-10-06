@@ -1,16 +1,21 @@
-import sys
-from typing import cast
-import click
+from .app import registry_app # Import the instantiated app
+from .api import ( # Import public API functions
+    add_identity,
+    get_identity,
+    add_constitution_version,
+    get_current_constitution_for_identity,
+    get_constitution_version,
+    get_constitution_history_for_identity,
+    get_constitution_history_by_name,
+)
 
-from space.os.core.app import App
-from .cli import spawn_group
-
-@property
-def name(self) -> str:
-    return "spawn"
-
-def cli_group(self) -> click.Group:
-    return spawn_group
-
-# Explicitly declare conformance to the App protocol
-cast(App, sys.modules[__name__])
+__all__ = [
+    "registry_app",
+    "add_identity",
+    "get_identity",
+    "add_constitution_version",
+    "get_current_constitution_for_identity",
+    "get_constitution_version",
+    "get_constitution_history_for_identity",
+    "get_constitution_history_by_name",
+]
