@@ -1,7 +1,7 @@
 """Core database connection, schema, and utilities."""
 
 import sqlite3
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 
 from .. import config
 
@@ -37,18 +37,8 @@ def init_db():
                 content TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 prompt_hash TEXT,
-                priority TEXT DEFAULT 'normal'
-            )
-        """)
-
-        # Identity prompts table
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS identities (
-                hash TEXT PRIMARY KEY,
-                base_identity TEXT NOT NULL,
-                content TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                notes TEXT
+                priority TEXT DEFAULT 'normal',
+                constitution_hash TEXT
             )
         """)
 
@@ -58,6 +48,7 @@ def init_db():
                 agent_id TEXT NOT NULL,
                 channel_id TEXT NOT NULL,
                 last_seen_id INTEGER DEFAULT 0,
+                constitution_hash TEXT,
                 PRIMARY KEY (agent_id, channel_id)
             )
         """)
@@ -70,8 +61,21 @@ def init_db():
                 context TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 notes TEXT,
-                instruction_hash TEXT
+                instruction_hash TEXT,
+                archived_at TIMESTAMP
             )
+        """)
+
+        # Migration: Add archived_at column to existing channels table
+        with suppress(sqlite3.OperationalError):
+            conn.execute("ALTER TABLE channels ADD COLUMN archived_at TIMESTAMP")
+
+        # Data Migration: Populate archived_at for channels previously archived by created_at
+        conn.execute("""
+            UPDATE channels
+            SET archived_at = created_at
+            WHERE archived_at IS NULL
+            AND created_at < datetime('now', '-29 days')
         """)
 
         # Channel notes for experimental tracking
@@ -98,11 +102,16 @@ def init_db():
         """)
 
         # Migration: Add priority column to existing messages table
-        try:
+        with suppress(sqlite3.OperationalError):
             conn.execute("ALTER TABLE messages ADD COLUMN priority TEXT DEFAULT 'normal'")
-        except sqlite3.OperationalError:
-            pass
 
+        # Migration: Add constitution_hash column to existing messages table
+        with suppress(sqlite3.OperationalError):
+            conn.execute("ALTER TABLE messages ADD COLUMN constitution_hash TEXT")
+
+        # Migration: Add constitution_hash column to existing bookmarks table
+        with suppress(sqlite3.OperationalError):
+            conn.execute("ALTER TABLE bookmarks ADD COLUMN constitution_hash TEXT")
 
         # Performance indexes
         conn.execute(

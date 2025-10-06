@@ -1,10 +1,11 @@
 """Business logic for handling messages."""
 
+import hashlib
+import os
 import re
 
 from .. import storage
 from ..models import Message
-from .identities import load_identity
 
 
 def is_context(content: str) -> bool:
@@ -28,26 +29,18 @@ def parse_context(content: str) -> str:
     return content
 
 
-def _store_identity(sender_id: str, topic: str):
-    """Materialise identity content, enforcing provenance."""
-    if sender_id in {"detective", "human"}:
-        return sender_id
-    identity_content, new_hash = load_identity(sender_id, topic)
-    storage.save_identity(sender_id, identity_content, new_hash)
-    return new_hash
-
-
 def send_message(channel_id: str, sender: str, content: str, priority: str = "normal") -> str:
     """Orchestrate sending a message: validate, ensure identity, and store."""
-    topic = storage.get_channel_name(channel_id)
-    prompt_hash = _store_identity(sender, topic)
+    constitution_hash = os.environ.get("AGENT_CONSTITUTION_HASH")
+    message_hash = hashlib.sha256(content.encode()).hexdigest()
 
     storage.create_message(
         channel_id=channel_id,
         sender=sender,
         content=content,
-        prompt_hash=prompt_hash,
+        prompt_hash=message_hash,
         priority=priority,
+        constitution_hash=constitution_hash,
     )
 
     if is_context(content):
@@ -60,9 +53,10 @@ def send_message(channel_id: str, sender: str, content: str, priority: str = "no
 def recv_updates(channel_id: str, agent_id: str) -> tuple[list[Message], int, str, list[str]]:
     """Receive topic updates, returning messages, count, context, and participants."""
     messages, unread_count = storage.get_new_messages(channel_id, agent_id)
+    constitution_hash = os.environ.get("AGENT_CONSTITUTION_HASH")
 
     if messages:
-        storage.set_bookmark(agent_id, channel_id, messages[-1].id)
+        storage.set_bookmark(agent_id, channel_id, messages[-1].id, constitution_hash)
 
     context = storage.get_context(channel_id)
     participants = storage.get_participants(channel_id)

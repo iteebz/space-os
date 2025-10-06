@@ -1,11 +1,11 @@
 import json
 from pathlib import Path
 
+from space.lib import fs
 from space.spawn import config as spawn_config
 
 SPACE_DIR = spawn_config.workspace_root() / ".space"
 BRIDGE_DIR = SPACE_DIR / "bridge"
-IDENTITIES_DIR = BRIDGE_DIR / "identities"
 DB_PATH = SPACE_DIR / "bridge.db"
 CONFIG_FILE = SPACE_DIR / "config.json"
 SENTINEL_LOG_PATH = SPACE_DIR / "security" / "sentinel.log"
@@ -29,24 +29,7 @@ def _load_config():
 _config = _load_config()
 
 
-def _get_identity_file(base: str) -> Path:
-    default = IDENTITIES_DIR / f"{base}.md"
-    path = Path(_config.get(base, default))
-    if path.exists():
-        return path
-
-    workspace_fallback = SPACE_DIR / "identities" / f"{base}.md"
-    if workspace_fallback.exists():
-        return workspace_fallback
-
-    legacy = LEGACY_BRIDGE_DIR / "identities" / f"{base}.md"
-    if legacy.exists():
-        return legacy
-
-    return path
-
-
-INSTRUCTIONS_FILE = Path(__file__).resolve().parent.parent.parent / "protocols" / "bridge.md"
+INSTRUCTIONS_FILE = fs.guide_path("bridge.md")
 
 WAIT_POLL_INTERVAL = 15.0
 

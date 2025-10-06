@@ -4,7 +4,7 @@ import sqlite3
 from dataclasses import dataclass
 
 from .bridge import config as bridge_config
-from .lib import context_db, storage
+from .lib.storage import context, utils
 
 
 @dataclass
@@ -64,11 +64,11 @@ def bridge_stats(limit: int = None) -> BridgeStats:
 
 
 def memory_stats(limit: int = None) -> MemoryStats:
-    ctx_db = storage.database_path("context.db")
+    ctx_db = utils.database_path("context.db")
     if not ctx_db.exists():
         return MemoryStats(available=False)
 
-    with context_db.connect() as conn:
+    with context.connect() as conn:
         if limit:
             rows = conn.execute(
                 "SELECT identity, COUNT(*) as count FROM memory GROUP BY identity ORDER BY count DESC LIMIT ?",
@@ -84,11 +84,11 @@ def memory_stats(limit: int = None) -> MemoryStats:
 
 
 def knowledge_stats(limit: int = None) -> KnowledgeStats:
-    ctx_db = storage.database_path("context.db")
+    ctx_db = utils.database_path("context.db")
     if not ctx_db.exists():
         return KnowledgeStats(available=False)
 
-    with context_db.connect() as conn:
+    with context.connect() as conn:
         if limit:
             rows = conn.execute(
                 "SELECT contributor, COUNT(*) as count FROM knowledge GROUP BY contributor ORDER BY count DESC LIMIT ?",

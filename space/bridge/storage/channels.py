@@ -84,7 +84,7 @@ def fetch_channels(agent_id: str = None, time_filter: str = None) -> list[Channe
     """Get channels with metadata, optionally filtered by activity time and including unread counts for an agent."""
     with get_db_connection() as conn:
         query = """
-            SELECT t.id, t.name, t.context, t.created_at,
+            SELECT t.id, t.name, t.context, t.created_at, t.archived_at,
                    COALESCE(msg_counts.total_messages, 0) as total_messages,
                    msg_counts.last_activity,
                    COALESCE(msg_counts.participants, '') as participants,
@@ -137,6 +137,7 @@ def fetch_channels(agent_id: str = None, time_filter: str = None) -> list[Channe
                     name=row["name"],
                     context=row["context"],
                     created_at=row["created_at"],
+                    archived_at=row["archived_at"],
                     participants=participants_list,
                     message_count=row["total_messages"],
                     last_activity=row["last_activity"],
@@ -182,10 +183,10 @@ def get_export_data(channel_id: str) -> ExportData:
 
 
 def archive_channel(channel_id: str):
-    """Archive a channel by setting its creation date to 30 days in the past."""
+    """Archive a channel by setting its archived_at timestamp."""
     with get_db_connection() as conn:
         conn.execute(
-            "UPDATE channels SET created_at = datetime('now', '-30 days') WHERE id = ?",
+            "UPDATE channels SET archived_at = CURRENT_TIMESTAMP WHERE id = ?",
             (channel_id,),
         )
         conn.commit()

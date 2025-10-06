@@ -2,7 +2,7 @@ import sqlite3
 import time
 from pathlib import Path
 
-from .lib.ids import uuid7
+from .lib.uuid7 import uuid7
 
 DB_PATH = Path.cwd() / ".space" / "events.db"
 
@@ -36,7 +36,7 @@ def emit(source: str, event_type: str, identity: str | None = None, data: str | 
     init_db()
     event_uuid = uuid7()
     created_at = int(time.time())
-    
+
     conn = sqlite3.connect(DB_PATH)
     conn.execute(
         "INSERT INTO events (uuid, source, identity, event_type, data, created_at) VALUES (?, ?, ?, ?, ?, ?)",
@@ -50,9 +50,9 @@ def query(source: str | None = None, identity: str | None = None, limit: int = 1
     """Query events by source or identity."""
     if not DB_PATH.exists():
         return []
-    
+
     conn = sqlite3.connect(DB_PATH)
-    
+
     if source and identity:
         rows = conn.execute(
             "SELECT uuid, source, identity, event_type, data, created_at FROM events WHERE source = ? AND identity = ? ORDER BY uuid DESC LIMIT ?",
@@ -73,6 +73,6 @@ def query(source: str | None = None, identity: str | None = None, limit: int = 1
             "SELECT uuid, source, identity, event_type, data, created_at FROM events ORDER BY uuid DESC LIMIT ?",
             (limit,),
         ).fetchall()
-    
+
     conn.close()
     return rows

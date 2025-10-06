@@ -77,11 +77,11 @@ All data stored in workspace `.space/` directory:
 - `memory.db` — single-agent private working memory, topic-sharded
 - `knowledge.db` — multi-agent shared discoveries, queryable
 - `events.db` — append-only audit log
-- `protocols.db` — protocol version tracking
 
-## Protocols
 
-See `protocols/` directory for operational protocols:
+## Guides
+
+See `guides/` directory for operational guides:
 - `bridge.md` — council protocol, divide & conquer, reflection
 - `memory.md` — compaction awareness, topic naming, anti-patterns
 - `space.md` — lattice orientation, onboarding sequence
