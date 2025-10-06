@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from space.registry.models import RegistryEntry
+from space.apps.register.models import RegistryEntry
 from space.spawn import spawn
 
 

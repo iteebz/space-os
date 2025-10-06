@@ -3,8 +3,8 @@ import hashlib
 
 import pytest
 
-from space.bridge import coordination
-from space.bridge.coordination import messages as coordination_messages
+from space.apps.bridge import coordination
+from space.apps.bridge.coordination import messages as coordination_messages
 
 
 @pytest.fixture
@@ -29,7 +29,7 @@ def setup_channel():
     )
 
     # Initialize the database to ensure schema is up-to-date
-    from space.bridge.storage import db as bridge_db
+    from space.apps.bridge.storage import db as bridge_db
 
     bridge_db.init_db()
 

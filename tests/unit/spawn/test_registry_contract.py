@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from space.registry import registry
+from space.apps.register import registry
 from space.spawn import config
 
 

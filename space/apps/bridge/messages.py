@@ -1,6 +1,6 @@
 """Storage logic for messages."""
 
-from .. import models
+from . import models
 from .db import connect
 
 Message = models.Message

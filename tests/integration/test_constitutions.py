@@ -2,7 +2,7 @@ import time
 from unittest.mock import patch
 
 import pytest
-from space.registry import db as registry_db
+from space.apps.register import db as registry_db
 
 from space.lib import hashing
 

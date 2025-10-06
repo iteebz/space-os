@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from space import config
+from space.os import config
 
 from .db import ensure_bridge_dir
 

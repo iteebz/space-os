@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from space.registry.models import Registration  # Import Registration directly
+from space.apps.register.models import Registration  # Import Registration directly
 from space.spawn import spawner
 
 

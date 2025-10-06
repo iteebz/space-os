@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
-from space.bridge.coordination import messages
-from space.bridge.models import Message
+from space.apps.bridge.coordination import messages
+from space.apps.bridge.models import Message
 
 
 @pytest.fixture

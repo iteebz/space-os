@@ -1,7 +1,7 @@
 import tempfile
 from pathlib import Path
 
-from space.registry import registry
+from space.apps.register import registry
 
 # def test_register_with_model():
 #     with tempfile.TemporaryDirectory() as tmpdir:

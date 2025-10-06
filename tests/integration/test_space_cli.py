@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from space.registry import registry
+from space.apps.register import registry
 
 
 @pytest.fixture

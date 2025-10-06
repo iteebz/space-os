@@ -5,29 +5,27 @@ from datetime import datetime
 
 import click
 
-from space import config, events
-from space.apps import registry
-from . import notes
-from .renderer import Event
-from space.lib.base64 import decode_b64
+from space.os import config, events
+from space.apps import register
+from space.os.lib.base64 import decode_b64
 
-from .db import init
+from . import alerts, channels, db, messages, notes, streamer, utils
+from .api import get_bridge_instructions
 from .migration import MigrationError, migrate_store_db
+from .renderer import Event
 
 
 @click.group(invoke_without_command=True)
 @click.pass_context
 def bridge_group(ctx):
-    init()
-    if config.INSTRUCTIONS_FILE.exists():
-        registry.track_guide("bridge", bridge_config.INSTRUCTIONS_FILE.read_text())
+    db.init()
     """Bridge: AI Coordination Protocol"""
     if ctx.invoked_subcommand is None:
         # show_dashboard() # Will be handled later
         pass  # Placeholder for now
 
 
-def _display_channels(all_channels, is_dashboard: bool = False) -> None:
+def _display_channels(all_channels: list, is_dashboard: bool = False) -> None:
     if not all_channels:
         click.echo("No channels found")
         return
@@ -35,33 +33,36 @@ def _display_channels(all_channels, is_dashboard: bool = False) -> None:
     active_channels = []
     archived_channels = []
 
-    for channel in all_channels:
-        if channel.archived_at is not None:
-            archived_channels.append(channel)
+    for channel_obj in all_channels:
+        if channel_obj.archived_at is not None:
+            archived_channels.append(channel_obj)
         else:
-            active_channels.append(channel)
+            active_channels.append(channel_obj)
     active_channels.sort(key=lambda t: t.name)
     archived_channels.sort(key=lambda t: t.name)
 
-    if archived_channels:
-        click.echo("--- Archived Channels ---")
-        for channel in archived_channels:
-            last_activity_dt = (
-                datetime.fromisoformat(channel.last_activity) if channel.last_activity else None
+    if active_channels:
+        click.echo("--- Active Channels ---")
+        for channel_obj in active_channels:
+            last_activity_str = utils.format_time_ago(channel_obj.last_activity) if channel_obj.last_activity else "never"
+            click.echo(
+                f"  {channel_obj.name:<20} ({channel_obj.message_count} msgs, {len(channel_obj.participants)} units, last activity: {last_activity_str})"
             )
-            last_activity_dt.strftime("%Y-%m-%d") if last_activity_dt else "never"
-            [
-                f"{channel.message_count} msgs",
-                f"{len(channel.participants)} units",
-            ]
+
+    if archived_channels:
+        click.echo("\n--- Archived Channels ---")
+        for channel_obj in archived_channels:
+            last_activity_str = utils.format_time_ago(channel_obj.last_activity) if channel_obj.last_activity else "never"
+            click.echo(
+                f"  {channel_obj.name:<20} ({channel_obj.message_count} msgs, {len(channel_obj.participants)} units, last activity: {last_activity_str})"
+            )
 
 
 @bridge_group.command(name="channels")
 def bridge_channels():
     """List all channels."""
-    all_channels = get_all_channels()
+    all_channels = channels.fetch()
     _display_channels(all_channels)
-
 
 
 @bridge_group.command(name="rename")
@@ -69,7 +70,7 @@ def bridge_channels():
 @click.argument("new_channel")
 def bridge_rename(old_channel, new_channel):
     """Rename channel and preserve all coordination data."""
-    success = channel.rename_channel(old_channel, new_channel)
+    success = channels.rename_channel(old_channel, new_channel)
     if success:
         click.echo(f"Renamed channel: {old_channel} -> {new_channel}")
     else:
@@ -80,17 +81,17 @@ def bridge_rename(old_channel, new_channel):
 @click.argument("channels", nargs=-1, required=True)
 def archive(channels):
     """Archive channels by setting creation date to 30 days ago."""
-    for channel in channels:
-        channel.archive_channel(channel)
-        click.echo(f"Archived channel: {channel}")
+    for channel_obj in channels:
+        channels.archive_channel(channel_obj)
+        click.echo(f"Archived channel: {channel_obj}")
 
 
 @bridge_group.command()
 @click.argument("channel")
-def delete(channel):
+def delete(channel_obj):
     """Permanently delete channel and all messages (HUMAN ONLY)."""
-    channel.delete_channel(channel)
-    click.echo(f"Deleted channel: {channel}")
+    channels.delete_channel(channel_obj)
+    click.echo(f"Deleted channel: {channel_obj}")
 
 
 @bridge_group.command(name="migrate-db")
@@ -125,7 +126,7 @@ def send(channel, content, identity, decode_base64):
             data={"channel": channel, "identity": identity, "content": content},
             identity=identity,
         )
-        channel_id = channel.resolve_channel_id(channel)
+        channel_id = channels.resolve_channel_id(channel)
         events.emit(
             source="bridge",
             event_type="message_sent",
@@ -157,8 +158,9 @@ def alert(channel, content, identity):
             source="bridge",
             event_type="alert_triggering",
             data={"channel": channel, "identity": identity, "content": content},
-        channel_id = channel.resolve_channel_id(channel)
-        message.send_message(channel_id, identity, content, priority="alert")
+        )
+        channel_id = channels.resolve_channel_id(channel)
+        messages.create(channel_id, identity, content, priority="alert")
         events.emit(
             source="bridge",
             event_type="alert_triggered",
@@ -186,16 +188,16 @@ def notes(channel, content, identity, decode_base64):
     if content is None:
         # Show notes mode
         try:
-            channel_id = coordination.resolve_channel_id(channel)
-            notes = note.get_notes(channel_id)
-            if not notes:
+            channel_id = channels.resolve_channel_id(channel)
+            notes_list = notes.fetch(channel_id)
+            if not notes_list:
                 click.echo(f"No notes for channel: {channel}")
                 return
 
             click.echo(f"Notes for {channel}:")
-            for note in notes:
-                timestamp = utils.format_local_time(note["created_at"])
-                click.echo(f"[{timestamp}] {note['author']}: {note['content']}")
+            for note_item in notes_list:
+                timestamp = utils.format_local_time(note_item["created_at"])
+                click.echo(f"[{timestamp}] {note_item['author']}: {note_item['content']}")
                 click.echo()
         except Exception as e:
             click.echo(f"❌ Failed to get notes: {e}")
@@ -206,7 +208,7 @@ def notes(channel, content, identity, decode_base64):
 def instructions():
     """Show current coordination instructions."""
     try:
-        instructions_content = instructions.get_instructions()
+        instructions_content = get_bridge_instructions()
         click.echo("--- Current Coordination Instructions ---")
         click.echo(instructions_content)
     except FileNotFoundError as e:
@@ -223,9 +225,9 @@ def recv(channel, identity):
         events.emit(
             "messages_receiving", {"channel": channel, "identity": identity}, identity=identity
         )
-        channel_id = channel.resolve_channel_id(channel)
-        messages, count, context, participants = message.recv_updates(channel_id, identity)
-        for msg in messages:
+        channel_id = channels.resolve_channel_id(channel)
+        messages_list = messages.fetch_new(channel_id, identity) # Assuming fetch_new returns a list of messages
+        for msg in messages_list:
             events.emit(
                 "message_received",
                 {
@@ -253,7 +255,7 @@ def recv(channel, identity):
 def export(channel):
     """Export channel transcript with interleaved notes."""
     try:
-        data = channel.export_channel(channel)
+        data = channels.export(channel)
 
         click.echo(f"# {data.channel_name}")
         click.echo()
@@ -274,8 +276,8 @@ def export(channel):
         combined = []
         for msg in data.messages:
             combined.append(("msg", msg))
-        for note in data.notes:
-            combined.append(("note", note))
+        for note_item in data.notes:
+            combined.append(("note", note_item))
 
         combined.sort(key=lambda x: x[1]["created_at"])
 
@@ -303,7 +305,7 @@ def alerts(identity):
     """Show all unread alerts across all channels."""
     try:
         events.emit("alerts_checking", {"identity": identity}, identity=identity)
-        alert_messages = alert.get_alerts(identity)
+        alert_messages = alerts.fetch(identity)
         events.emit(
             "alerts_checked",
             {"identity": identity, "count": len(alert_messages)},
@@ -333,13 +335,13 @@ def alerts(identity):
 def history(identity, limit):
     """Show all messages broadcast by identity across all channels."""
     try:
-        messages = message.fetch_sender_history(identity, limit)
-        if not messages:
+        messages_list = messages.fetch_sender_history(identity, limit)
+        if not messages_list:
             click.echo(f"No messages from {identity}")
             return
 
-        click.echo(f"--- Broadcast history for {identity} ({len(messages)} messages) ---")
-        for msg in messages:
+        click.echo(f"--- Broadcast history for {identity} ({len(messages_list)} messages) ---")
+        for msg in messages_list:
             timestamp = utils.format_local_time(msg.created_at)
             click.echo(f"\n[{msg.channel_id} | {timestamp}]")
             click.echo(msg.content)
@@ -348,93 +350,17 @@ def history(identity, limit):
         raise click.Abort() from exc
 
 
-def _stream_events(channel: str | None = None):
-    """Helper function to stream bridge events, with optional channel filtering."""
-    import time
+@bridge_group.command()
+def stream():
+    """Stream all bridge events in real-time."""
+    streamer.stream_events()
 
-    from space import events
 
-    # 1. Render historic events
-    all_events = events.query(source="bridge", limit=1000)  # Increased limit for history
-    for event_tuple in reversed(all_events):
-        event = {
-            "uuid": event_tuple[0],
-            "source": event_tuple[1],
-            "identity": event_tuple[2],
-            "data": json.loads(event_tuple[4])
-            if isinstance(event_tuple[4], str)
-            else event_tuple[4],
-            "created_at": event_tuple[5],
-        }
-        if channel is None or (
-            event.get("data") and event.get("data", {}).get("channel") == channel
-        ):
-            event_type = event.get("event_type")
-            data = event.get("data", {})
-            identity = event.get("identity")
-            if event_type == "message_sent":
-                click.echo(f"→ Sent to {data.get('channel')} as {identity}: {data.get('content')}")
-            elif event_type == "message_received":
-                click.echo(
-                    f"← Received from {data.get('sender_id')} in {data.get('channel')}: {data.get('content')}"
-                )
-
-    # 2. Start live stream
-    renderer = renderer.Renderer()
-
-    def event_stream():
-        last_event_uuid = all_events[0][0] if all_events else None
-        while True:
-            try:
-                all_events_live = events.query(source="bridge", limit=100)
-                new_events = []
-                if last_event_uuid:
-                    for i, event in enumerate(all_events_live):
-                        if event[0] == last_event_uuid:
-                            new_events = all_events_live[:i]
-                            break
-                else:
-                    new_events = all_events_live
-
-                if new_events:
-                    for event_tuple in reversed(new_events):
-                        event_data = {
-                            "uuid": event_tuple[0],
-                            "source": event_tuple[1],
-                            "identity": event_tuple[2],
-                            "event_type": event_tuple[3],
-                            "data": json.loads(event_tuple[4])
-                            if isinstance(event_tuple[4], str)
-                            else event_tuple[4],
-                            "created_at": event_tuple[5],
-                        }
-                        if channel is None or (
-                            event_data.get("data")
-                            and event_data.get("data", {}).get("channel") == channel
-                        ):
-                            event_type = event_data.get("event_type")
-                            data = event_data.get("data", {})
-                            if event_type == "message_sent":
-                                yield renderer.Event(
-                                    type="token",
-                                    content=f"→ Sent to {data.get('channel')} as {event_data.get('identity')}: {data.get('content')}\n",
-                                )
-                            elif event_type == "message_received":
-                                yield renderer.Event(
-                                    type="token",
-                                    content=f"← Received from {data.get('sender_id')} in {data.get('channel')}: {data.get('content')}\n",
-                                )
-                            else:
-                                yield renderer.Event(type="status", content=f"Event: {event_type}")
-
-                    last_event_uuid = new_events[0][0]
-
-                time.sleep(1)
-            except KeyboardInterrupt:
-                yield Event(type="done")
-                break
-
-    renderer.render(event_stream())
+@bridge_group.command()
+@click.argument("channel")
+def council(channel_name):
+    """Stream bridge events for a specific channel."""
+    streamer.stream_events(channel_name=channel_name)
 
 
 @bridge_group.command()
@@ -445,6 +371,6 @@ def stream():
 
 @bridge_group.command()
 @click.argument("channel")
-def council(channel):
+def council(channel_name):
     """Stream bridge events for a specific channel."""
-    _stream_events(channel=channel)
+    _stream_events(channel_name=channel_name)

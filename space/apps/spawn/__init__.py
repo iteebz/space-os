@@ -1,8 +1,16 @@
-# Make the public API from api.py available on the package level
-from .api import (
-    spawn,
-)
+import sys
+from typing import cast
+import click
 
-__all__ = [
-    "spawn",
-]
+from space.os.protocols import App
+from .cli import spawn_group
+
+@property
+def name(self) -> str:
+    return "spawn"
+
+def cli_group(self) -> click.Group:
+    return spawn_group
+
+# Explicitly declare conformance to the App protocol
+cast(App, sys.modules[__name__])

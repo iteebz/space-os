@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from space.lib import hashing
-from space.registry import db as registry_db
+from space.apps.register import db as registry_db
 
 
 @pytest.fixture

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from space.memory.db import add_entry, clear_entries, delete_entry, edit_entry, get_entries
+from space.apps.memory.db import add_entry, clear_entries, delete_entry, edit_entry, get_entries
 
 
 @pytest.fixture

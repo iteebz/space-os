@@ -2,7 +2,7 @@ import sqlite3
 from unittest.mock import patch
 
 import pytest
-from space.registry import db as registry_db
+from space.apps.register import db as registry_db
 from space.spawn import spawn
 
 from space.lib import hashing

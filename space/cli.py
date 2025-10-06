@@ -4,25 +4,20 @@ from pathlib import Path
 
 import click
 
-from space import events, stats
-from space.apps import registry
-from space.apps.agents import agents_group
-from space.apps.bridge.cli import bridge_group
-from space.apps.context.cli import context_group
-from space.apps.spawn import spawn_group
-from space.lib import fs
-
-GUIDE_FILE = fs.guide_path("onboarding.md")
+from space.os import events, stats
+from space.apps import register
+from space.apps.register import api as register_api
 
 
 @click.group(invoke_without_command=True)
 @click.pass_context
 def main(ctx):
     if ctx.invoked_subcommand is None:
-        if GUIDE_FILE.exists():
-            click.echo(GUIDE_FILE.read_text())
+        onboarding_guide_content = register_api.load_guide_content("onboarding")
+        if onboarding_guide_content:
+            click.echo(onboarding_guide_content)
         else:
-            click.echo("No onboarding guide found. Create space/prompts/guide/onboarding.md")
+            click.echo("No onboarding guide found. Create space/apps/register/prompts/guides/onboarding.md")
 
 
 @main.group()
@@ -46,14 +41,30 @@ def system_backup():
     backup_path = backup_root / timestamp
 
     shutil.copytree(workspace_space, backup_path)
-    shutil.copytree(workspace_space, backup_path)
     click.echo(f"Backed up to {backup_path}")
 
 
-main.add_command(bridge_group)
-main.add_command(spawn_group)
-main.add_command(context_group)
-main.add_command(agents_group)
+# Dynamic discovery and registration of app CLI groups
+import pkgutil
+import importlib
+from pathlib import Path
+
+space_apps_path = Path(__file__).parent / "apps"
+
+for finder, name, ispkg in pkgutil.iter_modules([str(space_apps_path)]):
+    if ispkg:  # Only consider packages (directories)
+        try:
+            # Dynamically import the cli module of the app
+            app_cli_module = importlib.import_module(f"space.apps.{name}.cli")
+            
+            # Assuming the click group is named as <app_name>_group
+            group_name = f"{name}_group"
+            app_group = getattr(app_cli_module, group_name)
+            
+            main.add_command(app_group)
+        except (ImportError, AttributeError) as e:
+            # Handle cases where an app might not have a cli.py or the group is named differently
+            click.echo(f"Warning: Could not load CLI for app '{name}': {e}", err=True)
 
 
 @main.command(name="events")
@@ -76,8 +87,8 @@ def show_events(source, identity, limit):
 
 @main.command()
 def agents():
-    registry.init()
-    regs = registry.view()
+    register.init()
+    regs = register.view()
     if not regs:
         click.echo("No agents registered")
         return
@@ -118,16 +129,16 @@ def stats():
 @click.argument("identity")
 @click.argument("description")
 def describe(identity, description):
-    registry.init()
-    changes = registry.set_self_description(identity, description)
+    register.init()
+    changes = register.set_self_description(identity, description)
     click.echo(f"{identity}: {description}" if changes > 0 else f"No agent: {identity}")
 
 
 @main.command()
 @click.argument("identity")
 def self(identity):
-    registry.init()
-    desc = registry.get_self_description(identity)
+    register.init()
+    desc = register.get_self_description(identity)
     click.echo(desc if desc else f"No self-description for {identity}")
 
 

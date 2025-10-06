@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from space.bridge import coordination
-from space.bridge import storage as bridge_storage
+from space.apps.bridge import coordination
+from space.apps.bridge import storage as bridge_storage
 from space.cli.bridge import bridge_group as bridge_cli_main
 from space.cli.main import main as memory_cli_main
 from space.context import db as context_db

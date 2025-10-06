@@ -2,7 +2,7 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
-from space.registry import registry, spawner
+from space.apps.register import registry, spawner
 
 
 def test_inject_identity_no_self():

@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
-from space.bridge.storage import bookmarks
-from space.bridge.storage import db as bridge_db  # Import db to access init_db
+from space.apps.bridge.storage import bookmarks
+from space.apps.bridge.storage import db as bridge_db  # Import db to access init_db
 
 
 @pytest.fixture

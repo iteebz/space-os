@@ -3,7 +3,7 @@
 import sqlite3
 from contextlib import contextmanager, suppress
 
-from space import config
+from space.os import config
 
 
 def ensure_bridge_dir():

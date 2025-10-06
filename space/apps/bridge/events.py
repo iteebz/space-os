@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .. import events
+from space.os import events
 
 
 def emit(event_type: str, data: dict | None = None, identity: str | None = None) -> None:
