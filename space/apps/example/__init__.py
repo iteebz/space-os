@@ -1,18 +1,7 @@
-import sys
-from typing import cast
-import click
+"""A simple example app."""
 
-from space.os.protocols import App
-from .api import reverse_string
-from .cli import example_group
+def reverse_string(s: str) -> str:
+    """Reverses a string."""
+    return s[::-1]
 
 __all__ = ["reverse_string"]
-
-@property
-def name(self) -> str:
-    return "example"
-
-def cli_group(self) -> click.Group:
-    return example_group
-
-cast(App, sys.modules[__name__])

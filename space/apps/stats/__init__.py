@@ -1,3 +1,1 @@
-from .app import stats_app
-
-__all__ = ["stats_app"]
+"""An app for viewing system and application statistics."""

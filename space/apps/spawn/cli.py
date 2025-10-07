@@ -1,35 +1,68 @@
 import click
 
-# Import the new, clean API functions from the package root.
 from . import (
-    add_identity as api_add_identity,
-    get_identity as api_get_identity,
+    add_identity,
+    get_identity,
+    add_constitution,
+    update_identity_current_constitution,
 )
 
 @click.group()
 def cli():
-    """Commands for managing identities."""
+    """Spawn primitive - agent identity and constitution management."""
     pass
 
-@cli.command()
-@click.argument("id")
-@click.argument("type")
-@click.option("--initial-constitution-content", help="Initial constitution content for the identity.")
-def add_identity(id: str, type: str, initial_constitution_content: str | None):
-    identity = api_add_identity(id, type, initial_constitution_content)
-    click.echo(f"Identity '{identity.id}' ({identity.type}) added.")
-    if initial_constitution_content:
-        click.echo("Initial constitution content provided. An event has been emitted for registration.")
+@cli.command("add-identity")
+@click.argument("identity_id")
+@click.option("--type", default="agent", help="Type of identity (e.g., agent, human).")
+@click.option("--constitution", help="Initial constitution content for the identity.")
+def add_identity_command(identity_id: str, type: str, constitution: str | None):
+    """Add a new identity."""
+    identity = add_identity(identity_id, type, constitution)
+    click.echo(f"Identity {identity.id} ({identity.type}) added.")
 
-@cli.command()
-@click.argument("id")
-def get_identity(id: str):
-    """Retrieves an identity by ID."""
-    identity = api_get_identity(id)
+@cli.command("get-identity")
+@click.argument("identity_id")
+def get_identity_command(identity_id: str):
+    """Get details of an identity."""
+    identity = get_identity(identity_id)
     if identity:
-        click.echo(f"Identity ID: {identity.id}")
+        click.echo(f"ID: {identity.id}")
         click.echo(f"Type: {identity.type}")
-        click.echo(f"Created At: {identity.created_at}")
-        click.echo(f"Updated At: {identity.updated_at}")
+        click.echo(f"Created At: {identity.created_at_iso}")
+        click.echo(f"Updated At: {identity.updated_at_iso}")
+        if identity.current_constitution_id:
+            click.echo(f"Current Constitution ID: {identity.current_constitution_id}")
     else:
-        click.echo(f"Identity with ID '{id}' not found.")
+        click.echo(f"Identity {identity_id} not found.")
+
+@cli.command("add-constitution")
+@click.argument("identity_id")
+@click.argument("name")
+@click.argument("version")
+@click.argument("content")
+@click.option("--created-by", default="human", help="Who created this constitution.")
+@click.option("--change-description", default="Initial creation", help="Description of the change.")
+@click.option("--previous-version-id", help="ID of the previous constitution version.")
+def add_constitution_command(
+    identity_id: str,
+    name: str,
+    version: str,
+    content: str,
+    created_by: str,
+    change_description: str,
+    previous_version_id: str | None,
+):
+    """Add a new constitution version for an identity."""
+    constitution = add_constitution(
+        name, version, content, identity_id, created_by, change_description, previous_version_id
+    )
+    click.echo(f"Constitution {constitution.id} added for identity {identity_id}.")
+
+@cli.command("update-current-constitution")
+@click.argument("identity_id")
+@click.argument("constitution_id")
+def update_current_constitution_command(identity_id: str, constitution_id: str):
+    """Update the current constitution for an identity."""
+    update_identity_current_constitution(identity_id, constitution_id)
+    click.echo(f"Identity {identity_id} current constitution updated to {constitution_id}.")

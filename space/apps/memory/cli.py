@@ -1,5 +1,5 @@
 import click
-from .api import add_memory, get_all_memories
+from . import add_memory, get_all_memories
 
 @click.group(name="memory")
 def cli():

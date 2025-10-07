@@ -2,8 +2,9 @@ import pytest
 import sqlite3
 from unittest.mock import patch
 from contextlib import contextmanager
+from collections.abc import Iterator
 
-from space.apps.memory.repo import MemoryRepo
+from space.apps.memory.memory import MemoryRepo
 
 @pytest.fixture
 def memory_repo() -> MemoryRepo:
@@ -29,7 +30,9 @@ def memory_repo() -> MemoryRepo:
 
     # Create a context manager that will yield our single connection
     @contextmanager
-    def mock_get_db_connection(*args, **kwargs):
+    def mock_get_db_connection(row_factory: type | None = None) -> Iterator[sqlite3.Connection]:
+        if row_factory is not None:
+            conn.row_factory = row_factory
         yield conn
 
     # Patch the repo's connection method

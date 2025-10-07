@@ -1,3 +1,1 @@
-from .app import backup_app
-
-__all__ = ["backup_app"]
+"""An app for creating backups of the space directory."""
