@@ -2,6 +2,8 @@ from pathlib import Path
 
 import typer
 
+from . import db
+
 app = typer.Typer(invoke_without_command=True)
 
 # Removed: PROTOCOL_FILE definitions and protocols.track calls
@@ -28,7 +30,7 @@ def main_command(
         return
 
     if clear:
-        storage.clear_entries(identity, topic)
+        db.clear_entries(identity, topic)
         scope = f"topic '{topic}'" if topic else "all topics"
         typer.echo(f"Cleared {scope} for {identity}")
         return
@@ -37,7 +39,7 @@ def main_command(
         if not message:
             raise typer.BadParameter("message required when editing")
         try:
-            storage.edit_entry(edit, message)
+            db.edit_entry(edit, message)
             typer.echo(f"Edited entry {edit}")
         except ValueError as e:
             raise typer.BadParameter(str(e)) from e
@@ -45,7 +47,7 @@ def main_command(
 
     if delete is not None:
         try:
-            storage.delete_entry(delete)
+            db.delete_entry(delete)
             typer.echo(f"Deleted entry {delete}")
         except ValueError as e:
             raise typer.BadParameter(str(e)) from e
@@ -54,10 +56,10 @@ def main_command(
     if message:
         if not topic:
             raise typer.BadParameter("--topic required when writing")
-        storage.add_entry(identity, topic, message)
+        db.add_entry(identity, topic, message)
         return
 
-    entries = storage.get_entries(identity, topic)
+    entries = db.get_entries(identity, topic)
     if not entries:
         scope = f"topic '{topic}'" if topic else "all topics"
         typer.echo(f"No entries found for {identity} in {scope}")

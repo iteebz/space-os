@@ -3,8 +3,9 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
-from . import memory as memory_db
 from .bridge import config as bridge_config
+from .knowledge import db as knowledge_db
+from .memory import db as memory_db
 
 
 @dataclass

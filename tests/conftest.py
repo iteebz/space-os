@@ -26,7 +26,8 @@ def temp_db(monkeypatch):
         # Setup knowledge_db
         knowledge_db_path = temp_space_dir / "knowledge.db"
         monkeypatch.setattr(knowledge_db, "database_path", lambda: knowledge_db_path)
-        knowledge_db.ensure_database()
+        with knowledge_db.connect():
+            pass
 
         # Setup events_db
         events_db_path = temp_space_dir / "events.db"

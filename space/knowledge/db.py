@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -41,22 +41,16 @@ def database_path() -> Path:
     return db_utils.database_path(KNOWLEDGE_DB_NAME)
 
 
-def ensure_database(initializer: Callable[[sqlite3.Connection], None] | None = None) -> Path:
-    """Ensure the knowledge database exists and schema is applied."""
-    path = database_path()
-    with sqlite3.connect(path) as conn:
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.executescript(_KNOWLEDGE_SCHEMA)
-        if initializer is not None:
-            initializer(conn)
-        conn.commit()
-    return path
-
-
 @contextmanager
 def connect() -> Iterator[sqlite3.Connection]:
     """Yield a connection to the knowledge database, ensuring schema beforehand."""
-    ensure_database()
+    db_utils.ensure_database(
+        KNOWLEDGE_DB_NAME,
+        initializer=lambda conn: (
+            conn.execute("PRAGMA journal_mode=WAL"),
+            conn.executescript(_KNOWLEDGE_SCHEMA),
+        ),
+    )
     conn = sqlite3.connect(database_path())
     try:
         yield conn

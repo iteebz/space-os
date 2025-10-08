@@ -2,6 +2,8 @@ from pathlib import Path
 
 import typer
 
+from . import db
+
 app = typer.Typer(invoke_without_command=True)
 
 # Removed: PROTOCOL_FILE definition
@@ -26,7 +28,7 @@ def main_command(
         return
 
     if content and contributor and domain:
-        entry_id = storage.write_knowledge(domain, contributor, content)
+        entry_id = db.write_knowledge(domain, contributor, content)
         typer.echo(f"Knowledge written: {entry_id[:8]}")
         return
 

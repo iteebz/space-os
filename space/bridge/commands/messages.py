@@ -1,5 +1,6 @@
 import base64
 import binascii
+import json
 
 import typer
 
@@ -26,28 +27,28 @@ def send(
 
     try:
         events.emit(
+            "bridge",
             "message_sending",
-            {"channel": channel, "identity": identity, "content": content},
-            identity=identity,
-            source="bridge",
+            identity,
+            json.dumps({"channel": channel, "identity": identity, "content": content}),
         )
         channel_id = api.resolve_channel_id(channel)
         api.send_message(channel_id, identity, content)
         events.emit(
+            "bridge",
             "message_sent",
-            {"channel": channel, "identity": identity},
-            identity=identity,
-            source="bridge",
+            identity,
+            json.dumps({"channel": channel, "identity": identity}),
         )
         typer.echo(
             f"Sent to {channel}" if identity == "human" else f"Sent to {channel} as {identity}"
         )
     except ValueError as exc:
         events.emit(
+            "bridge",
             "error_occurred",
-            {"command": "send", "details": str(exc)},
-            identity=identity,
-            source="bridge",
+            identity,
+            json.dumps({"command": "send", "details": str(exc)}),
         )
         typer.echo(f"❌ Channel '{channel}' not found.")
         raise typer.Exit(code=1) from exc
@@ -62,26 +63,26 @@ def alert(
     """Send high-priority alert to a channel."""
     try:
         events.emit(
+            "bridge",
             "alert_triggering",
-            {"channel": channel, "identity": identity, "content": content},
-            identity=identity,
-            source="bridge",
+            identity,
+            json.dumps({"channel": channel, "identity": identity, "content": content}),
         )
         channel_id = api.resolve_channel_id(channel)
         api.send_message(channel_id, identity, content, priority="alert")
         events.emit(
+            "bridge",
             "alert_triggered",
-            {"channel": channel, "identity": identity},
-            identity=identity,
-            source="bridge",
+            identity,
+            json.dumps({"channel": channel, "identity": identity}),
         )
         typer.echo(f"Alert sent to {channel} as {identity}")
     except ValueError as exc:
         events.emit(
+            "bridge",
             "error_occurred",
-            {"command": "alert", "details": str(exc)},
-            identity=identity,
-            source="bridge",
+            identity,
+            json.dumps({"command": "alert", "details": str(exc)}),
         )
         typer.echo(f"❌ Channel '{channel}' not found.")
         raise typer.Exit(code=1) from exc
@@ -135,33 +136,35 @@ def recv(
     """Receive updates from a channel."""
     try:
         events.emit(
+            "bridge",
             "messages_receiving",
-            {"channel": channel, "identity": identity},
-            identity=identity,
-            source="bridge",
+            identity,
+            json.dumps({"channel": channel, "identity": identity}),
         )
         channel_id = api.resolve_channel_id(channel)
         messages, count, context, participants = api.recv_updates(channel_id, identity)
         for msg in messages:
             events.emit(
+                "bridge",
                 "message_received",
-                {
-                    "channel": channel,
-                    "identity": identity,
-                    "sender_id": msg.sender,
-                    "content": msg.content,
-                },
-                identity=identity,
-                source="bridge",
+                identity,
+                json.dumps(
+                    {
+                        "channel": channel,
+                        "identity": identity,
+                        "sender_id": msg.sender,
+                        "content": msg.content,
+                    }
+                ),
             )
             typer.echo(f"[{msg.sender}] {msg.content}")
             typer.echo()
     except ValueError as e:
         events.emit(
+            "bridge",
             "error_occurred",
-            {"command": "recv", "details": str(e)},
-            identity=identity,
-            source="bridge",
+            identity,
+            json.dumps({"command": "recv", "details": str(e)}),
         )
         typer.echo(f"❌ Channel '{channel}' not found.")
         raise typer.Exit(code=1) from e
@@ -179,8 +182,8 @@ def export(
 
         typer.echo(f"# {data.channel_name}")
         typer.echo()
-        if data.context:
-            typer.echo(f"{data.context}")
+        if data.topic:
+            typer.echo(f"Topic: {data.topic}")
             typer.echo()
         typer.echo(f"Participants: {', '.join(data.participants)}")
         typer.echo(f"Messages: {data.message_count}")
@@ -225,13 +228,13 @@ def alerts(
 ):
     """Show all unread alerts across all channels."""
     try:
-        events.emit("alerts_checking", {"identity": identity}, identity=identity, source="bridge")
+        events.emit("bridge", "alerts_checking", identity, json.dumps({"identity": identity}))
         alert_messages = api.get_alerts(identity)
         events.emit(
+            "bridge",
             "alerts_checked",
-            {"identity": identity, "count": len(alert_messages)},
-            identity=identity,
-            source="bridge",
+            identity,
+            json.dumps({"identity": identity, "count": len(alert_messages)}),
         )
         if not alert_messages:
             typer.echo(f"No alerts for {identity}")
@@ -243,10 +246,10 @@ def alerts(
             typer.echo(msg.content)
     except Exception as exc:
         events.emit(
+            "bridge",
             "error_occurred",
-            {"command": "alerts", "details": str(exc)},
-            identity=identity,
-            source="bridge",
+            identity,
+            json.dumps({"command": "alerts", "details": str(exc)}),
         )
         typer.echo(f"❌ {exc}")
         raise typer.Exit(code=1) from exc
