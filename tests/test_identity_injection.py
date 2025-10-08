@@ -2,7 +2,7 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
-from space.spawn import registry, spawner
+from space.spawn import registry, spawn
 
 
 def test_inject_identity_no_self():
@@ -12,7 +12,7 @@ def test_inject_identity_no_self():
         registry.init_db()
 
         const = "You are a sentinel."
-        result = spawner.inject_identity(const, "sentinel")
+        result = spawn.inject_identity(const, "sentinel")
 
         assert result == const
 
@@ -32,7 +32,7 @@ def test_inject_identity_with_self():
         conn.close()
 
         const = "You are a sentinel."
-        result = spawner.inject_identity(const, "sentinel-1")
+        result = spawn.inject_identity(const, "sentinel-1")
 
         assert result == "You are now sentinel-1.\nSelf: Reality guardian\n\nYou are a sentinel."
 
@@ -63,7 +63,7 @@ def test_self_identity_evolution():
         assert row[0] == "Purges bullshit"
 
         const = "You are a zealot."
-        result = spawner.inject_identity(const, "zealot-1")
+        result = spawn.inject_identity(const, "zealot-1")
         assert "Purges bullshit" in result
 
 

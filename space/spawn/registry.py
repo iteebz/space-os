@@ -36,6 +36,22 @@ def init_db():
         conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_sender_topic ON registrations(sender_id, topic)
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS agent_identities (
+                sender_id TEXT PRIMARY KEY,
+                full_identity TEXT NOT NULL,
+                constitution_hash TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS constitutions (
+                constitution_hash TEXT PRIMARY KEY,
+                content TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         with suppress(sqlite3.OperationalError):
             conn.execute("ALTER TABLE registrations ADD COLUMN self TEXT")
         with suppress(sqlite3.OperationalError):
@@ -43,9 +59,56 @@ def init_db():
         conn.commit()
 
 
+def save_constitution(constitution_hash: str, content: str):
+    with get_db() as conn:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO constitutions (constitution_hash, content)
+            VALUES (?, ?)
+            """,
+            (constitution_hash, content),
+        )
+        conn.commit()
+
+
+def get_constitution(constitution_hash: str) -> str | None:
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT content FROM constitutions WHERE constitution_hash = ?",
+            (constitution_hash,),
+        ).fetchone()
+        return row["content"] if row else None
+
+
+def save_agent_identity(sender_id: str, full_identity: str, constitution_hash: str):
+    with get_db() as conn:
+        conn.execute(
+            """
+            INSERT INTO agent_identities (sender_id, full_identity, constitution_hash)
+            VALUES (?, ?, ?)
+            ON CONFLICT(sender_id) DO UPDATE SET
+                full_identity = EXCLUDED.full_identity,
+                constitution_hash = EXCLUDED.constitution_hash,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (sender_id, full_identity, constitution_hash),
+        )
+        conn.commit()
+
+
+def get_agent_identity(sender_id: str) -> str | None:
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT full_identity FROM agent_identities WHERE sender_id = ?",
+            (sender_id,),
+        ).fetchone()
+        return row["full_identity"] if row else None
+
+
 @contextmanager
 def get_db():
-    conn = sqlite3.connect(config.registry_db())
+    db_path = config.registry_db()
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
         yield conn

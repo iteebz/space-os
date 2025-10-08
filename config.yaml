@@ -45,3 +45,15 @@ roles:
   scribe:
     constitution: constitutions/scribe.md
     base_identity: claude
+
+  lieutenant:
+    constitution: constitutions/kitsuragi.md
+    base_identity: chatgpt
+
+  test:
+    constitution: constitutions/default.md
+    base_identity: claude # Assuming a default base_identity
+
+  default:
+    constitution: constitutions/default.md
+    base_identity: claude # Assuming a default base_identity

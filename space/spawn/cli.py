@@ -2,7 +2,7 @@ import sys
 
 import click
 
-from . import registry, spawner
+from . import registry, spawn
 
 CONTEXT_SETTINGS = {
     "allow_extra_args": True,
@@ -55,7 +55,7 @@ def main(ctx: click.Context):
 def register(role: str, sender_id: str, topic: str, model: str | None):
     """Register constitutional agent"""
     try:
-        result = spawner.register_agent(role, sender_id, topic, model)
+        result = spawn.register_agent(role, sender_id, topic, model)
         model_suffix = f" (model: {result['model']})" if result.get("model") else ""
         click.echo(
             f"Registered: {result['role']} → {result['sender_id']} on {result['topic']} "
@@ -110,7 +110,7 @@ def list_registrations():
 def constitution(role: str):
     """Get constitution path for role"""
     try:
-        path = spawner.get_constitution_path(role)
+        path = spawn.get_constitution_path(role)
         click.echo(str(path))
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
@@ -128,7 +128,7 @@ def constitution(role: str):
 def launch(ctx: click.Context, role: str, agent: str | None, model: str | None):
     """Launches an agent with a specific constitutional role."""
     try:
-        spawner.launch_agent(role, agent, extra_args=list(ctx.args), model=model)
+        spawn.launch_agent(role, agent, extra_args=list(ctx.args), model=model)
     except Exception as e:
         click.echo(f"Launch failed: {e}", err=True)
         sys.exit(1)
@@ -160,10 +160,10 @@ def rename(old_sender_id: str, new_sender_id: str, role: str | None):
             sys.exit(1)
 
         if role:
-            const_path = spawner.get_constitution_path(role)
+            const_path = spawn.get_constitution_path(role)
             const_content = const_path.read_text()
-            spawner.hash_content(const_content)
-            spawner.write_bridge_identity(new_sender_id, const_content)
+            const_hash = spawn.hash_content(const_content)
+            registry.save_agent_identity(new_sender_id, const_content, const_hash)
 
         registry.rename_sender(old_sender_id, new_sender_id, role)
 
@@ -196,33 +196,42 @@ def rename(old_sender_id: str, new_sender_id: str, role: str | None):
 @main.command(name="_inline_launch", hidden=True, context_settings=CONTEXT_SETTINGS)
 @click.pass_context
 def _inline_launch(ctx: click.Context):
-    """Handle implicit launch invocation (`spawn <role> ...`)."""
+    """Handle implicit launch invocation (`spawn <agent_name> ...`)."""
 
-    role, agent, model, extra_args = _parse_inline_launch_args(ctx.args)
+    role, sender_id, base_identity, model, extra_args = _parse_inline_launch_args(ctx.args)
     try:
-        spawner.launch_agent(role, agent, extra_args=extra_args, model=model)
+        spawn.launch_agent(role, sender_id, base_identity, extra_args=extra_args, model=model)
     except Exception as e:
         click.echo(f"Launch failed: {e}", err=True)
         ctx.exit(1)
 
 
-def _parse_inline_launch_args(args: list[str]) -> tuple[str, str | None, str | None, list[str]]:
+def _parse_inline_launch_args(
+    args: list[str],
+) -> tuple[str, str | None, str | None, str | None, list[str]]:
     """Parse inline spawn launch invocation.
 
     Supports:
-    - spawn <role>
-    - spawn <role> --agent <agent>
-    - spawn <role> --<agent>
+    - spawn <agent_name> (infers role and model)
+    - spawn <role> --as <sender_id>
+    - spawn <role> --agent <base_identity>
     - spawn <role> --model <model>
     - spawn <role> --sonnet / --codex (model shortcuts)
     """
 
-    role = args[0]
-    agent: str | None = None
+    # Initial parsing of the first argument as potential agent_name or role
+    first_arg = args[0]
+
+    # Default values
+    role: str | None = None
+    sender_id: str | None = None  # This will be the agent_name passed to launch_agent
+    base_identity: str | None = None  # This is the 'agent' argument in launch_agent
     model: str | None = None
     passthrough: list[str] = []
 
-    configured_agents = set(spawner.load_config().get("agents", {}).keys())
+    cfg = spawn.load_config()
+    configured_roles = set(cfg.get("roles", {}).keys())
+    configured_agents = set(cfg.get("agents", {}).keys())
     model_shortcuts = {
         "sonnet": "claude-4.5-sonnet",
         "codex": "gpt-5-codex",
@@ -231,6 +240,24 @@ def _parse_inline_launch_args(args: list[str]) -> tuple[str, str | None, str | N
         "gemini": "gemini-2.5-pro",
     }
 
+    # Determine initial role and sender_id
+    if first_arg in configured_roles:
+        role = first_arg
+        sender_id = spawn.get_base_identity(role)  # Default sender_id from role's base_identity
+    else:
+        # Assume first_arg is an agent_name, try to infer role
+        inferred_role = first_arg.split("-")[0] if "-" in first_arg else first_arg
+        if inferred_role in configured_roles:
+            role = inferred_role
+            sender_id = first_arg  # Use the full agent_name as sender_id
+        else:
+            raise click.UsageError(f"Unknown role or agent: {first_arg}")
+
+    # If sender_id is still None, try to get it from the role's base_identity
+    if sender_id is None and role is not None:
+        sender_id = spawn.get_base_identity(role)
+
+    # Parse remaining arguments for overrides
     idx = 1
     while idx < len(args):
         token = args[idx]
@@ -239,10 +266,8 @@ def _parse_inline_launch_args(args: list[str]) -> tuple[str, str | None, str | N
             break
 
         if not token.startswith("--"):
-            if token in configured_agents:
-                agent = token
-            else:
-                passthrough.append(token)
+            # If it's not an option, it's a passthrough argument
+            passthrough.append(token)
             idx += 1
             continue
 
@@ -250,28 +275,52 @@ def _parse_inline_launch_args(args: list[str]) -> tuple[str, str | None, str | N
         if not option:
             raise click.UsageError("Invalid agent flag")
 
-        if option in {"agent", "as"}:
+        if option == "as":  # Override sender_id
             idx += 1
             if idx >= len(args):
                 raise click.UsageError(f"--{option} requires a value")
-            agent = args[idx]
-        elif option == "model":
+            sender_id = args[idx]
+        elif option == "agent":  # Override base_identity
+            idx += 1
+            if idx >= len(args):
+                raise click.UsageError(f"--{option} requires a value")
+            base_identity = args[idx]
+        elif option == "model":  # Override model
             idx += 1
             if idx >= len(args):
                 raise click.UsageError("--model requires a value")
             model = args[idx]
-        elif option in model_shortcuts:
+        elif option in model_shortcuts:  # Model shortcuts
             model = model_shortcuts[option]
-        elif option in configured_agents:
-            agent = option
+        elif option in configured_agents:  # Direct agent override
+            base_identity = option
         else:
+            # Unrecognized option, treat as passthrough
             passthrough.append(token)
             if idx + 1 < len(args) and not args[idx + 1].startswith("--"):
                 passthrough.append(args[idx + 1])
                 idx += 1
         idx += 1
 
-    return role, agent, model, passthrough
+    # Final check and defaults
+    if role is None:
+        raise click.UsageError("Role could not be determined.")
+    if sender_id is None:
+        sender_id = spawn.get_base_identity(role)  # Fallback to role's base_identity
+
+    # If base_identity is not explicitly set, use the role's base_identity
+    if base_identity is None:
+        base_identity = spawn.get_base_identity(role)
+
+    # If model is not explicitly set, try to infer from base_identity
+    if model is None and base_identity is not None:
+        agent_cfg = cfg.get("agents", {}).get(base_identity)
+        if agent_cfg and "command" in agent_cfg:
+            # This is a simplification; actual model inference might be more complex
+            # For now, we'll assume the command itself implies the model or it's handled by the agent
+            pass
+
+    return role, sender_id, base_identity, model, passthrough
 
 
 if __name__ == "__main__":
