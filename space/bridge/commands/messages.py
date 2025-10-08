@@ -42,14 +42,14 @@ def send(
         typer.echo(
             f"Sent to {channel}" if identity == "human" else f"Sent to {channel} as {identity}"
         )
-    except Exception as exc:
+    except ValueError as exc:
         events.emit(
             "error_occurred",
             {"command": "send", "details": str(exc)},
             identity=identity,
             source="bridge",
         )
-        typer.echo(f"❌ {exc}")
+        typer.echo(f"❌ Channel '{channel}' not found.")
         raise typer.Exit(code=1) from exc
 
 
@@ -76,14 +76,14 @@ def alert(
             source="bridge",
         )
         typer.echo(f"Alert sent to {channel} as {identity}")
-    except Exception as exc:
+    except ValueError as exc:
         events.emit(
             "error_occurred",
             {"command": "alert", "details": str(exc)},
             identity=identity,
             source="bridge",
         )
-        typer.echo(f"❌ {exc}")
+        typer.echo(f"❌ Channel '{channel}' not found.")
         raise typer.Exit(code=1) from exc
 
 
@@ -110,8 +110,8 @@ def notes(
                 timestamp = utils.format_local_time(note["created_at"])
                 typer.echo(f"[{timestamp}] {note['author']}: {note['content']}")
                 typer.echo()
-        except Exception as e:
-            typer.echo(f"❌ Failed to get notes: {e}")
+        except ValueError as e:
+            typer.echo(f"❌ Channel '{channel}' not found.")
             raise typer.Exit(code=1) from e
     else:
         # Add note mode
@@ -122,8 +122,8 @@ def notes(
             channel_id = api.resolve_channel_id(channel)
             api.add_note(channel_id, identity, content)
             typer.echo(f"Added note to {channel}")
-        except Exception as e:
-            typer.echo(f"❌ Note failed: {e}")
+        except ValueError as e:
+            typer.echo(f"❌ Channel '{channel}' not found.")
             raise typer.Exit(code=1) from e
 
 
@@ -156,14 +156,14 @@ def recv(
             )
             typer.echo(f"[{msg.sender}] {msg.content}")
             typer.echo()
-    except Exception as e:
+    except ValueError as e:
         events.emit(
             "error_occurred",
             {"command": "recv", "details": str(e)},
             identity=identity,
             source="bridge",
         )
-        typer.echo(f"❌ Receive failed: {e}")
+        typer.echo(f"❌ Channel '{channel}' not found.")
         raise typer.Exit(code=1) from e
 
 
@@ -214,8 +214,8 @@ def export(
                 typer.echo(item["content"])
                 typer.echo()
 
-    except Exception as e:
-        typer.echo(f"❌ Export failed: {e}")
+    except ValueError as e:
+        typer.echo(f"❌ Channel '{channel}' not found.")
         raise typer.Exit(code=1) from e
 
 

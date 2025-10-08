@@ -65,6 +65,19 @@ def channels():
 
 
 @app.command()
+def create(
+    channel_name: str = typer.Argument(..., help="The name of the channel to create."),
+    topic: Annotated[str, typer.Option(..., help="The initial topic for the channel.")] = None,
+):
+    """Create a new channel with an optional initial topic."""
+    try:
+        channel_id = api.create_channel(channel_name, topic)
+        typer.echo(f"Created channel: {channel_name} (ID: {channel_id})")
+    except ValueError as e:
+        typer.echo(f"❌ Error creating channel: {e}")
+
+
+@app.command()
 def rename(
     old_channel: str = typer.Argument(...),
     new_channel: str = typer.Argument(...),
@@ -83,8 +96,11 @@ def archive(
 ):
     """Archive channels by setting creation date to 30 days ago."""
     for channel in channels:
-        api.archive_channel(channel)
-        typer.echo(f"Archived channel: {channel}")
+        try:
+            api.archive_channel(channel)
+            typer.echo(f"Archived channel: {channel}")
+        except ValueError:
+            typer.echo(f"❌ Channel '{channel}' not found.")
 
 
 @app.command()
@@ -92,5 +108,8 @@ def delete(
     channel: str = typer.Argument(...),
 ):
     """Permanently delete channel and all messages (HUMAN ONLY)."""
-    api.delete_channel(channel)
-    typer.echo(f"Deleted channel: {channel}")
+    try:
+        api.delete_channel(channel)
+        typer.echo(f"Deleted channel: {channel}")
+    except ValueError:
+        typer.echo(f"❌ Channel '{channel}' not found.")

@@ -55,7 +55,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS channels (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
-                context TEXT,
+                topic TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 notes TEXT,
                 archived_at TIMESTAMP

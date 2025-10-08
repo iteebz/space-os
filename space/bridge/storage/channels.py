@@ -7,13 +7,13 @@ from ..models import Channel, ExportData
 from .db import get_db_connection
 
 
-def create_channel_record(channel_name: str) -> str:
+def create_channel_record(channel_name: str, topic: str | None = None) -> str:
     """Create channel record in DB. Returns channel_id."""
     channel_id = str(uuid.uuid4())
     with get_db_connection() as conn:
         conn.execute(
-            "INSERT INTO channels (id, name) VALUES (?, ?)",
-            (channel_id, channel_name),
+            "INSERT INTO channels (id, name, topic) VALUES (?, ?, ?)",
+            (channel_id, channel_name, topic),
         )
         conn.commit()
     return channel_id
@@ -52,22 +52,22 @@ def get_channel_name(channel_id: str) -> str | None:
     return row["name"] if row else None
 
 
-def set_context(channel_id: str, context: str):
-    """Update channel context, but only if it's not already set."""
+def set_topic(channel_id: str, topic: str):
+    """Update channel topic, but only if it's not already set."""
     with get_db_connection() as conn:
         conn.execute(
-            "UPDATE channels SET context = ? WHERE id = ? AND (context IS NULL OR context = '')",
-            (context, channel_id),
+            "UPDATE channels SET topic = ? WHERE id = ? AND (topic IS NULL OR topic = '')",
+            (topic, channel_id),
         )
         conn.commit()
 
 
-def get_context(channel_id: str) -> str | None:
-    """Get channel context if it exists."""
+def get_topic(channel_id: str) -> str | None:
+    """Get channel topic if it exists."""
     with get_db_connection() as conn:
-        cursor = conn.execute("SELECT context FROM channels WHERE id = ?", (channel_id,))
+        cursor = conn.execute("SELECT topic FROM channels WHERE id = ?", (channel_id,))
         result = cursor.fetchone()
-    return result["context"] if result and result["context"] else None
+    return result["topic"] if result and result["topic"] else None
 
 
 def get_participants(channel_id: str) -> list[str]:
@@ -84,7 +84,7 @@ def fetch_channels(agent_id: str = None, time_filter: str = None) -> list[Channe
     """Get channels with metadata, optionally filtered by activity time and including unread counts for an agent."""
     with get_db_connection() as conn:
         query = """
-            SELECT t.id, t.name, t.context, t.created_at,
+            SELECT t.id, t.name, t.topic, t.created_at,
                    COALESCE(msg_counts.total_messages, 0) as total_messages,
                    msg_counts.last_activity,
                    COALESCE(msg_counts.participants, '') as participants,
@@ -135,7 +135,7 @@ def fetch_channels(agent_id: str = None, time_filter: str = None) -> list[Channe
             channels.append(
                 Channel(
                     name=row["name"],
-                    context=row["context"],
+                    topic=row["topic"],
                     created_at=row["created_at"],
                     participants=participants_list,
                     message_count=row["total_messages"],
@@ -151,7 +151,7 @@ def get_export_data(channel_id: str) -> ExportData:
     """Export a complete channel conversation for research purposes."""
     with get_db_connection() as conn:
         channel_cursor = conn.execute(
-            "SELECT name, context, created_at FROM channels WHERE id = ?", (channel_id,)
+            "SELECT name, topic, created_at FROM channels WHERE id = ?", (channel_id,)
         )
         channel_info = channel_cursor.fetchone()
 
@@ -172,7 +172,7 @@ def get_export_data(channel_id: str) -> ExportData:
     return ExportData(
         channel_id=channel_id,
         channel_name=channel_info["name"] if channel_info else None,
-        context=channel_info["context"] if channel_info else None,
+        topic=channel_info["topic"] if channel_info else None,
         created_at=channel_info["created_at"] if channel_info else None,
         participants=participants,
         message_count=len(messages),
@@ -216,6 +216,3 @@ def rename_channel(old_name: str, new_name: str) -> bool:
         return True
     except sqlite3.Error:
         return False
-
-
-

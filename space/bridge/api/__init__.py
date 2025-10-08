@@ -13,15 +13,13 @@ from .channels import (
     create_channel,
     delete_channel,
     export_channel,
-    get_channel_context,
+    get_channel_topic,
     rename_channel,
     resolve_channel_id,
 )
 from .messages import (
     fetch_messages,
     fetch_sender_history,
-    is_context,
-    parse_context,
     recv_updates,
     send_message,
 )
@@ -30,8 +28,6 @@ from .notes import add_note, get_notes
 __all__ = [
     "fetch_messages",
     "fetch_sender_history",
-    "is_context",
-    "parse_context",
     "recv_updates",
     "send_message",
     "add_note",
@@ -43,7 +39,7 @@ __all__ = [
     "create_channel",
     "delete_channel",
     "export_channel",
-    "get_channel_context",
+    "get_channel_topic",
     "rename_channel",
     "resolve_channel_id",
 ]

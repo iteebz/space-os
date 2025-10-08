@@ -19,7 +19,7 @@ class Channel:
     """A coordination channel."""
 
     name: str
-    context: str | None = None
+    topic: str | None = None
     created_at: str | None = None
     participants: list[str] = None
     message_count: int = 0
@@ -47,7 +47,7 @@ class ExportData:
 
     channel_id: str
     channel_name: str
-    context: str | None
+    topic: str | None
     created_at: str | None
     participants: list[str]
     message_count: int

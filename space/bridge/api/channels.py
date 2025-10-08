@@ -37,9 +37,9 @@ def rename_channel(old_name: str, new_name: str) -> bool:
     return storage.rename_channel(old_name, new_name)
 
 
-def get_channel_context(channel_id: str) -> str | None:
-    """Get the context for a specific channel."""
-    return storage.get_context(channel_id)
+def get_channel_topic(channel_id: str) -> str | None:
+    """Get the topic for a specific channel."""
+    return storage.get_topic(channel_id)
 
 
 def resolve_channel_id(channel_name: str) -> str:
@@ -51,6 +51,6 @@ def resolve_channel_id(channel_name: str) -> str:
         return create_channel(channel_name)
 
 
-def create_channel(channel_name: str) -> str:
+def create_channel(channel_name: str, topic: str | None = None) -> str:
     """Orchestrates the creation of a new channel."""
-    return storage.create_channel_record(channel_name)
+    return storage.create_channel_record(channel_name, topic)

@@ -56,7 +56,7 @@ def test_recv_does_not_return_messages_from_archived_channel(setup_channel):
     channels.archive_channel(channel_name)
 
     # Attempt to receive messages from the archived channel
-    msgs, unread_count, context, participants = messages.recv_updates(channel_id, identity)
+    msgs, unread_count, topic, participants = messages.recv_updates(channel_id, identity)
 
     # Assert that no messages are returned
     assert len(msgs) == 0

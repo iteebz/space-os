@@ -14,11 +14,11 @@ from .channels import (
     fetch_channels,
     get_channel_id,
     get_channel_name,
-    get_context,
     get_export_data,
     get_participants,
+    get_topic,
     rename_channel,
-    set_context,
+    set_topic,
 )
 from .db import init_db
 from .messages import create_message, get_all_messages, get_new_messages, get_sender_history
@@ -30,8 +30,8 @@ __all__ = [
     "ensure_channel_exists",
     "get_channel_id",
     "get_channel_name",
-    "set_context",
-    "get_context",
+    "set_topic",
+    "get_topic",
     "get_participants",
     "fetch_channels",
     "get_export_data",

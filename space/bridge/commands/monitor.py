@@ -12,7 +12,12 @@ def _stream_events(channel: str | None = None):
     """Helper function to stream bridge events, with optional channel filtering."""
 
     # 1. Render historic events
-    all_events = events.query(source="bridge", limit=1000)  # Increased limit for history
+    try:
+        all_events = events.query(source="bridge", limit=1000)  # Increased limit for history
+    except Exception as e:
+        typer.echo(f"❌ Error querying historic events: {e}")
+        all_events = []
+
     for event_tuple in reversed(all_events):
         event = {
             "uuid": event_tuple[0],
@@ -87,6 +92,9 @@ def _stream_events(channel: str | None = None):
             except KeyboardInterrupt:
                 yield Event(type="done")
                 break
+            except Exception as e:
+                yield Event(type="error", content=f"Error streaming events: {e}")
+                time.sleep(1)  # Prevent busy-loop on continuous errors
 
     renderer.render(event_stream())
 
