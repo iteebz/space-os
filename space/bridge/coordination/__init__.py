@@ -17,7 +17,7 @@ from .channels import (
     rename_channel,
     resolve_channel_id,
 )
-from .identities import load_identity, verify_sender
+
 from .instructions import (
     channel_instructions,
     check_instructions,
@@ -35,8 +35,6 @@ from .messages import (
 from .notes import add_note, get_notes
 
 __all__ = [
-    "load_identity",
-    "verify_sender",
     "check_instructions",
     "get_instructions",
     "hash_instructions",

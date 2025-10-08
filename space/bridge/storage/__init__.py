@@ -27,8 +27,7 @@ from .channels import (
     set_context,
 )
 from .db import init_db
-from .identities import active_hash, base_identity, get_senders, save_identity
-from .instructions import get_topic_instructions, save_instructions
+from .instructions import get_channel_instructions, get_topic_instructions, save_instructions
 from .messages import create_message, get_all_messages, get_new_messages, get_sender_history
 from .notes import create_note, get_notes
 
@@ -56,13 +55,10 @@ __all__ = [
     "get_new_messages",
     "get_all_messages",
     "get_sender_history",
-    "save_identity",
-    "base_identity",
-    "get_senders",
-    "active_hash",
     "create_note",
     "get_notes",
     "save_instructions",
+    "get_channel_instructions",
     "get_topic_instructions",
     "set_bookmark",
     "get_alerts",

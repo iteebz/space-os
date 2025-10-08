@@ -344,7 +344,10 @@ def export(channel):
 def backup():
     """Backup Bridge data to timestamped directory."""
     try:
-        from bridge.backup import backup_bridge_data
+        try:
+            from bridge.backup import backup_bridge_data  # Legacy module path kept for compat.
+        except ModuleNotFoundError:
+            from space.bridge.backup import backup_bridge_data
 
         backup_path = backup_bridge_data()
         click.echo(f"✅ Backup created: {backup_path}")

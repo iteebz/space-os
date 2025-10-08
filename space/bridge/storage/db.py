@@ -29,6 +29,10 @@ def init_db():
     ensure_bridge_dir()
     with get_db_connection() as conn:
         # Messages table with prompt hash tracking
+        # Drop identities table if it exists (deprecated)
+        with suppress(sqlite3.OperationalError):
+            conn.execute("DROP TABLE identities")
+
         conn.execute("""
             CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,19 +40,7 @@ def init_db():
                 sender TEXT NOT NULL,
                 content TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                prompt_hash TEXT,
                 priority TEXT DEFAULT 'normal'
-            )
-        """)
-
-        # Identity prompts table
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS identities (
-                hash TEXT PRIMARY KEY,
-                base_identity TEXT NOT NULL,
-                content TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                notes TEXT
             )
         """)
 
@@ -82,7 +74,6 @@ def init_db():
                 channel_id TEXT NOT NULL,
                 author TEXT NOT NULL,
                 content TEXT NOT NULL,
-                prompt_hash TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (channel_id) REFERENCES channels(id)
             )
@@ -105,6 +96,14 @@ def init_db():
         # Migration: Add archived_at column to existing channels table
         with suppress(sqlite3.OperationalError):
             conn.execute("ALTER TABLE channels ADD COLUMN archived_at TIMESTAMP")
+
+        # Migration: Drop prompt_hash column from messages table
+        with suppress(sqlite3.OperationalError):
+            conn.execute("ALTER TABLE messages DROP COLUMN prompt_hash")
+
+        # Migration: Drop prompt_hash column from notes table
+        with suppress(sqlite3.OperationalError):
+            conn.execute("ALTER TABLE notes DROP COLUMN prompt_hash")
 
         # Performance indexes
         conn.execute(

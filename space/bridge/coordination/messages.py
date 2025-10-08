@@ -4,7 +4,6 @@ import re
 
 from .. import storage
 from ..models import Message
-from .identities import load_identity
 
 
 def is_context(content: str) -> bool:
@@ -28,25 +27,13 @@ def parse_context(content: str) -> str:
     return content
 
 
-def _store_identity(sender_id: str, topic: str):
-    """Materialise identity content, enforcing provenance."""
-    if sender_id in {"detective", "human"}:
-        return sender_id
-    identity_content, new_hash = load_identity(sender_id, topic)
-    storage.save_identity(sender_id, identity_content, new_hash)
-    return new_hash
-
-
 def send_message(channel_id: str, sender: str, content: str, priority: str = "normal") -> str:
     """Orchestrate sending a message: validate, ensure identity, and store."""
-    topic = storage.get_channel_name(channel_id)
-    prompt_hash = _store_identity(sender, topic)
-
+    storage.get_channel_name(channel_id)
     storage.create_message(
         channel_id=channel_id,
         sender=sender,
         content=content,
-        prompt_hash=prompt_hash,
         priority=priority,
     )
 

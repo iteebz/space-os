@@ -182,10 +182,10 @@ def get_export_data(channel_id: str) -> ExportData:
 
 
 def archive_channel(channel_id: str):
-    """Archive a channel by setting its creation date to 30 days in the past."""
+    """Archive a channel by setting its archived_at timestamp."""
     with get_db_connection() as conn:
         conn.execute(
-            "UPDATE channels SET created_at = datetime('now', '-30 days') WHERE id = ?",
+            "UPDATE channels SET archived_at = CURRENT_TIMESTAMP WHERE id = ?",
             (channel_id,),
         )
         conn.commit()
