@@ -1,8 +1,3 @@
-from space.spawn import registry
-
-from .. import config, utils
-
-
 def load_identity(sender_id: str, topic: str) -> tuple[str, str]:
     """Load identity from registry with hash verification."""
     # Temporarily bypass identity checks for testing archival bug

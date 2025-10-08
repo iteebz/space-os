@@ -1,22 +1,6 @@
 """Memory contract tests - CRUD operations for agent notebook."""
 
-import tempfile
-from pathlib import Path
-
-import pytest
-
 from space.memory import storage
-
-
-@pytest.fixture
-def temp_db():
-    """Use temporary database for tests."""
-    from space.lib import context_db
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        db_path = Path(tmpdir) / "context.db"
-        context_db.set_context_db_path(db_path)
-        yield db_path
 
 
 def test_write_entry(temp_db):

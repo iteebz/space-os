@@ -1,7 +1,7 @@
 """Core database connection, schema, and utilities."""
 
 import sqlite3
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 
 from .. import config
 
@@ -70,7 +70,8 @@ def init_db():
                 context TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 notes TEXT,
-                instruction_hash TEXT
+                instruction_hash TEXT,
+                archived_at TIMESTAMP
             )
         """)
 
@@ -98,11 +99,12 @@ def init_db():
         """)
 
         # Migration: Add priority column to existing messages table
-        try:
+        with suppress(sqlite3.OperationalError):
             conn.execute("ALTER TABLE messages ADD COLUMN priority TEXT DEFAULT 'normal'")
-        except sqlite3.OperationalError:
-            pass
 
+        # Migration: Add archived_at column to existing channels table
+        with suppress(sqlite3.OperationalError):
+            conn.execute("ALTER TABLE channels ADD COLUMN archived_at TIMESTAMP")
 
         # Performance indexes
         conn.execute(

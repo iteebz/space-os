@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Iterator
+
 
 def root() -> Path:
     """Return the workspace root that owns the spawn project.
@@ -49,7 +50,9 @@ def database_path(name: str) -> Path:
     return path
 
 
-def ensure_database(name: str, initializer: Callable[[sqlite3.Connection], None] | None = None) -> Path:
+def ensure_database(
+    name: str, initializer: Callable[[sqlite3.Connection], None] | None = None
+) -> Path:
     """Create database if missing and run optional initializer inside a transaction."""
     path = database_path(name)
     with sqlite3.connect(path) as conn:

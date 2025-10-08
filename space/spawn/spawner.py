@@ -89,14 +89,19 @@ def register_agent(role: str, sender_id: str, topic: str, model: str | None = No
     }
 
 
-def launch_agent(role: str, agent: str | None = None, extra_args: list[str] | None = None, model: str | None = None):
+def launch_agent(
+    role: str,
+    agent: str | None = None,
+    extra_args: list[str] | None = None,
+    model: str | None = None,
+):
     """Launch an agent with a specific role.
 
     extra_args: Additional CLI arguments forwarded to the underlying agent
     command. These are sourced from inline spawn invocations like
     `spawn sentinel --resume` where `--resume` configures the agent itself
     rather than selecting a different identity.
-    
+
     model: Model override (e.g., 'claude-4.5-sonnet', 'gpt-5-codex')
     """
     import subprocess

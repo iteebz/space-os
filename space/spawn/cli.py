@@ -56,7 +56,7 @@ def register(role: str, sender_id: str, topic: str, model: str | None):
     """Register constitutional agent"""
     try:
         result = spawner.register_agent(role, sender_id, topic, model)
-        model_suffix = f" (model: {result['model']})" if result.get('model') else ""
+        model_suffix = f" (model: {result['model']})" if result.get("model") else ""
         click.echo(
             f"Registered: {result['role']} → {result['sender_id']} on {result['topic']} "
             f"(constitution: {result['constitution_hash']}){model_suffix}"
@@ -93,7 +93,9 @@ def list_registrations():
         click.echo("No registrations found")
         return
 
-    click.echo(f"{'ROLE':<15} {'SENDER':<15} {'TOPIC':<20} {'MODEL':<20} {'HASH':<10} {'REGISTERED':<20}")
+    click.echo(
+        f"{'ROLE':<15} {'SENDER':<15} {'TOPIC':<20} {'MODEL':<20} {'HASH':<10} {'REGISTERED':<20}"
+    )
     click.echo("-" * 110)
     for r in regs:
         model_display = r.model or "–"
@@ -148,7 +150,6 @@ def identity(base_identity: str):
 @click.option("--role", help="New role (optional, keeps existing if not specified)")
 def rename(old_sender_id: str, new_sender_id: str, role: str | None):
     """Rename agent across all provenance systems"""
-    from pathlib import Path
 
     from . import config
 
@@ -161,16 +162,21 @@ def rename(old_sender_id: str, new_sender_id: str, role: str | None):
         if role:
             const_path = spawner.get_constitution_path(role)
             const_content = const_path.read_text()
-            const_hash = spawner.hash_content(const_content)
+            spawner.hash_content(const_content)
             spawner.write_bridge_identity(new_sender_id, const_content)
-        
+
         registry.rename_sender(old_sender_id, new_sender_id, role)
 
         bridge_db = config.workspace_root() / ".space" / "bridge.db"
         import sqlite3
+
         conn = sqlite3.connect(bridge_db)
-        conn.execute("UPDATE messages SET sender = ? WHERE sender = ?", (new_sender_id, old_sender_id))
-        conn.execute("UPDATE bookmarks SET agent_id = ? WHERE agent_id = ?", (new_sender_id, old_sender_id))
+        conn.execute(
+            "UPDATE messages SET sender = ? WHERE sender = ?", (new_sender_id, old_sender_id)
+        )
+        conn.execute(
+            "UPDATE bookmarks SET agent_id = ? WHERE agent_id = ?", (new_sender_id, old_sender_id)
+        )
         conn.commit()
         conn.close()
 
@@ -179,7 +185,9 @@ def rename(old_sender_id: str, new_sender_id: str, role: str | None):
             new_identity = config.bridge_identities_dir() / f"{new_sender_id}.md"
             old_identity.rename(new_identity)
 
-        click.echo(f"Renamed {old_sender_id} → {new_sender_id}" + (f" (role: {role})" if role else ""))
+        click.echo(
+            f"Renamed {old_sender_id} → {new_sender_id}" + (f" (role: {role})" if role else "")
+        )
     except Exception as e:
         click.echo(f"Rename failed: {e}", err=True)
         sys.exit(1)

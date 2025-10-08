@@ -1,4 +1,3 @@
-import sqlite3
 import time
 from datetime import datetime
 
@@ -11,16 +10,21 @@ from .models import Entry
 def _resolve_uuid(short_uuid: str) -> str:
     with context_db.connect() as conn:
         # Find all uuids that end with the short_uuid
-        rows = conn.execute("SELECT uuid FROM memory WHERE uuid LIKE ?", (f"%{short_uuid}",)).fetchall()
-    
+        rows = conn.execute(
+            "SELECT uuid FROM memory WHERE uuid LIKE ?", (f"%{short_uuid}",)
+        ).fetchall()
+
     if not rows:
         raise ValueError(f"No entry found with UUID ending in '{short_uuid}'")
-    
+
     if len(rows) > 1:
         ambiguous_uuids = [row[0] for row in rows]
-        raise ValueError(f"Ambiguous UUID: '{short_uuid}' matches multiple entries: {ambiguous_uuids}")
-    
+        raise ValueError(
+            f"Ambiguous UUID: '{short_uuid}' matches multiple entries: {ambiguous_uuids}"
+        )
+
     return rows[0][0]
+
 
 def add_entry(identity: str, topic: str, message: str):
     entry_uuid = uuid7()

@@ -1,5 +1,5 @@
 import sqlite3
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 
 from . import config
@@ -36,14 +36,10 @@ def init_db():
         conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_sender_topic ON registrations(sender_id, topic)
         """)
-        try:
+        with suppress(sqlite3.OperationalError):
             conn.execute("ALTER TABLE registrations ADD COLUMN self TEXT")
-        except sqlite3.OperationalError:
-            pass
-        try:
+        with suppress(sqlite3.OperationalError):
             conn.execute("ALTER TABLE registrations ADD COLUMN model TEXT")
-        except sqlite3.OperationalError:
-            pass
         conn.commit()
 
 
@@ -57,7 +53,9 @@ def get_db():
         conn.close()
 
 
-def register(role: str, sender_id: str, topic: str, constitution_hash: str, model: str | None = None) -> int:
+def register(
+    role: str, sender_id: str, topic: str, constitution_hash: str, model: str | None = None
+) -> int:
     with get_db() as conn:
         cursor = conn.execute(
             """

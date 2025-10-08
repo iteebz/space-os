@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
 
 from . import storage
 
@@ -133,15 +133,17 @@ def _migrate_memory_old_table(conn: sqlite3.Connection) -> None:
         old_count = conn.execute("SELECT COUNT(*) FROM memory_entries").fetchone()[0]
     except sqlite3.OperationalError:
         return
-    
+
     if old_count == 0:
         return
-    
+
     new_count = conn.execute("SELECT COUNT(*) FROM memory").fetchone()[0]
     if new_count > 0:
         return
-    
-    rows = conn.execute("SELECT uuid, identity, topic, message, timestamp, created_at FROM memory_entries").fetchall()
+
+    rows = conn.execute(
+        "SELECT uuid, identity, topic, message, timestamp, created_at FROM memory_entries"
+    ).fetchall()
     conn.executemany(
         "INSERT OR IGNORE INTO memory (uuid, identity, topic, message, timestamp, created_at) VALUES (?, ?, ?, ?, ?, ?)",
         rows,
@@ -153,15 +155,17 @@ def _migrate_knowledge_old_table(conn: sqlite3.Connection) -> None:
         old_count = conn.execute("SELECT COUNT(*) FROM knowledge_entries").fetchone()[0]
     except sqlite3.OperationalError:
         return
-    
+
     if old_count == 0:
         return
-    
+
     new_count = conn.execute("SELECT COUNT(*) FROM knowledge").fetchone()[0]
     if new_count > 0:
         return
-    
-    rows = conn.execute("SELECT id, domain, contributor, content, confidence, created_at FROM knowledge_entries").fetchall()
+
+    rows = conn.execute(
+        "SELECT id, domain, contributor, content, confidence, created_at FROM knowledge_entries"
+    ).fetchall()
     conn.executemany(
         "INSERT OR IGNORE INTO knowledge (id, domain, contributor, content, confidence, created_at) VALUES (?, ?, ?, ?, ?, ?)",
         rows,

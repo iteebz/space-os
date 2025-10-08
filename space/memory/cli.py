@@ -15,7 +15,7 @@ def show_dashboard():
     if not PROTOCOL_FILE.exists():
         click.echo("❌ memory.md protocol not found")
         return
-    
+
     click.echo(PROTOCOL_FILE.read_text())
 
 
@@ -30,7 +30,7 @@ def show_dashboard():
 def main(ctx, identity, topic, clear, edit, delete, message):
     if ctx.invoked_subcommand:
         return
-    
+
     if not identity:
         show_dashboard()
         return
@@ -48,7 +48,7 @@ def main(ctx, identity, topic, clear, edit, delete, message):
             storage.edit_entry(edit, message)
             click.echo(f"Edited entry {edit}")
         except ValueError as e:
-            raise click.UsageError(str(e))
+            raise click.UsageError(str(e)) from e
         return
 
     if delete is not None:
@@ -56,7 +56,7 @@ def main(ctx, identity, topic, clear, edit, delete, message):
             storage.delete_entry(delete)
             click.echo(f"Deleted entry {delete}")
         except ValueError as e:
-            raise click.UsageError(str(e))
+            raise click.UsageError(str(e)) from e
         return
 
     if message:
@@ -79,6 +79,7 @@ def main(ctx, identity, topic, clear, edit, delete, message):
             click.echo(f"# {e.topic}")
             current_topic = e.topic
         click.echo(f"[{e.uuid[-8:]}] [{e.timestamp}] {e.message}")
+
 
 if __name__ == "__main__":
     main()

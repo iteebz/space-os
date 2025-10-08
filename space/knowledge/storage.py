@@ -14,8 +14,6 @@ class Knowledge:
     created_at: str
 
 
-
-
 def write_knowledge(
     domain: str,
     contributor: str,

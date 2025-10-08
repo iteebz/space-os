@@ -1,11 +1,9 @@
 """Storage logic for messages."""
 
-from space.lib import db
-from . import models
+from .. import models
+from .db import get_db_connection
 
 Message = models.Message
-
-from .db import get_db_connection
 
 
 def create_message(
@@ -25,11 +23,9 @@ def create_message(
     return message_id
 
 
-def get_new_messages(
-    channel_id: str, last_seen_id: int | None = None
-) -> list[Message]:
+def get_new_messages(channel_id: str, last_seen_id: int | None = None) -> list[Message]:
     """Retrieve new messages since the last seen message ID."""
-    with db.connect() as conn:
+    with get_db_connection() as conn:
         cursor = conn.cursor()
         if last_seen_id is None:
             cursor.execute(

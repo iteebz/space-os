@@ -5,6 +5,7 @@ This facade exposes the public functions from the domain-specific modules
 in the 'coordination' package.
 """
 
+from .alerts import get_alerts
 from .channels import (
     active_channels,
     all_channels,
@@ -23,7 +24,6 @@ from .instructions import (
     get_instructions,
     hash_instructions,
 )
-from .alerts import get_alerts
 from .messages import (
     fetch_messages,
     fetch_sender_history,

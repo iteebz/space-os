@@ -5,8 +5,10 @@ from pathlib import Path
 
 import click
 
-from . import events, protocols, stats as space_stats
-from .spawn import config as spawn_config, registry
+from . import events, protocols
+from . import stats as space_stats
+from .spawn import config as spawn_config
+from .spawn import registry
 
 PROTOCOL_FILE = Path(__file__).parent.parent / "protocols" / "space.md"
 if PROTOCOL_FILE.exists():
@@ -51,7 +53,7 @@ def show_events(source, identity, limit):
     if not rows:
         click.echo("No events found")
         return
-    
+
     for uuid, src, ident, event_type, data, created_at in rows:
         ts = datetime.fromtimestamp(created_at).strftime("%Y-%m-%d %H:%M:%S")
         ident_str = f" [{ident}]" if ident else ""
@@ -66,7 +68,7 @@ def agents():
     if not regs:
         click.echo("No agents registered")
         return
-    
+
     seen = set()
     for reg in regs:
         if reg.sender_id in seen:
@@ -87,7 +89,9 @@ def stats():
             return name
         total = sum(item.count for item in board)
         header = f"{name}: {total}"
-        lines = [header] + [f"  {i}. {item.identity} — {item.count}" for i, item in enumerate(board, 1)]
+        lines = [header] + [
+            f"  {i}. {item.identity} — {item.count}" for i, item in enumerate(board, 1)
+        ]
         return "\n".join(lines)
 
     sections = [
@@ -105,7 +109,9 @@ def describe(identity, description):
     registry.init_db()
     db = spawn_config.workspace_root() / ".space" / "spawn.db"
     conn = sqlite3.connect(db)
-    changes = conn.execute("UPDATE registrations SET self = ? WHERE sender_id = ?", (description, identity)).rowcount
+    changes = conn.execute(
+        "UPDATE registrations SET self = ? WHERE sender_id = ?", (description, identity)
+    ).rowcount
     conn.commit()
     conn.close()
     click.echo(f"{identity}: {description}" if changes > 0 else f"No agent: {identity}")
