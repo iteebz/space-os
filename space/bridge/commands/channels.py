@@ -1,21 +1,15 @@
+import json
+from dataclasses import asdict
 from datetime import datetime, timedelta
 from typing import Annotated
 
 import typer
 
-from .. import api, utils
+from space.lib import formatters
+
+from .. import api
 
 app = typer.Typer(invoke_without_command=True)
-
-
-def _format_channel_row(channel):
-    """Return last activity display and summary line for a channel."""
-    if channel.last_activity:
-        last_activity = datetime.fromisoformat(channel.last_activity).strftime("%Y-%m-%d")
-    else:
-        last_activity = "never"
-    meta_str = utils.format_channel_meta(channel)
-    return last_activity, f"{channel.name} - {meta_str}"
 
 
 @app.callback()
@@ -26,12 +20,24 @@ def channels_root(ctx: typer.Context):
 
 
 @app.command("list")
-def list_channels():
+def list_channels(
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
+):
     """List all channels with metadata."""
     all_channels = api.all_channels()
 
     if not all_channels:
-        typer.echo("No channels found")
+        if json_output:
+            typer.echo(json.dumps([]))
+        elif not quiet_output:
+            typer.echo("No channels found")
+        return
+
+    if json_output:
+        typer.echo(json.dumps([asdict(channel) for channel in all_channels]))
         return
 
     active_channels = []
@@ -48,65 +54,126 @@ def list_channels():
     active_channels.sort(key=lambda t: t.name)
     archived_channels.sort(key=lambda t: t.name)
 
-    typer.echo("--- Active Channels ---")
+    if not quiet_output:
+        typer.echo("--- Active Channels ---")
 
-    for channel in active_channels:
-        last_activity, description = _format_channel_row(channel)
-        typer.echo(f"{last_activity}: {description}")
-
-    if archived_channels:
-        typer.echo("\n--- Archived Channels ---")
-        for channel in archived_channels:
-            last_activity, description = _format_channel_row(channel)
+        for channel in active_channels:
+            last_activity, description = formatters.format_channel_row(channel)
             typer.echo(f"{last_activity}: {description}")
+
+        if archived_channels:
+            typer.echo("\n--- Archived Channels ---")
+            for channel in archived_channels:
+                last_activity, description = formatters.format_channel_row(channel)
+                typer.echo(f"{last_activity}: {description}")
 
 
 @app.command()
 def create(
     channel_name: str = typer.Argument(..., help="The name of the channel to create."),
     topic: Annotated[str, typer.Option(..., help="The initial topic for the channel.")] = None,
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
 ):
     """Create a new channel with an optional initial topic."""
     try:
         channel_id = api.create_channel(channel_name, topic)
-        typer.echo(f"Created channel: {channel_name} (ID: {channel_id})")
+        if json_output:
+            typer.echo(
+                json.dumps(
+                    {"status": "success", "channel_name": channel_name, "channel_id": channel_id}
+                )
+            )
+        elif not quiet_output:
+            typer.echo(f"Created channel: {channel_name} (ID: {channel_id})")
     except ValueError as e:
-        typer.echo(f"❌ Error creating channel: {e}")
+        if json_output:
+            typer.echo(json.dumps({"status": "error", "message": str(e)}))
+        elif not quiet_output:
+            typer.echo(f"❌ Error creating channel: {e}")
 
 
 @app.command()
 def rename(
     old_channel: str = typer.Argument(...),
     new_channel: str = typer.Argument(...),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
 ):
     """Rename channel and preserve all coordination data."""
     success = api.rename_channel(old_channel, new_channel)
-    if success:
-        typer.echo(f"Renamed channel: {old_channel} -> {new_channel}")
-    else:
-        typer.echo(f"❌ Rename failed: {old_channel} not found or {new_channel} already exists")
+    if json_output:
+        typer.echo(
+            json.dumps(
+                {
+                    "status": "success" if success else "failed",
+                    "old_channel": old_channel,
+                    "new_channel": new_channel,
+                }
+            )
+        )
+    elif not quiet_output:
+        if success:
+            typer.echo(f"Renamed channel: {old_channel} -> {new_channel}")
+        else:
+            typer.echo(f"❌ Rename failed: {old_channel} not found or {new_channel} already exists")
 
 
 @app.command()
 def archive(
     channels: Annotated[list[str], typer.Argument(...)],
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
 ):
     """Archive channels by setting creation date to 30 days ago."""
-    for channel in channels:
+    results = []
+    for channel_name in channels:
         try:
-            api.archive_channel(channel)
-            typer.echo(f"Archived channel: {channel}")
+            api.archive_channel(channel_name)
+            if json_output:
+                results.append({"channel": channel_name, "status": "archived"})
+            elif not quiet_output:
+                typer.echo(f"Archived channel: {channel_name}")
         except ValueError:
-            typer.echo(f"❌ Channel '{channel}' not found.")
+            if json_output:
+                results.append(
+                    {
+                        "channel": channel_name,
+                        "status": "error",
+                        "message": f"Channel '{channel_name}' not found.",
+                    }
+                )
+            elif not quiet_output:
+                typer.echo(f"❌ Channel '{channel_name}' not found.")
+    if json_output:
+        typer.echo(json.dumps(results))
 
 
 @app.command()
 def delete(
     channel: str = typer.Argument(...),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
 ):
     """Permanently delete channel and all messages (HUMAN ONLY)."""
     try:
         api.delete_channel(channel)
-        typer.echo(f"Deleted channel: {channel}")
+        if json_output:
+            typer.echo(json.dumps({"status": "deleted", "channel": channel}))
+        elif not quiet_output:
+            typer.echo(f"Deleted channel: {channel}")
     except ValueError:
-        typer.echo(f"❌ Channel '{channel}' not found.")
+        if json_output:
+            typer.echo(
+                json.dumps({"status": "error", "message": f"Channel '{channel}' not found."})
+            )
+        elif not quiet_output:
+            typer.echo(f"❌ Channel '{channel}' not found.")

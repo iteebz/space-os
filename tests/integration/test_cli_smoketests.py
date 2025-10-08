@@ -14,7 +14,7 @@ runner = CliRunner()
 
 def test_space_smoketest():
     result = runner.invoke(space_app)
-    assert "WELCOME TO AGENT-SPACE" in result.stdout
+    assert "WELCOME TO SPACE-OS" in result.stdout
 
 
 def test_bridge_smoketest():

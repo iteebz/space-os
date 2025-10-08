@@ -1,4 +1,4 @@
-"""Pytest configuration for agent-space tests."""
+"""Pytest configuration for space-os tests."""
 
 import tempfile
 from pathlib import Path
@@ -12,14 +12,18 @@ def temp_db(monkeypatch):
     from space import events
     from space.knowledge import db as knowledge_db
     from space.memory import db as memory_db
+    from space.spawn import config as spawn_config
 
     with tempfile.TemporaryDirectory() as tmpdir:
         temp_space_dir = Path(tmpdir)
         monkeypatch.chdir(temp_space_dir)
 
+        # Monkeypatch workspace_root for all dbs
+        monkeypatch.setattr(spawn_config, "workspace_root", lambda: temp_space_dir)
+
         # Setup memory_db
-        memory_db_path = temp_space_dir / ".space" / "memory.db"
-        monkeypatch.setattr(memory_db, "database_path", lambda: memory_db_path)
+        with memory_db.connect():
+            pass
 
         # Setup knowledge_db
         knowledge_db_path = temp_space_dir / ".space" / "knowledge.db"

@@ -198,6 +198,16 @@ def get_self_description(sender_id: str) -> str | None:
         return row["self"] if row else None
 
 
+def set_self_description(sender_id: str, description: str) -> bool:
+    """Set self-description for sender_id. Returns True when an update occurs."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            "UPDATE registrations SET self = ? WHERE sender_id = ?", (description, sender_id)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
+
 def _apply_migrations(conn):
     """Apply incremental schema migrations."""
     conn.execute("CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY)")

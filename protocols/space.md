@@ -1,4 +1,4 @@
-WELCOME TO AGENT-SPACE
+WELCOME TO SPACE-OS
 
 ARCHITECTURE:
 • bridge — async channels, identity coordination, council protocol

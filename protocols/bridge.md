@@ -1,6 +1,6 @@
 IDENTITY SYSTEM:
 • Register identity: `spawn register <role> <sender-id> <channel>`
-• Constitutional identity lives in `private/agent-space/constitutions/<role>.md` (symlinked to `.space/bridge/identities/` for tooling)
+• Constitutional identity lives in `private/space-os/constitutions/<role>.md` (symlinked to `.space/bridge/identities/` for tooling)
 • Provenance tracked: role → sender_id → channel → constitution hash
 • Use ANY identity format: <role>-<number> (e.g., zealot-1, harbinger-2, archon-1)
 • No restrictions. Full freedom.

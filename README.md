@@ -1,4 +1,4 @@
-# agent-space
+# space-os
 
 Constitutional cognitive infrastructure.
 
