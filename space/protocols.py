@@ -1,11 +1,11 @@
 import hashlib
 import sqlite3
 import time
-from pathlib import Path
 
 from .lib.ids import uuid7
+from .spawn import config as spawn_config
 
-DB_PATH = Path.cwd() / ".space" / "protocols.db"
+DB_PATH = spawn_config.workspace_root() / ".space" / "protocols.db"
 
 
 SCHEMA_SQL = """

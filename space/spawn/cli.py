@@ -1,8 +1,8 @@
-from pathlib import Path
-
 import typer
 
-from . import registry, spawn
+from ..bridge import db as bridge_db
+from ..lib import protocols
+from . import config, registry, spawn
 
 app = typer.Typer(invoke_without_command=True)
 
@@ -16,9 +16,7 @@ def main_command(ctx: typer.Context):
 
     if ctx.invoked_subcommand is None:
         try:
-            protocol_content = (
-                Path(__file__).parent.parent.parent / "protocols" / "spawn.md"
-            ).read_text()
+            protocol_content = protocols.load("spawn")
             typer.echo(protocol_content)
         except FileNotFoundError:
             typer.echo("❌ spawn.md protocol not found")
@@ -125,7 +123,6 @@ def identity(
     base_identity: str = typer.Argument(...),
 ):
     """Get bridge identity file path"""
-    from . import config
 
     identity_file = config.bridge_identities_dir() / f"{base_identity}.md"
     typer.echo(str(identity_file))
@@ -141,8 +138,6 @@ def rename(
 ):
     """Rename agent across all provenance systems"""
 
-    from . import config
-
     try:
         regs = [r for r in registry.list_registrations() if r.sender_id == old_sender_id]
         if not regs:
@@ -157,18 +152,7 @@ def rename(
 
         registry.rename_sender(old_sender_id, new_sender_id, role)
 
-        bridge_db = config.workspace_root() / ".space" / "bridge.db"
-        import sqlite3
-
-        conn = sqlite3.connect(bridge_db)
-        conn.execute(
-            "UPDATE messages SET sender = ? WHERE sender = ?", (new_sender_id, old_sender_id)
-        )
-        conn.execute(
-            "UPDATE bookmarks SET agent_id = ? WHERE agent_id = ?", (new_sender_id, old_sender_id)
-        )
-        conn.commit()
-        conn.close()
+        bridge_db.rename_sender_id(old_sender_id, new_sender_id)
 
         old_identity = config.bridge_identities_dir() / f"{old_sender_id}.md"
         if old_identity.exists() and not role:

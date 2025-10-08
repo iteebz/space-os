@@ -34,13 +34,11 @@ class Entry:
 
 
 def database_path() -> Path:
-    return Path.cwd() / ".space" / KNOWLEDGE_DB_NAME
+    return libdb.workspace_db_path(KNOWLEDGE_DB_NAME)
 
 
 def connect():
-    if not database_path().exists():
-        libdb.ensure_schema(database_path(), _KNOWLEDGE_SCHEMA)
-    return libdb.connect(database_path())
+    return libdb.workspace_db(KNOWLEDGE_DB_NAME, _KNOWLEDGE_SCHEMA)
 
 
 def write_knowledge(

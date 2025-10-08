@@ -1,8 +1,7 @@
-from pathlib import Path
-
 import typer
 
 from . import db
+from ..lib import protocols
 
 app = typer.Typer(invoke_without_command=True)
 
@@ -13,52 +12,69 @@ app = typer.Typer(invoke_without_command=True)
 @app.callback()
 def main_command(
     identity: str = typer.Option(None, "--as", help="Identity name"),
-    topic: str = typer.Option(None, help="Topic name"),
-    clear: bool = typer.Option(False, "--clear", help="Clear entries"),
-    edit: str = typer.Option(None, metavar="UUID", help="Edit entry by UUID"),
-    delete: str = typer.Option(None, metavar="UUID", help="Delete entry by UUID"),
-    message: str = typer.Argument(None),
 ):
     if not identity:
         try:
-            protocol_content = (
-                Path(__file__).parent.parent.parent / "protocols" / "memory.md"
-            ).read_text()
+            protocol_content = protocols.load("memory")
             typer.echo(protocol_content)
         except FileNotFoundError:
             typer.echo("❌ memory.md protocol not found")
         return
 
-    if clear:
-        db.clear_entries(identity, topic)
-        scope = f"topic '{topic}'" if topic else "all topics"
-        typer.echo(f"Cleared {scope} for {identity}")
-        return
 
-    if edit is not None:
-        if not message:
-            raise typer.BadParameter("message required when editing")
-        try:
-            db.edit_entry(edit, message)
-            typer.echo(f"Edited entry {edit}")
-        except ValueError as e:
-            raise typer.BadParameter(str(e)) from e
-        return
+@app.command("add")
+def add_entry_command(
+    identity: str = typer.Option(..., "--as", help="Identity name"),
+    topic: str = typer.Option(..., help="Topic name"),
+    message: str = typer.Argument(..., help="The memory message"),
+):
+    """Add a new memory entry."""
+    db.add_entry(identity, topic, message)
+    typer.echo(f"Added memory for {identity} on topic {topic}")
 
-    if delete is not None:
-        try:
-            db.delete_entry(delete)
-            typer.echo(f"Deleted entry {delete}")
-        except ValueError as e:
-            raise typer.BadParameter(str(e)) from e
-        return
 
-    if message:
-        if not topic:
-            raise typer.BadParameter("--topic required when writing")
-        db.add_entry(identity, topic, message)
-        return
+@app.command("edit")
+def edit_entry_command(
+    uuid: str = typer.Argument(..., help="UUID of the entry to edit"),
+    message: str = typer.Argument(..., help="The new message content"),
+):
+    """Edit an existing memory entry."""
+    try:
+        db.edit_entry(uuid, message)
+        typer.echo(f"Edited entry {uuid}")
+    except ValueError as e:
+        raise typer.BadParameter(str(e)) from e
 
+
+@app.command("delete")
+def delete_entry_command(
+    uuid: str = typer.Argument(..., help="UUID of the entry to delete"),
+):
+    """Delete a memory entry."""
+    try:
+        db.delete_entry(uuid)
+        typer.echo(f"Deleted entry {uuid}")
+    except ValueError as e:
+        raise typer.BadParameter(str(e)) from e
+
+
+@app.command("clear")
+def clear_entries_command(
+    identity: str = typer.Option(..., "--as", help="Identity name"),
+    topic: str = typer.Option(None, help="Topic name"),
+):
+    """Clear memory entries for an identity and optional topic."""
+    db.clear_entries(identity, topic)
+    scope = f"topic '{topic}'" if topic else "all topics"
+    typer.echo(f"Cleared {scope} for {identity}")
+
+
+@app.command("list")
+def list_entries_command(
+    identity: str = typer.Option(..., "--as", help="Identity name"),
+    topic: str = typer.Option(None, help="Topic name"),
+):
+    """List memory entries for an identity and optional topic."""
     entries = db.get_entries(identity, topic)
     if not entries:
         scope = f"topic '{topic}'" if topic else "all topics"

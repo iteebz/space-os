@@ -43,3 +43,16 @@ def format_time_ago(timestamp: str) -> str:
     if diff.seconds > 60:
         return f"{diff.seconds // 60}m ago"
     return "just now"
+
+
+def format_channel_meta(channel) -> str:
+    """Render message/member/note counts for a channel."""
+    participant_count = len(channel.participants or [])
+    parts = [
+        f"{channel.message_count} msgs",
+        f"{participant_count} members",
+    ]
+    notes = getattr(channel, "notes_count", 0) or 0
+    if notes:
+        parts.append(f"{notes} notes")
+    return " | ".join(parts)

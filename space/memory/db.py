@@ -28,13 +28,11 @@ CREATE INDEX IF NOT EXISTS idx_memory_uuid ON memory(uuid);
 
 
 def database_path() -> Path:
-    return Path.cwd() / ".space" / MEMORY_DB_NAME
+    return libdb.workspace_db_path(MEMORY_DB_NAME)
 
 
 def connect():
-    if not database_path().exists():
-        libdb.ensure_schema(database_path(), _MEMORY_SCHEMA)
-    return libdb.connect(database_path())
+    return libdb.workspace_db(MEMORY_DB_NAME, _MEMORY_SCHEMA)
 
 
 def _resolve_uuid(short_uuid: str) -> str:

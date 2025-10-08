@@ -20,3 +20,21 @@ def ensure_schema(db_path: Path, schema: str):
         conn.execute("PRAGMA journal_mode=WAL")
         conn.executescript(schema)
         conn.commit()
+
+
+def ensure_workspace_db(db_path: Path, schema: str):
+    if not db_path.exists():
+        ensure_schema(db_path, schema)
+    return connect(db_path)
+
+
+def workspace_db_path(db_name: str) -> Path:
+    """Resolve the workspace-scoped .space database path."""
+    from ..spawn import config as spawn_config
+
+    return spawn_config.workspace_root() / ".space" / db_name
+
+
+def workspace_db(db_name: str, schema: str):
+    """Return a workspace-scoped connection context manager with schema bootstrapped."""
+    return ensure_workspace_db(workspace_db_path(db_name), schema)

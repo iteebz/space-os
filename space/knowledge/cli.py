@@ -1,8 +1,7 @@
-from pathlib import Path
-
 import typer
 
 from . import db
+from ..lib import protocols
 
 app = typer.Typer(invoke_without_command=True)
 
@@ -19,9 +18,7 @@ def main_command(
     """Knowledge primitive - agent-contributed learned patterns."""
     if not any([content, contributor, domain, from_contributor]):
         try:
-            protocol_content = (
-                Path(__file__).parent.parent.parent / "protocols" / "knowledge.md"
-            ).read_text()
+            protocol_content = protocols.load("knowledge")
             typer.echo(protocol_content)
         except FileNotFoundError:
             typer.echo("❌ knowledge.md protocol not found")
@@ -33,7 +30,7 @@ def main_command(
         return
 
     if domain:
-        entries = storage.query_by_domain(domain)
+        entries = db.query_by_domain(domain)
         if not entries:
             typer.echo(f"No knowledge for domain: {domain}")
             return
@@ -45,7 +42,7 @@ def main_command(
         return
 
     if from_contributor:
-        entries = storage.query_by_contributor(from_contributor)
+        entries = db.query_by_contributor(from_contributor)
         if not entries:
             typer.echo(f"No knowledge from: {from_contributor}")
             return
@@ -56,7 +53,7 @@ def main_command(
             typer.echo(entry.content)
         return
 
-    entries = storage.list_all()
+    entries = db.list_all()
     if not entries:
         typer.echo("No knowledge entries found")
         return
@@ -76,13 +73,13 @@ def export(
 ):
     """Export knowledge entries as markdown."""
     if domain:
-        entries = storage.query_by_domain(domain)
+        entries = db.query_by_domain(domain)
         title = f"Knowledge: {domain}"
     elif from_contributor:
-        entries = storage.query_by_contributor(from_contributor)
+        entries = db.query_by_contributor(from_contributor)
         title = f"Knowledge from {from_contributor}"
     else:
-        entries = storage.list_all()
+        entries = db.list_all()
         title = "All Knowledge"
 
     if not entries:
@@ -103,7 +100,7 @@ def export(
 @app.command()
 def show(entry_id: str = typer.Argument(..., help="Show single knowledge entry.")):
     """Show single knowledge entry."""
-    entry = storage.get_by_id(entry_id)
+    entry = db.get_by_id(entry_id)
     if not entry:
         typer.echo(f"Entry not found: {entry_id}", err=True)
         raise typer.Exit(code=1)

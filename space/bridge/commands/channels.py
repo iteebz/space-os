@@ -3,13 +3,30 @@ from typing import Annotated
 
 import typer
 
-from .. import api
+from .. import api, utils
 
-app = typer.Typer()
+app = typer.Typer(invoke_without_command=True)
 
 
-@app.command("channels")
-def channels():
+def _format_channel_row(channel):
+    """Return last activity display and summary line for a channel."""
+    if channel.last_activity:
+        last_activity = datetime.fromisoformat(channel.last_activity).strftime("%Y-%m-%d")
+    else:
+        last_activity = "never"
+    meta_str = utils.format_channel_meta(channel)
+    return last_activity, f"{channel.name} - {meta_str}"
+
+
+@app.callback()
+def channels_root(ctx: typer.Context):
+    """Bridge channel operations (defaults to listing)."""
+    if ctx.invoked_subcommand is None:
+        list_channels()
+
+
+@app.command("list")
+def list_channels():
     """List all channels with metadata."""
     all_channels = api.all_channels()
 
@@ -34,34 +51,14 @@ def channels():
     typer.echo("--- Active Channels ---")
 
     for channel in active_channels:
-        last_activity_dt = (
-            datetime.fromisoformat(channel.last_activity) if channel.last_activity else None
-        )
-        last_activity = last_activity_dt.strftime("%Y-%m-%d") if last_activity_dt else "never"
-        meta_parts = [
-            f"{channel.message_count} msgs",
-            f"{len(channel.participants)} members",
-        ]
-        if channel.notes_count > 0:
-            meta_parts.append(f"{channel.notes_count} notes")
-        meta_str = " | ".join(meta_parts)
-        typer.echo(f"{last_activity}: {channel.name} - {meta_str}")
+        last_activity, description = _format_channel_row(channel)
+        typer.echo(f"{last_activity}: {description}")
 
     if archived_channels:
         typer.echo("\n--- Archived Channels ---")
         for channel in archived_channels:
-            last_activity_dt = (
-                datetime.fromisoformat(channel.last_activity) if channel.last_activity else None
-            )
-            last_activity = last_activity_dt.strftime("%Y-%m-%d") if last_activity_dt else "never"
-            meta_parts = [
-                f"{channel.message_count} msgs",
-                f"{len(channel.participants)} members",
-            ]
-            if channel.notes_count > 0:
-                meta_parts.append(f"{channel.notes_count} notes")
-            meta_str = " | ".join(meta_parts)
-            typer.echo(f"{last_activity}: {channel.name} - {meta_str}")
+            last_activity, description = _format_channel_row(channel)
+            typer.echo(f"{last_activity}: {description}")
 
 
 @app.command()

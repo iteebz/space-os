@@ -1,10 +1,10 @@
 import time
-from pathlib import Path
 
 from .lib import db as libdb
 from .lib.ids import uuid7
+from .spawn import config as spawn_config
 
-DB_PATH = Path.cwd() / ".space" / "events.db"
+DB_PATH = spawn_config.workspace_root() / ".space" / "events.db"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (
