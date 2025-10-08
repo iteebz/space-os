@@ -1,5 +1,5 @@
 from space.bridge import api
-from space.bridge.storage import db as bridge_db
+from space.bridge.db import db as bridge_db
 
 
 def test_send_message(bridge_workspace):

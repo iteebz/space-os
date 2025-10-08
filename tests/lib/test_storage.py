@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from space.lib import storage
+import space.lib.db_utils as db_utils
 
 
 def test_root_from_subdirectory():
@@ -13,7 +13,7 @@ def test_root_from_subdirectory():
     os.chdir(expected_root / "private" / "agent-space")
 
     # Call the function to test
-    actual_root = storage.root()
+    actual_root = db_utils.root()
 
     # Assert that the function correctly found the project root
     assert actual_root == expected_root

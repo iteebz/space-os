@@ -4,7 +4,7 @@ import hashlib
 import pytest
 
 from space.bridge.api import channels, messages
-from space.bridge.storage import db as bridge_db
+from space.bridge.db import db as bridge_db
 
 
 @pytest.fixture
@@ -49,7 +49,7 @@ def setup_channel():
         identity_file_path.unlink()
 
 
-def test_recv_does_not_return_messages_from_archived_channel(setup_channel):
+def test_recv_ignores_archived_channel_messages(setup_channel):
     channel_name, channel_id, identity, message_content = setup_channel
 
     # Archive the channel

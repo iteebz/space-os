@@ -54,7 +54,7 @@ def test_save_and_get_agent_identity(in_memory_db):
     assert non_existent_identity is None
 
 
-def test_save_agent_identity_with_long_content(in_memory_db):
+def test_save_long_identity(in_memory_db):
     sender_id = "long_content_agent"
     long_full_identity = "A" * 10000  # 10,000 characters
     constitution_hash = spawn.hash_content(long_full_identity)
@@ -64,7 +64,7 @@ def test_save_agent_identity_with_long_content(in_memory_db):
     assert retrieved_identity == long_full_identity
 
 
-def test_save_agent_identity_with_special_characters(in_memory_db):
+def test_save_special_chars_identity(in_memory_db):
     sender_id = "special_char_agent"
     special_char_identity = "Hello!@#$%^&*()_+-=[]{}|;':\",./<>?`~"
     constitution_hash = spawn.hash_content(special_char_identity)
@@ -93,7 +93,7 @@ def test_save_and_get_constitution(in_memory_db):
     assert non_existent_constitution is None
 
 
-def test_save_constitution_with_long_content(in_memory_db):
+def test_save_long_constitution(in_memory_db):
     long_constitution_content = "B" * 20000  # 20,000 characters
     constitution_hash = spawn.hash_content(long_constitution_content)
 
@@ -102,7 +102,7 @@ def test_save_constitution_with_long_content(in_memory_db):
     assert retrieved_content == long_constitution_content
 
 
-def test_save_constitution_with_special_characters(in_memory_db):
+def test_save_special_chars_constitution(in_memory_db):
     special_char_constitution = "Constitution!@#$%^&*()_+-=[]{}\\|;':\",./<>?`~"
     constitution_hash = spawn.hash_content(special_char_constitution)
 

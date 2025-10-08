@@ -1,15 +1,65 @@
-import time
-from datetime import datetime
+from __future__ import annotations
 
-from .. import events
-from ..lib import context_db
-from ..lib.ids import uuid7
-from .models import Entry
+import sqlite3
+import time
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from datetime import datetime
+from pathlib import Path
+
+from .. import events  # Assuming events module is available
+from ..lib import db_utils  # Import the general db utility
+from ..lib.ids import uuid7  # Assuming uuid7 is in lib.ids
+from .models import Entry  # Assuming Entry is in .models
+
+MEMORY_DB_NAME = "memory.db"
+
+_MEMORY_SCHEMA = """
+CREATE TABLE IF NOT EXISTS memory (
+    uuid TEXT PRIMARY KEY,
+    identity TEXT NOT NULL,
+    topic TEXT NOT NULL,
+    message TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_memory_identity_topic ON memory(identity, topic);
+CREATE INDEX IF NOT EXISTS idx_memory_identity_created ON memory(identity, created_at);
+CREATE INDEX IF NOT EXISTS idx_memory_uuid ON memory(uuid);
+"""
+
+
+def database_path() -> Path:
+    """Return absolute path to the memory database file."""
+    return db_utils.database_path(MEMORY_DB_NAME)
+
+
+def ensure_database(initializer: Callable[[sqlite3.Connection], None] | None = None) -> Path:
+    """Ensure the memory database exists and schema is applied."""
+    path = database_path()
+    with sqlite3.connect(path) as conn:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.executescript(_MEMORY_SCHEMA)
+        if initializer is not None:
+            initializer(conn)
+        conn.commit()
+    return path
+
+
+@contextmanager
+def connect() -> Iterator[sqlite3.Connection]:
+    """Yield a connection to the memory database, ensuring schema beforehand."""
+    ensure_database()
+    conn = sqlite3.connect(database_path())
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def _resolve_uuid(short_uuid: str) -> str:
-    with context_db.connect() as conn:
-        # Find all uuids that end with the short_uuid
+    with connect() as conn:
         rows = conn.execute(
             "SELECT uuid FROM memory WHERE uuid LIKE ?", (f"%{short_uuid}",)
         ).fetchall()
@@ -30,7 +80,7 @@ def add_entry(identity: str, topic: str, message: str):
     entry_uuid = uuid7()
     now = int(time.time())
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-    with context_db.connect() as conn:
+    with connect() as conn:
         conn.execute(
             "INSERT INTO memory (uuid, identity, topic, message, timestamp, created_at) VALUES (?, ?, ?, ?, ?, ?)",
             (entry_uuid, identity, topic, message, ts, now),
@@ -40,7 +90,7 @@ def add_entry(identity: str, topic: str, message: str):
 
 
 def get_entries(identity: str, topic: str | None = None) -> list[Entry]:
-    with context_db.connect() as conn:
+    with connect() as conn:
         if topic:
             rows = conn.execute(
                 "SELECT uuid, identity, topic, message, timestamp, created_at FROM memory WHERE identity = ? AND topic = ? ORDER BY uuid",
@@ -57,9 +107,9 @@ def get_entries(identity: str, topic: str | None = None) -> list[Entry]:
 def edit_entry(entry_uuid: str, new_message: str):
     full_uuid = _resolve_uuid(entry_uuid)
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-    with context_db.connect() as conn:
+    with connect() as conn:
         conn.execute(
-            "UPDATE memory SET message = ?, timestamp = ? WHERE uuid = ?",
+            "UPDATE memory SET message = ?, timestamp = ? WHERE uuid = ? ",
             (new_message, ts, full_uuid),
         )
         conn.commit()
@@ -68,14 +118,14 @@ def edit_entry(entry_uuid: str, new_message: str):
 
 def delete_entry(entry_uuid: str):
     full_uuid = _resolve_uuid(entry_uuid)
-    with context_db.connect() as conn:
+    with connect() as conn:
         conn.execute("DELETE FROM memory WHERE uuid = ?", (full_uuid,))
         conn.commit()
     events.emit("memory", "entry.delete", None, f"{full_uuid[-8:]}")
 
 
 def clear_entries(identity: str, topic: str | None = None):
-    with context_db.connect() as conn:
+    with connect() as conn:
         if topic:
             conn.execute("DELETE FROM memory WHERE identity = ? AND topic = ?", (identity, topic))
         else:

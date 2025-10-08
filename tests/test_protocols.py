@@ -37,7 +37,7 @@ def test_track_prefers_latest_hash():
     assert created_at > 0
 
 
-def test_track_is_idempotent_for_identical_content():
+def test_track_deduplicates_content():
     content = "stable version"
     protocols.track("bridge", content)
     protocols.track("bridge", content)
