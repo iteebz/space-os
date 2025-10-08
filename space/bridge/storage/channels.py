@@ -7,13 +7,13 @@ from ..models import Channel, ExportData
 from .db import get_db_connection
 
 
-def create_channel_record(channel_name: str, instruction_hash: str) -> str:
-    """Create channel record in DB, locking instruction version. Returns channel_id."""
+def create_channel_record(channel_name: str) -> str:
+    """Create channel record in DB. Returns channel_id."""
     channel_id = str(uuid.uuid4())
     with get_db_connection() as conn:
         conn.execute(
-            "INSERT INTO channels (id, name, instruction_hash) VALUES (?, ?, ?)",
-            (channel_id, channel_name, instruction_hash),
+            "INSERT INTO channels (id, name) VALUES (?, ?)",
+            (channel_id, channel_name),
         )
         conn.commit()
     return channel_id
@@ -218,34 +218,4 @@ def rename_channel(old_name: str, new_name: str) -> bool:
         return False
 
 
-# Topic compatibility -------------------------------------------------------
 
-
-def create_topic_record(topic_name: str, instruction_hash: str) -> str:
-    """Backward compatible alias for channel creation."""
-    return create_channel_record(topic_name, instruction_hash)
-
-
-def ensure_topic_exists(topic_name: str) -> str:
-    """Backward compatible alias for channel existence check."""
-    return ensure_channel_exists(topic_name)
-
-
-def get_topic_id(topic_name: str) -> str:
-    """Backward compatible alias for channel lookup."""
-    return get_channel_id(topic_name)
-
-
-def archive_topic(topic_id: str) -> None:
-    """Backward compatible alias for channel archival."""
-    archive_channel(topic_id)
-
-
-def delete_topic(topic_id: str) -> None:
-    """Backward compatible alias for channel deletion."""
-    delete_channel(topic_id)
-
-
-def rename_topic(old_name: str, new_name: str) -> bool:
-    """Backward compatible alias for channel renaming."""
-    return rename_channel(old_name, new_name)

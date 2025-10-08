@@ -1,6 +1,5 @@
-from .. import storage, utils
+from .. import storage
 from ..models import Channel, ExportData
-from . import instructions
 
 
 def active_channels(agent_id: str = None) -> list[Channel]:
@@ -53,12 +52,5 @@ def resolve_channel_id(channel_name: str) -> str:
 
 
 def create_channel(channel_name: str) -> str:
-    """Orchestrates the creation of a new channel with default instructions."""
-    instructions.check_instructions()
-
-    instructions_content = instructions.get_instructions()
-    instruction_hash = utils.hash_content(instructions_content)
-
-    storage.save_instructions(instruction_hash, instructions_content, "default")
-
-    return storage.create_channel_record(channel_name, instruction_hash)
+    """Orchestrates the creation of a new channel."""
+    return storage.create_channel_record(channel_name)

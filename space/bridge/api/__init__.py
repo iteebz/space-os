@@ -2,7 +2,7 @@
 Business logic layer for the Bridge CLI.
 
 This facade exposes the public functions from the domain-specific modules
-in the 'coordination' package.
+in the 'api' package.
 """
 
 from .alerts import get_alerts
@@ -17,12 +17,6 @@ from .channels import (
     rename_channel,
     resolve_channel_id,
 )
-from .instructions import (
-    channel_instructions,
-    check_instructions,
-    get_instructions,
-    hash_instructions,
-)
 from .messages import (
     fetch_messages,
     fetch_sender_history,
@@ -34,10 +28,6 @@ from .messages import (
 from .notes import add_note, get_notes
 
 __all__ = [
-    "check_instructions",
-    "get_instructions",
-    "hash_instructions",
-    "channel_instructions",
     "fetch_messages",
     "fetch_sender_history",
     "is_context",

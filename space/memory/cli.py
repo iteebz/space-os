@@ -2,27 +2,29 @@ from pathlib import Path
 
 import typer
 
-from .. import protocols as old_protocols # Renamed to avoid conflict
 from . import storage
-from .lib import protocols # New import
 
 app = typer.Typer(invoke_without_command=True)
 
 # Removed: PROTOCOL_FILE definitions and protocols.track calls
 # Removed: show_dashboard functions
 
+
 @app.callback()
 def main_command(
     identity: str = typer.Option(None, "--as", help="Identity name"),
     topic: str = typer.Option(None, help="Topic name"),
-    clear: bool = typer.Option(False, "--clear", is_flag=True, help="Clear entries"),
+    clear: bool = typer.Option(False, "--clear", help="Clear entries"),
     edit: str = typer.Option(None, metavar="UUID", help="Edit entry by UUID"),
     delete: str = typer.Option(None, metavar="UUID", help="Delete entry by UUID"),
     message: str = typer.Argument(None),
 ):
     if not identity:
         try:
-            typer.echo(protocols.load("memory"))
+            protocol_content = (
+                Path(__file__).parent.parent.parent / "protocols" / "memory.md"
+            ).read_text()
+            typer.echo(protocol_content)
         except FileNotFoundError:
             typer.echo("❌ memory.md protocol not found")
         return

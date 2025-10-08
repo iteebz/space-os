@@ -3,8 +3,7 @@ import hashlib
 
 import pytest
 
-from space.bridge import coordination
-from space.bridge.coordination import messages as coordination_messages
+from space.bridge.api import channels, messages
 from space.bridge.storage import db as bridge_db
 
 
@@ -33,16 +32,16 @@ def setup_channel():
 
     # Ensure channel is clean before test
     with contextlib.suppress(ValueError):
-        coordination.delete_channel(channel_name)
+        channels.delete_channel(channel_name)
 
-    channel_id = coordination.create_channel(channel_name)
-    coordination.send_message(channel_id, identity, message_content)
+    channel_id = channels.create_channel(channel_name)
+    messages.send_message(channel_id, identity, message_content)
 
     yield channel_name, channel_id, identity, message_content
 
     # Clean up after test
     with contextlib.suppress(ValueError):
-        coordination.delete_channel(channel_name)
+        channels.delete_channel(channel_name)
     # Unregister the identity
     registry.unregister("test-role", identity, channel_name)
     # Delete the dummy identity file
@@ -54,13 +53,11 @@ def test_recv_does_not_return_messages_from_archived_channel(setup_channel):
     channel_name, channel_id, identity, message_content = setup_channel
 
     # Archive the channel
-    coordination.archive_channel(channel_name)
+    channels.archive_channel(channel_name)
 
     # Attempt to receive messages from the archived channel
-    messages, unread_count, context, participants = coordination_messages.recv_updates(
-        channel_id, identity
-    )
+    msgs, unread_count, context, participants = messages.recv_updates(channel_id, identity)
 
     # Assert that no messages are returned
-    assert len(messages) == 0
+    assert len(msgs) == 0
     assert unread_count == 0

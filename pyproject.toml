@@ -22,7 +22,7 @@ pyyaml = "^6.0"
 [tool.poetry.scripts]
 bridge = "space.bridge.cli:main"
 spawn = "space.spawn.cli:main"
-memory = "space.memory.cli:main"
+memory = "space.memory.cli:app"
 knowledge = "space.knowledge.cli:main"
 space = "space.cli:app"
 

@@ -1,14 +1,13 @@
-import sys
-from typing import Optional, List
+from pathlib import Path
 
 import typer
 
 from . import registry, spawn
-from .lib import protocols # New import
 
 app = typer.Typer(invoke_without_command=True)
 
 # Removed: PROTOCOL_FILE definition
+
 
 @app.callback()
 def main_command(ctx: typer.Context):
@@ -17,7 +16,10 @@ def main_command(ctx: typer.Context):
 
     if ctx.invoked_subcommand is None and not ctx.args:
         try:
-            typer.echo(protocols.load("spawn"))
+            protocol_content = (
+                Path(__file__).parent.parent.parent / "protocols" / "spawn.md"
+            ).read_text()
+            typer.echo(protocol_content)
         except FileNotFoundError:
             typer.echo("❌ spawn.md protocol not found")
         return
@@ -41,7 +43,9 @@ def register(
     role: str = typer.Argument(...),
     sender_id: str = typer.Argument(...),
     topic: str = typer.Argument(...),
-    model: Optional[str] = typer.Option(None, "--model", help="Model to use (e.g., claude-4.5-sonnet, gpt-5-codex)"),
+    model: str | None = typer.Option(
+        None, "--model", help="Model to use (e.g., claude-4.5-sonnet, gpt-5-codex)"
+    ),
 ):
     """Register constitutional agent"""
     try:
@@ -53,7 +57,7 @@ def register(
         )
     except Exception as e:
         typer.echo(f"Registration failed: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 @app.command()
@@ -72,8 +76,8 @@ def unregister(
         registry.unregister(role, sender_id, topic)
         typer.echo(f"Unregistered: {role} ({sender_id})")
     except Exception as e:
-        typer.echo(f"Unregister failed: {e}", err=True)
-        raise typer.Exit(code=1)
+        typer.echo(f"Unregistration failed: {e}", err=True)
+        raise typer.Exit(code=1) from e
 
 
 @app.command(name="list")
@@ -106,22 +110,28 @@ def constitution(
         typer.echo(str(path))
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 @app.command()
 def launch(
     ctx: typer.Context,
     role: str = typer.Argument(...),
-    agent: Optional[str] = typer.Option(None, "--agent", help="The agent to spawn (e.g., gemini, claude). Uses role default if not specified."),
-    model: Optional[str] = typer.Option(None, "--model", help="Model override (e.g., claude-4.5-sonnet, gpt-5-codex)"),
+    agent: str | None = typer.Option(
+        None,
+        "--agent",
+        help="The agent to spawn (e.g., gemini, claude). Uses role default if not specified.",
+    ),
+    model: str | None = typer.Option(
+        None, "--model", help="Model override (e.g., claude-4.5-sonnet, gpt-5-codex)"
+    ),
 ):
     """Launches an agent with a specific constitutional role."""
     try:
         spawn.launch_agent(role, agent, extra_args=list(ctx.args), model=model)
     except Exception as e:
         typer.echo(f"Launch failed: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 @app.command()
@@ -139,7 +149,9 @@ def identity(
 def rename(
     old_sender_id: str = typer.Argument(...),
     new_sender_id: str = typer.Argument(...),
-    role: Optional[str] = typer.Option(None, "--role", help="New role (optional, keeps existing if not specified)"),
+    role: str | None = typer.Option(
+        None, "--role", help="New role (optional, keeps existing if not specified)"
+    ),
 ):
     """Rename agent across all provenance systems"""
 
@@ -182,7 +194,7 @@ def rename(
         )
     except Exception as e:
         typer.echo(f"Rename failed: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 @app.command(name="_inline_launch", hidden=True)
@@ -196,12 +208,12 @@ def _inline_launch(
         spawn.launch_agent(role, sender_id, base_identity, extra_args=extra_args, model=model)
     except Exception as e:
         typer.echo(f"Launch failed: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 def _parse_inline_launch_args(
-    args: List[str],
-) -> tuple[str, str | None, str | None, str | None, List[str]]:
+    args: list[str],
+) -> tuple[str, str | None, str | None, str | None, list[str]]:
     """Parse inline spawn launch invocation.
 
     Supports:
@@ -220,7 +232,7 @@ def _parse_inline_launch_args(
     sender_id: str | None = None  # This will be the agent_name passed to launch_agent
     base_identity: str | None = None  # This is the 'agent' argument in launch_agent
     model: str | None = None
-    passthrough: List[str] = []
+    passthrough: list[str] = []
 
     cfg = spawn.load_config()
     configured_roles = set(cfg.get("roles", {}).keys())

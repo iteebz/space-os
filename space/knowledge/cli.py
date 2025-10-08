@@ -1,13 +1,13 @@
-import sys
+from pathlib import Path
 
 import typer
 
 from . import storage
-from .lib import protocols # New import
 
 app = typer.Typer(invoke_without_command=True)
 
 # Removed: PROTOCOL_FILE definition
+
 
 @app.callback()
 def main_command(
@@ -19,7 +19,10 @@ def main_command(
     """Knowledge primitive - agent-contributed learned patterns."""
     if not any([content, contributor, domain, from_contributor]):
         try:
-            typer.echo(protocols.load("knowledge"))
+            protocol_content = (
+                Path(__file__).parent.parent.parent / "protocols" / "knowledge.md"
+            ).read_text()
+            typer.echo(protocol_content)
         except FileNotFoundError:
             typer.echo("❌ knowledge.md protocol not found")
         return

@@ -29,10 +29,6 @@ def init_db():
     ensure_bridge_dir()
     with get_db_connection() as conn:
         # Messages table with prompt hash tracking
-        # Drop identities table if it exists (deprecated)
-        with suppress(sqlite3.OperationalError):
-            conn.execute("DROP TABLE identities")
-
         conn.execute("""
             CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,7 +58,6 @@ def init_db():
                 context TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 notes TEXT,
-                instruction_hash TEXT,
                 archived_at TIMESTAMP
             )
         """)
@@ -79,15 +74,7 @@ def init_db():
             )
         """)
 
-        # Coordination instructions versioning
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS instructions (
-                hash TEXT PRIMARY KEY,
-                content TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                notes TEXT
-            )
-        """)
+        # Coordination instructions versioning (DEPRECATED)
 
         # Migration: Add priority column to existing messages table
         with suppress(sqlite3.OperationalError):
