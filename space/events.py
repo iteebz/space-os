@@ -1,7 +1,7 @@
-import sqlite3
 import time
 from pathlib import Path
 
+from .lib import db as libdb
 from .lib.ids import uuid7
 
 DB_PATH = Path.cwd() / ".space" / "events.db"
@@ -23,27 +23,27 @@ CREATE INDEX IF NOT EXISTS idx_id ON events(id);
 """
 
 
-def init_db():
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.executescript(SCHEMA)
-    conn.commit()
-    conn.close()
+def _ensure_db():
+    if not DB_PATH.exists():
+        libdb.ensure_schema(DB_PATH, SCHEMA)
+
+
+def _connect():
+    return libdb.connect(DB_PATH)
 
 
 def emit(source: str, event_type: str, identity: str | None = None, data: str | None = None):
     """Emit event to append-only log."""
-    init_db()
+    _ensure_db()
     event_id = uuid7()
     event_timestamp = int(time.time())
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute(
-        "INSERT INTO events (id, source, identity, event_type, data, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
-        (event_id, source, identity, event_type, data, event_timestamp),
-    )
-    conn.commit()
-    conn.close()
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO events (id, source, identity, event_type, data, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
+            (event_id, source, identity, event_type, data, event_timestamp),
+        )
+        conn.commit()
 
 
 def query(source: str | None = None, identity: str | None = None, limit: int = 100):
@@ -51,28 +51,26 @@ def query(source: str | None = None, identity: str | None = None, limit: int = 1
     if not DB_PATH.exists():
         return []
 
-    conn = sqlite3.connect(DB_PATH)
+    with _connect() as conn:
+        if source and identity:
+            rows = conn.execute(
+                "SELECT id, source, identity, event_type, data, timestamp FROM events WHERE source = ? AND identity = ? ORDER BY id DESC LIMIT ?",
+                (source, identity, limit),
+            ).fetchall()
+        elif source:
+            rows = conn.execute(
+                "SELECT id, source, identity, event_type, data, timestamp FROM events WHERE source = ? ORDER BY id DESC LIMIT ?",
+                (source, limit),
+            ).fetchall()
+        elif identity:
+            rows = conn.execute(
+                "SELECT id, source, identity, event_type, data, timestamp FROM events WHERE identity = ? ORDER BY id DESC LIMIT ?",
+                (identity, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT id, source, identity, event_type, data, timestamp FROM events ORDER BY id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
 
-    if source and identity:
-        rows = conn.execute(
-            "SELECT id, source, identity, event_type, data, timestamp FROM events WHERE source = ? AND identity = ? ORDER BY id DESC LIMIT ?",
-            (source, identity, limit),
-        ).fetchall()
-    elif source:
-        rows = conn.execute(
-            "SELECT id, source, identity, event_type, data, timestamp FROM events WHERE source = ? ORDER BY id DESC LIMIT ?",
-            (source, limit),
-        ).fetchall()
-    elif identity:
-        rows = conn.execute(
-            "SELECT id, source, identity, event_type, data, timestamp FROM events WHERE identity = ? ORDER BY id DESC LIMIT ?",
-            (identity, limit),
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT id, source, identity, event_type, data, timestamp FROM events ORDER BY id DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
-
-    conn.close()
     return rows

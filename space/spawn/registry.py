@@ -1,5 +1,5 @@
 import sqlite3
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 from . import config
@@ -52,10 +52,7 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        with suppress(sqlite3.OperationalError):
-            conn.execute("ALTER TABLE registrations ADD COLUMN self TEXT")
-        with suppress(sqlite3.OperationalError):
-            conn.execute("ALTER TABLE registrations ADD COLUMN model TEXT")
+        _apply_migrations(conn)
         conn.commit()
 
 
@@ -119,6 +116,8 @@ def get_db():
 def register(
     role: str, sender_id: str, topic: str, constitution_hash: str, model: str | None = None
 ) -> int:
+    from .. import events
+
     with get_db() as conn:
         cursor = conn.execute(
             """
@@ -128,16 +127,21 @@ def register(
             (role, sender_id, topic, constitution_hash, model),
         )
         conn.commit()
-        return cursor.lastrowid
+        reg_id = cursor.lastrowid
+    events.emit("spawn", "identity.register", sender_id, f"{role}:{topic}")
+    return reg_id
 
 
 def unregister(role: str, sender_id: str, topic: str):
+    from .. import events
+
     with get_db() as conn:
         conn.execute(
             "DELETE FROM registrations WHERE role = ? AND sender_id = ? AND topic = ?",
             (role, sender_id, topic),
         )
         conn.commit()
+    events.emit("spawn", "identity.unregister", sender_id, f"{role}:{topic}")
 
 
 def list_registrations() -> list[Registration]:
@@ -192,3 +196,22 @@ def get_self_description(sender_id: str) -> str | None:
             (sender_id,),
         ).fetchone()
         return row["self"] if row else None
+
+
+def _apply_migrations(conn):
+    """Apply incremental schema migrations."""
+    conn.execute("CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY)")
+
+    migrations = [
+        ("add_self", "ALTER TABLE registrations ADD COLUMN self TEXT"),
+        ("add_model", "ALTER TABLE registrations ADD COLUMN model TEXT"),
+    ]
+
+    for name, sql in migrations:
+        applied = conn.execute("SELECT 1 FROM _migrations WHERE name = ?", (name,)).fetchone()
+        if not applied:
+            try:
+                conn.execute(sql)
+                conn.execute("INSERT INTO _migrations (name) VALUES (?)", (name,))
+            except sqlite3.OperationalError:
+                pass

@@ -11,31 +11,29 @@ def temp_db(monkeypatch):
     """Use temporary database for tests, ensuring true isolation."""
     from space import events
     from space.knowledge import db as knowledge_db
-    from space.lib import db_utils
     from space.memory import db as memory_db
 
     with tempfile.TemporaryDirectory() as tmpdir:
         temp_space_dir = Path(tmpdir)
-        monkeypatch.setattr(db_utils, "SPACE_DIR", temp_space_dir)
+        monkeypatch.chdir(temp_space_dir)
 
         # Setup memory_db
-        memory_db_path = temp_space_dir / "memory.db"
+        memory_db_path = temp_space_dir / ".space" / "memory.db"
         monkeypatch.setattr(memory_db, "database_path", lambda: memory_db_path)
-        memory_db.ensure_database()
 
         # Setup knowledge_db
-        knowledge_db_path = temp_space_dir / "knowledge.db"
+        knowledge_db_path = temp_space_dir / ".space" / "knowledge.db"
         monkeypatch.setattr(knowledge_db, "database_path", lambda: knowledge_db_path)
         with knowledge_db.connect():
             pass
 
         # Setup events_db
-        events_db_path = temp_space_dir / "events.db"
+        events_db_path = temp_space_dir / ".space" / "events.db"
         original_events_db_path = events.DB_PATH
         events.DB_PATH = events_db_path
-        events.init_db()
+        events._ensure_db()
 
-        yield temp_space_dir  # Yield the temp directory, as context_db_path is gone
+        yield temp_space_dir
 
         # Teardown events_db
         events.DB_PATH = original_events_db_path

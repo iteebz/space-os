@@ -74,11 +74,7 @@ def test_space_backup_creates_backup_directory_and_copies_files(monkeypatch, tmp
 
     (temp_space_dir / "subdir" / "file2.db").write_text("content2")
 
-    # Mock the root() function to point to tmp_path
-
-    from space.lib import db_utils
-
-    monkeypatch.setattr(db_utils, "root", lambda: tmp_path)
+    monkeypatch.chdir(tmp_path)
 
     # Mock Path.home() to point to tmp_path so backups go to tmp_path/.space/backups
 

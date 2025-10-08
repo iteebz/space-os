@@ -98,7 +98,6 @@ def notes(
 ):
     """Show notes for channel, or add note with content and --as identity."""
     if content is None:
-        # Show notes mode
         try:
             channel_id = api.resolve_channel_id(channel)
             notes = api.get_notes(channel_id)
@@ -115,7 +114,6 @@ def notes(
             typer.echo(f"❌ Channel '{channel}' not found.")
             raise typer.Exit(code=1) from e
     else:
-        # Add note mode
         if not identity:
             typer.echo("❌ Must specify --as identity when adding notes")
             raise typer.Exit(code=1)

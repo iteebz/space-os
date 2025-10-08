@@ -53,4 +53,4 @@ def resolve_channel_id(channel_name: str) -> str:
 
 def create_channel(channel_name: str, topic: str | None = None) -> str:
     """Orchestrates the creation of a new channel."""
-    return db.create_channel_record(channel_name, topic)
+    return db.create_channel(channel_name, topic)

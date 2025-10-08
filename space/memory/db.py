@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-import sqlite3
 import time
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from .. import events  # Assuming events module is available
-from ..lib import db_utils  # Import the general db utility
-from ..lib.ids import uuid7  # Assuming uuid7 is in lib.ids
-from .models import Entry  # Assuming Entry is in .models
+from .. import events
+from ..lib import db as libdb
+from ..lib.ids import uuid7
+from .models import Entry
 
 MEMORY_DB_NAME = "memory.db"
 
@@ -31,31 +28,13 @@ CREATE INDEX IF NOT EXISTS idx_memory_uuid ON memory(uuid);
 
 
 def database_path() -> Path:
-    """Return absolute path to the memory database file."""
-    return db_utils.database_path(MEMORY_DB_NAME)
+    return Path.cwd() / ".space" / MEMORY_DB_NAME
 
 
-def ensure_database(initializer: Callable[[sqlite3.Connection], None] | None = None) -> Path:
-    """Ensure the memory database exists and schema is applied."""
-    path = database_path()
-    with sqlite3.connect(path) as conn:
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.executescript(_MEMORY_SCHEMA)
-        if initializer is not None:
-            initializer(conn)
-        conn.commit()
-    return path
-
-
-@contextmanager
-def connect() -> Iterator[sqlite3.Connection]:
-    """Yield a connection to the memory database, ensuring schema beforehand."""
-    ensure_database()
-    conn = sqlite3.connect(database_path())
-    try:
-        yield conn
-    finally:
-        conn.close()
+def connect():
+    if not database_path().exists():
+        libdb.ensure_schema(database_path(), _MEMORY_SCHEMA)
+    return libdb.connect(database_path())
 
 
 def _resolve_uuid(short_uuid: str) -> str:

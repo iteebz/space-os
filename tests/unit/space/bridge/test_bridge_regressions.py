@@ -1,9 +1,7 @@
 def test_recv_respects_bookmarks(bridge_workspace):
     from space.bridge import api
     from space.bridge.api import messages as coordination_messages
-    from space.bridge.db import db as bridge_db
 
-    bridge_db.init_db()
     channel_id = api.create_channel("bookmark-channel")
 
     api.send_message(channel_id, "human", "first message")

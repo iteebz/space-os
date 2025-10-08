@@ -4,12 +4,10 @@ import hashlib
 import pytest
 
 from space.bridge.api import channels, messages
-from space.bridge.db import db as bridge_db
 
 
 @pytest.fixture
 def setup_channel():
-    bridge_db.init_db()
     channel_name = "test-archival-channel"
     identity = "test-agent"
     message_content = "This is a test message."

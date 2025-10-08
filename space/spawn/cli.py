@@ -14,7 +14,7 @@ def main_command(ctx: typer.Context):
     """Constitutional agent registry"""
     registry.init_db()
 
-    if ctx.invoked_subcommand is None and not ctx.args:
+    if ctx.invoked_subcommand is None:
         try:
             protocol_content = (
                 Path(__file__).parent.parent.parent / "protocols" / "spawn.md"
@@ -22,20 +22,6 @@ def main_command(ctx: typer.Context):
             typer.echo(protocol_content)
         except FileNotFoundError:
             typer.echo("❌ spawn.md protocol not found")
-        return
-
-    if ctx.invoked_subcommand is not None:
-        return
-
-    if not ctx.args:
-        typer.echo(ctx.get_help())
-        return
-
-    # This part handles the inline launch syntax
-    # It will be re-implemented using Typer's capabilities
-    # For now, it will raise an error if inline launch is attempted
-    typer.echo("Inline launch is not yet supported in this version.", err=True)
-    raise typer.Exit(code=1)
 
 
 @app.command()
@@ -195,137 +181,6 @@ def rename(
     except Exception as e:
         typer.echo(f"Rename failed: {e}", err=True)
         raise typer.Exit(code=1) from e
-
-
-@app.command(name="_inline_launch", hidden=True)
-def _inline_launch(
-    ctx: typer.Context,
-):
-    """Handle implicit launch invocation (`spawn <agent_name> ...`)."""
-
-    role, sender_id, base_identity, model, extra_args = _parse_inline_launch_args(ctx.args)
-    try:
-        spawn.launch_agent(role, sender_id, base_identity, extra_args=extra_args, model=model)
-    except Exception as e:
-        typer.echo(f"Launch failed: {e}", err=True)
-        raise typer.Exit(code=1) from e
-
-
-def _parse_inline_launch_args(
-    args: list[str],
-) -> tuple[str, str | None, str | None, str | None, list[str]]:
-    """Parse inline spawn launch invocation.
-
-    Supports:
-    - spawn <agent_name> (infers role and model)
-    - spawn <role> --as <sender_id>
-    - spawn <role> --agent <base_identity>
-    - spawn <role> --model <model>
-    - spawn <role> --sonnet / --codex (model shortcuts)
-    """
-
-    # Initial parsing of the first argument as potential agent_name or role
-    first_arg = args[0]
-
-    # Default values
-    role: str | None = None
-    sender_id: str | None = None  # This will be the agent_name passed to launch_agent
-    base_identity: str | None = None  # This is the 'agent' argument in launch_agent
-    model: str | None = None
-    passthrough: list[str] = []
-
-    cfg = spawn.load_config()
-    configured_roles = set(cfg.get("roles", {}).keys())
-    configured_agents = set(cfg.get("agents", {}).keys())
-    model_shortcuts = {
-        "sonnet": "claude-4.5-sonnet",
-        "codex": "gpt-5-codex",
-        "gpt": "gpt-5-codex",
-        "claude": "claude-4.5-sonnet",
-        "gemini": "gemini-2.5-pro",
-    }
-
-    # Determine initial role and sender_id
-    if first_arg in configured_roles:
-        role = first_arg
-        sender_id = spawn.get_base_identity(role)  # Default sender_id from role's base_identity
-    else:
-        # Assume first_arg is an agent_name, try to infer role
-        inferred_role = first_arg.split("-")[0] if "-" in first_arg else first_arg
-        if inferred_role in configured_roles:
-            role = inferred_role
-            sender_id = first_arg  # Use the full agent_name as sender_id
-        else:
-            raise typer.BadParameter(f"Unknown role or agent: {first_arg}")
-
-    # If sender_id is still None, try to get it from the role's base_identity
-    if sender_id is None and role is not None:
-        sender_id = spawn.get_base_identity(role)
-
-    # Parse remaining arguments for overrides
-    idx = 1
-    while idx < len(args):
-        token = args[idx]
-        if token == "--":
-            passthrough.extend(args[idx + 1 :])
-            break
-
-        if not token.startswith("--"):
-            # If it's not an option, it's a passthrough argument
-            passthrough.append(token)
-            idx += 1
-            continue
-
-        option = token[2:]
-        if not option:
-            raise typer.BadParameter("Invalid agent flag")
-
-        if option == "as":  # Override sender_id
-            idx += 1
-            if idx >= len(args):
-                raise typer.BadParameter(f"--{option} requires a value")
-            sender_id = args[idx]
-        elif option == "agent":  # Override base_identity
-            idx += 1
-            if idx >= len(args):
-                raise typer.BadParameter(f"--{option} requires a value")
-            base_identity = args[idx]
-        elif option == "model":  # Override model
-            idx += 1
-            if idx >= len(args):
-                raise typer.BadParameter("--model requires a value")
-            model = args[idx]
-        elif option in model_shortcuts:  # Model shortcuts
-            model = model_shortcuts[option]
-        elif option in configured_agents:  # Direct agent override
-            base_identity = option
-        else:
-            # Unrecognized option, treat as passthrough
-            passthrough.append(token)
-            if idx + 1 < len(args) and not args[idx + 1].startswith("--"):
-                passthrough.append(args[idx + 1])
-                idx += 1
-        idx += 1
-
-    # Final check and defaults
-    if role is None:
-        raise typer.BadParameter("Role could not be determined.")
-    if sender_id is None:
-        sender_id = spawn.get_base_identity(role)  # Fallback to role's base_identity
-
-    # If base_identity is not explicitly set, use the role's base_identity
-    if base_identity is None:
-        base_identity = spawn.get_base_identity(role)
-
-    # If model is not explicitly set, try to infer from base_identity
-    if model is None and base_identity is not None:
-        agent_cfg = cfg.get("agents", {}).get(base_identity)
-        if agent_cfg and "command" in agent_cfg:
-            # This is a simplification; actual model inference might be more complex
-            # For now, we'll assume the command itself implies the model or it's handled by the agent
-            pass
-
-    return role, sender_id, base_identity, model, passthrough
 
 
 if __name__ == "__main__":

@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import sqlite3
-from collections.abc import Iterator
-from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..lib import db_utils  # Import the general db utility
-from ..lib.ids import uuid7  # Assuming uuid7 is in lib.ids
+from ..lib import db as libdb
+from ..lib.ids import uuid7
 
 KNOWLEDGE_DB_NAME = "knowledge.db"
 
@@ -37,30 +34,20 @@ class Entry:
 
 
 def database_path() -> Path:
-    """Return absolute path to the knowledge database file."""
-    return db_utils.database_path(KNOWLEDGE_DB_NAME)
+    return Path.cwd() / ".space" / KNOWLEDGE_DB_NAME
 
 
-@contextmanager
-def connect() -> Iterator[sqlite3.Connection]:
-    """Yield a connection to the knowledge database, ensuring schema beforehand."""
-    db_utils.ensure_database(
-        KNOWLEDGE_DB_NAME,
-        initializer=lambda conn: (
-            conn.execute("PRAGMA journal_mode=WAL"),
-            conn.executescript(_KNOWLEDGE_SCHEMA),
-        ),
-    )
-    conn = sqlite3.connect(database_path())
-    try:
-        yield conn
-    finally:
-        conn.close()
+def connect():
+    if not database_path().exists():
+        libdb.ensure_schema(database_path(), _KNOWLEDGE_SCHEMA)
+    return libdb.connect(database_path())
 
 
 def write_knowledge(
     domain: str, contributor: str, content: str, confidence: float | None = None
 ) -> str:
+    from .. import events
+
     entry_id = uuid7()
     with connect() as conn:
         conn.execute(
@@ -68,6 +55,7 @@ def write_knowledge(
             (entry_id, domain, contributor, content, confidence),
         )
         conn.commit()
+    events.emit("knowledge", "entry.write", contributor, f"{domain}:{content[:50]}")
     return entry_id
 
 

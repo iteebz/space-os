@@ -12,7 +12,6 @@ from .commands.monitor import app as monitor_app
 
 app = typer.Typer(invoke_without_command=True)
 
-# PROTOCOL_FILE definition for bridge.md
 PROTOCOL_FILE = Path(__file__).parent.parent.parent / "protocols" / "bridge.md"
 
 

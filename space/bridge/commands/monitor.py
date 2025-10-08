@@ -11,9 +11,8 @@ app = typer.Typer()
 def _stream_events(channel: str | None = None):
     """Helper function to stream bridge events, with optional channel filtering."""
 
-    # 1. Render historic events
     try:
-        all_events = events.query(source="bridge", limit=1000)  # Increased limit for history
+        all_events = events.query(source="bridge", limit=1000)
     except Exception as e:
         typer.echo(f"❌ Error querying historic events: {e}")
         all_events = []
@@ -40,7 +39,6 @@ def _stream_events(channel: str | None = None):
                     f"← Received from {data.get('sender_id')} in {data.get('channel')}: {data.get('content')}"
                 )
 
-    # 2. Start live stream
     renderer = Renderer()
 
     def event_stream():
@@ -94,7 +92,7 @@ def _stream_events(channel: str | None = None):
                 break
             except Exception as e:
                 yield Event(type="error", content=f"Error streaming events: {e}")
-                time.sleep(1)  # Prevent busy-loop on continuous errors
+                time.sleep(1)
 
     renderer.render(event_stream())
 
