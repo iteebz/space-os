@@ -6,6 +6,7 @@ clean:
     @find . -type d -name "__pycache__" -exec rm -rf {} +
 
 install:
+    @poetry lock
     @poetry install
 
 ci: format fix test build

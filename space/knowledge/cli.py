@@ -1,67 +1,76 @@
 import sys
 
-import click
+import typer
 
 from . import storage
+from .lib import protocols # New import
 
+app = typer.Typer(invoke_without_command=True)
 
-@click.group(invoke_without_command=True)
-@click.option("--as", "contributor", help="Contributor identity")
-@click.option("--domain", help="Knowledge domain")
-@click.option("--from", "from_contributor", help="Query by contributor")
-@click.argument("content", required=False)
-@click.pass_context
-def main(ctx, contributor, domain, from_contributor, content):
+# Removed: PROTOCOL_FILE definition
+
+@app.callback()
+def main_command(
+    contributor: str = typer.Option(None, "--as", help="Contributor identity"),
+    domain: str = typer.Option(None, help="Knowledge domain"),
+    from_contributor: str = typer.Option(None, "--from", help="Query by contributor"),
+    content: str = typer.Argument(None),
+):
     """Knowledge primitive - agent-contributed learned patterns."""
-    if ctx.invoked_subcommand is not None:
+    if not any([content, contributor, domain, from_contributor]):
+        try:
+            typer.echo(protocols.load("knowledge"))
+        except FileNotFoundError:
+            typer.echo("❌ knowledge.md protocol not found")
         return
 
     if content and contributor and domain:
         entry_id = storage.write_knowledge(domain, contributor, content)
-        click.echo(f"Knowledge written: {entry_id[:8]}")
+        typer.echo(f"Knowledge written: {entry_id[:8]}")
         return
 
     if domain:
         entries = storage.query_by_domain(domain)
         if not entries:
-            click.echo(f"No knowledge for domain: {domain}")
+            typer.echo(f"No knowledge for domain: {domain}")
             return
 
-        click.echo(f"Knowledge in domain '{domain}':")
+        typer.echo(f"Knowledge in domain '{domain}':")
         for entry in entries:
-            click.echo(f"\n[{entry.id[:8]}] {entry.contributor} | {entry.created_at}")
-            click.echo(entry.content)
+            typer.echo(f"\n[{entry.id[:8]}] {entry.contributor} | {entry.created_at}")
+            typer.echo(entry.content)
         return
 
     if from_contributor:
         entries = storage.query_by_contributor(from_contributor)
         if not entries:
-            click.echo(f"No knowledge from: {from_contributor}")
+            typer.echo(f"No knowledge from: {from_contributor}")
             return
 
-        click.echo(f"Knowledge from '{from_contributor}':")
+        typer.echo(f"Knowledge from '{from_contributor}':")
         for entry in entries:
-            click.echo(f"\n[{entry.id[:8]}] {entry.domain} | {entry.created_at}")
-            click.echo(entry.content)
+            typer.echo(f"\n[{entry.id[:8]}] {entry.domain} | {entry.created_at}")
+            typer.echo(entry.content)
         return
 
     entries = storage.list_all()
     if not entries:
-        click.echo("No knowledge entries found")
+        typer.echo("No knowledge entries found")
         return
 
-    click.echo(f"{'ID':<10} {'DOMAIN':<15} {'CONTRIBUTOR':<15} {'CREATED':<20}")
-    click.echo("-" * 70)
+    typer.echo(f"{'ID':<10} {'DOMAIN':<15} {'CONTRIBUTOR':<15} {'CREATED':<20}")
+    typer.echo("-" * 70)
     for entry in entries:
-        click.echo(
+        typer.echo(
             f"{entry.id[:8]:<10} {entry.domain:<15} {entry.contributor:<15} {entry.created_at:<20}"
         )
 
 
-@main.command()
-@click.option("--domain", help="Filter by domain")
-@click.option("--from", "from_contributor", help="Filter by contributor")
-def export(domain, from_contributor):
+@app.command()
+def export(
+    domain: str = typer.Option(None, help="Filter by domain"),
+    from_contributor: str = typer.Option(None, "--from", help="Filter by contributor"),
+):
     """Export knowledge entries as markdown."""
     if domain:
         entries = storage.query_by_domain(domain)
@@ -74,37 +83,36 @@ def export(domain, from_contributor):
         title = "All Knowledge"
 
     if not entries:
-        click.echo("No entries found", err=True)
-        sys.exit(1)
+        typer.echo("No entries found", err=True)
+        raise typer.Exit(code=1)
 
-    click.echo(f"# {title}\n")
+    typer.echo(f"# {title}\n")
     for entry in entries:
-        click.echo(f"## [{entry.id[:8]}] {entry.domain}")
-        click.echo(f"**Contributor:** {entry.contributor}")
-        click.echo(f"**Created:** {entry.created_at}")
+        typer.echo(f"## [{entry.id[:8]}] {entry.domain}")
+        typer.echo(f"**Contributor:** {entry.contributor}")
+        typer.echo(f"**Created:** {entry.created_at}")
         if entry.confidence:
-            click.echo(f"**Confidence:** {entry.confidence}")
-        click.echo(f"\n{entry.content}\n")
-        click.echo("---\n")
+            typer.echo(f"**Confidence:** {entry.confidence}")
+        typer.echo(f"\n{entry.content}\n")
+        typer.echo("---\n")
 
 
-@main.command()
-@click.argument("entry_id")
-def show(entry_id):
+@app.command()
+def show(entry_id: str = typer.Argument(..., help="Show single knowledge entry.")):
     """Show single knowledge entry."""
     entry = storage.get_by_id(entry_id)
     if not entry:
-        click.echo(f"Entry not found: {entry_id}", err=True)
-        sys.exit(1)
+        typer.echo(f"Entry not found: {entry_id}", err=True)
+        raise typer.Exit(code=1)
 
-    click.echo(f"ID: {entry.id}")
-    click.echo(f"Domain: {entry.domain}")
-    click.echo(f"Contributor: {entry.contributor}")
-    click.echo(f"Created: {entry.created_at}")
+    typer.echo(f"ID: {entry.id}")
+    typer.echo(f"Domain: {entry.domain}")
+    typer.echo(f"Contributor: {entry.contributor}")
+    typer.echo(f"Created: {entry.created_at}")
     if entry.confidence:
-        click.echo(f"Confidence: {entry.confidence}")
-    click.echo(f"\n{entry.content}")
+        typer.echo(f"Confidence: {entry.confidence}")
+    typer.echo(f"\n{entry.content}")
 
 
 if __name__ == "__main__":
-    main()
+    app()

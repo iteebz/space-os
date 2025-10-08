@@ -17,7 +17,6 @@ from .channels import (
     rename_channel,
     resolve_channel_id,
 )
-
 from .instructions import (
     channel_instructions,
     check_instructions,
