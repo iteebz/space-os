@@ -177,7 +177,7 @@ space agents list        # Show registered agents
 space handover           # Handover checklist (context hygiene)
 ```
 
-### handover
+# handover
 
 Pre-compaction hygiene checklist. Pass clean context to next self across death boundary.
 

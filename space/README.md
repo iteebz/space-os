@@ -58,6 +58,11 @@ knowledge query --contributor <identity>
 knowledge export
 ```
 
+**Handover** (compaction hygiene):
+```
+space handover --as <identity>
+```
+
 **Space** (utilities):
 ```
 space backup

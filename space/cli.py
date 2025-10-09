@@ -8,6 +8,7 @@ import typer
 
 from . import events
 from . import stats as space_stats
+from .handover.cli import app as handover_app
 from .knowledge.cli import app as knowledge_app
 from .lib import lattice
 from .memory.cli import app as memory_app
@@ -16,6 +17,7 @@ from .spawn import registry
 app = typer.Typer(invoke_without_command=True)
 agents_app = typer.Typer(invoke_without_command=True)
 
+app.add_typer(handover_app, name="handover")
 app.add_typer(knowledge_app, name="knowledge")
 app.add_typer(memory_app, name="memory")
 app.add_typer(agents_app, name="agents")

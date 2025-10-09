@@ -141,7 +141,7 @@ def list_entries_command(
         return
 
     if json_output:
-        typer.echo(json.dumps([asdict(e) for e in entries]))
+        typer.echo(json.dumps([asdict(e) for e in entries], indent=2))
     elif not quiet_output:
         current_topic = None
         for e in entries:

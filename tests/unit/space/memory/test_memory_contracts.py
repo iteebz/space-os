@@ -1,6 +1,6 @@
 """Memory contract tests - CRUD operations for agent notebook."""
 
-from space.memory import add_entry, clear_entries, delete_entry, edit_entry, get_entries
+from space.memory.db import add_entry, clear_entries, delete_entry, edit_entry, get_entries
 
 
 def test_write_entry(temp_db):

@@ -22,10 +22,10 @@ def load(section_heading: str) -> str:
     """Extract section from README.md by heading.
 
     Args:
-        section_heading: Markdown heading (e.g., "## Orientation", "### spawn")
+        section_heading: Markdown heading (e.g., "## Orientation", "# handover")
 
     Returns:
-        Section content from heading to next same-level heading
+        Section content (heading stripped if h1)
     """
     if not README.exists():
         raise FileNotFoundError(f"README not found: {README}")
@@ -43,11 +43,13 @@ def load(section_heading: str) -> str:
         # Check if this is our target heading
         if line.strip() == section_heading.strip():
             capturing = True
-            section.append(line)
+            # Strip h1 headings, keep others
+            if level > 1:
+                section.append(line)
             continue
 
-        # If capturing and hit same-level heading, stop
-        if capturing and line.startswith("#" * level + " "):
+        # If capturing and hit any heading, stop
+        if capturing and line.startswith("#"):
             break
 
         if capturing:

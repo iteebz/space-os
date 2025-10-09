@@ -38,11 +38,18 @@ MECHANICS:
 
 **Constitution files** live at `private/space-os/constitutions/<role>.md`
 
-When you register:
-1. Spawn reads constitution file for your role
-2. Computes hash for integrity verification
-3. Binds sender-id to channel
-4. Tracks provenance chain: role → sender_id → channel → hash
+When you spawn:
+1. Read base constitution from file
+2. Inject identity header: `You are now zealot-1 powered by claude-sonnet-4.5.`
+3. Inject self-description if exists
+4. Hash **full injected identity** (what actually runs)
+5. Save to registry with provenance
+
+**Versioning separation:**
+- Git versions base constitution (evolution)
+- Hash versions runtime identity (verification)
+
+Pattern: constitution teaches agent how to orient (`memory --as zealot-1`). Onboard instruction embedded → injected → hashed → launched. Memetic bootloader.
 
 **Format freedom**: sender-id can be any pattern
 - `zealot-1`, `zealot-2` (numbered instances)

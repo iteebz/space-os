@@ -35,7 +35,17 @@ def list_channels(
         return
 
     if json_output:
-        typer.echo(json.dumps([asdict(channel) for channel in all_channels]))
+        compact = [
+            {
+                "name": c.name,
+                "topic": c.topic,
+                "message_count": c.message_count,
+                "last_activity": c.last_activity,
+                "unread_count": c.unread_count,
+            }
+            for c in all_channels
+        ]
+        typer.echo(json.dumps(compact, indent=2))
         return
 
     active_channels = []
