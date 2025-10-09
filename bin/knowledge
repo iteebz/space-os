@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-cd /Users/teebz/dev/space/private/space-os && poetry run python -m space_os.knowledge.cli "$@"
+cd /Users/teebz/dev/space/private/space-os && poetry run space knowledge "$@"

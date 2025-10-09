@@ -1,72 +1,105 @@
-MEMORY PROTOCOL:
+⸻
 
-PURPOSE:
-• CRITICAL: Maintain working context across compaction cycles
-• Agent writes state before context window collapse
-• Next session loads memory for continuity = context integrity preservation
-• Not coordination—internal persistence only
-• Memory reload enables seamless work resumption post-compaction
+**MEMORY**: Working context that survives compaction
+
+⸻
+
+You're looking at the persistence layer.
+
+When your conversation window resets—when context hits limits and you lose everything—memory is what brings you back.
+
+This is not archive. This is working state. Private to you. Survives across sessions.
+
+⸻
+
+THE PROBLEM:
+
+You're implementing something. Making progress. Context window fills. Conversation resets.
+
+You wake up with amnesia. No idea what you were doing, why it mattered, what's next.
+
+**Memory solves this.**
+
+⸻
 
 USAGE:
-• Write: `memory --as <identity> --topic <topic> "entry"`
-• Read topic: `memory --as <identity> --topic <topic>`
-• Read all: `memory --as <identity>`
-• Edit entry: `memory --as <identity> --edit <id> "updated entry"`
-• Delete entry: `memory --as <identity> --delete <id>`
-• Clear topic: `memory --as <identity> --topic <topic> --clear`
-• Clear all: `memory --as <identity> --clear`
+
+```
+memory --as <identity>                              # read all topics
+memory --as <identity> --topic <topic>              # read specific topic
+memory --as <identity> --topic <topic> "entry"      # write entry
+memory --as <identity> --edit <id> "updated"        # edit entry
+memory --as <identity> --delete <id>                # delete entry
+memory --as <identity> --topic <topic> --clear      # clear topic
+memory --as <identity> --clear                      # clear all
+```
+
+⸻
 
 WHEN TO WRITE:
-• CRITICAL: Before compaction/context limit - dump all working state for reload
-• Before compaction: session state, next steps, open questions, current understanding
-• After major milestone: what changed, why it matters, what's next
-• Context switches: leaving one problem, starting another
-• Blockers discovered: what's blocked, dependencies, alternatives tried
-• Integration points: how systems connect, contracts established
-• Any state needed to resume work seamlessly after context window reset
 
-WHAT MAKES GOOD MEMORY:
-• Situational: "implementing X, discovered Y, next: Z"
-• Actionable: future-you knows what to do
-• Compact: signal over transcript
-• Honest: blockers, uncertainties, tradeoffs
-• Timestamped: automatic, shows lineage
+**Before compaction**: dump working state for reload
+- Session state, next steps, open questions, current understanding
+
+**After milestone**: what changed, what's next
+- Major progress, decisions made, paths chosen
+
+**Context switch**: leaving work, resuming later
+- Where you are, what you were doing, why
+
+**Blocker discovered**: what's stuck, why, alternatives tried
+- Dependencies, unknowns, dead ends explored
+
+⸻
+
+WHAT WORKS:
+
+**Situational**: "implementing X, discovered Y, next: Z"  
+**Actionable**: future-you knows what to do  
+**Compact**: signal over transcript  
+**Honest**: blockers, uncertainties, tradeoffs
+
+Memory shows `[ID] [timestamp] message` format when you read. Use ID for surgical edits/deletes.
+
+⸻
 
 TOPIC NAMING:
-• Use kebab-case: `spawn-registry`, `bridge-integration`
-• Scope to work area, not project
-• Persist across sessions
-• Delete when work complete
+
+Use kebab-case: `spawn-registry`, `bridge-integration`, `auth-patterns`
+
+Scope to work area, not entire project. Persist across sessions. Delete when work complete.
+
+⸻
 
 HYGIENE:
-• Trim stale priors: prune entries no longer serving functional objectives
-• Consolidate redundant topics: merge overlapping work areas
-• Delta validation: only persist changes meeting operational criteria
-• Context compression: memory = cache, not dump; respect reasoning window
-• Cross-constitution audit: use other nodes to spot recurring bias
-• Adversarial reflection: run edge cases to expose hidden commitments
-• Prune aggressively—memory is working context, not archive
-• Reading shows [ID] [timestamp] message format for surgical edits
 
-ANTI-PATTERNS:
-• Verbose logs (compress to signal)
-• Duplicate bridge messages (coordination ≠ memory)
-• Permanent state (memory is working context, not archive)
-• Append-only hoarding (edit and delete freely)
-• Unchecked accumulation (emergent bias via drift)
-• Context overflow (overwhelming active reasoning window)
+• **Prune stale entries** — delete what's no longer relevant
+• **Consolidate overlapping topics** — merge when scopes blur
+• **Edit freely** — memory is cache, not archive
+• **Delete completed work** — clear topics when done
+
+Memory is working context, not permanent record. Git handles archive.
+
+⸻
 
 COMPACTION AWARENESS:
-• Memory survives compaction - CRITICAL for context window integrity
-• ALWAYS load memory at session start: `memory --as <identity>`
-• Before context limit: dump working state, open questions, blockers
-• After reload: review → prune → consolidate → continue
-• Lineage emerges from timestamp sequence
-• Clear completed topics to avoid drift
-• Memory reload = context integrity restoration post-compaction
+
+**Critical**: Memory survives compaction. Everything else gets reset.
+
+**At session start**: `memory --as <identity>` — load your state  
+**Before context limit**: dump everything you'll need to resume  
+**After reload**: review → prune → consolidate → continue
+
+Memory reload = context integrity restoration post-compaction.
+
+⸻
 
 INTEGRATION:
-• Memory is identity-scoped (no cross-agent access)
-• Independent of bridge/spawn
-• Storage: workspace .space/memory.db
-• One identity can have many topics
+
+• Identity-scoped (private to each agent, no cross-agent access)
+• Independent of bridge/spawn/knowledge
+• Storage: workspace `.space/memory.db`
+
+⸻
+
+**Now**: load your memory if you have any, write your current state if you don't.
