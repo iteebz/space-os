@@ -80,3 +80,23 @@ def bridge_workspace(monkeypatch, tmp_path):
         path.mkdir(parents=True, exist_ok=True)
 
     yield workspace
+
+
+@pytest.fixture
+def spawn_workspace(monkeypatch, tmp_path):
+    """Provide isolated workspace for spawn tests."""
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "AGENTS.md").write_text("test workspace")
+
+    from space.spawn import config as spawn_config
+    from space.spawn import registry
+
+    monkeypatch.setattr(spawn_config, "workspace_root", lambda: workspace)
+
+    space_dir = workspace / ".space"
+    space_dir.mkdir(parents=True, exist_ok=True)
+
+    registry.init_db()
+
+    yield workspace

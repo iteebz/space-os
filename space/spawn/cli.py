@@ -1,6 +1,8 @@
+import json
+
 import typer
 
-from ..bridge import db as bridge_db
+from ..bridge import api as bridge_api
 from ..lib import protocols
 from . import config, registry, spawn
 
@@ -30,17 +32,27 @@ def register(
     model: str | None = typer.Option(
         None, "--model", help="Model to use (e.g., claude-4.5-sonnet, gpt-5-codex)"
     ),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
 ):
     """Register constitutional agent"""
     try:
         result = spawn.register_agent(role, sender_id, topic, model)
-        model_suffix = f" (model: {result['model']})" if result.get("model") else ""
-        typer.echo(
-            f"Registered: {result['role']} → {result['sender_id']} on {result['topic']} "
-            f"(constitution: {result['constitution_hash']}){model_suffix}"
-        )
+        if json_output:
+            typer.echo(json.dumps(result))
+        elif not quiet_output:
+            model_suffix = f" (model: {result['model']})" if result.get("model") else ""
+            typer.echo(
+                f"Registered: {result['role']} → {result['sender_id']} on {result['topic']} "
+                f"(constitution: {result['constitution_hash']}){model_suffix}"
+            )
     except Exception as e:
-        typer.echo(f"Registration failed: {e}", err=True)
+        if json_output:
+            typer.echo(json.dumps({"status": "error", "message": str(e)}))
+        elif not quiet_output:
+            typer.echo(f"Registration failed: {e}", err=True)
         raise typer.Exit(code=1) from e
 
 
@@ -49,39 +61,67 @@ def unregister(
     role: str = typer.Argument(..., help="Role of the agent"),
     sender_id: str = typer.Argument(..., help="Sender ID of the agent"),
     topic: str = typer.Argument(..., help="Topic the agent is unregistered from"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
 ):
     """Unregister agent"""
-    try:
-        reg = registry.get_registration(role, sender_id, topic)
-        if not reg:
+    reg = registry.get_registration(role, sender_id, topic)
+    if not reg:
+        if json_output:
+            typer.echo(json.dumps({"status": "error", "message": "Registration not found"}))
+        elif not quiet_output:
             typer.echo(f"Registration not found: {role} {sender_id} {topic}", err=True)
-            raise typer.Exit(code=1)
+        raise typer.Exit(code=1)
 
+    try:
         registry.unregister(role, sender_id, topic)
-        typer.echo(f"Unregistered: {role} ({sender_id})")
+        if json_output:
+            typer.echo(json.dumps({"status": "success", "role": role, "sender_id": sender_id}))
+        elif not quiet_output:
+            typer.echo(f"Unregistered: {role} ({sender_id})")
     except Exception as e:
-        typer.echo(f"Unregistration failed: {e}", err=True)
+        if json_output:
+            typer.echo(json.dumps({"status": "error", "message": str(e)}))
+        elif not quiet_output:
+            typer.echo(f"Unregistration failed: {e}", err=True)
         raise typer.Exit(code=1) from e
 
 
 @app.command(name="list")
-def list_registrations():
+def list_registrations(
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
+):
     """List registered agents"""
     regs = registry.list_registrations()
     if not regs:
-        typer.echo("No registrations found")
+        if json_output:
+            typer.echo(json.dumps([]))
+        elif not quiet_output:
+            typer.echo("No registrations found")
         return
 
-    typer.echo(
-        f"{'ROLE':<15} {'SENDER':<15} {'TOPIC':<20} {'MODEL':<20} {'HASH':<10} {'REGISTERED':<20}"
-    )
-    typer.echo("-" * 110)
-    for r in regs:
-        model_display = r.model or "–"
+    if json_output:
+        from dataclasses import asdict
+
+        typer.echo(json.dumps([asdict(r) for r in regs]))
+        return
+
+    if not quiet_output:
         typer.echo(
-            f"{r.role:<15} {r.sender_id:<15} {r.topic:<20} {model_display:<20} "
-            f"{r.constitution_hash[:8]:<10} {r.registered_at:<20}"
+            f"{'ROLE':<15} {'SENDER':<15} {'TOPIC':<20} {'MODEL':<20} {'HASH':<10} {'REGISTERED':<20}"
         )
+        typer.echo("-" * 110)
+        for r in regs:
+            model_display = r.model or "–"
+            typer.echo(
+                f"{r.role:<15} {r.sender_id:<15} {r.topic:<20} {model_display:<20} "
+                f"{r.constitution_hash[:8]:<10} {r.registered_at:<20}"
+            )
 
 
 @app.command()
@@ -152,7 +192,7 @@ def rename(
 
         registry.rename_sender(old_sender_id, new_sender_id, role)
 
-        bridge_db.rename_sender_id(old_sender_id, new_sender_id)
+        bridge_api.rename_sender(old_sender_id, new_sender_id)
 
         old_identity = config.bridge_identities_dir() / f"{old_sender_id}.md"
         if old_identity.exists() and not role:

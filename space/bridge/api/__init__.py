@@ -21,6 +21,7 @@ from .messages import (
     fetch_messages,
     fetch_sender_history,
     recv_updates,
+    rename_sender,
     send_message,
 )
 from .notes import add_note, get_notes
@@ -29,6 +30,7 @@ __all__ = [
     "fetch_messages",
     "fetch_sender_history",
     "recv_updates",
+    "rename_sender",
     "send_message",
     "add_note",
     "get_notes",

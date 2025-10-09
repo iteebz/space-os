@@ -38,3 +38,8 @@ def fetch_messages(channel_id: str) -> list[Message]:
 def fetch_sender_history(sender: str, limit: int | None = None) -> list[Message]:
     """Retrieve all messages from sender across all channels."""
     return db.get_sender_history(sender, limit)
+
+
+def rename_sender(old_sender_id: str, new_sender_id: str):
+    """Rename sender across all bridge messages and bookmarks."""
+    db.rename_sender_id(old_sender_id, new_sender_id)
