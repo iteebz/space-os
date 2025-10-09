@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import sqlite3
 from dataclasses import dataclass
 
 from .bridge import config as bridge_config
 from .knowledge import db as knowledge_db
+from .lib import db as libdb
 from .memory import db as memory_db
 
 
@@ -44,23 +44,22 @@ def bridge_stats(limit: int = None) -> BridgeStats:
     if not db.exists():
         return BridgeStats(available=False)
 
-    conn = sqlite3.connect(db)
-    if limit:
-        leaderboard = [
-            LeaderboardEntry(identity=row[0], count=row[1])
-            for row in conn.execute(
-                "SELECT sender, COUNT(*) as count FROM messages GROUP BY sender ORDER BY count DESC LIMIT ?",
-                (limit,),
-            )
-        ]
-    else:
-        leaderboard = [
-            LeaderboardEntry(identity=row[0], count=row[1])
-            for row in conn.execute(
-                "SELECT sender, COUNT(*) as count FROM messages GROUP BY sender ORDER BY count DESC"
-            )
-        ]
-    conn.close()
+    with libdb.connect(db) as conn:
+        if limit:
+            leaderboard = [
+                LeaderboardEntry(identity=row[0], count=row[1])
+                for row in conn.execute(
+                    "SELECT sender, COUNT(*) as count FROM messages GROUP BY sender ORDER BY count DESC LIMIT ?",
+                    (limit,),
+                )
+            ]
+        else:
+            leaderboard = [
+                LeaderboardEntry(identity=row[0], count=row[1])
+                for row in conn.execute(
+                    "SELECT sender, COUNT(*) as count FROM messages GROUP BY sender ORDER BY count DESC"
+                )
+            ]
     return BridgeStats(available=True, message_leaderboard=leaderboard)
 
 

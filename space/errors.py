@@ -14,3 +14,9 @@ class MigrationError(SpaceError):
     """Raised when a database migration fails."""
 
     pass
+
+
+class ProtocolError(SpaceError):
+    """Raised when protocol operations fail."""
+
+    pass

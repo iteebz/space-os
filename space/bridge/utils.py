@@ -56,3 +56,13 @@ def format_channel_meta(channel) -> str:
     if notes:
         parts.append(f"{notes} notes")
     return " | ".join(parts)
+
+
+def format_channel_row(channel) -> tuple[str, str]:
+    """Formats a channel object into a tuple of (last_activity_str, channel_info_str)."""
+    if channel.last_activity:
+        last_activity = datetime.fromisoformat(channel.last_activity).strftime("%Y-%m-%d")
+    else:
+        last_activity = "never"
+    meta_str = format_channel_meta(channel)
+    return last_activity, f"{channel.name} - {meta_str}"

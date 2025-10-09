@@ -1,7 +1,7 @@
 import hashlib
-import sqlite3
 import time
 
+from .lib import db as libdb
 from .lib.ids import uuid7
 from .spawn import config as spawn_config
 
@@ -21,14 +21,11 @@ CREATE TABLE IF NOT EXISTS protocol_versions (
 
 def _init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    try:
+    with libdb.connect(DB_PATH) as conn:
         _migrate_schema(conn)
-    finally:
-        conn.close()
 
 
-def _migrate_schema(conn: sqlite3.Connection) -> None:
+def _migrate_schema(conn) -> None:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
 
@@ -69,26 +66,20 @@ def _hash_content(content: str) -> str:
 
 
 def track(name: str, content: str):
-    """Track protocol version by hashing content. Idempotent. Fails silently."""
-    try:
-        _init_db()
-        content_hash = _hash_content(content)
-        created_at = int(time.time())
+    """Track protocol version by hashing content. Idempotent."""
+    _init_db()
+    content_hash = _hash_content(content)
+    created_at = int(time.time())
 
-        conn = sqlite3.connect(DB_PATH)
-        try:
-            conn.execute(
-                """
-                INSERT OR IGNORE INTO protocol_versions (uuid, name, hash, created_at)
-                VALUES (?, ?, ?, ?)
-                """,
-                (uuid7(), name, content_hash, created_at),
-            )
-            conn.commit()
-        finally:
-            conn.close()
-    except Exception:
-        pass
+    with libdb.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO protocol_versions (uuid, name, hash, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (uuid7(), name, content_hash, created_at),
+        )
+        conn.commit()
 
 
 def get_current_hash(name: str) -> str | None:
@@ -96,8 +87,7 @@ def get_current_hash(name: str) -> str | None:
     if not DB_PATH.exists():
         return None
 
-    conn = sqlite3.connect(DB_PATH)
-    try:
+    with libdb.connect(DB_PATH) as conn:
         cur = conn.execute(
             """
             SELECT hash
@@ -110,8 +100,6 @@ def get_current_hash(name: str) -> str | None:
         )
         row = cur.fetchone()
         return row[0] if row else None
-    finally:
-        conn.close()
 
 
 def list_protocols() -> list[tuple[str, str, int]]:
@@ -119,8 +107,7 @@ def list_protocols() -> list[tuple[str, str, int]]:
     if not DB_PATH.exists():
         return []
 
-    conn = sqlite3.connect(DB_PATH)
-    try:
+    with libdb.connect(DB_PATH) as conn:
         cur = conn.execute(
             """
             SELECT p.name, p.hash, p.created_at
@@ -134,5 +121,3 @@ def list_protocols() -> list[tuple[str, str, int]]:
             """
         )
         return cur.fetchall()
-    finally:
-        conn.close()

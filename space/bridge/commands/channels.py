@@ -5,9 +5,7 @@ from typing import Annotated
 
 import typer
 
-from space.lib import formatters
-
-from .. import api
+from .. import api, utils
 
 app = typer.Typer(invoke_without_command=True)
 
@@ -58,13 +56,13 @@ def list_channels(
         typer.echo("--- Active Channels ---")
 
         for channel in active_channels:
-            last_activity, description = formatters.format_channel_row(channel)
+            last_activity, description = utils.format_channel_row(channel)
             typer.echo(f"{last_activity}: {description}")
 
         if archived_channels:
             typer.echo("\n--- Archived Channels ---")
             for channel in archived_channels:
-                last_activity, description = formatters.format_channel_row(channel)
+                last_activity, description = utils.format_channel_row(channel)
                 typer.echo(f"{last_activity}: {description}")
 
 

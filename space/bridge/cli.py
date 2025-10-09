@@ -5,9 +5,9 @@ from dataclasses import asdict
 
 import typer
 
-from space.lib import formatters, protocols
+from space.lib import protocols
 
-from . import api
+from . import api, utils
 from .commands import messages as messages_cmds
 from .commands.channels import app as channels_app
 from .commands.messages import app as messages_app
@@ -86,7 +86,7 @@ def _print_active_channels(json_output: bool, quiet_output: bool):
     elif not quiet_output:
         typer.echo("ACTIVE CHANNELS:")
         for channel in active_channels:
-            last_activity, description = formatters.format_channel_row(channel)
+            last_activity, description = utils.format_channel_row(channel)
             typer.echo(f"  {last_activity}: {description}")
         typer.echo()
 

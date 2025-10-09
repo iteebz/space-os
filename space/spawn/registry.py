@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 
 from .. import events
+from ..errors import MigrationError
 from . import config
 
 
@@ -227,5 +228,6 @@ def _apply_migrations(conn):
             try:
                 conn.execute(sql)
                 conn.execute("INSERT INTO _migrations (name) VALUES (?)", (name,))
-            except sqlite3.OperationalError:
-                pass
+            except sqlite3.OperationalError as e:
+                if "duplicate column" not in str(e).lower():
+                    raise MigrationError(f"Migration '{name}' failed: {e}") from e
