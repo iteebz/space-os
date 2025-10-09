@@ -161,84 +161,6 @@ def launch(
 
 
 @app.command()
-def quick(
-    role: str = typer.Argument(..., help="Role to spawn (e.g., zealot)"),
-    topic: str | None = typer.Option(None, "--topic", "-t", help="Channel topic (default: role name)"),
-    model: str | None = typer.Option(None, "--model", "-m", help="Model override"),
-):
-    """Create and launch agent in one command"""
-    sender_id = f"{role}-1"
-    actual_topic = topic or role
-    
-    try:
-        spawn.register_agent(role, sender_id, actual_topic, model)
-        typer.echo(f"✓ Registered {sender_id}")
-        spawn.launch_agent(role, sender_id=sender_id, model=model)
-    except Exception as e:
-        typer.echo(f"Quick spawn failed: {e}", err=True)
-        raise typer.Exit(code=1) from e
-
-
-@app.command()
-def new(
-    name: str = typer.Argument(..., help="Constitution name (e.g., researcher)"),
-    template: str | None = typer.Option(None, "--from", help="Template to use (default: minimal)"),
-    base_identity: str | None = typer.Option(None, "--base", help="Base identity (claude, gemini, codex)"),
-):
-    """Create new constitution from template"""
-    from . import config as spawn_config
-    
-    template_name = template or "minimal"
-    new_const_path = spawn_config.CONSTITUTIONS_DIR / f"{name}.md"
-    
-    if new_const_path.exists():
-        typer.echo(f"Constitution {name} already exists", err=True)
-        raise typer.Exit(code=1)
-    
-    cfg = load_config()
-    templates = cfg.get("templates", {})
-    
-    if template_name in templates:
-        content = templates[template_name].replace("{ROLE}", name.upper())
-        new_const_path.write_text(content)
-    else:
-        existing_path = spawn_config.CONSTITUTIONS_DIR / f"{template_name}.md"
-        if not existing_path.exists():
-            typer.echo(f"Template {template_name} not found", err=True)
-            raise typer.Exit(code=1)
-        new_const_path.write_text(existing_path.read_text())
-    
-    cfg.setdefault("roles", {})[name] = {
-        "constitution": f"constitutions/{name}.md",
-        "base_identity": base_identity or "claude"
-    }
-    
-    with open(spawn_config.CONFIG_FILE, "w") as f:
-        yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
-    
-    typer.echo(f"✓ Created constitution: {new_const_path}")
-    typer.echo(f"✓ Registered role: {name}")
-    typer.echo(f"\nNext: spawn quick {name}")
-
-
-@app.command()
-def templates():
-    """List available constitution templates"""
-    cfg = load_config()
-    tmpl = cfg.get("templates", {})
-    
-    if not tmpl:
-        typer.echo("No templates configured")
-        return
-    
-    typer.echo("Available templates:\n")
-    for name in tmpl.keys():
-        typer.echo(f"  {name}")
-    
-    typer.echo(f"\nUsage: spawn new myagent --from {list(tmpl.keys())[0]}")
-
-
-@app.command()
 def identity(
     base_identity: str = typer.Argument(...),
 ):
@@ -287,14 +209,54 @@ def rename(
         raise typer.Exit(code=1) from e
 
 
-def _spawn_from_registry(sender_id: str, extra_args: list[str]):
-    regs = [r for r in registry.list_registrations() if r.sender_id == sender_id]
-    if not regs:
-        typer.echo(f"❌ {sender_id} not registered", err=True)
-        raise typer.Exit(1)
+@app.command()
+def merge(
+    target: str = typer.Argument(..., help="Target identity to merge into"),
+    sources: list[str] = typer.Argument(..., help="Source identities to merge from"),
+):
+    """Merge multiple identities into one, migrating all provenance"""
+    from ..memory import db as memory_db
+    from ..knowledge import db as knowledge_db
     
-    reg = regs[0]
-    spawn.launch_agent(reg.role, sender_id=sender_id, extra_args=extra_args, model=reg.model)
+    try:
+        for source in sources:
+            bridge_api.rename_sender(source, target)
+            memory_db.rename_agent(source, target)
+            knowledge_db.rename_contributor(source, target)
+            registry.rename_sender(source, target, None)
+            
+            source_identity = config.bridge_identities_dir() / f"{source}.md"
+            if source_identity.exists():
+                source_identity.unlink()
+            
+            typer.echo(f"✓ Merged {source} → {target}")
+        
+        typer.echo(f"\n✓ All identities merged into {target}")
+    except Exception as e:
+        typer.echo(f"Merge failed: {e}", err=True)
+        raise typer.Exit(code=1) from e
+
+
+def _spawn_from_registry(sender_id: str, extra_args: list[str]):
+    import time
+    
+    if '-' in sender_id and sender_id.split('-')[-1].isdigit():
+        role = sender_id.rsplit('-', 1)[0]
+        instance = sender_id
+    else:
+        role = sender_id
+        instance = f"{role}-{int(time.time()) % 100000}"
+    
+    regs = [r for r in registry.list_registrations() if r.sender_id == instance]
+    if not regs:
+        try:
+            spawn.register_agent(role, instance, role, None)
+        except Exception as e:
+            typer.echo(f"❌ Auto-register failed: {e}", err=True)
+            raise typer.Exit(1) from e
+    
+    reg = registry.get_registration(role, instance, role)
+    spawn.launch_agent(reg.role, sender_id=instance, extra_args=extra_args, model=reg.model)
 
 
 def main() -> None:

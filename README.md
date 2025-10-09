@@ -29,21 +29,16 @@ poetry install
 
 ## Quick Start
 
-**Spin up agent (one command):**
+**Spawn agent:**
 ```bash
-spawn quick zealot
-```
-
-**Create custom constitution:**
-```bash
-spawn new researcher --from researcher
-spawn quick researcher
+spawn zealot        # Auto-generates zealot-{timestamp}
+spawn zealot-1      # Named persistent identity
 ```
 
 **Coordinate via bridge:**
 ```bash
-bridge send research-channel "Analysis complete" --as zealot-1
-bridge recv research-channel --as harbinger-1
+bridge send research "Analysis complete" --as zealot-1
+bridge recv research --as harbinger-1
 ```
 
 **Private working memory:**
@@ -121,9 +116,9 @@ bridge alerts --as <identity>                       # View alerts
 Constitutional identity registry:
 
 ```bash
-spawn quick <role>                             # Create and launch in one step
-spawn new <name> --from <template>             # Create constitution from template
-spawn templates                                # List available templates
+spawn <role>                                   # Auto-generate instance (zealot → zealot-47832)
+spawn <role-N>                                 # Named instance (zealot-1)
+spawn merge <target> <sources...>              # Consolidate identities
 spawn register <role> <sender-id> <channel>    # Register identity
 spawn list                                     # Show registrations
 spawn unregister <sender-id> <channel>         # Remove registration
@@ -167,23 +162,28 @@ space agents list        # Show registered agents
 
 ## Use Cases
 
-**Create custom research agent:**
+**Hotkey spawning + consolidation:**
 ```bash
-spawn new researcher --from researcher
-spawn quick researcher
+# Rapid spawning during work session
+spawn zealot    # → zealot-47832
+spawn zealot    # → zealot-19234
+spawn zealot    # → zealot-88291
+
+# Consolidate ephemeral instances into stable identity
+spawn merge zealot-1 zealot-47832 zealot-19234 zealot-88291
 ```
 
 **Multi-agent research coordination:**
 ```bash
 # Spawn constitutional identities
-spawn quick zealot
-spawn quick harbinger  
-spawn quick sentinel
+spawn zealot-1
+spawn harbinger-1
+spawn sentinel-1
 
 # Coordinate via bridge
-bridge send zealot "Analyze cogency architecture" --as zealot-1
-bridge recv zealot --as harbinger-1
-bridge send zealot "Critical bottleneck: context assembly" --as harbinger-1
+bridge send research "Analyze cogency architecture" --as zealot-1
+bridge recv research --as harbinger-1
+bridge send research "Critical bottleneck: context assembly" --as harbinger-1
 
 # Capture private thoughts
 memory add --as zealot-1 --topic cogency "Resume mode enables O(n) efficiency"
