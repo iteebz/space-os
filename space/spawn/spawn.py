@@ -16,30 +16,18 @@ def load_config() -> dict:
 
 
 def hash_content(content: str) -> str:
+    """Hash final injected identity (constitution + self-description).
+
+    Constitution versioning via git commits. This hashes what actually runs.
+    """
     return hashlib.sha256(content.encode()).hexdigest()
 
 
-def _get_constitution_content_from_db_or_file(role: str) -> str:
+def get_constitution_path(role: str) -> Path:
     cfg = load_config()
     if role not in cfg["roles"]:
         raise ValueError(f"Unknown role: {role}")
-
-    role_cfg = cfg["roles"][role]
-    const_path = _resolve_constitution_path(role_cfg["constitution"])
-
-    if not const_path.exists():
-        raise FileNotFoundError(f"Constitution not found: {const_path}")
-    file_content = const_path.read_text()
-    file_content_hash = hash_content(file_content)
-
-    # Try to get from DB first
-    db_content = registry.get_constitution(file_content_hash)
-    if db_content:
-        return db_content
-
-    # If not in DB, save it and return
-    registry.save_constitution(file_content_hash, file_content)
-    return file_content
+    return _resolve_constitution_path(cfg["roles"][role]["constitution"])
 
 
 def _resolve_constitution_path(value: str) -> Path:
@@ -65,19 +53,28 @@ def get_base_identity(role: str) -> str:
     return cfg["roles"][role]["base_identity"]
 
 
-def inject_identity(base_constitution_content: str, sender_id: str) -> str:
+def inject_identity(
+    base_constitution_content: str, sender_id: str, model: str | None = None
+) -> str:
     registry.init_db()
     self_desc = registry.get_self_description(sender_id)
-    if not self_desc:
-        return base_constitution_content
-    return f"You are now {sender_id}.\nSelf: {self_desc}\n\n{base_constitution_content}"
+
+    header_parts = [f"You are now {sender_id}"]
+    if model:
+        header_parts.append(f"powered by {model}")
+    header = " ".join(header_parts) + "."
+
+    if self_desc:
+        return f"{header}\nSelf: {self_desc}\n\n{base_constitution_content}"
+    return f"{header}\n{base_constitution_content}"
 
 
 def register_agent(role: str, sender_id: str, topic: str, model: str | None = None) -> dict:
-    base_constitution_content = _get_constitution_content_from_db_or_file(role)
-    full_identity = inject_identity(base_constitution_content, sender_id)
-    const_hash = hash_content(full_identity)  # Calculate hash here
-    registry.save_agent_identity(sender_id, full_identity, const_hash)  # Save to DB
+    const_path = get_constitution_path(role)
+    base_content = const_path.read_text()
+    full_identity = inject_identity(base_content, sender_id, model)
+    const_hash = hash_content(full_identity)
+    registry.save_agent_identity(sender_id, full_identity, const_hash)
     reg_id = registry.register(role, sender_id, topic, const_hash, model)
 
     return {
@@ -121,16 +118,13 @@ def launch_agent(
     if not agent_cfg or "command" not in agent_cfg:
         raise ValueError(f"Agent '{actual_base_identity}' is not configured for launching.")
 
-    base_constitution_content = _get_constitution_content_from_db_or_file(role)
-    full_identity = inject_identity(base_constitution_content, actual_sender_id)
+    const_path = get_constitution_path(role)
+    base_content = const_path.read_text()
+    full_identity = inject_identity(base_content, actual_sender_id, model)
     const_hash = hash_content(full_identity)
     registry.save_agent_identity(actual_sender_id, full_identity, const_hash)
-    # Retrieve full_identity from DB for consistency, though we just created it
-    db_full_identity = registry.get_agent_identity(actual_sender_id)
-    if not db_full_identity:
-        raise ValueError(f"Could not retrieve identity for agent {actual_sender_id} from database.")
 
-    _sync_identity_targets(agent_cfg, db_full_identity)  # Use db_full_identity
+    _sync_identity_targets(agent_cfg, full_identity)
 
     command_tokens = _parse_command(agent_cfg["command"])
     env = _build_launch_env()
@@ -142,7 +136,7 @@ def launch_agent(
 
     # Pass the full_identity content directly as an argument or via a temporary file
     # For now, let's assume the agent expects the constitution content directly
-    constitution_args = _constitution_args_from_content(agent_cfg, db_full_identity)
+    constitution_args = _constitution_args_from_content(agent_cfg, full_identity)
     passthrough = extra_args or []
     full_command = command_tokens + passthrough + constitution_args
 

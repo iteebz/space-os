@@ -14,7 +14,7 @@ def test_inject_identity_no_self():
         const = "You are a sentinel."
         result = spawn.inject_identity(const, "sentinel")
 
-        assert result == const
+        assert result == "You are now sentinel.\nYou are a sentinel."
 
 
 def test_inject_identity_with_self():
@@ -93,3 +93,15 @@ def test_describe_updates_self():
 
         assert cursor.rowcount > 0
         assert desc == "Voice of the council"
+
+
+def test_inject_identity_with_model():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db = Path(tmpdir) / "spawn.db"
+        registry.config.registry_db = lambda: db
+        registry.init_db()
+
+        const = "You are a zealot."
+        result = spawn.inject_identity(const, "zealot-1", "claude-sonnet-4.5")
+
+        assert result == "You are now zealot-1 powered by claude-sonnet-4.5.\nYou are a zealot."

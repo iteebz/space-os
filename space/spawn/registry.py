@@ -47,39 +47,16 @@ def init_db():
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS constitutions (
-                constitution_hash TEXT PRIMARY KEY,
-                content TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
         _apply_migrations(conn)
         conn.commit()
 
 
-def save_constitution(constitution_hash: str, content: str):
-    with get_db() as conn:
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO constitutions (constitution_hash, content)
-            VALUES (?, ?)
-            """,
-            (constitution_hash, content),
-        )
-        conn.commit()
-
-
-def get_constitution(constitution_hash: str) -> str | None:
-    with get_db() as conn:
-        row = conn.execute(
-            "SELECT content FROM constitutions WHERE constitution_hash = ?",
-            (constitution_hash,),
-        ).fetchone()
-        return row["content"] if row else None
-
-
 def save_agent_identity(sender_id: str, full_identity: str, constitution_hash: str):
+    """Save final injected identity (constitution + self-description).
+
+    Constitution files are source of truth (versioned via git).
+    This stores what actually runs after identity injection.
+    """
     with get_db() as conn:
         conn.execute(
             """

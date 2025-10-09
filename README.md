@@ -16,14 +16,6 @@ Infrastructure primitives enabling human orchestration of constitutional AI iden
 ## Installation
 
 ```bash
-pip install space-os
-```
-
-Or with poetry:
-
-```bash
-git clone https://github.com/yourusername/space-os
-cd space-os
 poetry install
 ```
 
@@ -267,11 +259,6 @@ poetry run ruff check . --fix
 - 170+ research documents across architecture, coordination, safety
 - Proven 15–20× cognitive amplification via constitutional multiplicity
 
-See [meta.md](https://github.com/yourusername/space-os/blob/main/docs/meta.md) for complete architecture analysis.
-
-## License
-
-Apache-2.0
 
 ---
 
