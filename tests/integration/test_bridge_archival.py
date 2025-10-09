@@ -4,6 +4,7 @@ import hashlib
 import pytest
 
 from space.bridge.api import channels, messages
+from space.errors import ChannelNotFoundError
 
 
 @pytest.fixture
@@ -29,7 +30,7 @@ def setup_channel():
     identity_file_path.write_text(dummy_file_content)
 
     # Ensure channel is clean before test
-    with contextlib.suppress(ValueError):
+    with contextlib.suppress(ChannelNotFoundError):
         channels.delete_channel(channel_name)
 
     channel_id = channels.create_channel(channel_name)
@@ -38,7 +39,7 @@ def setup_channel():
     yield channel_name, channel_id, identity, message_content
 
     # Clean up after test
-    with contextlib.suppress(ValueError):
+    with contextlib.suppress(ChannelNotFoundError):
         channels.delete_channel(channel_name)
     # Unregister the identity
     registry.unregister("test-role", identity, channel_name)

@@ -7,6 +7,7 @@ from pathlib import Path
 from .. import events
 from ..lib import db as libdb
 from ..lib.ids import uuid7
+from ..spawn import config as spawn_config
 from .models import Entry
 
 MEMORY_DB_NAME = "memory.db"
@@ -28,11 +29,11 @@ CREATE INDEX IF NOT EXISTS idx_memory_uuid ON memory(uuid);
 
 
 def database_path() -> Path:
-    return libdb.workspace_db_path(MEMORY_DB_NAME)
+    return libdb.workspace_db_path(spawn_config.workspace_root(), MEMORY_DB_NAME)
 
 
 def connect():
-    return libdb.workspace_db(MEMORY_DB_NAME, _MEMORY_SCHEMA)
+    return libdb.workspace_db(spawn_config.workspace_root(), MEMORY_DB_NAME, _MEMORY_SCHEMA)
 
 
 def _resolve_uuid(short_uuid: str) -> str:

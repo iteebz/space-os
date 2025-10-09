@@ -2,6 +2,7 @@ import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass
 
+from .. import events
 from . import config
 
 
@@ -116,8 +117,6 @@ def get_db():
 def register(
     role: str, sender_id: str, topic: str, constitution_hash: str, model: str | None = None
 ) -> int:
-    from .. import events
-
     with get_db() as conn:
         cursor = conn.execute(
             """
@@ -133,8 +132,6 @@ def register(
 
 
 def unregister(role: str, sender_id: str, topic: str):
-    from .. import events
-
     with get_db() as conn:
         conn.execute(
             "DELETE FROM registrations WHERE role = ? AND sender_id = ? AND topic = ?",
@@ -171,6 +168,13 @@ def get_registration_by_sender(sender_id: str, topic: str) -> Registration | Non
         if row:
             return Registration(**dict(row))
         return None
+
+
+def delete_agent(sender_id: str):
+    with get_db() as conn:
+        conn.execute("DELETE FROM registrations WHERE sender_id = ?", (sender_id,))
+        conn.commit()
+    events.emit("spawn", "identity.delete", sender_id, "")
 
 
 def rename_sender(old_sender_id: str, new_sender_id: str, new_role: str = None):

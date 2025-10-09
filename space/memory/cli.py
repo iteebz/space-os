@@ -17,14 +17,23 @@ def main_command(
     ctx: typer.Context,
     identity: str = typer.Option(None, "--as", help="Identity name"),
 ):
-    if ctx.resilient_parsing or ctx.invoked_subcommand is None:
+    if ctx.resilient_parsing:
+        return
+    if ctx.invoked_subcommand is None:
         if not identity:
             try:
                 protocol_content = protocols.load("memory")
                 typer.echo(protocol_content)
             except FileNotFoundError:
                 typer.echo("❌ memory.md protocol not found")
-        return
+        else:
+            ctx.invoke(
+                list_entries_command,
+                identity=identity,
+                topic=None,
+                json_output=False,
+                quiet_output=False,
+            )
 
 
 @app.command("add")
@@ -140,5 +149,6 @@ def list_entries_command(
             typer.echo(f"[{e.uuid[-8:]}] [{e.timestamp}] {e.message}")
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Entry point for poetry script."""
     app()

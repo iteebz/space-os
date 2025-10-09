@@ -1,3 +1,3 @@
-"""Shared utilities for agent_space."""
+"""Shared utilities for space_os."""
 
 __all__ = []

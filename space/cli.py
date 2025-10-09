@@ -156,12 +156,8 @@ def agents_root(
 @agents_app.command("list")
 def list_agents(
     ctx: typer.Context,
-    json_flag: bool = typer.Option(
-        False, "--json", "-j", help="Output in JSON format.", is_flag=True
-    ),
-    quiet_flag: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output.", is_flag=True
-    ),
+    json_flag: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_flag: bool = typer.Option(False, "--quiet", "-q", help="Suppress non-essential output."),
 ):
     """List registered agents."""
     parent_json, parent_quiet = _agent_io_flags(ctx)
@@ -175,12 +171,8 @@ def describe_agent(
     ctx: typer.Context,
     identity: str = typer.Argument(..., help="Identity to describe"),
     description: str = typer.Argument(..., help="Description of the identity"),
-    json_flag: bool = typer.Option(
-        False, "--json", "-j", help="Output in JSON format.", is_flag=True
-    ),
-    quiet_flag: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output.", is_flag=True
-    ),
+    json_flag: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_flag: bool = typer.Option(False, "--quiet", "-q", help="Suppress non-essential output."),
 ):
     """Set self-description for an identity."""
     parent_json, parent_quiet = _agent_io_flags(ctx)
@@ -207,12 +199,8 @@ def describe_agent(
 def show_agent(
     ctx: typer.Context,
     identity: str = typer.Argument(..., help="Identity to inspect"),
-    json_flag: bool = typer.Option(
-        False, "--json", "-j", help="Output in JSON format.", is_flag=True
-    ),
-    quiet_flag: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output.", is_flag=True
-    ),
+    json_flag: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_flag: bool = typer.Option(False, "--quiet", "-q", help="Suppress non-essential output."),
 ):
     """Display self-description for an identity."""
     parent_json, parent_quiet = _agent_io_flags(ctx)
@@ -233,6 +221,26 @@ def show_agent(
         typer.echo(desc)
     else:
         typer.echo(f"No self-description for {identity}")
+
+
+@agents_app.command("delete")
+def delete_agent(
+    ctx: typer.Context,
+    identity: str = typer.Argument(..., help="Identity to delete"),
+    json_flag: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_flag: bool = typer.Option(False, "--quiet", "-q", help="Suppress non-essential output."),
+):
+    """Delete an agent from the registry."""
+    parent_json, parent_quiet = _agent_io_flags(ctx)
+    json_output = parent_json or json_flag
+    quiet_output = parent_quiet or quiet_flag
+    registry.init_db()
+    registry.delete_agent(identity)
+
+    if json_output:
+        typer.echo(json.dumps({"identity": identity, "deleted": True}))
+    elif not quiet_output:
+        typer.echo(f"Deleted {identity}")
 
 
 @app.command()
@@ -272,5 +280,6 @@ def stats(
     typer.echo("\n\n".join(sections))
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Entry point for poetry script."""
     app()

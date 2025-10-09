@@ -2,9 +2,10 @@ import sqlite3
 import uuid
 from pathlib import Path
 
+from ..errors import ChannelNotFoundError
 from ..lib import db as libdb
 from . import config
-from .models import Channel, ExportData, Message
+from .models import Channel, ExportData, Message, Note
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS messages (
@@ -158,7 +159,7 @@ def get_channel_id(channel_name: str) -> str:
         cursor = conn.execute("SELECT id FROM channels WHERE name = ?", (channel_name,))
         result = cursor.fetchone()
     if not result:
-        raise ValueError(f"Channel '{channel_name}' not found")
+        raise ChannelNotFoundError(f"Channel '{channel_name}' not found")
     return result["id"]
 
 
@@ -262,18 +263,18 @@ def get_export_data(channel_id: str) -> ExportData:
         channel_info = channel_cursor.fetchone()
 
         msg_cursor = conn.execute(
-            "SELECT sender, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
+            "SELECT id, channel_id, sender, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
             (channel_id,),
         )
-        messages = [dict(row) for row in msg_cursor.fetchall()]
+        messages = [Message(**row) for row in msg_cursor.fetchall()]
 
         note_cursor = conn.execute(
             "SELECT author, content, created_at FROM notes WHERE channel_id = ? ORDER BY created_at ASC",
             (channel_id,),
         )
-        notes = [dict(row) for row in note_cursor.fetchall()]
+        notes = [Note(**row) for row in note_cursor.fetchall()]
 
-    participants = sorted({msg["sender"] for msg in messages})
+    participants = sorted({msg.sender for msg in messages})
 
     return ExportData(
         channel_id=channel_id,
@@ -341,10 +342,10 @@ def create_note(channel_id: str, author: str, content: str) -> int:
         return cursor.lastrowid
 
 
-def get_notes(channel_id: str) -> list[dict]:
+def get_notes(channel_id: str) -> list[Note]:
     with _connect() as conn:
         cursor = conn.execute(
             "SELECT author, content, created_at FROM notes WHERE channel_id = ? ORDER BY created_at ASC",
             (channel_id,),
         )
-        return [dict(row) for row in cursor.fetchall()]
+        return [Note(**row) for row in cursor.fetchall()]

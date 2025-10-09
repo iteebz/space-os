@@ -42,6 +42,15 @@ class Bookmark:
 
 
 @dataclass
+class Note:
+    """A note associated with a channel."""
+
+    author: str
+    content: str
+    created_at: str
+
+
+@dataclass
 class ExportData:
     """Complete channel export for research."""
 
@@ -51,5 +60,5 @@ class ExportData:
     created_at: str | None
     participants: list[str]
     message_count: int
-    messages: list[dict]
-    notes: list[dict]
+    messages: list[Message]
+    notes: list[Note]

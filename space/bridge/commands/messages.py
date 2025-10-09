@@ -278,7 +278,7 @@ def export(
                 "message_count": data.message_count,
                 "created_at": data.created_at,
                 "messages": [asdict(msg) for msg in data.messages],
-                "notes": data.notes,
+                "notes": [asdict(note) for note in data.notes],
             }
             typer.echo(json.dumps(export_data))
         elif not quiet_output:
@@ -304,19 +304,19 @@ def export(
             for note in data.notes:
                 combined.append(("note", note))
 
-            combined.sort(key=lambda x: x[1]["created_at"])
+            combined.sort(key=lambda x: x[1].created_at)
 
             for item_type, item in combined:
-                created = datetime.fromisoformat(item["created_at"])
+                created = datetime.fromisoformat(item.created_at)
                 timestamp = created.strftime("%Y-%m-%d %H:%M:%S")
 
                 if item_type == "msg":
-                    typer.echo(f"[{item['sender']} | {timestamp}]")
-                    typer.echo(item["content"])
+                    typer.echo(f"[{item.sender} | {timestamp}]")
+                    typer.echo(item.content)
                     typer.echo()
                 else:
-                    typer.echo(f"[NOTE: {item['author']} | {timestamp}]")
-                    typer.echo(item["content"])
+                    typer.echo(f"[NOTE: {item.author} | {timestamp}]")
+                    typer.echo(item.content)
                     typer.echo()
 
     except ValueError as e:

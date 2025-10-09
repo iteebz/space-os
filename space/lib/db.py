@@ -4,6 +4,20 @@ from contextlib import contextmanager
 from pathlib import Path
 
 
+def workspace_root() -> Path:
+    current = Path.cwd()
+    for candidate in (current, *current.parents):
+        if (candidate / "AGENTS.md").exists():
+            return candidate
+    for candidate in (current, *current.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    for candidate in (current, *current.parents):
+        if (candidate / "pyproject.toml").exists():
+            return candidate
+    return current
+
+
 @contextmanager
 def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -28,13 +42,11 @@ def ensure_workspace_db(db_path: Path, schema: str):
     return connect(db_path)
 
 
-def workspace_db_path(db_name: str) -> Path:
+def workspace_db_path(workspace_root: Path, db_name: str) -> Path:
     """Resolve the workspace-scoped .space database path."""
-    from ..spawn import config as spawn_config
-
-    return spawn_config.workspace_root() / ".space" / db_name
+    return workspace_root / ".space" / db_name
 
 
-def workspace_db(db_name: str, schema: str):
+def workspace_db(workspace_root: Path, db_name: str, schema: str):
     """Return a workspace-scoped connection context manager with schema bootstrapped."""
-    return ensure_workspace_db(workspace_db_path(db_name), schema)
+    return ensure_workspace_db(workspace_db_path(workspace_root, db_name), schema)

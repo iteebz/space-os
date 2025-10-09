@@ -89,3 +89,8 @@ def _print_active_channels(json_output: bool, quiet_output: bool):
             last_activity, description = formatters.format_channel_row(channel)
             typer.echo(f"  {last_activity}: {description}")
         typer.echo()
+
+
+def main() -> None:
+    """Entry point for poetry script."""
+    app()

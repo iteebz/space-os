@@ -154,5 +154,6 @@ def get_knowledge_by_id_command(
         )
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Entry point for poetry script."""
     app()

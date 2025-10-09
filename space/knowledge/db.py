@@ -5,6 +5,7 @@ from pathlib import Path
 
 from ..lib import db as libdb
 from ..lib.ids import uuid7
+from ..spawn import config as spawn_config
 
 KNOWLEDGE_DB_NAME = "knowledge.db"
 
@@ -34,11 +35,11 @@ class Entry:
 
 
 def database_path() -> Path:
-    return libdb.workspace_db_path(KNOWLEDGE_DB_NAME)
+    return libdb.workspace_db_path(spawn_config.workspace_root(), KNOWLEDGE_DB_NAME)
 
 
 def connect():
-    return libdb.workspace_db(KNOWLEDGE_DB_NAME, _KNOWLEDGE_SCHEMA)
+    return libdb.workspace_db(spawn_config.workspace_root(), KNOWLEDGE_DB_NAME, _KNOWLEDGE_SCHEMA)
 
 
 def write_knowledge(

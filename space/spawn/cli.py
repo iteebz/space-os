@@ -167,5 +167,10 @@ def rename(
         raise typer.Exit(code=1) from e
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Entry point for poetry script."""
     app()
+
+
+if __name__ == "__main__":
+    main()
