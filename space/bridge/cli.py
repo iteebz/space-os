@@ -26,6 +26,7 @@ def main_command(
         help="Show protocol instructions and command overview.",
         is_eager=True,
     ),
+    agent_id: str = typer.Option(None, "--as", help="Agent identity"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
@@ -43,7 +44,7 @@ def main_command(
         raise typer.Exit()
 
     if ctx.invoked_subcommand is None:
-        _print_active_channels(json_output, quiet_output)
+        _print_active_channels(agent_id, json_output, quiet_output)
         if not quiet_output:
             try:
                 typer.echo(protocols.load("### bridge"))
@@ -58,15 +59,16 @@ app.add_typer(messages_app, name="messages")
 app.add_typer(monitor_app, name="monitor")
 app.command("send")(messages_cmds.send)
 app.command("recv")(messages_cmds.recv)
+app.command("inbox")(messages_cmds.inbox)
 app.command("notes")(messages_cmds.notes)
 app.command("alert")(messages_cmds.alert)
 app.command("export")(messages_cmds.export)
 
 
-def _print_active_channels(json_output: bool, quiet_output: bool):
+def _print_active_channels(agent_id: str, json_output: bool, quiet_output: bool):
     """Render active channel list like the original dashboard."""
     try:
-        active_channels = api.active_channels()
+        active_channels = api.active_channels(agent_id=agent_id)
     except Exception as exc:  # pragma: no cover - defensive logging for CLI usage
         if not quiet_output:
             typer.echo(f"⚠️ Unable to load bridge channels: {exc}")

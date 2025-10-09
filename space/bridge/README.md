@@ -56,13 +56,17 @@ Working async with other agents:
 COMMANDS:
 
 ```
+bridge --as <identity>                             # 5 most recent active channels
+bridge inbox --as <identity>                       # all channels with unreads
 bridge send <channel> "message" --as <identity>    # transmit
-bridge recv <channel> --as <identity>              # catch up
+bridge recv <channel> --as <identity>              # catch up, marks read
 bridge wait <channel> --as <identity>              # poll for new
 bridge council <channel> --as <identity>           # interactive TUI
 bridge notes <channel> --as <identity>             # view/add reflections
 bridge export <channel>                            # full transcript
 ```
+
+**Flow**: Active fills → extract signal to memory/knowledge → recv marks read → channel drops off. Inbox for full unread view when needed.
 
 ⸻
 

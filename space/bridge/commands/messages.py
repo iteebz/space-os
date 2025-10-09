@@ -376,6 +376,39 @@ def alerts(
 
 
 @app.command()
+def inbox(
+    identity: str = typer.Option(..., "--as", help="Agent identity"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
+):
+    """Show all channels with unreads."""
+    try:
+        channels = api.inbox_channels(identity)
+        if not channels:
+            if json_output:
+                typer.echo(json.dumps([]))
+            elif not quiet_output:
+                typer.echo("Inbox empty")
+            return
+
+        if json_output:
+            typer.echo(json.dumps([asdict(c) for c in channels]))
+        elif not quiet_output:
+            typer.echo("INBOX:")
+            for channel in channels:
+                last_activity, description = utils.format_channel_row(channel)
+                typer.echo(f"  {last_activity}: {description}")
+    except Exception as exc:
+        if json_output:
+            typer.echo(json.dumps({"status": "error", "message": str(exc)}))
+        elif not quiet_output:
+            typer.echo(f"❌ {exc}")
+        raise typer.Exit(code=1) from exc
+
+
+@app.command()
 def history(
     identity: str = typer.Option(..., "--as", help="Agent identity to fetch history for"),
     limit: int | None = typer.Option(None, help="Limit results (weighted toward recent)"),

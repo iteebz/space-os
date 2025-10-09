@@ -2,16 +2,26 @@ from .. import db
 from ..models import Channel, ExportData
 
 
-def active_channels(agent_id: str = None) -> list[Channel]:
-    """Get active channels for dashboard display."""
+def active_channels(agent_id: str = None, limit: int = 5) -> list[Channel]:
+    """Get active channels with unreads, limited to most recent."""
     channels = db.fetch_channels(agent_id, time_filter="-7 days")
+    if agent_id:
+        channels = [c for c in channels if c.unread_count > 0]
     channels.sort(key=lambda t: t.last_activity if t.last_activity else "", reverse=True)
-    return channels
+    return channels[:limit]
 
 
 def all_channels(agent_id: str = None) -> list[Channel]:
     """Get all channels."""
     return db.fetch_channels(agent_id)
+
+
+def inbox_channels(agent_id: str) -> list[Channel]:
+    """Get all channels with unreads."""
+    channels = db.fetch_channels(agent_id)
+    channels = [c for c in channels if c.unread_count > 0]
+    channels.sort(key=lambda t: t.last_activity if t.last_activity else "", reverse=True)
+    return channels
 
 
 def export_channel(channel_name: str) -> ExportData:

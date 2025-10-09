@@ -214,21 +214,21 @@ def rename(
 
 def _spawn_from_registry(arg: str, extra_args: list[str]):
     """Launch agent by registry sender_id or auto-register by role."""
-    
+
     regs = [r for r in registry.list_registrations() if r.sender_id == arg]
     if regs:
         reg = regs[0]
         spawn.launch_agent(reg.role, sender_id=arg, extra_args=extra_args, model=reg.model)
         return
-    
+
     cfg = spawn.load_config()
     if arg in cfg["roles"]:
         sender_id = spawn.auto_register_if_needed(arg)
         spawn.launch_agent(arg, sender_id=sender_id, extra_args=extra_args)
         return
-    
+
     typer.echo(f"❌ Unknown identity or role: {arg}", err=True)
-    typer.echo(f"Register: spawn register <role> <sender_id> <topic>", err=True)
+    typer.echo("Register: spawn register <role> <sender_id> <topic>", err=True)
     raise typer.Exit(1)
 
 

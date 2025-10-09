@@ -71,7 +71,7 @@ def inject_identity(
 
 def auto_register_if_needed(role: str, model: str | None = None) -> str:
     """Auto-register role with base_identity to 'general' topic if not exists.
-    
+
     Returns sender_id.
     """
     sender_id = get_base_identity(role)

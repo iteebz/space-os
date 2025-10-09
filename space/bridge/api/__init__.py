@@ -14,6 +14,7 @@ from .channels import (
     delete_channel,
     export_channel,
     get_channel_topic,
+    inbox_channels,
     rename_channel,
     resolve_channel_id,
 )
@@ -42,6 +43,7 @@ __all__ = [
     "delete_channel",
     "export_channel",
     "get_channel_topic",
+    "inbox_channels",
     "rename_channel",
     "resolve_channel_id",
 ]
