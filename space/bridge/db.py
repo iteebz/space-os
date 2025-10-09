@@ -1,11 +1,12 @@
 import sqlite3
-import uuid
 from pathlib import Path
 
 from ..errors import ChannelNotFoundError
 from ..lib import db as libdb
-from . import config
+from ..lib.ids import uuid7
 from .models import Channel, ExportData, Message, Note
+
+BRIDGE_DB_NAME = "bridge.db"
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS messages (
@@ -50,17 +51,11 @@ CREATE INDEX IF NOT EXISTS idx_messages_priority ON messages(priority);
 
 
 def _path() -> Path:
-    return config.DB_PATH
-
-
-def _ensure_db():
-    if not _path().exists():
-        libdb.ensure_schema(_path(), _SCHEMA)
+    return libdb.workspace_db_path(libdb.workspace_root(), BRIDGE_DB_NAME)
 
 
 def _connect():
-    _ensure_db()
-    return libdb.connect(_path())
+    return libdb.workspace_db(libdb.workspace_root(), BRIDGE_DB_NAME, _SCHEMA)
 
 
 def create_message(channel_id: str, sender: str, content: str, priority: str = "normal") -> int:
@@ -144,7 +139,7 @@ def get_alerts(agent_id: str) -> list[Message]:
 
 
 def create_channel(channel_name: str, topic: str | None = None) -> str:
-    channel_id = str(uuid.uuid4())
+    channel_id = uuid7()
     with _connect() as conn:
         conn.execute(
             "INSERT INTO channels (id, name, topic) VALUES (?, ?, ?)",
@@ -302,33 +297,6 @@ def delete_channel(channel_id: str):
         conn.execute("DELETE FROM messages WHERE channel_id = ?", (channel_id,))
         conn.execute("DELETE FROM bookmarks WHERE channel_id = ?", (channel_id,))
         conn.execute("DELETE FROM channels WHERE id = ?", (channel_id,))
-        conn.commit()
-
-
-def rename_channel(old_name: str, new_name: str) -> bool:
-    try:
-        with _connect() as conn:
-            cursor = conn.execute("SELECT 1 FROM channels WHERE name = ?", (old_name,))
-            if not cursor.fetchone():
-                return False
-            cursor = conn.execute("SELECT 1 FROM channels WHERE name = ?", (new_name,))
-            if cursor.fetchone():
-                return False
-            conn.execute("UPDATE channels SET name = ? WHERE name = ?", (new_name, old_name))
-            conn.commit()
-        return True
-    except sqlite3.Error:
-        return False
-
-
-def rename_sender_id(old_sender_id: str, new_sender_id: str):
-    with _connect() as conn:
-        conn.execute(
-            "UPDATE messages SET sender = ? WHERE sender = ?", (new_sender_id, old_sender_id)
-        )
-        conn.execute(
-            "UPDATE bookmarks SET agent_id = ? WHERE agent_id = ?", (new_sender_id, old_sender_id)
-        )
         conn.commit()
 
 

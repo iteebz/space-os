@@ -1,4 +1,5 @@
 from space.bridge import api
+from space.bridge.models import Message, Note
 
 
 def test_send_message(bridge_workspace):
@@ -77,3 +78,29 @@ def test_create_channel_without_topic(bridge_workspace):
 
     retrieved_topic = api.get_channel_topic(channel_id)
     assert retrieved_topic is None
+
+
+def test_export_channel_returns_dataclasses(bridge_workspace):
+    """Ensure export_channel returns dataclass instances with sorted participants."""
+    channel_name = "export-channel"
+    channel_id = api.create_channel(channel_name)
+
+    api.send_message(channel_id, "alpha", "first")
+    api.send_message(channel_id, "beta", "second")
+    api.add_note(channel_id, "gamma", "context note")
+
+    export_data = api.export_channel(channel_name)
+
+    assert export_data.channel_name == channel_name
+    assert export_data.message_count == 2
+    assert [msg.content for msg in export_data.messages] == ["first", "second"]
+    assert export_data.participants == ["alpha", "beta"]
+
+    for msg in export_data.messages:
+        assert isinstance(msg, Message)
+        assert msg.channel_id == channel_id
+
+    assert len(export_data.notes) == 1
+    note = export_data.notes[0]
+    assert isinstance(note, Note)
+    assert note.author == "gamma"
