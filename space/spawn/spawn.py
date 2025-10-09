@@ -86,7 +86,7 @@ def register_agent(role: str, sender_id: str, topic: str, model: str | None = No
     base_content = const_path.read_text()
     full_identity = inject_identity(base_content, sender_id, model)
     const_hash = hash_content(full_identity)
-    registry.save_agent_identity(sender_id, full_identity, const_hash)
+    registry.save_constitution(const_hash, full_identity)
     reg_id = registry.register(role, sender_id, topic, const_hash, model)
 
     return {
@@ -134,7 +134,7 @@ def launch_agent(
     base_content = const_path.read_text()
     full_identity = inject_identity(base_content, actual_sender_id, model)
     const_hash = hash_content(full_identity)
-    registry.save_agent_identity(actual_sender_id, full_identity, const_hash)
+    registry.save_constitution(const_hash, full_identity)
 
     _sync_identity_targets(agent_cfg, full_identity)
 

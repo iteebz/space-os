@@ -39,46 +39,37 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_sender_topic ON registrations(sender_id, topic)
         """)
         conn.execute("""
-            CREATE TABLE IF NOT EXISTS agent_identities (
-                sender_id TEXT PRIMARY KEY,
-                full_identity TEXT NOT NULL,
-                constitution_hash TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            CREATE TABLE IF NOT EXISTS constitutions (
+                hash TEXT PRIMARY KEY,
+                content TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
         _apply_migrations(conn)
         conn.commit()
 
 
-def save_agent_identity(sender_id: str, full_identity: str, constitution_hash: str):
-    """Save final injected identity (constitution + self-description).
-
-    Constitution files are source of truth (versioned via git).
-    This stores what actually runs after identity injection.
-    """
+def save_constitution(constitution_hash: str, content: str):
+    """Save constitution content by hash (content-addressable store)."""
     with get_db() as conn:
         conn.execute(
             """
-            INSERT INTO agent_identities (sender_id, full_identity, constitution_hash)
-            VALUES (?, ?, ?)
-            ON CONFLICT(sender_id) DO UPDATE SET
-                full_identity = EXCLUDED.full_identity,
-                constitution_hash = EXCLUDED.constitution_hash,
-                updated_at = CURRENT_TIMESTAMP
+            INSERT OR IGNORE INTO constitutions (hash, content)
+            VALUES (?, ?)
             """,
-            (sender_id, full_identity, constitution_hash),
+            (constitution_hash, content),
         )
         conn.commit()
 
 
-def get_agent_identity(sender_id: str) -> str | None:
+def get_constitution(constitution_hash: str) -> str | None:
+    """Retrieve constitution content by hash."""
     with get_db() as conn:
         row = conn.execute(
-            "SELECT full_identity FROM agent_identities WHERE sender_id = ?",
-            (sender_id,),
+            "SELECT content FROM constitutions WHERE hash = ?",
+            (constitution_hash,),
         ).fetchone()
-        return row["full_identity"] if row else None
+        return row["content"] if row else None
 
 
 @contextmanager

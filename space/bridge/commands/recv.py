@@ -19,6 +19,10 @@ def recv(
     ),
 ):
     """Receive updates from a channel."""
+    from ..constitute import constitute_identity
+    
+    constitute_identity(identity)
+    
     try:
         events.emit(
             "bridge",
@@ -81,6 +85,10 @@ def alerts(
     ),
 ):
     """Show all unread alerts across all channels."""
+    from ..constitute import constitute_identity
+    
+    constitute_identity(identity)
+    
     try:
         events.emit("bridge", "alerts_checking", identity, json.dumps({"identity": identity}))
         alert_messages = api.get_alerts(identity)
@@ -127,6 +135,10 @@ def inbox(
     ),
 ):
     """Show all channels with unreads."""
+    from ..constitute import constitute_identity
+    
+    constitute_identity(identity)
+    
     try:
         channels = api.inbox_channels(identity)
         if not channels:

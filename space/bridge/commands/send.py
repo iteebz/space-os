@@ -22,6 +22,11 @@ def send(
     ),
 ):
     """Send a message to a channel."""
+    from ..constitute import constitute_identity
+    
+    if identity != "human":
+        constitute_identity(identity)
+    
     if decode_base64:
         try:
             payload = base64.b64decode(content, validate=True)
@@ -80,6 +85,10 @@ def alert(
     ),
 ):
     """Send high-priority alert to a channel."""
+    from ..constitute import constitute_identity
+    
+    constitute_identity(identity)
+    
     try:
         events.emit(
             "bridge",
