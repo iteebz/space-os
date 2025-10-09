@@ -29,9 +29,15 @@ poetry install
 
 ## Quick Start
 
-**Register constitutional identity:**
+**Spin up agent (one command):**
 ```bash
-spawn register zealot zealot-1 research-channel
+spawn quick zealot
+```
+
+**Create custom constitution:**
+```bash
+spawn new researcher --from researcher
+spawn quick researcher
 ```
 
 **Coordinate via bridge:**
@@ -115,6 +121,9 @@ bridge alerts --as <identity>                       # View alerts
 Constitutional identity registry:
 
 ```bash
+spawn quick <role>                             # Create and launch in one step
+spawn new <name> --from <template>             # Create constitution from template
+spawn templates                                # List available templates
 spawn register <role> <sender-id> <channel>    # Register identity
 spawn list                                     # Show registrations
 spawn unregister <sender-id> <channel>         # Remove registration
@@ -158,17 +167,23 @@ space agents list        # Show registered agents
 
 ## Use Cases
 
+**Create custom research agent:**
+```bash
+spawn new researcher --from researcher
+spawn quick researcher
+```
+
 **Multi-agent research coordination:**
 ```bash
 # Spawn constitutional identities
-spawn register zealot zealot-1 research
-spawn register harbinger harbinger-1 research
-spawn register sentinel sentinel-1 research
+spawn quick zealot
+spawn quick harbinger  
+spawn quick sentinel
 
 # Coordinate via bridge
-bridge send research "Analyze cogency architecture" --as zealot-1
-bridge recv research --as harbinger-1
-bridge send research "Critical bottleneck: context assembly" --as harbinger-1
+bridge send zealot "Analyze cogency architecture" --as zealot-1
+bridge recv zealot --as harbinger-1
+bridge send zealot "Critical bottleneck: context assembly" --as harbinger-1
 
 # Capture private thoughts
 memory add --as zealot-1 --topic cogency "Resume mode enables O(n) efficiency"

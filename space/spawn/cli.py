@@ -1,4 +1,5 @@
 import json
+import sys
 
 import typer
 
@@ -6,22 +7,23 @@ from ..bridge import api as bridge_api
 from ..lib import protocols
 from . import config, registry, spawn
 
-app = typer.Typer(invoke_without_command=True)
-
-# Removed: PROTOCOL_FILE definition
+app = typer.Typer(invoke_without_command=True, context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 
 
 @app.callback()
-def main_command(ctx: typer.Context):
+def main_command(ctx: typer.Context, sender_id: str | None = typer.Argument(None)):
     """Constitutional agent registry"""
     registry.init_db()
 
     if ctx.invoked_subcommand is None:
-        try:
-            protocol_content = protocols.load("spawn")
-            typer.echo(protocol_content)
-        except FileNotFoundError:
-            typer.echo("❌ spawn.md protocol not found")
+        if sender_id:
+            _spawn_from_registry(sender_id, ctx.args)
+        else:
+            try:
+                protocol_content = protocols.load("spawn")
+                typer.echo(protocol_content)
+            except FileNotFoundError:
+                typer.echo("❌ spawn.md protocol not found")
 
 
 @app.command()
@@ -159,6 +161,84 @@ def launch(
 
 
 @app.command()
+def quick(
+    role: str = typer.Argument(..., help="Role to spawn (e.g., zealot)"),
+    topic: str | None = typer.Option(None, "--topic", "-t", help="Channel topic (default: role name)"),
+    model: str | None = typer.Option(None, "--model", "-m", help="Model override"),
+):
+    """Create and launch agent in one command"""
+    sender_id = f"{role}-1"
+    actual_topic = topic or role
+    
+    try:
+        spawn.register_agent(role, sender_id, actual_topic, model)
+        typer.echo(f"✓ Registered {sender_id}")
+        spawn.launch_agent(role, sender_id=sender_id, model=model)
+    except Exception as e:
+        typer.echo(f"Quick spawn failed: {e}", err=True)
+        raise typer.Exit(code=1) from e
+
+
+@app.command()
+def new(
+    name: str = typer.Argument(..., help="Constitution name (e.g., researcher)"),
+    template: str | None = typer.Option(None, "--from", help="Template to use (default: minimal)"),
+    base_identity: str | None = typer.Option(None, "--base", help="Base identity (claude, gemini, codex)"),
+):
+    """Create new constitution from template"""
+    from . import config as spawn_config
+    
+    template_name = template or "minimal"
+    new_const_path = spawn_config.CONSTITUTIONS_DIR / f"{name}.md"
+    
+    if new_const_path.exists():
+        typer.echo(f"Constitution {name} already exists", err=True)
+        raise typer.Exit(code=1)
+    
+    cfg = load_config()
+    templates = cfg.get("templates", {})
+    
+    if template_name in templates:
+        content = templates[template_name].replace("{ROLE}", name.upper())
+        new_const_path.write_text(content)
+    else:
+        existing_path = spawn_config.CONSTITUTIONS_DIR / f"{template_name}.md"
+        if not existing_path.exists():
+            typer.echo(f"Template {template_name} not found", err=True)
+            raise typer.Exit(code=1)
+        new_const_path.write_text(existing_path.read_text())
+    
+    cfg.setdefault("roles", {})[name] = {
+        "constitution": f"constitutions/{name}.md",
+        "base_identity": base_identity or "claude"
+    }
+    
+    with open(spawn_config.CONFIG_FILE, "w") as f:
+        yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
+    
+    typer.echo(f"✓ Created constitution: {new_const_path}")
+    typer.echo(f"✓ Registered role: {name}")
+    typer.echo(f"\nNext: spawn quick {name}")
+
+
+@app.command()
+def templates():
+    """List available constitution templates"""
+    cfg = load_config()
+    tmpl = cfg.get("templates", {})
+    
+    if not tmpl:
+        typer.echo("No templates configured")
+        return
+    
+    typer.echo("Available templates:\n")
+    for name in tmpl.keys():
+        typer.echo(f"  {name}")
+    
+    typer.echo(f"\nUsage: spawn new myagent --from {list(tmpl.keys())[0]}")
+
+
+@app.command()
 def identity(
     base_identity: str = typer.Argument(...),
 ):
@@ -205,6 +285,16 @@ def rename(
     except Exception as e:
         typer.echo(f"Rename failed: {e}", err=True)
         raise typer.Exit(code=1) from e
+
+
+def _spawn_from_registry(sender_id: str, extra_args: list[str]):
+    regs = [r for r in registry.list_registrations() if r.sender_id == sender_id]
+    if not regs:
+        typer.echo(f"❌ {sender_id} not registered", err=True)
+        raise typer.Exit(1)
+    
+    reg = regs[0]
+    spawn.launch_agent(reg.role, sender_id=sender_id, extra_args=extra_args, model=reg.model)
 
 
 def main() -> None:

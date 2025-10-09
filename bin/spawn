@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-cd /Users/teebz/dev/space/private/space-os && poetry run space agents "$@"
+cd /Users/teebz/dev/space/private/space-os && poetry run spawn "$@"
