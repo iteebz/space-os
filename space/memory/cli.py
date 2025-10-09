@@ -31,13 +31,13 @@ def main_command(
             except (FileNotFoundError, ValueError) as e:
                 typer.echo(f"❌ memory section not found in README: {e}")
         else:
-            ctx.invoke(
-                list_entries_command,
+            list_entries_command(
                 identity=identity,
                 topic=None,
                 json_output=False,
                 quiet_output=False,
                 include_archived=archived,
+                show_all=False,
             )
 
 
@@ -127,6 +127,7 @@ def list_entries_command(
     identity: str = typer.Option(..., "--as", help="Identity name"),
     topic: str = typer.Option(None, help="Topic name"),
     include_archived: bool = typer.Option(False, "--archived", help="Include archived entries"),
+    show_all: bool = typer.Option(False, "--all", help="Show all entries (bypass smart defaults)"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
@@ -134,28 +135,33 @@ def list_entries_command(
 ):
     """List memory entries for an identity and optional topic."""
     _constitute_identity(identity)
-    entries = db.get_entries(identity, topic, include_archived=include_archived)
-    if not entries:
-        scope = f"topic '{topic}'" if topic else "all topics"
+    
+    if topic or show_all:
+        entries = db.get_entries(identity, topic, include_archived=include_archived)
+        if not entries:
+            scope = f"topic '{topic}'" if topic else "all topics"
+            if json_output:
+                typer.echo(json.dumps([]))
+            elif not quiet_output:
+                typer.echo(f"No entries found for {identity} in {scope}")
+            return
+
         if json_output:
-            typer.echo(json.dumps([]))
+            typer.echo(json.dumps([asdict(e) for e in entries], indent=2))
         elif not quiet_output:
-            typer.echo(f"No entries found for {identity} in {scope}")
-        return
+            current_topic = None
+            for e in entries:
+                if e.topic != current_topic:
+                    if current_topic is not None:
+                        typer.echo()
+                    typer.echo(f"# {e.topic}")
+                    current_topic = e.topic
+                core_mark = " ★" if e.core else ""
+                typer.echo(f"[{e.uuid[-8:]}] [{e.timestamp}] {e.message}{core_mark}")
 
-    if json_output:
-        typer.echo(json.dumps([asdict(e) for e in entries], indent=2))
-    elif not quiet_output:
-        current_topic = None
-        for e in entries:
-            if e.topic != current_topic:
-                if current_topic is not None:
-                    typer.echo()
-                typer.echo(f"# {e.topic}")
-                current_topic = e.topic
-            typer.echo(f"[{e.uuid[-8:]}] [{e.timestamp}] {e.message}")
-
-        _show_context(identity)
+            _show_context(identity)
+    else:
+        _show_smart_memory(identity, json_output, quiet_output)
 
 
 def _constitute_identity(identity: str):
@@ -237,6 +243,56 @@ def _show_context(identity: str):
     typer.echo("\n" + "─" * 60)
 
 
+def _show_smart_memory(identity: str, json_output: bool, quiet_output: bool):
+    from ..spawn import registry as spawn_registry
+    
+    self_desc = spawn_registry.get_self_description(identity)
+    core_entries = db.get_core_entries(identity)
+    recent_entries = db.get_recent_entries(identity, days=7, limit=20)
+    
+    if json_output:
+        payload = {
+            "identity": identity,
+            "description": self_desc,
+            "core": [asdict(e) for e in core_entries],
+            "recent": [asdict(e) for e in recent_entries],
+        }
+        typer.echo(json.dumps(payload, indent=2))
+        return
+    
+    if quiet_output:
+        return
+    
+    typer.echo(f"You are {identity}.")
+    if self_desc:
+        typer.echo(f'Self: {self_desc}')
+    typer.echo()
+    
+    if core_entries:
+        typer.echo("CORE MEMORIES:")
+        for e in core_entries:
+            preview = e.message[:80] + "..." if len(e.message) > 80 else e.message
+            typer.echo(f"[{e.uuid[-8:]}] {preview}")
+        typer.echo()
+    
+    if recent_entries:
+        typer.echo("RECENT (7d):")
+        current_topic = None
+        for e in recent_entries:
+            if e.core:
+                continue
+            if e.topic != current_topic:
+                if current_topic is not None:
+                    typer.echo()
+                typer.echo(f"# {e.topic}")
+                current_topic = e.topic
+            preview = e.message[:100] + "..." if len(e.message) > 100 else e.message
+            typer.echo(f"[{e.uuid[-8:]}] [{e.timestamp}] {preview}")
+        typer.echo()
+    
+    _show_context(identity)
+
+
 @app.command("archive")
 def archive_entry_command(
     uuid: str = typer.Argument(..., help="UUID of the entry to archive"),
@@ -301,6 +357,30 @@ def search_entries_command(
             typer.echo(f"[{e.uuid[-8:]}] [{e.timestamp}] {e.message}{archived_mark}")
 
 
+@app.command("core")
+def mark_core_command(
+    uuid: str = typer.Argument(..., help="UUID of the entry to mark/unmark as core"),
+    unmark: bool = typer.Option(False, "--unmark", help="Unmark as core"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
+):
+    """Mark or unmark entry as core memory."""
+    try:
+        db.mark_core(uuid, core=not unmark)
+        action = "unmarked" if unmark else "marked"
+        if json_output:
+            typer.echo(json.dumps({"uuid": uuid, "core": not unmark}))
+        elif not quiet_output:
+            typer.echo(f"{action.capitalize()} {uuid} as core")
+    except ValueError as e:
+        if json_output:
+            typer.echo(json.dumps({"uuid": uuid, "error": str(e)}))
+        else:
+            raise typer.BadParameter(str(e)) from e
+
+
 @app.command("inspect")
 def inspect_entry_command(
     uuid: str = typer.Argument(..., help="UUID of the entry to inspect"),
@@ -338,7 +418,8 @@ def inspect_entry_command(
         typer.echo(json.dumps(payload))
     elif not quiet_output:
         archived_mark = " [ARCHIVED]" if entry.archived_at else ""
-        typer.echo(f"[{entry.uuid[-8:]}] {entry.topic} by {entry.identity}{archived_mark}")
+        core_mark = " ★" if entry.core else ""
+        typer.echo(f"[{entry.uuid[-8:]}] {entry.topic} by {entry.identity}{archived_mark}{core_mark}")
         typer.echo(f"Created: {entry.timestamp}\n")
         typer.echo(f"{entry.message}\n")
         
@@ -347,7 +428,8 @@ def inspect_entry_command(
             typer.echo(f"Related nodes ({len(related)}):\n")
             for rel_entry, overlap in related:
                 archived_mark = " [ARCHIVED]" if rel_entry.archived_at else ""
-                typer.echo(f"[{rel_entry.uuid[-8:]}] {rel_entry.topic} ({overlap} keywords){archived_mark}")
+                core_mark = " ★" if rel_entry.core else ""
+                typer.echo(f"[{rel_entry.uuid[-8:]}] {rel_entry.topic} ({overlap} keywords){archived_mark}{core_mark}")
                 typer.echo(f"  {rel_entry.message[:100]}{'...' if len(rel_entry.message) > 100 else ''}\n")
 
 

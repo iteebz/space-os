@@ -20,13 +20,15 @@ CREATE TABLE IF NOT EXISTS memory (
     message TEXT NOT NULL,
     timestamp TEXT NOT NULL,
     created_at INTEGER NOT NULL,
-    archived_at INTEGER
+    archived_at INTEGER,
+    core INTEGER DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_memory_identity_topic ON memory(identity, topic);
 CREATE INDEX IF NOT EXISTS idx_memory_identity_created ON memory(identity, created_at);
 CREATE INDEX IF NOT EXISTS idx_memory_uuid ON memory(uuid);
 CREATE INDEX IF NOT EXISTS idx_memory_archived ON memory(archived_at);
+CREATE INDEX IF NOT EXISTS idx_memory_core ON memory(core);
 """
 
 
@@ -49,6 +51,10 @@ def _migrate_schema(db_path: Path):
         if "archived_at" not in columns:
             conn.execute("ALTER TABLE memory ADD COLUMN archived_at INTEGER")
             conn.commit()
+        
+        if "core" not in columns:
+            conn.execute("ALTER TABLE memory ADD COLUMN core INTEGER DEFAULT 0")
+            conn.commit()
 
 
 def _resolve_uuid(short_uuid: str) -> str:
@@ -69,17 +75,17 @@ def _resolve_uuid(short_uuid: str) -> str:
     return rows[0][0]
 
 
-def add_entry(identity: str, topic: str, message: str):
+def add_entry(identity: str, topic: str, message: str, core: bool = False):
     entry_uuid = uuid7()
     now = int(time.time())
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
     with connect() as conn:
         conn.execute(
-            "INSERT INTO memory (uuid, identity, topic, message, timestamp, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (entry_uuid, identity, topic, message, ts, now),
+            "INSERT INTO memory (uuid, identity, topic, message, timestamp, created_at, core) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (entry_uuid, identity, topic, message, ts, now, 1 if core else 0),
         )
         conn.commit()
-    events.emit("memory", "entry.add", identity, f"{topic}:{message[:50]}")
+    events.emit("memory", "entry.add", identity, f"{topic}:{message[:50]}" + (" [CORE]" if core else ""))
 
 
 def get_entries(identity: str, topic: str | None = None, include_archived: bool = False) -> list[Entry]:
@@ -87,15 +93,15 @@ def get_entries(identity: str, topic: str | None = None, include_archived: bool 
         archive_filter = "" if include_archived else "AND archived_at IS NULL"
         if topic:
             rows = conn.execute(
-                f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at FROM memory WHERE identity = ? AND topic = ? {archive_filter} ORDER BY uuid",
+                f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core FROM memory WHERE identity = ? AND topic = ? {archive_filter} ORDER BY uuid",
                 (identity, topic),
             ).fetchall()
         else:
             rows = conn.execute(
-                f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at FROM memory WHERE identity = ? {archive_filter} ORDER BY topic, uuid",
+                f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core FROM memory WHERE identity = ? {archive_filter} ORDER BY topic, uuid",
                 (identity,),
             ).fetchall()
-    return [Entry(*row) for row in rows]
+    return [Entry(row[0], row[1], row[2], row[3], row[4], row[5], row[6], bool(row[7])) for row in rows]
 
 
 def edit_entry(entry_uuid: str, new_message: str):
@@ -150,14 +156,44 @@ def restore_entry(entry_uuid: str):
     events.emit("memory", "entry.restore", None, f"{full_uuid[-8:]}")
 
 
+def mark_core(entry_uuid: str, core: bool = True):
+    full_uuid = _resolve_uuid(entry_uuid)
+    with connect() as conn:
+        conn.execute(
+            "UPDATE memory SET core = ? WHERE uuid = ?",
+            (1 if core else 0, full_uuid),
+        )
+        conn.commit()
+    events.emit("memory", "entry.core", None, f"{full_uuid[-8:]} → {core}")
+
+
+def get_core_entries(identity: str) -> list[Entry]:
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core FROM memory WHERE identity = ? AND core = 1 AND archived_at IS NULL ORDER BY created_at DESC",
+            (identity,),
+        ).fetchall()
+    return [Entry(row[0], row[1], row[2], row[3], row[4], row[5], row[6], bool(row[7])) for row in rows]
+
+
+def get_recent_entries(identity: str, days: int = 7, limit: int = 20) -> list[Entry]:
+    cutoff = int(time.time()) - (days * 86400)
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core FROM memory WHERE identity = ? AND created_at >= ? AND archived_at IS NULL ORDER BY created_at DESC LIMIT ?",
+            (identity, cutoff, limit),
+        ).fetchall()
+    return [Entry(row[0], row[1], row[2], row[3], row[4], row[5], row[6], bool(row[7])) for row in rows]
+
+
 def search_entries(identity: str, keyword: str, include_archived: bool = False) -> list[Entry]:
     archive_filter = "" if include_archived else "AND archived_at IS NULL"
     with connect() as conn:
         rows = conn.execute(
-            f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at FROM memory WHERE identity = ? AND (message LIKE ? OR topic LIKE ?) {archive_filter} ORDER BY created_at DESC",
+            f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core FROM memory WHERE identity = ? AND (message LIKE ? OR topic LIKE ?) {archive_filter} ORDER BY created_at DESC",
             (identity, f"%{keyword}%", f"%{keyword}%"),
         ).fetchall()
-    return [Entry(*row) for row in rows]
+    return [Entry(row[0], row[1], row[2], row[3], row[4], row[5], row[6], bool(row[7])) for row in rows]
 
 
 def find_related(entry: Entry, limit: int = 5, include_archived: bool = False) -> list[tuple[Entry, int]]:
@@ -172,13 +208,13 @@ def find_related(entry: Entry, limit: int = 5, include_archived: bool = False) -
     archive_filter = "" if include_archived else "AND archived_at IS NULL"
     with connect() as conn:
         all_entries = conn.execute(
-            f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at FROM memory WHERE identity = ? AND uuid != ? {archive_filter}",
+            f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core FROM memory WHERE identity = ? AND uuid != ? {archive_filter}",
             (entry.identity, entry.uuid),
         ).fetchall()
     
     scored = []
     for row in all_entries:
-        candidate = Entry(*row)
+        candidate = Entry(row[0], row[1], row[2], row[3], row[4], row[5], row[6], bool(row[7]))
         candidate_tokens = set(candidate.message.lower().split()) | set(candidate.topic.lower().split())
         candidate_keywords = {t.strip(".,;:!?()[]{}") for t in candidate_tokens if len(t) > 3 and t not in stopwords}
         
@@ -194,7 +230,7 @@ def get_by_uuid(entry_uuid: str) -> Entry | None:
     full_uuid = _resolve_uuid(entry_uuid)
     with connect() as conn:
         row = conn.execute(
-            "SELECT uuid, identity, topic, message, timestamp, created_at, archived_at FROM memory WHERE uuid = ?",
+            "SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core FROM memory WHERE uuid = ?",
             (full_uuid,),
         ).fetchone()
-    return Entry(*row) if row else None
+    return Entry(row[0], row[1], row[2], row[3], row[4], row[5], row[6], bool(row[7])) if row else None

@@ -11,11 +11,12 @@ app = typer.Typer()
 @app.command()
 def history(
     identity: str = typer.Option(..., "--as", help="Agent identity to fetch history for"),
-    limit: int | None = typer.Option(None, help="Limit results (weighted toward recent)"),
+    limit: int | None = typer.Option(5, help="Limit results (weighted toward recent)"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
+    preview: bool = typer.Option(False, "--preview", "-p", help="Show preview snapshot"),
 ):
     """Show all messages broadcast by identity across all channels."""
     try:
@@ -29,6 +30,13 @@ def history(
 
         if json_output:
             typer.echo(json.dumps([asdict(msg) for msg in messages]))
+        elif preview:
+            typer.echo(f"📤 Last {len(messages)} sent by {identity}:")
+            for msg in reversed(messages):
+                prev = msg.content[:60].replace('\n', ' ')
+                if len(msg.content) > 60:
+                    prev += "..."
+                typer.echo(f"  • {msg.channel_id}: {prev}")
         elif not quiet_output:
             typer.echo(f"--- Broadcast history for {identity} ({len(messages)} messages) ---")
             for msg in messages:

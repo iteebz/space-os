@@ -1,6 +1,7 @@
 import typer
 
 from .bridge.api import channels as bridge_channels
+from .bridge.api import messages as bridge_messages
 from .commands import agents, backup, events, search, stats, trace
 from .knowledge.cli import app as knowledge_app
 from .lib import lattice

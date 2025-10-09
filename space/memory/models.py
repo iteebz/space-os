@@ -10,3 +10,4 @@ class Entry:
     timestamp: str
     created_at: int
     archived_at: int | None = None
+    core: bool = False
