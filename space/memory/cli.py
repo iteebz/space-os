@@ -201,8 +201,6 @@ def _show_context(identity: str):
         )
 
     typer.echo("\n" + "─" * 60)
-    typer.echo(f"\n» memory --as {identity} --topic <topic>")
-    typer.echo(f"» bridge inbox --as {identity}")
 
 
 def main() -> None:

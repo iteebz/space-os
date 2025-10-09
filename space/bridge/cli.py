@@ -56,14 +56,16 @@ def main_command(
         raise typer.Exit()
 
     if ctx.invoked_subcommand is None:
-        _print_active_channels(agent_id, json_output, quiet_output)
-        if not quiet_output:
-            try:
-                typer.echo(lattice.load("### bridge"))
-            except (FileNotFoundError, ValueError) as e:
-                typer.echo(f"❌ bridge section not found in README: {e}")
-            else:
-                typer.echo()
+        if agent_id:
+            ctx.invoke(recv_cmds.inbox, identity=agent_id, json_output=json_output, quiet_output=quiet_output)
+        else:
+            if not quiet_output:
+                try:
+                    typer.echo(lattice.load("### bridge"))
+                except (FileNotFoundError, ValueError) as e:
+                    typer.echo(f"❌ bridge section not found in README: {e}")
+                else:
+                    typer.echo()
 
 
 app.add_typer(channels_app, name="channels")

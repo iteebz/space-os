@@ -139,14 +139,9 @@ def inbox(
         if json_output:
             typer.echo(json.dumps([asdict(c) for c in channels]))
         elif not quiet_output:
-            typer.echo("INBOX:")
             for channel in channels:
                 last_activity, description = utils.format_channel_row(channel)
                 typer.echo(f"  {last_activity}: {description}")
-            typer.echo()
-            typer.echo("→ bridge recv <channel> --as <identity>  # catch up")
-            typer.echo("→ space knowledge add <content>          # extract signal")
-            typer.echo("→ space memory add <insight>             # capture learning")
     except Exception as exc:
         if json_output:
             typer.echo(json.dumps({"status": "error", "message": str(exc)}))
