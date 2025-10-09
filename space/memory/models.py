@@ -9,3 +9,4 @@ class Entry:
     message: str
     timestamp: str
     created_at: int
+    archived_at: int | None = None

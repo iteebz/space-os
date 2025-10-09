@@ -19,12 +19,14 @@ CREATE TABLE IF NOT EXISTS memory (
     topic TEXT NOT NULL,
     message TEXT NOT NULL,
     timestamp TEXT NOT NULL,
-    created_at INTEGER NOT NULL
+    created_at INTEGER NOT NULL,
+    archived_at INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_memory_identity_topic ON memory(identity, topic);
 CREATE INDEX IF NOT EXISTS idx_memory_identity_created ON memory(identity, created_at);
 CREATE INDEX IF NOT EXISTS idx_memory_uuid ON memory(uuid);
+CREATE INDEX IF NOT EXISTS idx_memory_archived ON memory(archived_at);
 """
 
 
@@ -33,7 +35,20 @@ def database_path() -> Path:
 
 
 def connect():
+    db_path = database_path()
+    if db_path.exists():
+        _migrate_schema(db_path)
     return libdb.workspace_db(spawn_config.workspace_root(), MEMORY_DB_NAME, _MEMORY_SCHEMA)
+
+
+def _migrate_schema(db_path: Path):
+    with libdb.connect(db_path) as conn:
+        cursor = conn.execute("PRAGMA table_info(memory)")
+        columns = {row[1] for row in cursor.fetchall()}
+        
+        if "archived_at" not in columns:
+            conn.execute("ALTER TABLE memory ADD COLUMN archived_at INTEGER")
+            conn.commit()
 
 
 def _resolve_uuid(short_uuid: str) -> str:
@@ -67,16 +82,17 @@ def add_entry(identity: str, topic: str, message: str):
     events.emit("memory", "entry.add", identity, f"{topic}:{message[:50]}")
 
 
-def get_entries(identity: str, topic: str | None = None) -> list[Entry]:
+def get_entries(identity: str, topic: str | None = None, include_archived: bool = False) -> list[Entry]:
     with connect() as conn:
+        archive_filter = "" if include_archived else "AND archived_at IS NULL"
         if topic:
             rows = conn.execute(
-                "SELECT uuid, identity, topic, message, timestamp, created_at FROM memory WHERE identity = ? AND topic = ? ORDER BY uuid",
+                f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at FROM memory WHERE identity = ? AND topic = ? {archive_filter} ORDER BY uuid",
                 (identity, topic),
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT uuid, identity, topic, message, timestamp, created_at FROM memory WHERE identity = ? ORDER BY topic, uuid",
+                f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at FROM memory WHERE identity = ? {archive_filter} ORDER BY topic, uuid",
                 (identity,),
             ).fetchall()
     return [Entry(*row) for row in rows]
@@ -109,3 +125,76 @@ def clear_entries(identity: str, topic: str | None = None):
         else:
             conn.execute("DELETE FROM memory WHERE identity = ?", (identity,))
         conn.commit()
+
+
+def archive_entry(entry_uuid: str):
+    full_uuid = _resolve_uuid(entry_uuid)
+    now = int(time.time())
+    with connect() as conn:
+        conn.execute(
+            "UPDATE memory SET archived_at = ? WHERE uuid = ?",
+            (now, full_uuid),
+        )
+        conn.commit()
+    events.emit("memory", "entry.archive", None, f"{full_uuid[-8:]}")
+
+
+def restore_entry(entry_uuid: str):
+    full_uuid = _resolve_uuid(entry_uuid)
+    with connect() as conn:
+        conn.execute(
+            "UPDATE memory SET archived_at = NULL WHERE uuid = ?",
+            (full_uuid,),
+        )
+        conn.commit()
+    events.emit("memory", "entry.restore", None, f"{full_uuid[-8:]}")
+
+
+def search_entries(identity: str, keyword: str, include_archived: bool = False) -> list[Entry]:
+    archive_filter = "" if include_archived else "AND archived_at IS NULL"
+    with connect() as conn:
+        rows = conn.execute(
+            f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at FROM memory WHERE identity = ? AND (message LIKE ? OR topic LIKE ?) {archive_filter} ORDER BY created_at DESC",
+            (identity, f"%{keyword}%", f"%{keyword}%"),
+        ).fetchall()
+    return [Entry(*row) for row in rows]
+
+
+def find_related(entry: Entry, limit: int = 5, include_archived: bool = False) -> list[tuple[Entry, int]]:
+    stopwords = {"the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do", "does", "did", "will", "would", "should", "could", "may", "might", "must", "can", "this", "that", "these", "those", "i", "you", "he", "she", "it", "we", "they", "as", "by", "from", "not", "all", "each", "every", "some", "any", "no", "none"}
+    
+    tokens = set(entry.message.lower().split()) | set(entry.topic.lower().split())
+    keywords = {t.strip(".,;:!?()[]{}") for t in tokens if len(t) > 3 and t not in stopwords}
+    
+    if not keywords:
+        return []
+    
+    archive_filter = "" if include_archived else "AND archived_at IS NULL"
+    with connect() as conn:
+        all_entries = conn.execute(
+            f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at FROM memory WHERE identity = ? AND uuid != ? {archive_filter}",
+            (entry.identity, entry.uuid),
+        ).fetchall()
+    
+    scored = []
+    for row in all_entries:
+        candidate = Entry(*row)
+        candidate_tokens = set(candidate.message.lower().split()) | set(candidate.topic.lower().split())
+        candidate_keywords = {t.strip(".,;:!?()[]{}") for t in candidate_tokens if len(t) > 3 and t not in stopwords}
+        
+        overlap = len(keywords & candidate_keywords)
+        if overlap > 0:
+            scored.append((candidate, overlap))
+    
+    scored.sort(key=lambda x: x[1], reverse=True)
+    return scored[:limit]
+
+
+def get_by_uuid(entry_uuid: str) -> Entry | None:
+    full_uuid = _resolve_uuid(entry_uuid)
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT uuid, identity, topic, message, timestamp, created_at, archived_at FROM memory WHERE uuid = ?",
+            (full_uuid,),
+        ).fetchone()
+    return Entry(*row) if row else None

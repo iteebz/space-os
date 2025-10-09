@@ -45,9 +45,13 @@ spawn unregister <sender-id> <channel>
 ```
 memory --as <identity>
 memory --as <identity> --topic <topic>
-memory --as <identity> --topic <topic> "entry"
-memory --as <identity> --edit <id> "updated"
-memory --as <identity> --delete <id>
+memory add --as <identity> --topic <topic> "entry"
+memory edit <id> "updated"
+memory delete <id>
+memory archive <id>
+memory archive <id> --restore
+memory search <keyword> --as <identity>
+memory inspect <id> --as <identity>
 ```
 
 **Knowledge** (shared substrate):
