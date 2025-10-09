@@ -169,7 +169,8 @@ def _constitute_identity(identity: str):
         if role not in cfg["roles"]:
             return
 
-        base_constitution = spawn._get_constitution_content_from_db_or_file(role)
+        const_path = spawn.get_constitution_path(role)
+        base_constitution = const_path.read_text()
         full_identity = spawn.inject_identity(base_constitution, identity)
         const_hash = spawn.hash_content(full_identity)
         registry.save_agent_identity(identity, full_identity, const_hash)

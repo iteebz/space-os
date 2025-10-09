@@ -69,6 +69,18 @@ def inject_identity(
     return f"{header}\n{base_constitution_content}"
 
 
+def auto_register_if_needed(role: str, model: str | None = None) -> str:
+    """Auto-register role with base_identity to 'general' topic if not exists.
+    
+    Returns sender_id.
+    """
+    sender_id = get_base_identity(role)
+    existing = registry.get_registration(role, sender_id, "general")
+    if not existing:
+        register_agent(role, sender_id, "general", model)
+    return sender_id
+
+
 def register_agent(role: str, sender_id: str, topic: str, model: str | None = None) -> dict:
     const_path = get_constitution_path(role)
     base_content = const_path.read_text()

@@ -243,6 +243,45 @@ def delete_agent(
         typer.echo(f"Deleted {identity}")
 
 
+@agents_app.command("config")
+def show_agent_config(
+    ctx: typer.Context,
+    json_flag: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_flag: bool = typer.Option(False, "--quiet", "-q", help="Suppress non-essential output."),
+):
+    """Show configured agent binaries (claude, gemini, codex)."""
+    from .spawn import spawn
+    
+    parent_json, parent_quiet = _agent_io_flags(ctx)
+    json_output = parent_json or json_flag
+    quiet_output = parent_quiet or quiet_flag
+    
+    cfg = spawn.load_config()
+    agents = cfg.get("agents", {})
+    
+    if json_output:
+        typer.echo(json.dumps(agents))
+        return
+    
+    if quiet_output:
+        return
+    
+    if not agents:
+        typer.echo("No agents configured")
+        return
+    
+    typer.echo(f"{'AGENT':<10} {'COMMAND':<15} {'TARGETS'}")
+    typer.echo("-" * 60)
+    for name, agent_cfg in agents.items():
+        cmd = agent_cfg.get("command", "")
+        targets = agent_cfg.get("identity_targets", [])
+        if isinstance(targets, list):
+            targets_str = ", ".join([Path(t).name for t in targets])
+        else:
+            targets_str = Path(targets).name if targets else ""
+        typer.echo(f"{name:<10} {cmd:<15} {targets_str}")
+
+
 @app.command()
 def stats(
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
