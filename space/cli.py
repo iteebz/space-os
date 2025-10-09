@@ -27,9 +27,9 @@ def main_command(
 ):
     if ctx.resilient_parsing or ctx.invoked_subcommand is None:
         try:
-            typer.echo(protocols.load("space"))
-        except FileNotFoundError:
-            typer.echo("❌ space.md protocol not found")
+            typer.echo(protocols.load("## Orientation"))
+        except (FileNotFoundError, ValueError) as e:
+            typer.echo(f"❌ Orientation section not found in README: {e}")
 
 
 @app.command()

@@ -1,15 +1,48 @@
 import hashlib
 from pathlib import Path
 
-PROTOCOL_DIR = Path(__file__).parent.parent.parent / "protocols"
+README = Path(__file__).parent.parent.parent / "README.md"
 
 
-def load(protocol_name: str) -> str:
-    """Loads a protocol file by name and returns its content."""
-    protocol_path = PROTOCOL_DIR / f"{protocol_name}.md"
-    if not protocol_path.exists():
-        raise FileNotFoundError(f"Protocol file not found: {protocol_path}")
-    return protocol_path.read_text()
+def load(section_heading: str) -> str:
+    """Extract section from README.md by heading.
+
+    Args:
+        section_heading: Markdown heading (e.g., "## Bridge", "### spawn")
+
+    Returns:
+        Section content from heading to next same-level heading
+    """
+    if not README.exists():
+        raise FileNotFoundError(f"README not found: {README}")
+
+    content = README.read_text()
+    lines = content.split("\n")
+
+    # Determine heading level
+    level = len(section_heading.split()[0])  # Count '#' chars
+
+    section = []
+    capturing = False
+
+    for line in lines:
+        # Check if this is our target heading
+        if line.strip() == section_heading.strip():
+            capturing = True
+            section.append(line)
+            continue
+
+        # If capturing and hit same-level heading, stop
+        if capturing and line.startswith("#" * level + " "):
+            break
+
+        if capturing:
+            section.append(line)
+
+    if not section:
+        raise ValueError(f"Section '{section_heading}' not found in README")
+
+    return "\n".join(section).strip()
 
 
 def hash_protocol(protocol_name: str) -> str:

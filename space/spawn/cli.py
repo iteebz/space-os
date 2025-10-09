@@ -1,5 +1,4 @@
 import json
-import sys
 
 import typer
 
@@ -7,23 +6,27 @@ from ..bridge import api as bridge_api
 from ..lib import protocols
 from . import config, registry, spawn
 
-app = typer.Typer(invoke_without_command=True, context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+app = typer.Typer(
+    invoke_without_command=True,
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
 
 
 @app.callback()
-def main_command(ctx: typer.Context, sender_id: str | None = typer.Argument(None)):
+def main_command(ctx: typer.Context):
     """Constitutional agent registry"""
     registry.init_db()
 
     if ctx.invoked_subcommand is None:
-        if sender_id:
-            _spawn_from_registry(sender_id, ctx.args)
+        if ctx.args:
+            sender_id = ctx.args[0]
+            _spawn_from_registry(sender_id, ctx.args[1:])
         else:
             try:
-                protocol_content = protocols.load("spawn")
+                protocol_content = protocols.load("### spawn")
                 typer.echo(protocol_content)
-            except FileNotFoundError:
-                typer.echo("❌ spawn.md protocol not found")
+            except (FileNotFoundError, ValueError) as e:
+                typer.echo(f"❌ spawn section not found in README: {e}")
 
 
 @app.command()
@@ -215,7 +218,7 @@ def _spawn_from_registry(sender_id: str, extra_args: list[str]):
         typer.echo(f"❌ Agent {sender_id} not registered", err=True)
         typer.echo(f"Register: spawn register <role> {sender_id} <channel>", err=True)
         raise typer.Exit(1)
-    
+
     reg = regs[0]
     spawn.launch_agent(reg.role, sender_id=sender_id, extra_args=extra_args, model=reg.model)
 

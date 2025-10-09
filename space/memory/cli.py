@@ -3,7 +3,10 @@ from dataclasses import asdict
 
 import typer
 
+from ..bridge import db as bridge_db
+from ..knowledge import db as knowledge_db
 from ..lib import protocols
+from ..spawn import registry as spawn_registry
 from . import db
 
 app = typer.Typer(invoke_without_command=True)
@@ -22,10 +25,10 @@ def main_command(
     if ctx.invoked_subcommand is None:
         if not identity:
             try:
-                protocol_content = protocols.load("memory")
+                protocol_content = protocols.load("### memory")
                 typer.echo(protocol_content)
-            except FileNotFoundError:
-                typer.echo("❌ memory.md protocol not found")
+            except (FileNotFoundError, ValueError) as e:
+                typer.echo(f"❌ memory section not found in README: {e}")
         else:
             ctx.invoke(
                 list_entries_command,
@@ -127,6 +130,7 @@ def list_entries_command(
     ),
 ):
     """List memory entries for an identity and optional topic."""
+    _constitute_identity(identity)
     entries = db.get_entries(identity, topic)
     if not entries:
         scope = f"topic '{topic}'" if topic else "all topics"
@@ -147,6 +151,72 @@ def list_entries_command(
                 typer.echo(f"# {e.topic}")
                 current_topic = e.topic
             typer.echo(f"[{e.uuid[-8:]}] [{e.timestamp}] {e.message}")
+
+        _show_context(identity)
+
+
+def _constitute_identity(identity: str):
+    """Hash and save constitution on boot."""
+    from ..spawn import registry, spawn
+
+    role = _extract_role(identity)
+    if not role:
+        return
+
+    try:
+        registry.init_db()
+        cfg = spawn.load_config()
+        if role not in cfg["roles"]:
+            return
+
+        base_constitution = spawn._get_constitution_content_from_db_or_file(role)
+        full_identity = spawn.inject_identity(base_constitution, identity)
+        const_hash = spawn.hash_content(full_identity)
+        registry.save_agent_identity(identity, full_identity, const_hash)
+    except (FileNotFoundError, ValueError):
+        pass
+
+
+def _extract_role(identity: str) -> str | None:
+    """Extract role from identity like zealot-1 -> zealot."""
+    if "-" in identity:
+        return identity.rsplit("-", 1)[0]
+    return identity
+
+
+def _show_context(identity: str):
+    typer.echo("\n" + "─" * 60)
+
+    channels = bridge_db.fetch_channels(agent_id=identity)
+    unread = [c for c in channels if c.unread_count > 0]
+
+    if unread:
+        typer.echo("\nBRIDGE INBOX:")
+        for c in unread:
+            msgs = bridge_db.get_new_messages(bridge_db.get_channel_id(c.name), identity)
+            last_sender = msgs[-1].sender if msgs else "unknown"
+            typer.echo(f"  {c.name}: {c.unread_count} unread (last: {last_sender})")
+
+    active = [c.name for c in channels if c.unread_count > 0 or c.last_activity]
+    if active:
+        typer.echo(f"\nACTIVE CHANNELS: {', '.join(active[:5])}")
+
+    regs = spawn_registry.list_registrations()
+    my_regs = [r for r in regs if r.sender_id == identity]
+    if my_regs:
+        topics = {r.topic for r in my_regs}
+        typer.echo(f"\nREGISTERED: {', '.join(sorted(topics))}")
+
+    knowledge_entries = knowledge_db.query_by_contributor(identity)
+    if knowledge_entries:
+        domains = {e.domain for e in knowledge_entries}
+        typer.echo(
+            f"\nKNOWLEDGE: {len(knowledge_entries)} entries across {', '.join(sorted(domains))}"
+        )
+
+    typer.echo("\n" + "─" * 60)
+    typer.echo(f"\n» memory --as {identity} --topic <topic>")
+    typer.echo(f"» bridge recv <channel> --as {identity}")
 
 
 def main() -> None:

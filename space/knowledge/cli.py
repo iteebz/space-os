@@ -15,10 +15,10 @@ def main_command(
 ):
     if ctx.resilient_parsing or ctx.invoked_subcommand is None:
         try:
-            protocol_content = protocols.load("knowledge")
+            protocol_content = protocols.load("### knowledge")
             typer.echo(protocol_content)
-        except FileNotFoundError:
-            typer.echo("❌ knowledge.md protocol not found")
+        except (FileNotFoundError, ValueError) as e:
+            typer.echo(f"❌ knowledge section not found in README: {e}")
     return
 
 

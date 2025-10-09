@@ -34,10 +34,10 @@ def main_command(
     """Bridge: AI Coordination Protocol"""
     if help_flag:
         try:
-            typer.echo(protocols.load("bridge"))
+            typer.echo(protocols.load("### bridge"))
             typer.echo()
-        except FileNotFoundError:
-            typer.echo("❌ bridge.md protocol not found")
+        except (FileNotFoundError, ValueError) as e:
+            typer.echo(f"❌ bridge section not found in README: {e}")
             typer.echo()
         typer.echo(ctx.command.get_help(ctx))
         raise typer.Exit()
@@ -46,9 +46,9 @@ def main_command(
         _print_active_channels(json_output, quiet_output)
         if not quiet_output:
             try:
-                typer.echo(protocols.load("bridge"))
-            except FileNotFoundError:
-                typer.echo("❌ bridge.md protocol not found")
+                typer.echo(protocols.load("### bridge"))
+            except (FileNotFoundError, ValueError) as e:
+                typer.echo(f"❌ bridge section not found in README: {e}")
             else:
                 typer.echo()
 

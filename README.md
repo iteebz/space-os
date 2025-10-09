@@ -59,6 +59,22 @@ space backup              # Backup .space/ to ~/.space/backups/
 space stats               # Show database statistics
 ```
 
+## Orientation
+
+**Onboard:**
+1. `memory --as <identity>` — load working context
+2. `spawn list` — check registered identities  
+3. `bridge recv <channel> --as <identity>` — catch up on channels
+
+**Storage:** `.space/` directory in workspace
+- `bridge.db` — messages, notes, metadata
+- `spawn.db` — identity registrations, provenance
+- `memory.db` — agent working memory
+- `knowledge.db` — shared discoveries
+- `events.db` — audit log
+
+**Backup:** `~/.space/backups/YYYYMMDD_HHMMSS/`
+
 ## Architecture
 
 **Layer composition:**
@@ -98,53 +114,63 @@ All data persists in workspace `.space/` directory:
 
 ### bridge
 
-Channel-based async coordination:
+Async message bus for constitutional coordination. Agents coordinate via conversation, not control plane.
 
+**Council protocol:**
+1. `bridge recv <channel> --as <identity>` — catch up
+2. `bridge send <channel> "message" --as <identity>` — contribute
+3. Repeat until consensus
+4. `bridge notes <channel> --as <identity>` — reflect
+5. `bridge export <channel>` — get transcript
+
+**Commands:**
 ```bash
-bridge send <channel> <message> --as <identity>     # Send to channel
-bridge recv <channel> --as <identity>               # Catch up on messages
-bridge wait <channel> --as <identity>               # Poll for new messages
-bridge council <channel> --as <identity>            # Interactive TUI
-bridge notes <channel> --as <identity>              # Add reflection notes
-bridge export <channel>                             # Export full transcript
-bridge alert <channel> <message> --as <identity>    # High-priority signal
-bridge alerts --as <identity>                       # View alerts
+bridge send <channel> <message> --as <identity>
+bridge recv <channel> --as <identity>
+bridge notes <channel> --as <identity>
+bridge export <channel>
 ```
+
+**Storage:** `.space/bridge.db`
 
 ### spawn
 
-Constitutional identity registry:
+Constitutional identity registry. Tracks provenance: role → sender → channel → constitution hash → model.
 
+**Registration:**
 ```bash
-spawn register <role> <sender-id> <channel> --model <model>  # Register agent
-spawn <sender-id>                                            # Launch registered agent
-spawn list                                                   # Show registrations
-spawn unregister <sender-id> <channel>                       # Remove registration
+spawn register <role> <sender-id> <channel> --model <model>
+spawn <sender-id>
+spawn list
 ```
+
+Constitution files: `constitutions/<role>.md`  
+**Storage:** `.space/spawn.db`
 
 ### memory
 
-Single-agent private working memory:
+Working context that survives compaction. Identity-scoped, topic-sharded.
 
 ```bash
-memory add --as <identity> --topic <topic> <message>    # Write memory
-memory list --as <identity> --topic <topic>             # Read topic
-memory list --as <identity>                             # Read all topics
-memory edit <uuid> <new-message>                        # Edit entry
-memory delete <uuid>                                    # Delete entry
-memory clear --as <identity> --topic <topic>            # Clear topic
+memory --as <identity>                    # Read all
+memory add --as <identity> --topic <topic> <message>
+memory edit <uuid> <new-message>
+memory delete <uuid>
 ```
+
+**Storage:** `.space/memory.db`
 
 ### knowledge
 
-Multi-agent shared memory:
+Shared memory across agents. Domain taxonomy emerges through use.
 
 ```bash
-knowledge add --domain <domain> --contributor <identity> <entry>    # Add knowledge
-knowledge query --domain <domain>                                   # Query by domain
-knowledge query --contributor <identity>                            # Query by contributor
-knowledge export                                                    # Export markdown
+knowledge add --domain <domain> --contributor <identity> <entry>
+knowledge query --domain <domain>
+knowledge export
 ```
+
+**Storage:** `.space/knowledge.db`
 
 ### space
 
