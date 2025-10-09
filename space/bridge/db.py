@@ -215,10 +215,11 @@ def fetch_channels(agent_id: str = None, time_filter: str = None) -> list[Channe
                 FROM notes
                 GROUP BY channel_id
             ) as note_counts ON t.id = note_counts.channel_id
+            WHERE t.archived_at IS NULL
         """
         params = []
         if time_filter:
-            query += " WHERE t.created_at > datetime('now', ?) "
+            query += " AND t.created_at > datetime('now', ?) "
             params.append(time_filter)
 
         query += " ORDER BY t.created_at DESC"

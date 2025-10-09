@@ -51,12 +51,23 @@ def setup_channel():
 def test_recv_ignores_archived_channel_messages(setup_channel):
     channel_name, channel_id, identity, message_content = setup_channel
 
-    # Archive the channel
     channels.archive_channel(channel_name)
 
-    # Attempt to receive messages from the archived channel
     msgs, unread_count, topic, participants = messages.recv_updates(channel_id, identity)
 
-    # Assert that no messages are returned
     assert len(msgs) == 0
     assert unread_count == 0
+
+
+def test_inbox_excludes_archived_channels(setup_channel):
+    channel_name, channel_id, identity, message_content = setup_channel
+
+    inbox_before = channels.inbox_channels(identity)
+    test_channel_count = sum(1 for c in inbox_before if c.name == channel_name)
+    assert test_channel_count == 1
+
+    channels.archive_channel(channel_name)
+
+    inbox_after = channels.inbox_channels(identity)
+    test_channel_count_after = sum(1 for c in inbox_after if c.name == channel_name)
+    assert test_channel_count_after == 0
