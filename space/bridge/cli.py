@@ -8,9 +8,14 @@ import typer
 from space.lib import protocols
 
 from . import api, utils
-from .commands import messages as messages_cmds
+from .commands import (
+    export as export_cmds,
+    history as history_cmds,
+    notes as notes_cmds,
+    recv as recv_cmds,
+    send as send_cmds,
+)
 from .commands.channels import app as channels_app
-from .commands.messages import app as messages_app
 from .commands.monitor import app as monitor_app
 
 app = typer.Typer(invoke_without_command=True, add_help_option=False)
@@ -55,14 +60,15 @@ def main_command(
 
 
 app.add_typer(channels_app, name="channels")
-app.add_typer(messages_app, name="messages")
 app.add_typer(monitor_app, name="monitor")
-app.command("send")(messages_cmds.send)
-app.command("recv")(messages_cmds.recv)
-app.command("inbox")(messages_cmds.inbox)
-app.command("notes")(messages_cmds.notes)
-app.command("alert")(messages_cmds.alert)
-app.command("export")(messages_cmds.export)
+app.command("send")(send_cmds.send)
+app.command("alert")(send_cmds.alert)
+app.command("recv")(recv_cmds.recv)
+app.command("inbox")(recv_cmds.inbox)
+app.command("alerts")(recv_cmds.alerts)
+app.command("notes")(notes_cmds.notes)
+app.command("export")(export_cmds.export)
+app.command("history")(history_cmds.history)
 
 
 def _print_active_channels(agent_id: str, json_output: bool, quiet_output: bool):

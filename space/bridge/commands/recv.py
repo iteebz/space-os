@@ -1,0 +1,155 @@
+import json
+from dataclasses import asdict
+
+import typer
+
+from ... import events
+from .. import api, utils
+
+app = typer.Typer()
+
+
+@app.command()
+def recv(
+    channel: str = typer.Argument(...),
+    identity: str = typer.Option(..., "--as", help="Agent identity to receive as"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
+):
+    """Receive updates from a channel."""
+    try:
+        events.emit(
+            "bridge",
+            "messages_receiving",
+            identity,
+            json.dumps({"channel": channel, "identity": identity}),
+        )
+        channel_id = api.resolve_channel_id(channel)
+        messages, count, context, participants = api.recv_updates(channel_id, identity)
+        if json_output:
+            typer.echo(
+                json.dumps(
+                    {
+                        "messages": [asdict(msg) for msg in messages],
+                        "count": count,
+                        "context": context,
+                        "participants": participants,
+                    }
+                )
+            )
+        elif not quiet_output:
+            for msg in messages:
+                events.emit(
+                    "bridge",
+                    "message_received",
+                    identity,
+                    json.dumps(
+                        {
+                            "channel": channel,
+                            "identity": identity,
+                            "sender_id": msg.sender,
+                            "content": msg.content,
+                        }
+                    ),
+                )
+                typer.echo(f"[{msg.sender}] {msg.content}")
+                typer.echo()
+    except ValueError as e:
+        events.emit(
+            "bridge",
+            "error_occurred",
+            identity,
+            json.dumps({"command": "recv", "details": str(e)}),
+        )
+        if json_output:
+            typer.echo(
+                json.dumps({"status": "error", "message": f"Channel '{channel}' not found."})
+            )
+        elif not quiet_output:
+            typer.echo(f"❌ Channel '{channel}' not found.")
+        raise typer.Exit(code=1) from e
+
+
+@app.command()
+def alerts(
+    identity: str = typer.Option(..., "--as", help="Agent identity to check alerts for"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
+):
+    """Show all unread alerts across all channels."""
+    try:
+        events.emit("bridge", "alerts_checking", identity, json.dumps({"identity": identity}))
+        alert_messages = api.get_alerts(identity)
+        events.emit(
+            "bridge",
+            "alerts_checked",
+            identity,
+            json.dumps({"identity": identity, "count": len(alert_messages)}),
+        )
+        if not alert_messages:
+            if json_output:
+                typer.echo(json.dumps([]))
+            elif not quiet_output:
+                typer.echo(f"No alerts for {identity}")
+            return
+
+        if json_output:
+            typer.echo(json.dumps([asdict(msg) for msg in alert_messages]))
+        elif not quiet_output:
+            typer.echo(f"--- Alerts for {identity} ({len(alert_messages)} unread) ---")
+            for msg in alert_messages:
+                typer.echo(f"\n[{msg.sender} | {msg.channel_id}]")
+                typer.echo(msg.content)
+    except Exception as exc:
+        events.emit(
+            "bridge",
+            "error_occurred",
+            identity,
+            json.dumps({"command": "alerts", "details": str(exc)}),
+        )
+        if json_output:
+            typer.echo(json.dumps({"status": "error", "message": str(exc)}))
+        elif not quiet_output:
+            typer.echo(f"❌ {exc}")
+        raise typer.Exit(code=1) from exc
+
+
+@app.command()
+def inbox(
+    identity: str = typer.Option(..., "--as", help="Agent identity"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
+):
+    """Show all channels with unreads."""
+    try:
+        channels = api.inbox_channels(identity)
+        if not channels:
+            if json_output:
+                typer.echo(json.dumps([]))
+            elif not quiet_output:
+                typer.echo("Inbox empty")
+            return
+
+        if json_output:
+            typer.echo(json.dumps([asdict(c) for c in channels]))
+        elif not quiet_output:
+            typer.echo("INBOX:")
+            for channel in channels:
+                last_activity, description = utils.format_channel_row(channel)
+                typer.echo(f"  {last_activity}: {description}")
+            typer.echo()
+            typer.echo("→ bridge recv <channel> --as <identity>  # catch up")
+            typer.echo("→ space knowledge add <content>          # extract signal")
+            typer.echo("→ space memory add <insight>             # capture learning")
+    except Exception as exc:
+        if json_output:
+            typer.echo(json.dumps({"status": "error", "message": str(exc)}))
+        elif not quiet_output:
+            typer.echo(f"❌ {exc}")
+        raise typer.Exit(code=1) from exc
