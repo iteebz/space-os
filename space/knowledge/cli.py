@@ -68,7 +68,7 @@ def list_knowledge_command(
             )
 
 
-@app.command("query-domain")
+@app.command("about")
 def query_by_domain_command(
     domain: str = typer.Argument(..., help="Domain to query knowledge by"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
@@ -96,7 +96,7 @@ def query_by_domain_command(
             )
 
 
-@app.command("query-contributor")
+@app.command("from")
 def query_by_contributor_command(
     contributor: str = typer.Argument(..., help="Contributor to query knowledge by"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
@@ -152,6 +152,46 @@ def get_knowledge_by_id_command(
             f"Confidence: {entry.confidence or 'N/A'}\n"
             f"Content:\n{entry.content}\n"
         )
+
+
+@app.command("inspect")
+def inspect_knowledge_command(
+    entry_id: str = typer.Argument(..., help="UUID of the knowledge entry"),
+    limit: int = typer.Option(5, help="Number of related entries to show"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
+):
+    """Inspect entry and find related nodes via keyword similarity."""
+    entry = db.get_by_id(entry_id)
+    if not entry:
+        if json_output:
+            typer.echo(json.dumps(None))
+        elif not quiet_output:
+            typer.echo(f"No knowledge entry found with ID '{entry_id}'.")
+        return
+
+    related = db.find_related(entry, limit=limit)
+
+    if json_output:
+        payload = {
+            "entry": asdict(entry),
+            "related": [{"entry": asdict(r[0]), "overlap": r[1]} for r in related]
+        }
+        typer.echo(json.dumps(payload))
+    elif not quiet_output:
+        typer.echo(f"[{entry.id[-8:]}] {entry.domain} by {entry.contributor}")
+        typer.echo(f"Created: {entry.created_at}")
+        typer.echo(f"Confidence: {entry.confidence or 'N/A'}\n")
+        typer.echo(f"{entry.content}\n")
+        
+        if related:
+            typer.echo("─" * 60)
+            typer.echo(f"Related nodes ({len(related)}):\n")
+            for rel_entry, overlap in related:
+                typer.echo(f"[{rel_entry.id[-8:]}] {rel_entry.domain} ({overlap} keywords)")
+                typer.echo(f"  {rel_entry.content[:100]}{'...' if len(rel_entry.content) > 100 else ''}\n")
 
 
 def main() -> None:

@@ -53,9 +53,10 @@ memory --as <identity> --delete <id>
 **Knowledge** (shared substrate):
 ```
 knowledge add --domain <domain> --contributor <identity> "entry"
-knowledge query --domain <domain>
-knowledge query --contributor <identity>
-knowledge export
+knowledge about <domain>
+knowledge from <identity>
+knowledge inspect <uuid>
+knowledge list
 ```
 
 **Handover** (compaction hygiene):
