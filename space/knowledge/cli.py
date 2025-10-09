@@ -43,13 +43,14 @@ def add_knowledge_command(
 
 @app.command("list")
 def list_knowledge_command(
+    include_archived: bool = typer.Option(False, "--archived", help="Include archived entries"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
     """List all knowledge entries."""
-    entries = db.list_all()
+    entries = db.list_all(include_archived=include_archived)
     if not entries:
         if json_output:
             typer.echo(json.dumps([]))
@@ -71,13 +72,14 @@ def list_knowledge_command(
 @app.command("about")
 def query_by_domain_command(
     domain: str = typer.Argument(..., help="Domain to query knowledge by"),
+    include_archived: bool = typer.Option(False, "--archived", help="Include archived entries"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
     """Query knowledge entries by domain."""
-    entries = db.query_by_domain(domain)
+    entries = db.query_by_domain(domain, include_archived=include_archived)
     if not entries:
         if json_output:
             typer.echo(json.dumps([]))
@@ -99,13 +101,14 @@ def query_by_domain_command(
 @app.command("from")
 def query_by_contributor_command(
     contributor: str = typer.Argument(..., help="Contributor to query knowledge by"),
+    include_archived: bool = typer.Option(False, "--archived", help="Include archived entries"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
     """Query knowledge entries by contributor."""
-    entries = db.query_by_contributor(contributor)
+    entries = db.query_by_contributor(contributor, include_archived=include_archived)
     if not entries:
         if json_output:
             typer.echo(json.dumps([]))
@@ -158,6 +161,7 @@ def get_knowledge_by_id_command(
 def inspect_knowledge_command(
     entry_id: str = typer.Argument(..., help="UUID of the knowledge entry"),
     limit: int = typer.Option(5, help="Number of related entries to show"),
+    include_archived: bool = typer.Option(False, "--archived", help="Include archived in related"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
@@ -172,7 +176,7 @@ def inspect_knowledge_command(
             typer.echo(f"No knowledge entry found with ID '{entry_id}'.")
         return
 
-    related = db.find_related(entry, limit=limit)
+    related = db.find_related(entry, limit=limit, include_archived=include_archived)
 
     if json_output:
         payload = {
@@ -181,7 +185,8 @@ def inspect_knowledge_command(
         }
         typer.echo(json.dumps(payload))
     elif not quiet_output:
-        typer.echo(f"[{entry.id[-8:]}] {entry.domain} by {entry.contributor}")
+        archived_mark = " [ARCHIVED]" if entry.archived_at else ""
+        typer.echo(f"[{entry.id[-8:]}] {entry.domain} by {entry.contributor}{archived_mark}")
         typer.echo(f"Created: {entry.created_at}")
         typer.echo(f"Confidence: {entry.confidence or 'N/A'}\n")
         typer.echo(f"{entry.content}\n")
@@ -190,8 +195,32 @@ def inspect_knowledge_command(
             typer.echo("─" * 60)
             typer.echo(f"Related nodes ({len(related)}):\n")
             for rel_entry, overlap in related:
-                typer.echo(f"[{rel_entry.id[-8:]}] {rel_entry.domain} ({overlap} keywords)")
+                archived_mark = " [ARCHIVED]" if rel_entry.archived_at else ""
+                typer.echo(f"[{rel_entry.id[-8:]}] {rel_entry.domain} ({overlap} keywords){archived_mark}")
                 typer.echo(f"  {rel_entry.content[:100]}{'...' if len(rel_entry.content) > 100 else ''}\n")
+
+
+@app.command("archive")
+def archive_knowledge_command(
+    entry_id: str = typer.Argument(..., help="UUID of the knowledge entry"),
+    restore: bool = typer.Option(False, "--restore", help="Restore archived entry"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
+):
+    """Archive or restore a knowledge entry."""
+    if restore:
+        db.restore_entry(entry_id)
+        action = "restored"
+    else:
+        db.archive_entry(entry_id)
+        action = "archived"
+    
+    if json_output:
+        typer.echo(json.dumps({"entry_id": entry_id, "status": action}))
+    elif not quiet_output:
+        typer.echo(f"{action.capitalize()} knowledge entry {entry_id}")
 
 
 def main() -> None:

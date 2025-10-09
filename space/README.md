@@ -60,6 +60,8 @@ knowledge add --domain <domain> --contributor <identity> "entry"
 knowledge about <domain>
 knowledge from <identity>
 knowledge inspect <uuid>
+knowledge archive <uuid>
+knowledge archive <uuid> --restore
 knowledge list
 ```
 
