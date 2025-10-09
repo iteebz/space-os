@@ -5,7 +5,7 @@ import typer
 
 from ..bridge import db as bridge_db
 from ..knowledge import db as knowledge_db
-from ..lib import protocols
+from ..lib import lattice
 from ..spawn import registry as spawn_registry
 from . import db
 
@@ -25,7 +25,7 @@ def main_command(
     if ctx.invoked_subcommand is None:
         if not identity:
             try:
-                protocol_content = protocols.load("### memory")
+                protocol_content = lattice.load("### memory")
                 typer.echo(protocol_content)
             except (FileNotFoundError, ValueError) as e:
                 typer.echo(f"❌ memory section not found in README: {e}")

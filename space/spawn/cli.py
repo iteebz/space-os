@@ -3,7 +3,7 @@ import json
 import typer
 
 from ..bridge import api as bridge_api
-from ..lib import protocols
+from ..lib import lattice
 from . import config, registry, spawn
 
 app = typer.Typer(
@@ -23,7 +23,7 @@ def main_command(ctx: typer.Context):
             _spawn_from_registry(sender_id, ctx.args[1:])
         else:
             try:
-                protocol_content = protocols.load("### spawn")
+                protocol_content = lattice.load("### spawn")
                 typer.echo(protocol_content)
             except (FileNotFoundError, ValueError) as e:
                 typer.echo(f"❌ spawn section not found in README: {e}")

@@ -5,7 +5,7 @@ from dataclasses import asdict
 
 import typer
 
-from space.lib import protocols
+from space.lib import lattice
 
 from . import api, utils
 from .commands import (
@@ -48,8 +48,7 @@ def main_command(
     """Bridge: AI Coordination Protocol"""
     if help_flag:
         try:
-            typer.echo(protocols.load("### bridge"))
-            typer.echo()
+            typer.echo(lattice.load("### bridge"))
         except (FileNotFoundError, ValueError) as e:
             typer.echo(f"❌ bridge section not found in README: {e}")
             typer.echo()
@@ -60,7 +59,7 @@ def main_command(
         _print_active_channels(agent_id, json_output, quiet_output)
         if not quiet_output:
             try:
-                typer.echo(protocols.load("### bridge"))
+                typer.echo(lattice.load("### bridge"))
             except (FileNotFoundError, ValueError) as e:
                 typer.echo(f"❌ bridge section not found in README: {e}")
             else:

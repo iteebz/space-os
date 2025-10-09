@@ -9,7 +9,7 @@ import typer
 from . import events
 from . import stats as space_stats
 from .knowledge.cli import app as knowledge_app
-from .lib import protocols
+from .lib import lattice
 from .memory.cli import app as memory_app
 from .spawn import registry
 
@@ -27,7 +27,7 @@ def main_command(
 ):
     if ctx.resilient_parsing or ctx.invoked_subcommand is None:
         try:
-            typer.echo(protocols.load("## Orientation"))
+            typer.echo(lattice.load("## Orientation"))
         except (FileNotFoundError, ValueError) as e:
             typer.echo(f"❌ Orientation section not found in README: {e}")
 

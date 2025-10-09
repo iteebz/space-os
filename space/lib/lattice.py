@@ -1,3 +1,17 @@
+"""README lattice extraction pattern.
+
+Single source of truth: main README.md contains all protocol documentation.
+CLIs extract their sections via lattice.load(heading).
+
+Pattern:
+- space/handover/README.md or space/{module}/README.md = detailed protocol
+- Main README.md = single source of truth for CLI help text
+- lattice.load("### handover") extracts section when CLI runs
+- Update README.md = all CLIs update automatically
+
+Zero duplication. Impossible drift. Documentation IS executable.
+"""
+
 import hashlib
 from pathlib import Path
 
@@ -8,7 +22,7 @@ def load(section_heading: str) -> str:
     """Extract section from README.md by heading.
 
     Args:
-        section_heading: Markdown heading (e.g., "## Bridge", "### spawn")
+        section_heading: Markdown heading (e.g., "## Orientation", "### spawn")
 
     Returns:
         Section content from heading to next same-level heading
