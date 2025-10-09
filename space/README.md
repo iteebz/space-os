@@ -68,6 +68,8 @@ space handover --as <identity>
 space backup
 space events
 space stats
+space search <keyword>
+space trace <concept>
 ```
 
 ⸻
@@ -75,12 +77,25 @@ space stats
 STORAGE:
 
 Workspace `.space/` directory:
-• `bridge.db` — messages, notes, metadata
+• `bridge.db` — conversation ledger, permanent coordination record
 • `spawn.db` — identity registrations, provenance
-• `memory.db` — agent working memory
-• `knowledge.db` — shared discoveries
+• `memory.db` — working context, survives compaction
+• `knowledge.db` — shared discoveries, survives compaction
+• `events.db` — append-only audit log, operational provenance
 
 Backup: `~/.space/backups/YYYYMMDD_HHMMSS/`
+
+⸻
+
+CONTEXT LAYERS:
+
+**Events** — operational provenance (who did what when)
+**Bridge** — conversational provenance (what was decided and why)
+**Memory** — personal working state (volatile, compaction-aware)
+**Knowledge** — extracted signal (curated, permanent)
+
+Trace = timeline reconstruction across all layers
+Search = keyword matching across memory/knowledge/bridge
 
 ⸻
 
