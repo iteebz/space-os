@@ -10,9 +10,17 @@ from space.lib import protocols
 from . import api, utils
 from .commands import (
     export as export_cmds,
+)
+from .commands import (
     history as history_cmds,
+)
+from .commands import (
     notes as notes_cmds,
+)
+from .commands import (
     recv as recv_cmds,
+)
+from .commands import (
     send as send_cmds,
 )
 from .commands.channels import app as channels_app

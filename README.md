@@ -174,7 +174,25 @@ space backup             # Backup .space/ to ~/.space/backups/
 space stats              # Database statistics
 space events             # Show audit log
 space agents list        # Show registered agents
+space handover           # Handover checklist (context hygiene)
 ```
+
+### handover
+
+Pre-compaction hygiene checklist. Pass clean context to next self across death boundary.
+
+**Handover protocol:**
+1. Extract signal from inbox → memory/knowledge
+2. Prune stale/historical memory entries  
+3. Mark bridge channels read (recv)
+4. Log any open blockers to memory
+
+**Run:**
+```bash
+space handover --as <identity>
+```
+
+**Effect:** Clean boot next spawn. Zero context debt.
 
 ## Use Cases
 

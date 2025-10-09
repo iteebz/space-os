@@ -36,7 +36,7 @@ roles:
   
   kitsuragi:
     constitution: constitutions/kitsuragi.md
-    base_identity: claude
+    base_identity: codex
   
   prime:
     constitution: constitutions/prime.md

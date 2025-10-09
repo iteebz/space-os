@@ -142,15 +142,12 @@ def launch_agent(
     env = _build_launch_env()
     workspace_root = config.workspace_root()
     env["PWD"] = str(workspace_root)
-    if model:
-        env["AGENT_MODEL"] = model
     command_tokens[0] = _resolve_executable(command_tokens[0], env)
 
-    # Pass the full_identity content directly as an argument or via a temporary file
-    # For now, let's assume the agent expects the constitution content directly
     constitution_args = _constitution_args_from_content(agent_cfg, full_identity)
     passthrough = extra_args or []
-    full_command = command_tokens + passthrough + constitution_args
+    model_args = ["--model", model] if model else []
+    full_command = command_tokens + model_args + passthrough + constitution_args
 
     model_suffix = f" (model: {model})" if model else ""
     click.echo(
