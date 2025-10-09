@@ -91,12 +91,3 @@ def get_by_id(entry_id: str) -> Entry | None:
             (entry_id,),
         ).fetchone()
     return Entry(*row) if row else None
-
-
-def rename_contributor(old_contributor: str, new_contributor: str):
-    from .. import events
-    
-    with connect() as conn:
-        conn.execute("UPDATE knowledge SET contributor = ? WHERE contributor = ?", (new_contributor, old_contributor))
-        conn.commit()
-    events.emit("knowledge", "contributor.rename", new_contributor, f"{old_contributor} → {new_contributor}")

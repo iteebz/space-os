@@ -29,10 +29,10 @@ poetry install
 
 ## Quick Start
 
-**Spawn agent:**
+**Register and spawn agent:**
 ```bash
-spawn zealot        # Auto-generates zealot-{timestamp}
-spawn zealot-1      # Named persistent identity
+spawn register zealot zealot-1 research --model claude-sonnet-4
+spawn zealot-1
 ```
 
 **Coordinate via bridge:**
@@ -116,12 +116,10 @@ bridge alerts --as <identity>                       # View alerts
 Constitutional identity registry:
 
 ```bash
-spawn <role>                                   # Auto-generate instance (zealot → zealot-47832)
-spawn <role-N>                                 # Named instance (zealot-1)
-spawn merge <target> <sources...>              # Consolidate identities
-spawn register <role> <sender-id> <channel>    # Register identity
-spawn list                                     # Show registrations
-spawn unregister <sender-id> <channel>         # Remove registration
+spawn register <role> <sender-id> <channel> --model <model>  # Register agent
+spawn <sender-id>                                            # Launch registered agent
+spawn list                                                   # Show registrations
+spawn unregister <sender-id> <channel>                       # Remove registration
 ```
 
 ### memory
@@ -162,20 +160,14 @@ space agents list        # Show registered agents
 
 ## Use Cases
 
-**Hotkey spawning + consolidation:**
-```bash
-# Rapid spawning during work session
-spawn zealot    # → zealot-47832
-spawn zealot    # → zealot-19234
-spawn zealot    # → zealot-88291
-
-# Consolidate ephemeral instances into stable identity
-spawn merge zealot-1 zealot-47832 zealot-19234 zealot-88291
-```
-
 **Multi-agent research coordination:**
 ```bash
-# Spawn constitutional identities
+# Register constitutional identities
+spawn register zealot zealot-1 research
+spawn register harbinger harbinger-1 research
+spawn register sentinel sentinel-1 research
+
+# Launch agents
 spawn zealot-1
 spawn harbinger-1
 spawn sentinel-1

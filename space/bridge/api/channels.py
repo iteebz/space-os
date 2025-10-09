@@ -44,10 +44,11 @@ def get_channel_topic(channel_id: str) -> str | None:
 
 def resolve_channel_id(channel_name: str) -> str:
     """Resolve channel name to UUID, creating channel if needed."""
+    from ...errors import ChannelNotFoundError
+    
     try:
         return db.get_channel_id(channel_name)
-    except ValueError:
-        # Channel doesn't exist - create it
+    except ChannelNotFoundError:
         return create_channel(channel_name)
 
 

@@ -209,54 +209,15 @@ def rename(
         raise typer.Exit(code=1) from e
 
 
-@app.command()
-def merge(
-    target: str = typer.Argument(..., help="Target identity to merge into"),
-    sources: list[str] = typer.Argument(..., help="Source identities to merge from"),
-):
-    """Merge multiple identities into one, migrating all provenance"""
-    from ..memory import db as memory_db
-    from ..knowledge import db as knowledge_db
-    
-    try:
-        for source in sources:
-            bridge_api.rename_sender(source, target)
-            memory_db.rename_agent(source, target)
-            knowledge_db.rename_contributor(source, target)
-            registry.rename_sender(source, target, None)
-            
-            source_identity = config.bridge_identities_dir() / f"{source}.md"
-            if source_identity.exists():
-                source_identity.unlink()
-            
-            typer.echo(f"✓ Merged {source} → {target}")
-        
-        typer.echo(f"\n✓ All identities merged into {target}")
-    except Exception as e:
-        typer.echo(f"Merge failed: {e}", err=True)
-        raise typer.Exit(code=1) from e
-
-
 def _spawn_from_registry(sender_id: str, extra_args: list[str]):
-    import time
-    
-    if '-' in sender_id and sender_id.split('-')[-1].isdigit():
-        role = sender_id.rsplit('-', 1)[0]
-        instance = sender_id
-    else:
-        role = sender_id
-        instance = f"{role}-{int(time.time()) % 100000}"
-    
-    regs = [r for r in registry.list_registrations() if r.sender_id == instance]
+    regs = [r for r in registry.list_registrations() if r.sender_id == sender_id]
     if not regs:
-        try:
-            spawn.register_agent(role, instance, role, None)
-        except Exception as e:
-            typer.echo(f"❌ Auto-register failed: {e}", err=True)
-            raise typer.Exit(1) from e
+        typer.echo(f"❌ Agent {sender_id} not registered", err=True)
+        typer.echo(f"Register: spawn register <role> {sender_id} <channel>", err=True)
+        raise typer.Exit(1)
     
-    reg = registry.get_registration(role, instance, role)
-    spawn.launch_agent(reg.role, sender_id=instance, extra_args=extra_args, model=reg.model)
+    reg = regs[0]
+    spawn.launch_agent(reg.role, sender_id=sender_id, extra_args=extra_args, model=reg.model)
 
 
 def main() -> None:

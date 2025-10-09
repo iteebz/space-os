@@ -109,10 +109,3 @@ def clear_entries(identity: str, topic: str | None = None):
         else:
             conn.execute("DELETE FROM memory WHERE identity = ?", (identity,))
         conn.commit()
-
-
-def rename_agent(old_identity: str, new_identity: str):
-    with connect() as conn:
-        conn.execute("UPDATE memory SET identity = ? WHERE identity = ?", (new_identity, old_identity))
-        conn.commit()
-    events.emit("memory", "agent.rename", new_identity, f"{old_identity} → {new_identity}")
