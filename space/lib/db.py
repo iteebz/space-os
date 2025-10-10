@@ -5,6 +5,16 @@ from pathlib import Path
 
 
 def workspace_root() -> Path:
+    import os
+    
+    space_home = os.getenv("SPACE_HOME")
+    if space_home:
+        return Path(space_home).expanduser()
+    
+    home_space = Path.home() / "space"
+    if home_space.exists():
+        return home_space
+    
     current = Path.cwd()
     for candidate in (current, *current.parents):
         if (candidate / "AGENTS.md").exists():

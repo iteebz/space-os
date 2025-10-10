@@ -25,3 +25,6 @@ fix:
 
 build:
     @poetry build
+
+commits:
+    @git --no-pager log --pretty=format:"%h | %ar | %s"

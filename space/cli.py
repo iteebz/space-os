@@ -3,7 +3,7 @@ import subprocess
 import typer
 
 from .bridge.api import channels as bridge_channels
-from .commands import agents, backup, events, search, stats, trace
+from .commands import agents, backup, events, init, search, stats, trace
 from .knowledge.cli import app as knowledge_app
 from .lib import lattice
 from .memory import db as memory_db
@@ -16,6 +16,7 @@ app.add_typer(memory_app, name="memory")
 app.add_typer(agents.app, name="agents")
 
 app.command()(backup.backup)
+app.command()(init.init)
 app.command(name="events")(events.show_events)
 app.command()(stats.stats)
 app.command()(search.search)
