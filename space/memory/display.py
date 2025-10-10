@@ -5,6 +5,7 @@ from datetime import datetime
 import typer
 
 from ..bridge import db as bridge_db
+from ..commands import wake as wake_prompts
 from ..knowledge import db as knowledge_db
 from ..spawn import registry as spawn_registry
 from . import db
@@ -35,15 +36,19 @@ def show_wake_summary(identity: str, quiet_output: bool):
         return
 
     self_desc = spawn_registry.get_self_description(identity)
-    typer.echo(f"You are {identity}.")
+    typer.echo(wake_prompts.IDENTITY_HEADER.format(identity=identity))
     if self_desc:
-        typer.echo(f"Self: {self_desc}")
+        typer.echo(wake_prompts.SELF_DESCRIPTION.format(description=self_desc))
     typer.echo()
 
     stats = spawn_registry.get_invocation_stats(identity)
     if stats:
         last_spawn_duration = _format_duration(time.time() - stats["last_spawn"])
-        typer.echo(f"🔄 Spawn #{stats['total_spawns']} • Last spawn {last_spawn_duration} ago")
+        typer.echo(
+            wake_prompts.SPAWN_STATUS.format(
+                count=stats["total_spawns"], duration=last_spawn_duration
+            )
+        )
         typer.echo()
 
     last_checkpoint = _get_last_checkpoint(identity)
@@ -52,13 +57,15 @@ def show_wake_summary(identity: str, quiet_output: bool):
         checkpoint_time = datetime.fromtimestamp(last_checkpoint.created_at).strftime(
             "%Y-%m-%d %H:%M"
         )
-        typer.echo(f"💤 Asleep for {sleep_duration} (since {checkpoint_time})")
-        typer.echo(f"📌 Last checkpoint: {last_checkpoint.message}")
+        typer.echo(
+            wake_prompts.SLEEP_STATUS.format(duration=sleep_duration, timestamp=checkpoint_time)
+        )
+        typer.echo(wake_prompts.CHECKPOINT_STATUS.format(message=last_checkpoint.message))
         typer.echo()
 
     core_entries = db.get_core_entries(identity)
     if core_entries:
-        typer.echo("CORE:")
+        typer.echo(wake_prompts.SECTION_CORE)
         for e in core_entries[:5]:
             preview = e.message[:80] + "..." if len(e.message) > 80 else e.message
             typer.echo(f"  [{e.uuid[-8:]}] {preview}")
@@ -67,7 +74,7 @@ def show_wake_summary(identity: str, quiet_output: bool):
     recent = db.get_recent_entries(identity, days=7, limit=30)
     non_checkpoint = [e for e in recent if e.source != "checkpoint" and not e.core][:3]
     if non_checkpoint:
-        typer.echo("RECENT:")
+        typer.echo(wake_prompts.SECTION_RECENT)
         for e in non_checkpoint:
             ts = datetime.fromtimestamp(e.created_at).strftime("%m-%d %H:%M")
             preview = e.message[:60] + "..." if len(e.message) > 60 else e.message
@@ -76,7 +83,7 @@ def show_wake_summary(identity: str, quiet_output: bool):
 
     sent_msgs = bridge_db.get_sender_history(identity, limit=5)
     if sent_msgs:
-        typer.echo("SENT (last 5):")
+        typer.echo(wake_prompts.SECTION_SENT)
         channel_names = {}
         for msg in sent_msgs:
             if msg.channel_id not in channel_names:

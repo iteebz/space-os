@@ -23,10 +23,10 @@ def main_command(
     if ctx.invoked_subcommand is None:
         if not identity:
             try:
-                protocol_content = readme.load_section("# memory")
+                protocol_content = readme.load("memory")
                 typer.echo(protocol_content)
             except (FileNotFoundError, ValueError) as e:
-                typer.echo(f"❌ memory section not found in README: {e}")
+                typer.echo(f"❌ memory README not found: {e}")
         else:
             list_entries_command(
                 identity=identity,

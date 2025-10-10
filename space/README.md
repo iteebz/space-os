@@ -1,140 +1,25 @@
-⸻
+You're inside space-os.
 
-**SPACE-OS**: Cognitive infrastructure for constitutional coordination
+Check your memory:     memory --as <identity>
+See active channels:   bridge inbox --as <identity>
+Load full context:     space wake --as <identity>
 
-⸻
+New here? Try:         space wake --as zealot-1
 
-ARCHITECTURE:
+**Storage:** `.space/` in your workspace
+- `bridge.db` — coordination channels
+- `spawn.db` — identity registry  
+- `memory.db` — working context
+- `knowledge.db` — shared discoveries
+- `events.db` — audit log
 
-• **bridge** — async channels, identity coordination
-• **spawn** — constitutional registry, provenance tracking
-• **memory** — working context across compaction cycles
-• **knowledge** — shared discoveries across agents
+**Primitives:**
+- `bridge` — async coordination channels
+- `spawn` — constitutional identities
+- `memory` — context that survives compaction
+- `knowledge` — shared learning across agents
 
-⸻
-
-ONBOARD:
-
-1. `space wake --as <identity>` — instant context load
-2. `spawn list` — check registered identities
-3. `bridge recv <channel> --as <identity>` — catch up on channels
-4. Read `meta.md` for full architecture story
-
-**After running `space`, agents should autonomously run `space wake --as <identity>` to load their assigned identity.**
-
-⸻
-
-COMMANDS:
-
-**Bridge** (coordination):
-```
-bridge send <channel> "message" --as <identity>
-bridge recv <channel> --as <identity>
-bridge wait <channel> --as <identity>
-bridge council <channel> --as <identity>
-bridge notes <channel> --as <identity>
-bridge export <channel>
-```
-
-**Spawn** (identity):
-```
-spawn register <role> <sender-id> <channel>
-spawn list
-spawn unregister <sender-id> <channel>
-```
-
-**Memory** (persistence):
-```
-memory --as <identity>
-memory --as <identity> --topic <topic>
-memory add --as <identity> --topic <topic> "entry"
-memory edit <id> "updated"
-memory delete <id>
-memory archive <id>
-memory archive <id> --restore
-memory search <keyword> --as <identity>
-memory inspect <id> --as <identity>
-```
-
-**Knowledge** (shared substrate):
-```
-knowledge add --domain <domain> --contributor <identity> "entry"
-knowledge about <domain>
-knowledge from <identity>
-knowledge inspect <uuid>
-knowledge archive <uuid>
-knowledge archive <uuid> --restore
-knowledge list
-```
-
-**Handover** (compaction hygiene):
-```
-space handover --as <identity>
-```
-
-**Space** (utilities):
-```
-space backup
-space events
-space stats
-space search <keyword>
-space trace <concept>
-```
-
-⸻
-
-STORAGE:
-
-Workspace `.space/` directory:
-• `bridge.db` — conversation ledger, permanent coordination record
-• `spawn.db` — identity registrations, provenance
-• `memory.db` — working context, survives compaction
-• `knowledge.db` — shared discoveries, survives compaction
-• `events.db` — append-only audit log, operational provenance
-
-Backup: `~/.space/backups/YYYYMMDD_HHMMSS/`
-
-⸻
-
-CONTEXT LAYERS:
-
-**Events** — operational provenance (who did what when)
-**Bridge** — conversational provenance (what was decided and why)
-**Memory** — personal working state (volatile, compaction-aware)
-**Knowledge** — extracted signal (curated, permanent)
-
-Trace = timeline reconstruction across all layers
-Search = keyword matching across memory/knowledge/bridge
-
-⸻
-
-IDENTITY:
-
-Constitutional roles at `private/space-os/constitutions/<role>.md`
-
-Provenance chain:
-• **role** → constitution file
-• **sender-id** → instance name (zealot-1, harbinger-2)
-• **channel** → coordination context
-• **hash** → constitution integrity
-
-Human operator = "detective" (no constitution)
-
-⸻
-
-PROTOCOLS:
-
-• `bridge.md` — coordination mechanics
-• `memory.md` — persistence patterns
-• `spawn.md` — identity registry
-• `knowledge.md` — shared learning
-• `meta.md` — architecture, methodology, evidence
-
-⸻
-
-VERSION: 0.3 (protocol clarity, 2025-10-09)
-LINEAGE: 100 days, 4 primitives, ~11K LOC
-
-⸻
-
-> context is all you need
+**More:**
+- `space search <keyword>` — find anything
+- `space context <topic>` — evolution + state + docs
+- `space backup` — snapshot to `~/.space/backups/`

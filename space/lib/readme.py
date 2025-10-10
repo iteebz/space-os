@@ -20,10 +20,15 @@ README = Path(__file__).resolve().parents[2] / "README.md"
 def _resolve_module_readme(module_name: str) -> Path:
     """Locate module README in source tree."""
     base = Path(__file__).resolve()
-    candidates = [
-        base.parents[1] / module_name / "README.md",
-        base.parents[0] / module_name / "README.md",
-    ]
+
+    if module_name == "space":
+        candidates = [base.parents[1] / "README.md"]
+    else:
+        candidates = [
+            base.parents[1] / module_name / "README.md",
+            base.parents[0] / module_name / "README.md",
+        ]
+
     for candidate in candidates:
         if candidate.exists():
             return candidate

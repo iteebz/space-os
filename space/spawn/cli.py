@@ -18,10 +18,10 @@ def main_command(
         _spawn_from_registry(agent_id, ctx.args)
     elif not ctx.invoked_subcommand:
         try:
-            protocol_content = readme.load_section("# spawn")
+            protocol_content = readme.load("spawn")
             typer.echo(protocol_content)
         except (FileNotFoundError, ValueError) as e:
-            typer.echo(f"❌ spawn section not found in README: {e}")
+            typer.echo(f"❌ spawn README not found: {e}")
 
 
 def _spawn_from_registry(arg: str, extra_args: list[str]):
