@@ -68,13 +68,16 @@ def _run_migrations(conn: sqlite3.Connection):
     if not _has_column(conn, "channels", "archived_at"):
         conn.execute("ALTER TABLE channels ADD COLUMN archived_at TIMESTAMP")
         conn.commit()
+    if not _has_column(conn, "messages", "agent_id"):
+        conn.execute("ALTER TABLE messages ADD COLUMN agent_id TEXT")
+        conn.commit()
 
 
-def create_message(channel_id: str, sender: str, content: str, priority: str = "normal") -> int:
+def create_message(channel_id: str, agent_id: str, content: str, priority: str = "normal") -> int:
     with _connect() as conn:
         cursor = conn.execute(
-            "INSERT INTO messages (channel_id, sender, content, priority) VALUES (?, ?, ?, ?)",
-            (channel_id, sender, content, priority),
+            "INSERT INTO messages (channel_id, agent_id, content, priority) VALUES (?, ?, ?, ?)",
+            (channel_id, agent_id, content, priority),
         )
         conn.commit()
         return cursor.lastrowid
@@ -91,7 +94,7 @@ def get_new_messages(channel_id: str, agent_id: str | None = None) -> list[Messa
             last_seen_id = row["last_seen_id"] if row else None
 
         base_query = """
-            SELECT m.id, m.channel_id, m.sender, m.content, m.created_at
+            SELECT m.id, m.channel_id, m.agent_id AS sender, m.content, m.created_at
             FROM messages m
             JOIN channels c ON m.channel_id = c.id
             WHERE m.channel_id = ? AND c.archived_at IS NULL
@@ -111,19 +114,12 @@ def get_new_messages(channel_id: str, agent_id: str | None = None) -> list[Messa
 def get_all_messages(channel_id: str) -> list[Message]:
     with _connect() as conn:
         cursor = conn.execute(
-            "SELECT id, channel_id, sender, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
+            "SELECT id, channel_id, agent_id AS sender, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
             (channel_id,),
         )
         return [Message(**row) for row in cursor.fetchall()]
 
 
-def get_sender_history(sender: str, limit: int | None = None) -> list[Message]:
-    with _connect() as conn:
-        query = "SELECT id, channel_id, sender, content, created_at FROM messages WHERE sender = ? ORDER BY created_at DESC"
-        params = (sender, limit) if limit else (sender,)
-        if limit:
-            query += " LIMIT ?"
-        return [Message(**row) for row in conn.execute(query, params).fetchall()]
 
 
 def set_bookmark(agent_id: str, channel_id: str, last_seen_id: int):
@@ -139,13 +135,28 @@ def get_alerts(agent_id: str) -> list[Message]:
     with _connect() as conn:
         cursor = conn.execute(
             """
-            SELECT m.id, m.channel_id, m.sender, m.content, m.created_at
+            SELECT m.id, m.channel_id, m.agent_id AS sender, m.content, m.created_at
             FROM messages m
             LEFT JOIN bookmarks b ON m.channel_id = b.channel_id AND b.agent_id = ?
             WHERE m.priority = 'alert' AND (b.last_seen_id IS NULL OR m.id > b.last_seen_id)
             ORDER BY m.created_at DESC
             """,
             (agent_id,),
+        )
+        return [Message(**row) for row in cursor.fetchall()]
+
+
+def get_sender_history(agent_id: str, limit: int = 5) -> list[Message]:
+    with _connect() as conn:
+        cursor = conn.execute(
+            """
+            SELECT m.id, m.channel_id, m.agent_id AS sender, m.content, m.created_at
+            FROM messages m
+            WHERE m.agent_id = ?
+            ORDER BY m.created_at DESC
+            LIMIT ?
+            """,
+            (agent_id, limit),
         )
         return [Message(**row) for row in cursor.fetchall()]
 
@@ -194,12 +205,20 @@ def get_topic(channel_id: str) -> str | None:
 
 
 def get_participants(channel_id: str) -> list[str]:
+    from ..spawn import registry
+    
     with _connect() as conn:
         cursor = conn.execute(
-            "SELECT DISTINCT sender FROM messages WHERE channel_id = ? ORDER BY sender",
+            "SELECT DISTINCT agent_id FROM messages WHERE channel_id = ? ORDER BY agent_id",
             (channel_id,),
         )
-        return [row["sender"] for row in cursor.fetchall()]
+        
+        agent_ids = [row["agent_id"] for row in cursor.fetchall()]
+        
+        with registry.get_db() as reg_conn:
+            names = {row[0]: row[1] for row in reg_conn.execute("SELECT id, name FROM agents")}
+        
+        return [names.get(aid, aid) for aid in agent_ids]
 
 
 def fetch_channels(
@@ -217,7 +236,7 @@ def fetch_channels(
             FROM channels t
             LEFT JOIN (
                 SELECT channel_id, COUNT(id) as total_messages, MAX(created_at) as last_activity,
-                       GROUP_CONCAT(DISTINCT sender) as participants
+                       GROUP_CONCAT(DISTINCT agent_id) as participants
                 FROM messages
                 GROUP BY channel_id
             ) as msg_counts ON t.id = msg_counts.channel_id
@@ -279,7 +298,7 @@ def get_export_data(channel_id: str) -> Export:
         channel_info = channel_cursor.fetchone()
 
         msg_cursor = conn.execute(
-            "SELECT id, channel_id, sender, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
+            "SELECT id, channel_id, agent_id AS sender, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
             (channel_id,),
         )
         messages = [Message(**row) for row in msg_cursor.fetchall()]
@@ -337,15 +356,6 @@ def rename_channel(old_name: str, new_name: str) -> bool:
         return False
 
 
-def rename_agent_name(old_agent_name: str, new_agent_name: str):
-    with _connect() as conn:
-        conn.execute(
-            "UPDATE messages SET sender = ? WHERE sender = ?", (new_agent_name, old_agent_name)
-        )
-        conn.execute(
-            "UPDATE bookmarks SET agent_id = ? WHERE agent_id = ?", (new_agent_name, old_agent_name)
-        )
-        conn.commit()
 
 
 def create_note(channel_id: str, author: str, content: str) -> int:

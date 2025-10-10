@@ -5,6 +5,7 @@ import typer
 
 from ..lib import readme
 from . import db
+from space.spawn import registry
 
 app = typer.Typer(invoke_without_command=True)
 
@@ -25,7 +26,7 @@ def main_command(
 @app.command("add")
 def add_knowledge_command(
     domain: str = typer.Option(..., help="Domain of the knowledge"),
-    contributor: str = typer.Option(..., help="Contributor(s) - comma-separated for co-authorship"),
+    contributor: str = typer.Option(..., "--as", help="Agent identity"),
     content: str = typer.Argument(..., help="The knowledge content"),
     confidence: float = typer.Option(None, help="Confidence score (0.0-1.0)"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
@@ -34,7 +35,8 @@ def add_knowledge_command(
     ),
 ):
     """Add a new knowledge entry."""
-    entry_id = db.write_knowledge(domain, contributor, content, confidence)
+    agent_id = registry.ensure_agent(contributor)
+    entry_id = db.write_knowledge(domain, agent_id, content, confidence)
     if json_output:
         typer.echo(json.dumps({"entry_id": entry_id}))
     elif not quiet_output:
@@ -58,13 +60,17 @@ def list_knowledge_command(
             typer.echo("No knowledge entries found.")
         return
 
+    with registry.get_db() as conn:
+        names = {row[0]: row[1] for row in conn.execute("SELECT id, name FROM agents")}
+
     if json_output:
         typer.echo(json.dumps([asdict(entry) for entry in entries]))
     elif not quiet_output:
         for entry in entries:
+            agent_name = names.get(entry.agent_id, entry.agent_id)
             typer.echo(
                 f"[{entry.id[-8:]}] [{entry.created_at}] Domain: {entry.domain}, "
-                f"Contributor: {entry.contributor}, Confidence: {entry.confidence or 'N/A'}\n"
+                f"Agent: {agent_name}, Confidence: {entry.confidence or 'N/A'}\n"
                 f"  Content: {entry.content[:100]}{'...' if len(entry.content) > 100 else ''}\n"
             )
 
@@ -87,33 +93,45 @@ def query_by_domain_command(
             typer.echo(f"No knowledge entries found for domain '{domain}'.")
         return
 
+    with registry.get_db() as conn:
+        names = {row[0]: row[1] for row in conn.execute("SELECT id, name FROM agents")}
+
     if json_output:
         typer.echo(json.dumps([asdict(entry) for entry in entries]))
     elif not quiet_output:
         for entry in entries:
+            agent_name = names.get(entry.agent_id, entry.agent_id)
             typer.echo(
-                f"[{entry.id[-8:]}] [{entry.created_at}] Contributor: {entry.contributor}, "
+                f"[{entry.id[-8:]}] [{entry.created_at}] Agent: {agent_name}, "
                 f"Confidence: {entry.confidence or 'N/A'}\n"
                 f"  Content: {entry.content[:100]}{'...' if len(entry.content) > 100 else ''}\n"
             )
 
 
 @app.command("from")
-def query_by_contributor_command(
-    contributor: str = typer.Argument(..., help="Contributor to query knowledge by"),
+def query_by_agent_command(
+    agent: str = typer.Argument(..., help="Agent to query knowledge by"),
     include_archived: bool = typer.Option(False, "--archived", help="Include archived entries"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    """Query knowledge entries by contributor."""
-    entries = db.query_by_contributor(contributor, include_archived=include_archived)
+    """Query knowledge entries by agent."""
+    agent_id = registry.get_agent_id(agent)
+    if not agent_id:
+        if json_output:
+            typer.echo(json.dumps([]))
+        elif not quiet_output:
+            typer.echo(f"Agent '{agent}' not found.")
+        return
+
+    entries = db.query_by_agent(agent_id, include_archived=include_archived)
     if not entries:
         if json_output:
             typer.echo(json.dumps([]))
         elif not quiet_output:
-            typer.echo(f"No knowledge entries found for contributor '{contributor}'.")
+            typer.echo(f"No knowledge entries found for agent '{agent}'.")
         return
 
     if json_output:
@@ -144,14 +162,18 @@ def get_knowledge_by_id_command(
             typer.echo(f"No knowledge entry found with ID '{entry_id}'.")
         return
 
+    with registry.get_db() as conn:
+        names = {row[0]: row[1] for row in conn.execute("SELECT id, name FROM agents")}
+
     if json_output:
         typer.echo(json.dumps(asdict(entry)))
     elif not quiet_output:
+        agent_name = names.get(entry.agent_id, entry.agent_id)
         typer.echo(
             f"ID: {entry.id}\n"
             f"Created At: {entry.created_at}\n"
             f"Domain: {entry.domain}\n"
-            f"Contributor: {entry.contributor}\n"
+            f"Agent: {agent_name}\n"
             f"Confidence: {entry.confidence or 'N/A'}\n"
             f"Content:\n{entry.content}\n"
         )
@@ -178,6 +200,9 @@ def inspect_knowledge_command(
 
     related = db.find_related(entry, limit=limit, include_archived=include_archived)
 
+    with registry.get_db() as conn:
+        names = {row[0]: row[1] for row in conn.execute("SELECT id, name FROM agents")}
+
     if json_output:
         payload = {
             "entry": asdict(entry),
@@ -185,8 +210,9 @@ def inspect_knowledge_command(
         }
         typer.echo(json.dumps(payload))
     elif not quiet_output:
+        agent_name = names.get(entry.agent_id, entry.agent_id)
         archived_mark = " [ARCHIVED]" if entry.archived_at else ""
-        typer.echo(f"[{entry.id[-8:]}] {entry.domain} by {entry.contributor}{archived_mark}")
+        typer.echo(f"[{entry.id[-8:]}] {entry.domain} by {agent_name}{archived_mark}")
         typer.echo(f"Created: {entry.created_at}")
         typer.echo(f"Confidence: {entry.confidence or 'N/A'}\n")
         typer.echo(f"{entry.content}\n")
@@ -195,9 +221,10 @@ def inspect_knowledge_command(
             typer.echo("─" * 60)
             typer.echo(f"Related nodes ({len(related)}):\n")
             for rel_entry, overlap in related:
+                rel_agent_name = names.get(rel_entry.agent_id, rel_entry.agent_id)
                 archived_mark = " [ARCHIVED]" if rel_entry.archived_at else ""
                 typer.echo(
-                    f"[{rel_entry.id[-8:]}] {rel_entry.domain} ({overlap} keywords){archived_mark}"
+                    f"[{rel_entry.id[-8:]}] {rel_entry.domain} by {rel_agent_name} ({overlap} keywords){archived_mark}"
                 )
                 typer.echo(
                     f"  {rel_entry.content[:100]}{'...' if len(rel_entry.content) > 100 else ''}\n"

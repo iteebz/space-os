@@ -7,6 +7,7 @@ from ..lib import identity as identity_lib
 from ..lib import readme
 from . import db
 from .display import show_context, show_smart_memory
+from space.spawn import registry
 
 app = typer.Typer(invoke_without_command=True)
 
@@ -51,7 +52,8 @@ def add_entry_command(
 ):
     """Add a new memory entry."""
     resolved_identity = identity_lib.require_identity(ctx, identity)
-    entry_id = db.add_entry(resolved_identity, topic, message)
+    agent_id = registry.ensure_agent(resolved_identity)
+    entry_id = db.add_entry(agent_id, topic, message)
     if json_output:
         typer.echo(
             json.dumps({"entry_id": entry_id, "identity": resolved_identity, "topic": topic})
@@ -265,9 +267,10 @@ def summary_command(
 ):
     """Set or read rolling summary (ephemeral scratchpad, replaces on write)."""
     resolved_identity = identity_lib.require_identity(ctx, identity)
+    agent_id = registry.ensure_agent(resolved_identity)
 
     if message is None:
-        current = db.get_summary(resolved_identity)
+        current = db.get_summary(agent_id)
         if json_output:
             typer.echo(json.dumps({"identity": resolved_identity, "summary": current}))
         elif not quiet_output:
@@ -276,7 +279,7 @@ def summary_command(
             else:
                 typer.echo(f"No summary set for {resolved_identity}")
     else:
-        db.set_summary(resolved_identity, message)
+        db.set_summary(agent_id, message)
         if json_output:
             typer.echo(json.dumps({"identity": resolved_identity, "summary": message}))
         elif not quiet_output:

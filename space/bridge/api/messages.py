@@ -4,15 +4,17 @@ from space.models import Message
 
 from .. import db
 from ..db import _connect
+from space.spawn import registry
 
 
 def send_message(channel_id: str, sender: str, content: str, priority: str = "normal") -> str:
     """Orchestrate sending a message: validate, ensure identity, and store."""
     if db.get_channel_name(channel_id) is None:
         raise ValueError(f"Channel with ID '{channel_id}' not found.")
+    agent_id = registry.ensure_agent(sender)
     db.create_message(
         channel_id=channel_id,
-        sender=sender,
+        agent_id=agent_id,
         content=content,
         priority=priority,
     )
@@ -38,14 +40,3 @@ def fetch_messages(channel_id: str) -> list[Message]:
     return db.get_all_messages(channel_id)
 
 
-def fetch_agent_history(agent_name: str, limit: int | None = None) -> list[Message]:
-    with _connect() as conn:
-        query = "SELECT id, channel_id, sender, content, created_at FROM messages WHERE sender = ? ORDER BY created_at DESC"
-        params = (agent_name, limit) if limit else (agent_name,)
-        if limit:
-            query += " LIMIT ?"
-        return [Message(**row) for row in conn.execute(query, params).fetchall()]
-
-
-def rename_agent(old_agent_name: str, new_agent_name: str):
-    db.rename_agent_name(old_agent_name, new_agent_name)

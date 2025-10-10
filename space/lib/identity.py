@@ -17,9 +17,11 @@ def callback_with_identity(
 
     if identity:
         from .. import events
+        from ..spawn import registry
 
         command = ctx.info_name or "unknown"
-        events.emit("identity", command, identity)
+        agent_id = registry.ensure_agent(identity)
+        events.emit("identity", command, agent_id)
 
 
 def require_identity(ctx: typer.Context, identity: str | None = None) -> str:
@@ -57,11 +59,12 @@ def constitute_identity(identity: str):
         const_hash = spawn.hash_content(full_identity)
         registry.save_constitution(const_hash, full_identity)
 
+        agent_id = registry.ensure_agent(identity)
         model = extract_model_from_identity(identity)
         events.emit(
             "memory",
             "constitution_invoked",
-            identity,
+            agent_id,
             json.dumps({"constitution_hash": const_hash, "role": role, "model": model}),
         )
     except (FileNotFoundError, ValueError):

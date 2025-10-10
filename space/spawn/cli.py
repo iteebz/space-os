@@ -23,7 +23,7 @@ def main_command(ctx: typer.Context):
 
 
 @app.command(name="launch", hidden=True)
-def launch_cmd(agent_id: str, extra: list[str] = typer.Argument(None)):
+def launch_cmd(agent_id: str, extra: list[str] | None = None):
     """Launch an agent (internal fallback)."""
     _spawn_from_registry(agent_id, extra or [])
 

@@ -23,11 +23,15 @@ def recv(
 
     constitute_identity(identity)
 
+    from space.spawn import registry
+
+    agent_id = registry.ensure_agent(identity)
+
     try:
         events.emit(
             "bridge",
             "messages_receiving",
-            identity,
+            agent_id,
             json.dumps({"channel": channel, "identity": identity}),
         )
         channel_id = api.resolve_channel_id(channel)
@@ -48,7 +52,7 @@ def recv(
                 events.emit(
                     "bridge",
                     "message_received",
-                    identity,
+                    agent_id,
                     json.dumps(
                         {
                             "channel": channel,
@@ -64,7 +68,7 @@ def recv(
         events.emit(
             "bridge",
             "error_occurred",
-            identity,
+            agent_id,
             json.dumps({"command": "recv", "details": str(e)}),
         )
         if json_output:
@@ -89,13 +93,17 @@ def alerts(
 
     constitute_identity(identity)
 
+    from space.spawn import registry
+
+    agent_id = registry.ensure_agent(identity)
+
     try:
-        events.emit("bridge", "alerts_checking", identity, json.dumps({"identity": identity}))
+        events.emit("bridge", "alerts_checking", agent_id, json.dumps({"identity": identity}))
         alert_messages = api.get_alerts(identity)
         events.emit(
             "bridge",
             "alerts_checked",
-            identity,
+            agent_id,
             json.dumps({"identity": identity, "count": len(alert_messages)}),
         )
         if not alert_messages:
@@ -116,7 +124,7 @@ def alerts(
         events.emit(
             "bridge",
             "error_occurred",
-            identity,
+            agent_id,
             json.dumps({"command": "alerts", "details": str(exc)}),
         )
         if json_output:

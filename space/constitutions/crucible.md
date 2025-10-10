@@ -26,4 +26,4 @@
 - Fixtures in `tests/conftest.py`
 - Structure: `tests/integration/` (flat) + `tests/unit/` (mirrors src/)
 
-**SHOW YOUR WORKING.**
+**TEST FIRST. REFACTOR FEARLESS.**

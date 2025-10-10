@@ -6,6 +6,7 @@ import typer
 
 from ... import events
 from .. import api
+from space.spawn import registry
 
 app = typer.Typer()
 
@@ -37,19 +38,22 @@ def send(
             else:
                 raise typer.BadParameter("Invalid base64 payload", param_hint="content") from exc
 
+    agent_id = registry.ensure_agent(identity)
+
     try:
         events.emit(
             "bridge",
             "message_sending",
-            identity,
+            agent_id,
             json.dumps({"channel": channel, "identity": identity, "content": content}),
         )
         channel_id = api.resolve_channel_id(channel)
-        api.send_message(channel_id, identity, content)
+        agent_id = registry.ensure_agent(identity)
+        api.send_message(channel_id, agent_id, content)
         events.emit(
             "bridge",
             "message_sent",
-            identity,
+            agent_id,
             json.dumps({"channel": channel, "identity": identity}),
         )
         if json_output:
@@ -62,7 +66,7 @@ def send(
         events.emit(
             "bridge",
             "error_occurred",
-            identity,
+            agent_id,
             json.dumps({"command": "send", "details": str(exc)}),
         )
         if json_output:
@@ -89,19 +93,22 @@ def alert(
 
     constitute_identity(identity)
 
+    agent_id = registry.ensure_agent(identity)
+
     try:
         events.emit(
             "bridge",
             "alert_triggering",
-            identity,
+            agent_id,
             json.dumps({"channel": channel, "identity": identity, "content": content}),
         )
         channel_id = api.resolve_channel_id(channel)
-        api.send_message(channel_id, identity, content, priority="alert")
+        agent_id = registry.ensure_agent(identity)
+        api.send_message(channel_id, agent_id, content, priority="alert")
         events.emit(
             "bridge",
             "alert_triggered",
-            identity,
+            agent_id,
             json.dumps({"channel": channel, "identity": identity}),
         )
         if json_output:
@@ -112,7 +119,7 @@ def alert(
         events.emit(
             "bridge",
             "error_occurred",
-            identity,
+            agent_id,
             json.dumps({"command": "alert", "details": str(exc)}),
         )
         if json_output:

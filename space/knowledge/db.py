@@ -29,15 +29,11 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_archived ON knowledge(archived_at);
 class Entry:
     id: str
     domain: str
-    contributor: str
+    agent_id: str
     content: str
     confidence: float | None
     created_at: str
     archived_at: int | None = None
-
-    @property
-    def contributors(self) -> list[str]:
-        return [c.strip() for c in self.contributor.split(",")]
 
 
 def database_path() -> Path:
@@ -61,23 +57,24 @@ def _migrate_schema(db_path: Path):
             conn.execute("ALTER TABLE knowledge ADD COLUMN archived_at INTEGER")
             conn.commit()
 
+        if "agent_id" not in columns:
+            conn.execute("ALTER TABLE knowledge ADD COLUMN agent_id TEXT")
+            conn.commit()
+
 
 def write_knowledge(
-    domain: str, contributor: str | list[str], content: str, confidence: float | None = None
+    domain: str, agent_id: str, content: str, confidence: float | None = None
 ) -> str:
     from .. import events
-
-    if isinstance(contributor, list):
-        contributor = ",".join(contributor)
 
     entry_id = uuid7()
     with connect() as conn:
         conn.execute(
-            "INSERT INTO knowledge (id, domain, contributor, content, confidence) VALUES (?, ?, ?, ?, ?)",
-            (entry_id, domain, contributor, content, confidence),
+            "INSERT INTO knowledge (id, domain, content, confidence, agent_id) VALUES (?, ?, ?, ?, ?)",
+            (entry_id, domain, content, confidence, agent_id),
         )
         conn.commit()
-    events.emit("knowledge", "entry.write", contributor, f"{domain}:{content[:50]}")
+    events.emit("knowledge", "entry.write", agent_id, f"{domain}:{content[:50]}")
     return entry_id
 
 
@@ -85,18 +82,18 @@ def query_by_domain(domain: str, include_archived: bool = False) -> list[Entry]:
     archive_filter = "" if include_archived else "AND archived_at IS NULL"
     with connect() as conn:
         rows = conn.execute(
-            f"SELECT id, domain, contributor, content, confidence, created_at, archived_at FROM knowledge WHERE domain = ? {archive_filter} ORDER BY created_at DESC",
+            f"SELECT id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE domain = ? {archive_filter} ORDER BY created_at DESC",
             (domain,),
         ).fetchall()
     return [Entry(*row) for row in rows]
 
 
-def query_by_contributor(contributor: str, include_archived: bool = False) -> list[Entry]:
+def query_by_agent(agent_id: str, include_archived: bool = False) -> list[Entry]:
     archive_filter = "" if include_archived else "AND archived_at IS NULL"
     with connect() as conn:
         rows = conn.execute(
-            f"SELECT id, domain, contributor, content, confidence, created_at, archived_at FROM knowledge WHERE contributor LIKE ? {archive_filter} ORDER BY created_at DESC",
-            (f"%{contributor}%",),
+            f"SELECT id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE agent_id = ? {archive_filter} ORDER BY created_at DESC",
+            (agent_id,),
         ).fetchall()
     return [Entry(*row) for row in rows]
 
@@ -105,7 +102,7 @@ def list_all(include_archived: bool = False) -> list[Entry]:
     archive_filter = "" if include_archived else "WHERE archived_at IS NULL"
     with connect() as conn:
         rows = conn.execute(
-            f"SELECT id, domain, contributor, content, confidence, created_at, archived_at FROM knowledge {archive_filter} ORDER BY created_at DESC"
+            f"SELECT id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge {archive_filter} ORDER BY created_at DESC"
         ).fetchall()
     return [Entry(*row) for row in rows]
 
@@ -113,7 +110,7 @@ def list_all(include_archived: bool = False) -> list[Entry]:
 def get_by_id(entry_id: str) -> Entry | None:
     with connect() as conn:
         row = conn.execute(
-            "SELECT id, domain, contributor, content, confidence, created_at, archived_at FROM knowledge WHERE id = ?",
+            "SELECT id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE id = ?",
             (entry_id,),
         ).fetchone()
     return Entry(*row) if row else None
@@ -217,7 +214,7 @@ def find_related(
     archive_filter = "" if include_archived else "AND archived_at IS NULL"
     with connect() as conn:
         all_entries = conn.execute(
-            f"SELECT id, domain, contributor, content, confidence, created_at, archived_at FROM knowledge WHERE id != ? {archive_filter}",
+            f"SELECT id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE id != ? {archive_filter}",
             (entry.id,),
         ).fetchall()
 

@@ -71,6 +71,10 @@ def _migrate_schema(db_path: Path):
             conn.execute("ALTER TABLE memory ADD COLUMN code_anchors TEXT")
             conn.commit()
 
+        if "agent_id" not in columns:
+            conn.execute("ALTER TABLE memory ADD COLUMN agent_id TEXT")
+            conn.commit()
+
 
 def _resolve_uuid(short_uuid: str) -> str:
     with connect() as conn:
@@ -90,54 +94,54 @@ def _resolve_uuid(short_uuid: str) -> str:
     return rows[0][0]
 
 
-def add_entry(identity: str, topic: str, message: str, core: bool = False, source: str = "manual"):
+def add_entry(agent_id: str, topic: str, message: str, core: bool = False, source: str = "manual"):
     entry_uuid = uuid7()
     now = int(time.time())
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
     with connect() as conn:
         conn.execute(
-            "INSERT INTO memory (uuid, identity, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (entry_uuid, identity, topic, message, ts, now, 1 if core else 0, source),
+            "INSERT INTO memory (uuid, agent_id, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (entry_uuid, agent_id, topic, message, ts, now, 1 if core else 0, source),
         )
         conn.commit()
     events.emit(
-        "memory", "entry.add", identity, f"{topic}:{message[:50]}" + (" [CORE]" if core else "")
+        "memory", "entry.add", agent_id, f"{topic}:{message[:50]}" + (" [CORE]" if core else "")
     )
 
 
-def set_summary(identity: str, message: str):
+def set_summary(agent_id: str, message: str):
     now = int(time.time())
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     with connect() as conn:
         old = conn.execute(
-            "SELECT uuid, message FROM memory WHERE identity = ? AND source = 'summary'",
-            (identity,),
+            "SELECT uuid, message FROM memory WHERE agent_id = ? AND source = 'summary'",
+            (agent_id,),
         ).fetchone()
 
         if old:
-            events.emit("memory", "summary.replace", identity, f"old: {old[1][:50]}")
+            events.emit("memory", "summary.replace", agent_id, f"old: {old[1][:50]}")
 
         conn.execute(
-            "DELETE FROM memory WHERE identity = ? AND source = 'summary'",
-            (identity,),
+            "DELETE FROM memory WHERE agent_id = ? AND source = 'summary'",
+            (agent_id,),
         )
 
         entry_uuid = uuid7()
         conn.execute(
-            "INSERT INTO memory (uuid, identity, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (entry_uuid, identity, "summary", message, ts, now, 0, "summary"),
+            "INSERT INTO memory (uuid, agent_id, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (entry_uuid, agent_id, "summary", message, ts, now, 0, "summary"),
         )
         conn.commit()
 
-    events.emit("memory", "summary.set", identity, message[:50])
+    events.emit("memory", "summary.set", agent_id, message[:50])
 
 
-def get_summary(identity: str) -> str | None:
+def get_summary(agent_id: str) -> str | None:
     with connect() as conn:
         row = conn.execute(
-            "SELECT message FROM memory WHERE identity = ? AND source = 'summary'",
-            (identity,),
+            "SELECT message FROM memory WHERE agent_id = ? AND source = 'summary'",
+            (agent_id,),
         ).fetchone()
     return row[0] if row else None
 
@@ -145,22 +149,28 @@ def get_summary(identity: str) -> str | None:
 def get_entries(
     identity: str, topic: str | None = None, include_archived: bool = False
 ) -> list[Memory]:
+    from ..spawn import registry
+    
+    agent_id = registry.get_agent_id(identity)
+    if not agent_id:
+        return []
+    
     with connect() as conn:
         archive_filter = "" if include_archived else "AND archived_at IS NULL"
         if topic:
             rows = conn.execute(
-                f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE identity = ? AND topic = ? {archive_filter} ORDER BY uuid",
-                (identity, topic),
+                f"SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE agent_id = ? AND topic = ? {archive_filter} ORDER BY uuid",
+                (agent_id, topic),
             ).fetchall()
         else:
             rows = conn.execute(
-                f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE identity = ? {archive_filter} ORDER BY topic, uuid",
-                (identity,),
+                f"SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE agent_id = ? {archive_filter} ORDER BY topic, uuid",
+                (agent_id,),
             ).fetchall()
     return [
         Memory(
             row[0],
-            row[1],
+            identity,
             row[2],
             row[3],
             row[4],
@@ -196,11 +206,17 @@ def delete_entry(entry_uuid: str):
 
 
 def clear_entries(identity: str, topic: str | None = None):
+    from ..spawn import registry
+    
+    agent_id = registry.get_agent_id(identity)
+    if not agent_id:
+        return
+    
     with connect() as conn:
         if topic:
-            conn.execute("DELETE FROM memory WHERE identity = ? AND topic = ?", (identity, topic))
+            conn.execute("DELETE FROM memory WHERE agent_id = ? AND topic = ?", (agent_id, topic))
         else:
-            conn.execute("DELETE FROM memory WHERE identity = ?", (identity,))
+            conn.execute("DELETE FROM memory WHERE agent_id = ?", (agent_id,))
         conn.commit()
 
 
@@ -239,15 +255,21 @@ def mark_core(entry_uuid: str, core: bool = True):
 
 
 def get_core_entries(identity: str) -> list[Memory]:
+    from ..spawn import registry
+    
+    agent_id = registry.get_agent_id(identity)
+    if not agent_id:
+        return []
+    
     with connect() as conn:
         rows = conn.execute(
-            "SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE identity = ? AND core = 1 AND archived_at IS NULL ORDER BY created_at DESC",
-            (identity,),
+            "SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE agent_id = ? AND core = 1 AND archived_at IS NULL ORDER BY created_at DESC",
+            (agent_id,),
         ).fetchall()
     return [
         Memory(
             row[0],
-            row[1],
+            identity,
             row[2],
             row[3],
             row[4],
@@ -263,16 +285,22 @@ def get_core_entries(identity: str) -> list[Memory]:
 
 
 def get_recent_entries(identity: str, days: int = 7, limit: int = 20) -> list[Memory]:
+    from ..spawn import registry
+    
+    agent_id = registry.get_agent_id(identity)
+    if not agent_id:
+        return []
+    
     cutoff = int(time.time()) - (days * 86400)
     with connect() as conn:
         rows = conn.execute(
-            "SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE identity = ? AND created_at >= ? AND archived_at IS NULL ORDER BY created_at DESC LIMIT ?",
-            (identity, cutoff, limit),
+            "SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE agent_id = ? AND created_at >= ? AND archived_at IS NULL ORDER BY created_at DESC LIMIT ?",
+            (agent_id, cutoff, limit),
         ).fetchall()
     return [
         Memory(
             row[0],
-            row[1],
+            identity,
             row[2],
             row[3],
             row[4],
@@ -288,16 +316,22 @@ def get_recent_entries(identity: str, days: int = 7, limit: int = 20) -> list[Me
 
 
 def search_entries(identity: str, keyword: str, include_archived: bool = False) -> list[Memory]:
+    from ..spawn import registry
+    
+    agent_id = registry.get_agent_id(identity)
+    if not agent_id:
+        return []
+    
     archive_filter = "" if include_archived else "AND archived_at IS NULL"
     with connect() as conn:
         rows = conn.execute(
-            f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE identity = ? AND (message LIKE ? OR topic LIKE ?) {archive_filter} ORDER BY created_at DESC",
-            (identity, f"%{keyword}%", f"%{keyword}%"),
+            f"SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE agent_id = ? AND (message LIKE ? OR topic LIKE ?) {archive_filter} ORDER BY created_at DESC",
+            (agent_id, f"%{keyword}%", f"%{keyword}%"),
         ).fetchall()
     return [
         Memory(
             row[0],
-            row[1],
+            identity,
             row[2],
             row[3],
             row[4],
@@ -380,18 +414,24 @@ def find_related(
     if not keywords:
         return []
 
+    from ..spawn import registry
+    
+    agent_id = registry.get_agent_id(entry.identity)
+    if not agent_id:
+        return []
+    
     archive_filter = "" if include_archived else "AND archived_at IS NULL"
     with connect() as conn:
         all_entries = conn.execute(
-            f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE identity = ? AND uuid != ? {archive_filter}",
-            (entry.identity, entry.uuid),
+            f"SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE agent_id = ? AND uuid != ? {archive_filter}",
+            (agent_id, entry.uuid),
         ).fetchall()
 
     scored = []
     for row in all_entries:
         candidate = Memory(
             row[0],
-            row[1],
+            entry.identity,
             row[2],
             row[3],
             row[4],

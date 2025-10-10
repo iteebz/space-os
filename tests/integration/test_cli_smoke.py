@@ -40,10 +40,10 @@ def test_bridge_readme():
 
 
 def test_spawn_smoketest():
-    result = runner.invoke(spawn_app)
+    result = runner.invoke(spawn_app, ["--help"])
 
     assert (
-        "Constitutional identity registry" in result.stdout
+        "Constitutional agent registry" in result.stdout
         or "Constitutional identity registry" in result.stderr
     )
 

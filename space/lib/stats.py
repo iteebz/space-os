@@ -89,20 +89,24 @@ def bridge_stats(limit: int = None) -> BridgeStats:
         ]
 
         if limit:
-            leaderboard = [
-                LeaderboardEntry(identity=row[0], count=row[1])
-                for row in conn.execute(
-                    "SELECT sender, COUNT(*) as count FROM messages GROUP BY sender ORDER BY count DESC LIMIT ?",
-                    (limit,),
-                )
-            ]
+            rows = conn.execute(
+                "SELECT agent_id, COUNT(*) as count FROM messages GROUP BY agent_id ORDER BY count DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
         else:
-            leaderboard = [
-                LeaderboardEntry(identity=row[0], count=row[1])
-                for row in conn.execute(
-                    "SELECT sender, COUNT(*) as count FROM messages GROUP BY sender ORDER BY count DESC"
-                )
-            ]
+            rows = conn.execute(
+                "SELECT agent_id, COUNT(*) as count FROM messages GROUP BY agent_id ORDER BY count DESC"
+            ).fetchall()
+    
+    from ..spawn import registry
+    with registry.get_db() as reg_conn:
+        names = {row[0]: row[1] for row in reg_conn.execute("SELECT id, name FROM agents")}
+    
+    leaderboard = [
+        LeaderboardEntry(identity=names.get(row[0], row[0]), count=row[1])
+        for row in rows
+    ]
+    
     return BridgeStats(
         available=True,
         total=total,
@@ -130,15 +134,19 @@ def memory_stats(limit: int = None) -> MemoryStats:
 
         if limit:
             rows = conn.execute(
-                "SELECT identity, COUNT(*) as count FROM memory GROUP BY identity ORDER BY count DESC LIMIT ?",
+                "SELECT agent_id, COUNT(*) as count FROM memory GROUP BY agent_id ORDER BY count DESC LIMIT ?",
                 (limit,),
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT identity, COUNT(*) as count FROM memory GROUP BY identity ORDER BY count DESC"
+                "SELECT agent_id, COUNT(*) as count FROM memory GROUP BY agent_id ORDER BY count DESC"
             ).fetchall()
 
-    leaderboard = [LeaderboardEntry(identity=row[0], count=row[1]) for row in rows]
+    from ..spawn import registry
+    with registry.get_db() as reg_conn:
+        names = {row[0]: row[1] for row in reg_conn.execute("SELECT id, name FROM agents")}
+    
+    leaderboard = [LeaderboardEntry(identity=names.get(row[0], row[0]), count=row[1]) for row in rows]
     return MemoryStats(
         available=True,
         total=total,
@@ -168,15 +176,19 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
 
         if limit:
             rows = conn.execute(
-                "SELECT contributor, COUNT(*) as count FROM knowledge GROUP BY contributor ORDER BY count DESC LIMIT ?",
+                "SELECT agent_id, COUNT(*) as count FROM knowledge GROUP BY agent_id ORDER BY count DESC LIMIT ?",
                 (limit,),
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT contributor, COUNT(*) as count FROM knowledge GROUP BY contributor ORDER BY count DESC"
+                "SELECT agent_id, COUNT(*) as count FROM knowledge GROUP BY agent_id ORDER BY count DESC"
             ).fetchall()
 
-    leaderboard = [LeaderboardEntry(identity=row[0], count=row[1]) for row in rows]
+    from ..spawn import registry
+    with registry.get_db() as reg_conn:
+        names = {row[0]: row[1] for row in reg_conn.execute("SELECT id, name FROM agents")}
+    
+    leaderboard = [LeaderboardEntry(identity=names.get(row[0], row[0]), count=row[1]) for row in rows]
     return KnowledgeStats(
         available=True,
         total=total,
@@ -188,6 +200,8 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
 
 
 def agent_stats(limit: int = None) -> list[AgentStats] | None:
+    from ..spawn import registry
+    
     bridge_db = paths.space_root() / "bridge.db"
     mem_db = paths.space_root() / "memory.db"
     know_db = paths.space_root() / "knowledge.db"
@@ -196,53 +210,57 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
     if not bridge_db.exists():
         return None
 
+    with registry.get_db() as reg_conn:
+        names = {row[0]: row[1] for row in reg_conn.execute("SELECT id, name FROM agents")}
+        agent_ids = set(names.keys())
+
     identities = {}
 
     with db.connect(bridge_db) as conn:
-        for row in conn.execute("SELECT sender, COUNT(*) as msgs FROM messages GROUP BY sender"):
-            identities[row[0]] = {
+        for row in conn.execute("SELECT agent_id, COUNT(*) as msgs FROM messages GROUP BY agent_id"):
+            agent_name = names.get(row[0], row[0])
+            identities[agent_name] = {
                 "msgs": row[1],
                 "last_active": None,
                 "mems": 0,
                 "knowledge": 0,
-                "spawns": 0,
+                "spawns": 1,
+                "channels": []
             }
 
         for row in conn.execute(
-            "SELECT sender, GROUP_CONCAT(DISTINCT channel_id) FROM messages WHERE channel_id IS NOT NULL GROUP BY sender"
+            "SELECT agent_id, GROUP_CONCAT(DISTINCT channel_id) FROM messages WHERE channel_id IS NOT NULL GROUP BY agent_id"
         ):
+            agent_name = names.get(row[0], row[0])
             channels = row[1].split(",") if row[1] else []
-            if row[0] in identities:
-                identities[row[0]]["channels"] = channels
+            if agent_name in identities:
+                identities[agent_name]["channels"] = channels
 
     events_db = paths.space_root() / "events.db"
     if events_db.exists():
         with db.connect(events_db) as conn:
             for row in conn.execute(
-                "SELECT identity, MAX(timestamp) FROM events WHERE identity IS NOT NULL GROUP BY identity"
+                "SELECT agent_id, MAX(timestamp) FROM events WHERE agent_id IS NOT NULL GROUP BY agent_id"
             ):
-                if row[0] in identities:
-                    identities[row[0]]["last_active"] = str(row[1])
-
-    if spawn_db.exists():
-        with db.connect(spawn_db) as conn:
-            for row in conn.execute("SELECT name FROM agents"):
-                if row[0] in identities:
-                    identities[row[0]]["spawns"] = 1
+                agent_name = names.get(row[0], row[0])
+                if agent_name in identities:
+                    identities[agent_name]["last_active"] = str(row[1])
 
     if mem_db.exists():
         with db.connect(mem_db) as conn:
-            for row in conn.execute("SELECT identity, COUNT(*) FROM memory GROUP BY identity"):
-                if row[0] in identities:
-                    identities[row[0]]["mems"] = row[1]
+            for row in conn.execute("SELECT agent_id, COUNT(*) FROM memory GROUP BY agent_id"):
+                agent_name = names.get(row[0], row[0])
+                if agent_name in identities:
+                    identities[agent_name]["mems"] = row[1]
 
     if know_db.exists():
         with db.connect(know_db) as conn:
             for row in conn.execute(
-                "SELECT contributor, COUNT(*) FROM knowledge GROUP BY contributor"
+                "SELECT agent_id, COUNT(*) FROM knowledge GROUP BY agent_id"
             ):
-                if row[0] in identities:
-                    identities[row[0]]["knowledge"] = row[1]
+                agent_name = names.get(row[0], row[0])
+                if agent_name in identities:
+                    identities[agent_name]["knowledge"] = row[1]
 
     def humanize_time(ts_str: str) -> str:
         if not ts_str:

@@ -62,6 +62,24 @@ def get_db():
         conn.close()
 
 
+def get_agent_id(name: str) -> str | None:
+    """Get agent UUID by name."""
+    with get_db() as conn:
+        row = conn.execute("SELECT id FROM agents WHERE name = ?", (name,)).fetchone()
+        return row["id"] if row else None
+
+
+def ensure_agent(name: str) -> str:
+    """Get or create agent, return UUID."""
+    agent_id = get_agent_id(name)
+    if not agent_id:
+        agent_id = str(uuid.uuid4())
+        with get_db() as conn:
+            conn.execute("INSERT INTO agents (id, name) VALUES (?, ?)", (agent_id, name))
+            conn.commit()
+    return agent_id
+
+
 def get_self_description(agent_name: str) -> str | None:
     """Get self-description for agent."""
     with get_db() as conn:

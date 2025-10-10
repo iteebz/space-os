@@ -22,11 +22,12 @@ def constitute_identity(identity: str):
         const_hash = spawn.hash_content(full_identity)
         registry.save_constitution(const_hash, full_identity)
 
+        agent_id = registry.ensure_agent(identity)
         model = _extract_model_from_identity(identity)
         events.emit(
             "bridge",
             "constitution_invoked",
-            identity,
+            agent_id,
             json.dumps({"constitution_hash": const_hash, "role": role, "model": model}),
         )
     except (FileNotFoundError, ValueError):

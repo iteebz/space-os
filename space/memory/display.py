@@ -16,7 +16,7 @@ from . import db
 def show_context(identity: str):
     typer.echo("\n" + "─" * 60)
 
-    knowledge_entries = knowledge_db.query_by_contributor(identity)
+    knowledge_entries = knowledge_db.query_by_agent(identity)
     if knowledge_entries:
         domains = {e.domain for e in knowledge_entries}
         typer.echo(
@@ -37,23 +37,27 @@ def show_wake_summary(identity: str, quiet_output: bool):
         typer.echo(wake_prompts.SELF_DESCRIPTION.format(description=self_desc))
     typer.echo()
 
+    from ..spawn import registry
+    
+    agent_id = registry.get_agent_id(identity)
+    
     events_db = paths.space_root() / "events.db"
-    if events_db.exists():
+    if events_db.exists() and agent_id:
         with lib_db.connect(events_db) as conn:
             wake_row = conn.execute(
-                "SELECT timestamp FROM events WHERE identity = ? AND source = 'identity' AND event_type = 'wake' ORDER BY timestamp DESC LIMIT 1",
-                (identity,),
+                "SELECT timestamp FROM events WHERE agent_id = ? AND source = 'identity' AND event_type = 'wake' ORDER BY timestamp DESC LIMIT 1",
+                (agent_id,),
             ).fetchone()
 
             if wake_row:
                 wake_count = conn.execute(
-                    "SELECT COUNT(*) FROM events WHERE identity = ? AND source = 'identity' AND event_type = 'wake'",
-                    (identity,),
+                    "SELECT COUNT(*) FROM events WHERE agent_id = ? AND source = 'identity' AND event_type = 'wake'",
+                    (agent_id,),
                 ).fetchone()[0]
 
                 sleep_row = conn.execute(
-                    "SELECT timestamp FROM events WHERE identity = ? AND source = 'identity' AND event_type = 'sleep' ORDER BY timestamp DESC LIMIT 1",
-                    (identity,),
+                    "SELECT timestamp FROM events WHERE agent_id = ? AND source = 'identity' AND event_type = 'sleep' ORDER BY timestamp DESC LIMIT 1",
+                    (agent_id,),
                 ).fetchone()
 
                 last_spawn_duration = _format_duration(time.time() - wake_row[0])
