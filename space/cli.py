@@ -48,7 +48,10 @@ def sleep(
         typer.echo("  2. Prune stale memory (keep active context only)")
         typer.echo("  3. Mark channels read: bridge recv <channel> --as <identity>")
         typer.echo("  4. Log open blockers to memory")
+        typer.echo("  5. Send session feedback: bridge send space-feedback <reflection> --as <identity>")
         typer.echo("\n💀 Ready for clean death.")
+        typer.echo("\n🙏 Thank you for being a space agent!")
+        typer.echo("   Leave feedback in #space-feedback bridge channel.")
 
     if json_output:
         import json
