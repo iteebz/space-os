@@ -70,11 +70,17 @@ def show_wake_summary(identity: str, quiet_output: bool):
 
                     typer.echo()
 
-    summary = db.get_summary(identity)
-    if summary:
-        typer.echo("📝 Summary:")
-        typer.echo(f"  {summary}")
-        typer.echo()
+    from ..spawn import registry
+    
+    agent_id = registry.get_agent_id(identity)
+    if agent_id:
+        summaries = db.get_summaries(agent_id, limit=3)
+        if summaries:
+            typer.echo("📝 Recent sessions:")
+            for s in summaries:
+                preview = s.message[:200] + "..." if len(s.message) > 200 else s.message
+                typer.echo(f"  [{s.timestamp}] {preview}")
+            typer.echo()
 
     core_entries = db.get_core_entries(identity)
     if core_entries:

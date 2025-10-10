@@ -133,37 +133,56 @@ def set_summary(agent_id: str, message: str):
     now = int(time.time())
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
 
+    entry_uuid = uuid7()
     with connect() as conn:
-        old = conn.execute(
-            "SELECT uuid, message FROM memory WHERE agent_id = ? AND source = 'summary'",
-            (agent_id,),
-        ).fetchone()
-
-        if old:
-            events.emit("memory", "summary.replace", agent_id, f"old: {old[1][:50]}")
-
-        conn.execute(
-            "DELETE FROM memory WHERE agent_id = ? AND source = 'summary'",
-            (agent_id,),
-        )
-
-        entry_uuid = uuid7()
         conn.execute(
             "INSERT INTO memory (uuid, identity, agent_id, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (entry_uuid, identity, agent_id, "summary", message, ts, now, 0, "summary"),
         )
         conn.commit()
 
-    events.emit("memory", "summary.set", agent_id, message[:50])
+    events.emit("memory", "summary.add", agent_id, message[:50])
 
 
 def get_summary(agent_id: str) -> str | None:
+    """Get most recent summary."""
     with connect() as conn:
         row = conn.execute(
-            "SELECT message FROM memory WHERE agent_id = ? AND source = 'summary'",
+            "SELECT message FROM memory WHERE agent_id = ? AND source = 'summary' ORDER BY created_at DESC LIMIT 1",
             (agent_id,),
         ).fetchone()
     return row[0] if row else None
+
+
+def get_summaries(agent_id: str, limit: int = 5) -> list[Memory]:
+    """Get recent summaries (linked list of session handoffs)."""
+    from ..spawn import registry
+    
+    identity = registry.get_agent_name(agent_id)
+    if not identity:
+        return []
+    
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE agent_id = ? AND source = 'summary' ORDER BY created_at DESC LIMIT ?",
+            (agent_id, limit),
+        ).fetchall()
+    return [
+        Memory(
+            row[0],
+            identity,
+            row[2],
+            row[3],
+            row[4],
+            row[5],
+            row[6],
+            bool(row[7]),
+            row[8],
+            row[9],
+            row[10],
+        )
+        for row in rows
+    ]
 
 
 def get_entries(
