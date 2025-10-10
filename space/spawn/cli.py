@@ -1,27 +1,43 @@
 import typer
 
-from ..lib import readme
 from . import registry, spawn
 
 app = typer.Typer()
 
 
-@app.callback(invoke_without_command=True)
-def main_command(
-    ctx: typer.Context,
-    agent_id: str = typer.Argument(None, help="Agent to spawn (role or agent_name)"),
-):
+@app.command(name="rename")
+def rename_cmd(old_name: str, new_name: str):
+    """Rename an agent."""
+    registry.init_db()
+    if registry.rename_agent(old_name, new_name):
+        typer.echo(f"✓ Renamed {old_name} → {new_name}")
+    else:
+        typer.echo(f"❌ Agent not found: {old_name}", err=True)
+        raise typer.Exit(1)
+
+
+@app.callback()
+def main_command(ctx: typer.Context):
     """Constitutional agent registry"""
     registry.init_db()
 
-    if agent_id:
-        _spawn_from_registry(agent_id, ctx.args)
-    elif not ctx.invoked_subcommand:
-        try:
-            protocol_content = readme.load("spawn")
-            typer.echo(protocol_content)
-        except (FileNotFoundError, ValueError) as e:
-            typer.echo(f"❌ spawn README not found: {e}")
+
+@app.command(name="launch", hidden=True)
+def launch_cmd(agent_id: str, extra: list[str] = typer.Argument(None)):
+    """Launch an agent (internal fallback)."""
+    _spawn_from_registry(agent_id, extra or [])
+
+
+def main() -> None:
+    """Entry point for poetry script."""
+    import sys
+
+    if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
+        cmd = sys.argv[1]
+        if cmd not in ["rename"]:
+            sys.argv.insert(1, "launch")
+
+    app()
 
 
 def _spawn_from_registry(arg: str, extra_args: list[str]):
@@ -66,11 +82,6 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
 
     typer.echo(f"❌ Unknown role or agent: {arg}", err=True)
     raise typer.Exit(1)
-
-
-def main() -> None:
-    """Entry point for poetry script."""
-    app()
 
 
 if __name__ == "__main__":

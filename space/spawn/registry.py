@@ -1,4 +1,5 @@
 import sqlite3
+import uuid
 from contextlib import contextmanager
 
 from . import config
@@ -16,10 +17,11 @@ def init_db():
             )
         """)
         conn.execute("""
-            CREATE TABLE IF NOT EXISTS identities (
-                name TEXT PRIMARY KEY,
+            CREATE TABLE IF NOT EXISTS agents (
+                id TEXT PRIMARY KEY,
+                name TEXT UNIQUE NOT NULL,
                 self_description TEXT,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
         _apply_migrations(conn)
@@ -61,24 +63,30 @@ def get_db():
 
 
 def get_self_description(agent_name: str) -> str | None:
-    """Get self-description for identity."""
+    """Get self-description for agent."""
     with get_db() as conn:
         row = conn.execute(
-            "SELECT self_description FROM identities WHERE name = ?",
+            "SELECT self_description FROM agents WHERE name = ?",
             (agent_name,),
         ).fetchone()
         return row["self_description"] if row else None
 
 
 def set_self_description(agent_name: str, description: str) -> bool:
-    """Set self-description for identity. Returns True when an update occurs."""
-    import time
-
+    """Set self-description for agent. Returns True when an update occurs."""
     with get_db() as conn:
-        conn.execute(
-            "INSERT OR REPLACE INTO identities (name, self_description, updated_at) VALUES (?, ?, ?)",
-            (agent_name, description, time.time()),
-        )
+        row = conn.execute("SELECT id FROM agents WHERE name = ?", (agent_name,)).fetchone()
+        if row:
+            conn.execute(
+                "UPDATE agents SET self_description = ? WHERE id = ?",
+                (description, row["id"]),
+            )
+        else:
+            agent_id = str(uuid.uuid4())
+            conn.execute(
+                "INSERT INTO agents (id, name, self_description) VALUES (?, ?, ?)",
+                (agent_id, agent_name, description),
+            )
         conn.commit()
         return True
 
@@ -91,6 +99,8 @@ def _apply_migrations(conn):
         ("migrate_to_identities", _migrate_to_identities),
         ("drop_registrations", "DROP TABLE IF EXISTS registrations"),
         ("drop_invocations", "DROP TABLE IF EXISTS invocations"),
+        ("rename_identities_to_agents", _rename_identities_to_agents),
+        ("drop_registry", "DROP TABLE IF EXISTS registry"),
     ]
 
     for name, migration in migrations:
@@ -105,6 +115,17 @@ def _apply_migrations(conn):
             except sqlite3.OperationalError as e:
                 if "duplicate column" not in str(e).lower():
                     raise RuntimeError(f"Migration '{name}' failed: {e}") from e
+
+
+def rename_agent(old_name: str, new_name: str) -> bool:
+    """Rename an agent. Returns True if renamed, False if old_name not found."""
+    with get_db() as conn:
+        row = conn.execute("SELECT id FROM agents WHERE name = ?", (old_name,)).fetchone()
+        if not row:
+            return False
+        conn.execute("UPDATE agents SET name = ? WHERE id = ?", (new_name, row["id"]))
+        conn.commit()
+        return True
 
 
 def _migrate_to_identities(conn):
@@ -124,3 +145,29 @@ def _migrate_to_identities(conn):
             "INSERT OR IGNORE INTO identities (name, self_description) VALUES (?, ?)",
             (row[0], row[1]),
         )
+
+
+def _rename_identities_to_agents(conn):
+    """Rename identities table to agents and add UUID primary key."""
+    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='identities'")
+    if not cursor.fetchone():
+        return
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS agents (
+            id TEXT PRIMARY KEY,
+            name TEXT UNIQUE NOT NULL,
+            self_description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    rows = conn.execute("SELECT name, self_description FROM identities").fetchall()
+    for row in rows:
+        agent_id = str(uuid.uuid4())
+        conn.execute(
+            "INSERT OR IGNORE INTO agents (id, name, self_description) VALUES (?, ?, ?)",
+            (agent_id, row[0], row[1]),
+        )
+
+    conn.execute("DROP TABLE IF EXISTS identities")

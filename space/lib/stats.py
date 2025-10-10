@@ -226,11 +226,9 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
 
     if spawn_db.exists():
         with db.connect(spawn_db) as conn:
-            for row in conn.execute(
-                "SELECT agent_name, COUNT(*) FROM registrations GROUP BY agent_name"
-            ):
+            for row in conn.execute("SELECT name FROM agents"):
                 if row[0] in identities:
-                    identities[row[0]]["spawns"] = row[1]
+                    identities[row[0]]["spawns"] = 1
 
     if mem_db.exists():
         with db.connect(mem_db) as conn:
@@ -293,22 +291,10 @@ def spawn_stats() -> SpawnStats:
         return SpawnStats(available=False)
 
     with db.connect(db_path) as conn:
-        total = conn.execute("SELECT COUNT(*) FROM invocations").fetchone()[0]
+        agents = conn.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
+        hashes = conn.execute("SELECT COUNT(*) FROM constitutions").fetchone()[0]
 
-        active_agents = conn.execute("SELECT DISTINCT agent_name FROM registrations").fetchall()
-        agents = len(active_agents)
-
-        if active_agents:
-            placeholders = ",".join("?" * len(active_agents))
-            agent_names = [row[0] for row in active_agents]
-            hashes = conn.execute(
-                f"SELECT COUNT(DISTINCT constitution_hash) FROM registrations WHERE agent_name IN ({placeholders})",
-                agent_names,
-            ).fetchone()[0]
-        else:
-            hashes = 0
-
-    return SpawnStats(available=True, total=total, agents=agents, hashes=hashes)
+    return SpawnStats(available=True, total=agents, agents=agents, hashes=hashes)
 
 
 def collect(limit: int = None) -> SpaceStats:
