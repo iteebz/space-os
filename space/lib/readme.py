@@ -1,13 +1,12 @@
 """README lattice extraction pattern.
 
-Single source of truth: main README.md contains all protocol documentation.
-CLIs extract their sections via lattice.load(heading).
+SSOT: Module READMEs are the source of truth.
+CLIs load their module README directly via load_module(name).
 
 Pattern:
-- space/handover/README.md or space/{module}/README.md = detailed protocol
-- Main README.md = single source of truth for CLI help text
-- lattice.load("### handover") extracts section when CLI runs
-- Update README.md = all CLIs update automatically
+- space/{module}/README.md = protocol personality + instructions
+- CLI → load_module("bridge") → space/bridge/README.md
+- Update module README = CLI updates automatically
 
 Zero duplication. Impossible drift. Documentation IS executable.
 """
@@ -15,25 +14,29 @@ Zero duplication. Impossible drift. Documentation IS executable.
 import hashlib
 from pathlib import Path
 
+README = Path(__file__).resolve().parents[2] / "README.md"
 
-def _resolve_readme() -> Path:
-    """Locate README in both source tree and installed package layouts."""
+
+def _resolve_module_readme(module_name: str) -> Path:
+    """Locate module README in source tree."""
     base = Path(__file__).resolve()
     candidates = [
-        base.parents[2] / "README.md",
-        base.parents[1] / "README.md",
-        Path.cwd() / "README.md",
+        base.parents[1] / module_name / "README.md",
+        base.parents[0] / module_name / "README.md",
     ]
     for candidate in candidates:
         if candidate.exists():
             return candidate
-    raise FileNotFoundError(f"README not found in any known location: {candidates}")
+    raise FileNotFoundError(f"README not found for module {module_name}: {candidates}")
 
 
-README = _resolve_readme()
+def load(module_name: str) -> str:
+    """Load full README for a module."""
+    readme_path = _resolve_module_readme(module_name)
+    return readme_path.read_text().strip()
 
 
-def load(section_heading: str) -> str:
+def load_section(section_heading: str) -> str:
     """Extract section from README.md by heading.
 
     Args:
@@ -74,7 +77,7 @@ def load(section_heading: str) -> str:
 
 def hash_protocol(protocol_name: str) -> str:
     """Loads a protocol file by name, hashes its content, and returns the hash."""
-    content = load(protocol_name)
+    content = load_section(protocol_name)
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
@@ -83,7 +86,7 @@ def save_protocol(protocol_name: str) -> str:
     from ..spawn import registry
 
     registry.init_db()
-    content = load(protocol_name)
+    content = load_section(protocol_name)
     protocol_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
     registry.save_constitution(protocol_hash, content)
     return protocol_hash

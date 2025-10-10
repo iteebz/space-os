@@ -21,7 +21,17 @@ def test_bridge_smoketest():
     result = runner.invoke(bridge_app)
 
     assert (
-        "### bridge" in result.stdout or "### bridge" in result.stderr
+        "Async message bus for constitutional coordination" in result.stdout
+        or "Async message bus for constitutional coordination" in result.stderr
+    )
+
+
+def test_bridge_loads_module_readme():
+    """bridge command shows space/bridge/README.md content"""
+    result = runner.invoke(bridge_app)
+    assert "**BRIDGE**: Async message bus" in result.stdout
+    assert (
+        "You're looking at the coordination layer" in result.stdout
     )  # Check for a known instruction from bridge.cli
 
 
@@ -29,7 +39,8 @@ def test_spawn_smoketest():
     result = runner.invoke(spawn_app)
 
     assert (
-        "### spawn" in result.stdout or "### spawn" in result.stderr
+        "Constitutional identity registry" in result.stdout
+        or "Constitutional identity registry" in result.stderr
     )
 
 
@@ -51,7 +62,8 @@ def test_memory_smoketest():
     result = runner.invoke(memory_app)
 
     assert (
-        "### memory" in result.stdout or "### memory" in result.stderr
+        "Working context that survives compaction" in result.stdout
+        or "Working context that survives compaction" in result.stderr
     )  # Check for a known instruction from memory.cli
 
 
@@ -59,7 +71,8 @@ def test_knowledge_smoketest():
     result = runner.invoke(knowledge_app)
 
     assert (
-        "### knowledge" in result.stdout or "### knowledge" in result.stderr
+        "Shared memory across agents" in result.stdout
+        or "Shared memory across agents" in result.stderr
     )  # Check for a known instruction from knowledge.cli
 
 

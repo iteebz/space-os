@@ -5,7 +5,7 @@ import typer
 from .bridge.api import channels as bridge_channels
 from .commands import agents, backup, context, events, init, search, stats, trace
 from .knowledge.cli import app as knowledge_app
-from .lib import lattice
+from .lib import readme
 from .memory import db as memory_db
 from .memory.cli import app as memory_app
 
@@ -50,10 +50,10 @@ def wake(
     """Load identity context + pull active bridge channels."""
     from . import events
     from .spawn import registry
-    
+
     registry.record_invocation(identity)
     events.identify(identity, "wake")
-    
+
     if not quiet:
         typer.echo(f"Waking {identity}...")
         typer.echo()
@@ -83,9 +83,9 @@ def sleep(
 ):
     """Pre-compaction hygiene. Pass clean context to next self across death boundary."""
     from . import events
-    
+
     events.identify(identity, "sleep")
-    
+
     if not quiet:
         typer.echo(f"Running sleep for {identity}...")
 
@@ -169,7 +169,7 @@ def main_command(
 ):
     if ctx.resilient_parsing or ctx.invoked_subcommand is None:
         try:
-            typer.echo(lattice.load("## Orientation"))
+            typer.echo(readme.load("## Orientation"))
         except (FileNotFoundError, ValueError) as e:
             typer.echo(f"❌ Orientation section not found in README: {e}")
 

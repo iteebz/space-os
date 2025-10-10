@@ -1,6 +1,6 @@
 import typer
 
-from ..lib import lattice
+from ..lib import readme
 from . import registry, spawn
 
 app = typer.Typer()
@@ -18,12 +18,10 @@ def main_command(
         _spawn_from_registry(agent_id, ctx.args)
     elif not ctx.invoked_subcommand:
         try:
-            protocol_content = lattice.load("# spawn")
+            protocol_content = readme.load_section("# spawn")
             typer.echo(protocol_content)
         except (FileNotFoundError, ValueError) as e:
             typer.echo(f"❌ spawn section not found in README: {e}")
-
-
 
 
 def _spawn_from_registry(arg: str, extra_args: list[str]):
@@ -32,7 +30,7 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
     agent = None
     model = None
     passthrough = []
-    
+
     i = 0
     while i < len(extra_args):
         if extra_args[i] == "--as" and i + 1 < len(extra_args):
@@ -49,19 +47,33 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
 
     if arg in cfg["roles"]:
         agent_name = spawn.auto_register_if_needed(arg, model)
-        spawn.launch_agent(arg, agent_name=agent_name, base_identity=agent, extra_args=passthrough, model=model)
+        spawn.launch_agent(
+            arg, agent_name=agent_name, base_identity=agent, extra_args=passthrough, model=model
+        )
         return
 
     regs = [r for r in registry.list_registrations() if r.agent_name == arg]
     if regs:
         reg = regs[0]
-        spawn.launch_agent(reg.role, agent_name=arg, base_identity=agent, extra_args=passthrough, model=model or reg.model)
+        spawn.launch_agent(
+            reg.role,
+            agent_name=arg,
+            base_identity=agent,
+            extra_args=passthrough,
+            model=model or reg.model,
+        )
         return
 
     if "-" in arg:
         inferred_role = arg.split("-", 1)[0]
         if inferred_role in cfg["roles"]:
-            spawn.launch_agent(inferred_role, agent_name=arg, base_identity=agent, extra_args=passthrough, model=model)
+            spawn.launch_agent(
+                inferred_role,
+                agent_name=arg,
+                base_identity=agent,
+                extra_args=passthrough,
+                model=model,
+            )
             return
 
     typer.echo(f"❌ Unknown role or agent: {arg}", err=True)

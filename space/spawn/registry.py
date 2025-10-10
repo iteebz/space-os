@@ -282,10 +282,10 @@ def _migrate_rename_idx_sender_topic(conn):
 def record_invocation(identity: str):
     """Record identity invocation timestamp."""
     import time
+
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO invocations (identity, invoked_at) VALUES (?, ?)",
-            (identity, time.time())
+            "INSERT INTO invocations (identity, invoked_at) VALUES (?, ?)", (identity, time.time())
         )
         conn.commit()
 
@@ -295,7 +295,7 @@ def get_invocation_stats(identity: str):
     with get_db() as conn:
         row = conn.execute(
             "SELECT MAX(invoked_at) as last_spawn, COUNT(*) as total_spawns FROM invocations WHERE identity = ?",
-            (identity,)
+            (identity,),
         ).fetchone()
         if row and row["last_spawn"]:
             return {"last_spawn": row["last_spawn"], "total_spawns": row["total_spawns"]}

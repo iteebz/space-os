@@ -4,7 +4,7 @@ import json
 
 import typer
 
-from space.lib import lattice
+from space.lib import readme
 
 from . import api, utils
 from .commands import (
@@ -22,7 +22,8 @@ from .commands import (
 from .commands import (
     send as send_cmds,
 )
-from .commands.channels import app as channels_app, archive as archive_cmd
+from .commands.channels import app as channels_app
+from .commands.channels import archive as archive_cmd
 from .commands.monitor import app as monitor_app
 
 app = typer.Typer(invoke_without_command=True, add_help_option=False)
@@ -47,9 +48,9 @@ def main_command(
     """Bridge: AI Coordination Protocol"""
     if help_flag:
         try:
-            typer.echo(lattice.load("# bridge"))
+            typer.echo(readme.load_module("bridge"))
         except (FileNotFoundError, ValueError) as e:
-            typer.echo(f"❌ bridge section not found in README: {e}")
+            typer.echo(f"❌ bridge README not found: {e}")
             typer.echo()
         typer.echo(ctx.command.get_help(ctx))
         raise typer.Exit()
@@ -65,9 +66,9 @@ def main_command(
         else:
             if not quiet_output:
                 try:
-                    typer.echo(lattice.load("# bridge"))
+                    typer.echo(readme.load("bridge"))
                 except (FileNotFoundError, ValueError) as e:
-                    typer.echo(f"❌ bridge section not found in README: {e}")
+                    typer.echo(f"❌ bridge README not found: {e}")
                 else:
                     typer.echo()
 

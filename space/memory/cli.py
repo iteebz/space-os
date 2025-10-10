@@ -4,7 +4,7 @@ from dataclasses import asdict
 import typer
 
 from ..lib import identity as identity_lib
-from ..lib import lattice
+from ..lib import readme
 from . import db
 from .display import show_context, show_smart_memory
 
@@ -23,7 +23,7 @@ def main_command(
     if ctx.invoked_subcommand is None:
         if not identity:
             try:
-                protocol_content = lattice.load("# memory")
+                protocol_content = readme.load_section("# memory")
                 typer.echo(protocol_content)
             except (FileNotFoundError, ValueError) as e:
                 typer.echo(f"❌ memory section not found in README: {e}")

@@ -113,6 +113,8 @@ def rename(
     ),
 ):
     """Rename channel and preserve all coordination data."""
+    old_channel = old_channel.lstrip("#")
+    new_channel = new_channel.lstrip("#")
     success = api.rename_channel(old_channel, new_channel)
     if json_output:
         typer.echo(

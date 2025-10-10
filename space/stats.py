@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -88,9 +87,9 @@ def bridge_stats(limit: int = None) -> BridgeStats:
         active_channels = conn.execute(
             "SELECT COUNT(DISTINCT channel_id) FROM messages WHERE created_at > datetime('now', '-7 days')"
         ).fetchone()[0]
-        notes = conn.execute(
-            "SELECT COUNT(*) FROM notes WHERE channel_id IS NOT NULL"
-        ).fetchone()[0]
+        notes = conn.execute("SELECT COUNT(*) FROM notes WHERE channel_id IS NOT NULL").fetchone()[
+            0
+        ]
 
         if limit:
             leaderboard = [
@@ -107,7 +106,14 @@ def bridge_stats(limit: int = None) -> BridgeStats:
                     "SELECT sender, COUNT(*) as count FROM messages GROUP BY sender ORDER BY count DESC"
                 )
             ]
-    return BridgeStats(available=True, total=total, channels=channels, active_channels=active_channels, notes=notes, message_leaderboard=leaderboard)
+    return BridgeStats(
+        available=True,
+        total=total,
+        channels=channels,
+        active_channels=active_channels,
+        notes=notes,
+        message_leaderboard=leaderboard,
+    )
 
 
 def memory_stats(limit: int = None) -> MemoryStats:
@@ -117,9 +123,7 @@ def memory_stats(limit: int = None) -> MemoryStats:
 
     with memory_db.connect() as conn:
         total = conn.execute("SELECT COUNT(*) FROM memory").fetchone()[0]
-        active = conn.execute(
-            "SELECT COUNT(*) FROM memory WHERE archived_at IS NULL"
-        ).fetchone()[0]
+        active = conn.execute("SELECT COUNT(*) FROM memory WHERE archived_at IS NULL").fetchone()[0]
         archived = conn.execute(
             "SELECT COUNT(*) FROM memory WHERE archived_at IS NOT NULL"
         ).fetchone()[0]
@@ -138,7 +142,14 @@ def memory_stats(limit: int = None) -> MemoryStats:
             ).fetchall()
 
     leaderboard = [LeaderboardEntry(identity=row[0], count=row[1]) for row in rows]
-    return MemoryStats(available=True, total=total, active=active, archived=archived, topics=topics, leaderboard=leaderboard)
+    return MemoryStats(
+        available=True,
+        total=total,
+        active=active,
+        archived=archived,
+        topics=topics,
+        leaderboard=leaderboard,
+    )
 
 
 def knowledge_stats(limit: int = None) -> KnowledgeStats:
@@ -169,14 +180,21 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
             ).fetchall()
 
     leaderboard = [LeaderboardEntry(identity=row[0], count=row[1]) for row in rows]
-    return KnowledgeStats(available=True, total=total, active=active, archived=archived, topics=topics, leaderboard=leaderboard)
+    return KnowledgeStats(
+        available=True,
+        total=total,
+        active=active,
+        archived=archived,
+        topics=topics,
+        leaderboard=leaderboard,
+    )
 
 
 def agent_stats(limit: int = None) -> list[AgentStats] | None:
     from . import events
     from .spawn import config as spawn_config
     from .spawn import registry
-    
+
     bridge_db = bridge_config.DB_PATH
     mem_db = memory_db.database_path()
     know_db = knowledge_db.database_path()
@@ -187,10 +205,14 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
     identities = {}
 
     with libdb.connect(bridge_db) as conn:
-        for row in conn.execute(
-            "SELECT sender, COUNT(*) as msgs FROM messages GROUP BY sender"
-        ):
-            identities[row[0]] = {"msgs": row[1], "last_active": None, "mems": 0, "knowledge": 0, "spawns": 0}
+        for row in conn.execute("SELECT sender, COUNT(*) as msgs FROM messages GROUP BY sender"):
+            identities[row[0]] = {
+                "msgs": row[1],
+                "last_active": None,
+                "mems": 0,
+                "knowledge": 0,
+                "spawns": 0,
+            }
 
         for row in conn.execute(
             "SELECT sender, GROUP_CONCAT(DISTINCT channel_id) FROM messages WHERE channel_id IS NOT NULL GROUP BY sender"
@@ -198,17 +220,21 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
             channels = row[1].split(",") if row[1] else []
             if row[0] in identities:
                 identities[row[0]]["channels"] = channels
-    
+
     if events.DB_PATH.exists():
         with libdb.connect(events.DB_PATH) as conn:
-            for row in conn.execute("SELECT identity, MAX(timestamp) FROM events WHERE identity IS NOT NULL GROUP BY identity"):
+            for row in conn.execute(
+                "SELECT identity, MAX(timestamp) FROM events WHERE identity IS NOT NULL GROUP BY identity"
+            ):
                 if row[0] in identities:
                     identities[row[0]]["last_active"] = str(row[1])
-    
+
     spawn_db = spawn_config.registry_db()
     if spawn_db.exists():
         with registry.get_db() as conn:
-            for row in conn.execute("SELECT agent_name, COUNT(*) FROM registrations GROUP BY agent_name"):
+            for row in conn.execute(
+                "SELECT agent_name, COUNT(*) FROM registrations GROUP BY agent_name"
+            ):
                 if row[0] in identities:
                     identities[row[0]]["spawns"] = row[1]
 
@@ -233,21 +259,20 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
             ts = datetime.fromtimestamp(int(ts_str))
             now = datetime.now()
             delta = now - ts
-            
+
             if delta < timedelta(minutes=1):
                 return "just now"
-            elif delta < timedelta(hours=1):
+            if delta < timedelta(hours=1):
                 mins = int(delta.total_seconds() / 60)
                 return f"{mins}m ago"
-            elif delta < timedelta(days=1):
+            if delta < timedelta(days=1):
                 hours = int(delta.total_seconds() / 3600)
                 return f"{hours}h ago"
-            elif delta < timedelta(days=7):
+            if delta < timedelta(days=7):
                 days = delta.days
                 return f"{days}d ago"
-            else:
-                return ts.strftime("%b %d")
-        except:
+            return ts.strftime("%b %d")
+        except (ValueError, TypeError):
             return None
 
     agents = [
@@ -278,18 +303,16 @@ def spawn_stats() -> SpawnStats:
 
     with registry.get_db() as conn:
         total = conn.execute("SELECT COUNT(*) FROM invocations").fetchone()[0]
-        
-        active_agents = conn.execute(
-            "SELECT DISTINCT agent_name FROM registrations"
-        ).fetchall()
+
+        active_agents = conn.execute("SELECT DISTINCT agent_name FROM registrations").fetchall()
         agents = len(active_agents)
-        
+
         if active_agents:
-            placeholders = ','.join('?' * len(active_agents))
+            placeholders = ",".join("?" * len(active_agents))
             agent_names = [row[0] for row in active_agents]
             hashes = conn.execute(
                 f"SELECT COUNT(DISTINCT constitution_hash) FROM registrations WHERE agent_name IN ({placeholders})",
-                agent_names
+                agent_names,
             ).fetchone()[0]
         else:
             hashes = 0
