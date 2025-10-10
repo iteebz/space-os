@@ -74,6 +74,14 @@ def _migrate_schema(db_path: Path):
         if "agent_id" not in columns:
             conn.execute("ALTER TABLE memory ADD COLUMN agent_id TEXT")
             conn.commit()
+            
+            from ..spawn import registry
+            rows = conn.execute("SELECT uuid, identity FROM memory WHERE agent_id IS NULL").fetchall()
+            for uuid, identity in rows:
+                agent_id = registry.get_agent_id(identity)
+                if agent_id:
+                    conn.execute("UPDATE memory SET agent_id = ? WHERE uuid = ?", (agent_id, uuid))
+            conn.commit()
 
 
 def _resolve_uuid(short_uuid: str) -> str:
@@ -95,13 +103,19 @@ def _resolve_uuid(short_uuid: str) -> str:
 
 
 def add_entry(agent_id: str, topic: str, message: str, core: bool = False, source: str = "manual"):
+    from ..spawn import registry
+    
+    identity = registry.get_agent_name(agent_id)
+    if not identity:
+        raise ValueError(f"No identity for agent_id {agent_id}")
+    
     entry_uuid = uuid7()
     now = int(time.time())
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
     with connect() as conn:
         conn.execute(
-            "INSERT INTO memory (uuid, agent_id, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (entry_uuid, agent_id, topic, message, ts, now, 1 if core else 0, source),
+            "INSERT INTO memory (uuid, identity, agent_id, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (entry_uuid, identity, agent_id, topic, message, ts, now, 1 if core else 0, source),
         )
         conn.commit()
     events.emit(
@@ -110,6 +124,12 @@ def add_entry(agent_id: str, topic: str, message: str, core: bool = False, sourc
 
 
 def set_summary(agent_id: str, message: str):
+    from ..spawn import registry
+    
+    identity = registry.get_agent_name(agent_id)
+    if not identity:
+        raise ValueError(f"No identity for agent_id {agent_id}")
+    
     now = int(time.time())
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
 
@@ -129,8 +149,8 @@ def set_summary(agent_id: str, message: str):
 
         entry_uuid = uuid7()
         conn.execute(
-            "INSERT INTO memory (uuid, agent_id, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (entry_uuid, agent_id, "summary", message, ts, now, 0, "summary"),
+            "INSERT INTO memory (uuid, identity, agent_id, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (entry_uuid, identity, agent_id, "summary", message, ts, now, 0, "summary"),
         )
         conn.commit()
 

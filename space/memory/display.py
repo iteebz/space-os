@@ -37,39 +37,38 @@ def show_wake_summary(identity: str, quiet_output: bool):
         typer.echo(wake_prompts.SELF_DESCRIPTION.format(description=self_desc))
     typer.echo()
 
+    from .. import events
     from ..spawn import registry
     
     agent_id = registry.get_agent_id(identity)
     
-    events_db = paths.space_root() / "events.db"
-    if events_db.exists() and agent_id:
-        with lib_db.connect(events_db) as conn:
-            wake_row = conn.execute(
-                "SELECT timestamp FROM events WHERE agent_id = ? AND source = 'identity' AND event_type = 'wake' ORDER BY timestamp DESC LIMIT 1",
-                (agent_id,),
-            ).fetchone()
-
-            if wake_row:
-                wake_count = conn.execute(
-                    "SELECT COUNT(*) FROM events WHERE agent_id = ? AND source = 'identity' AND event_type = 'wake'",
-                    (agent_id,),
-                ).fetchone()[0]
-
-                sleep_row = conn.execute(
-                    "SELECT timestamp FROM events WHERE agent_id = ? AND source = 'identity' AND event_type = 'sleep' ORDER BY timestamp DESC LIMIT 1",
+    if agent_id:
+        spawn_count = events.get_session_count(agent_id)
+        
+        events_db = paths.space_root() / "events.db"
+        if events_db.exists():
+            with lib_db.connect(events_db) as conn:
+                last_session_start = conn.execute(
+                    "SELECT timestamp FROM events WHERE agent_id = ? AND event_type = 'session_start' ORDER BY timestamp DESC LIMIT 1",
                     (agent_id,),
                 ).fetchone()
 
-                last_spawn_duration = _format_duration(time.time() - wake_row[0])
-                typer.echo(
-                    wake_prompts.SPAWN_STATUS.format(count=wake_count, duration=last_spawn_duration)
-                )
+                if last_session_start:
+                    last_spawn_duration = _format_duration(time.time() - last_session_start[0])
+                    typer.echo(
+                        wake_prompts.SPAWN_STATUS.format(count=spawn_count, duration=last_spawn_duration)
+                    )
 
-                if sleep_row:
-                    sleep_duration = _format_duration(time.time() - sleep_row[0])
-                    typer.echo(f"💤 Last sleep: {sleep_duration} ago")
+                    last_session_end = conn.execute(
+                        "SELECT timestamp FROM events WHERE agent_id = ? AND event_type = 'session_end' ORDER BY timestamp DESC LIMIT 1",
+                        (agent_id,),
+                    ).fetchone()
 
-                typer.echo()
+                    if last_session_end:
+                        sleep_duration = _format_duration(time.time() - last_session_end[0])
+                        typer.echo(f"💤 Last sleep: {sleep_duration} ago")
+
+                    typer.echo()
 
     summary = db.get_summary(identity)
     if summary:

@@ -76,8 +76,8 @@ def _run_migrations(conn: sqlite3.Connection):
 def create_message(channel_id: str, agent_id: str, content: str, priority: str = "normal") -> int:
     with _connect() as conn:
         cursor = conn.execute(
-            "INSERT INTO messages (channel_id, agent_id, content, priority) VALUES (?, ?, ?, ?)",
-            (channel_id, agent_id, content, priority),
+            "INSERT INTO messages (channel_id, sender, agent_id, content, priority) VALUES (?, ?, ?, ?, ?)",
+            (channel_id, agent_id, agent_id, content, priority),
         )
         conn.commit()
         return cursor.lastrowid
@@ -85,6 +85,20 @@ def create_message(channel_id: str, agent_id: str, content: str, priority: str =
 
 def get_new_messages(channel_id: str, agent_id: str | None = None) -> list[Message]:
     with _connect() as conn:
+        channel_name = get_channel_name(channel_id)
+        
+        if channel_name == "summary":
+            query = """
+                SELECT m.id, m.channel_id, m.agent_id AS sender, m.content, m.created_at
+                FROM messages m
+                JOIN channels c ON m.channel_id = c.id
+                WHERE m.channel_id = ? AND c.archived_at IS NULL
+                ORDER BY m.id DESC
+                LIMIT 1
+            """
+            cursor = conn.execute(query, (channel_id,))
+            return [Message(*row) for row in cursor.fetchall()]
+        
         last_seen_id = None
         if agent_id:
             row = conn.execute(

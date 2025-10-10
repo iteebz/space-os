@@ -70,8 +70,8 @@ def write_knowledge(
     entry_id = uuid7()
     with connect() as conn:
         conn.execute(
-            "INSERT INTO knowledge (id, domain, content, confidence, agent_id) VALUES (?, ?, ?, ?, ?)",
-            (entry_id, domain, content, confidence, agent_id),
+            "INSERT INTO knowledge (id, domain, contributor, content, confidence, agent_id) VALUES (?, ?, ?, ?, ?, ?)",
+            (entry_id, domain, agent_id, content, confidence, agent_id),
         )
         conn.commit()
     events.emit("knowledge", "entry.write", agent_id, f"{domain}:{content[:50]}")

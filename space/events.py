@@ -30,6 +30,10 @@ def _migrate_schema(db_path: Path):
         if "agent_id" not in columns:
             conn.execute("ALTER TABLE events ADD COLUMN agent_id TEXT")
             conn.commit()
+        
+        if "session_id" not in columns:
+            conn.execute("ALTER TABLE events ADD COLUMN session_id TEXT")
+            conn.commit()
 
 def _connect():
     if not DB_PATH.exists():
@@ -38,15 +42,15 @@ def _connect():
     return db.connect(DB_PATH)
 
 
-def emit(source: str, event_type: str, agent_id: str | None = None, data: str | None = None):
+def emit(source: str, event_type: str, agent_id: str | None = None, data: str | None = None, session_id: str | None = None):
     """Emit event to append-only log."""
     event_id = uuid7()
     event_timestamp = int(time.time())
 
     with _connect() as conn:
         conn.execute(
-            "INSERT INTO events (id, source, event_type, data, timestamp, agent_id) VALUES (?, ?, ?, ?, ?, ?)",
-            (event_id, source, event_type, data, event_timestamp, agent_id),
+            "INSERT INTO events (id, source, event_type, data, timestamp, agent_id, session_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (event_id, source, event_type, data, event_timestamp, agent_id, session_id),
         )
         conn.commit()
 
@@ -81,7 +85,7 @@ def query(source: str | None = None, agent_id: str | None = None, limit: int = 1
     return rows
 
 
-def identify(identity: str, command: str):
+def identify(identity: str, command: str, session_id: str | None = None):
     """Provenance: track identity invocation.
 
     Creates immutable audit trail linking identity → command.
@@ -91,4 +95,36 @@ def identify(identity: str, command: str):
 
     constitute_identity(identity)
     agent_id = registry.ensure_agent(identity)
-    emit("identity", command, agent_id, "")
+    emit("identity", command, agent_id, "", session_id)
+
+
+def start_session(agent_id: str) -> str:
+    """Start new session, auto-close any open session for this agent."""
+    session_id = uuid7()
+    
+    with _connect() as conn:
+        open_session = conn.execute(
+            "SELECT session_id FROM events WHERE agent_id = ? AND event_type = 'session_start' AND session_id NOT IN (SELECT session_id FROM events WHERE event_type = 'session_end' AND agent_id = ?) ORDER BY timestamp DESC LIMIT 1",
+            (agent_id, agent_id),
+        ).fetchone()
+        
+        if open_session:
+            emit("session", "session_end", agent_id, "auto_closed", open_session[0])
+    
+    emit("session", "session_start", agent_id, "", session_id)
+    return session_id
+
+
+def end_session(agent_id: str, session_id: str):
+    """End current session."""
+    emit("session", "session_end", agent_id, "", session_id)
+
+
+def get_session_count(agent_id: str) -> int:
+    """Count completed sessions (session_start events)."""
+    with _connect() as conn:
+        result = conn.execute(
+            "SELECT COUNT(*) FROM events WHERE agent_id = ? AND event_type = 'session_start'",
+            (agent_id,),
+        ).fetchone()
+        return result[0] if result else 0

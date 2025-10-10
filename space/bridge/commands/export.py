@@ -5,6 +5,7 @@ from datetime import datetime
 import typer
 
 from .. import api
+from ...spawn.registry import get_agent_name
 
 app = typer.Typer()
 
@@ -38,7 +39,8 @@ def export(
             if data.topic:
                 typer.echo(f"Topic: {data.topic}")
                 typer.echo()
-            typer.echo(f"Participants: {', '.join(data.participants)}")
+            participant_names = [get_agent_name(p) or p for p in data.participants]
+            typer.echo(f"Participants: {', '.join(participant_names)}")
             typer.echo(f"Messages: {data.message_count}")
 
             if data.created_at:
@@ -62,11 +64,13 @@ def export(
                 timestamp = created.strftime("%Y-%m-%d %H:%M:%S")
 
                 if item_type == "msg":
-                    typer.echo(f"[{item.sender} | {timestamp}]")
+                    sender_name = get_agent_name(item.sender) or item.sender
+                    typer.echo(f"[{sender_name} | {timestamp}]")
                     typer.echo(item.content)
                     typer.echo()
                 else:
-                    typer.echo(f"[NOTE: {item.author} | {timestamp}]")
+                    author_name = get_agent_name(item.author) or item.author
+                    typer.echo(f"[NOTE: {author_name} | {timestamp}]")
                     typer.echo(item.content)
                     typer.echo()
 
@@ -76,5 +80,5 @@ def export(
                 json.dumps({"status": "error", "message": f"Channel '{channel}' not found."})
             )
         elif not quiet_output:
-            typer.echo(f"❌ Channel '{channel}' not found.")
+            typer.echo(f"❌ Channel '{channel}' not found. Run `bridge` to list channels.")
         raise typer.Exit(code=1) from e

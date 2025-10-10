@@ -20,7 +20,10 @@ def test_space(monkeypatch, tmp_path):
     monkeypatch.setattr(paths, "workspace_root", lambda: workspace)
     monkeypatch.setattr(Path, "home", lambda: workspace)
 
+    from space import events
     from space.bridge import config as bridge_config
+    
+    events.DB_PATH = workspace / ".space" / "events.db"
 
     bridge_config.SPACE_DIR = workspace / ".space"
     bridge_config.BRIDGE_DIR = bridge_config.SPACE_DIR / "bridge"

@@ -123,7 +123,7 @@ def query_by_agent_command(
         if json_output:
             typer.echo(json.dumps([]))
         elif not quiet_output:
-            typer.echo(f"Agent '{agent}' not found.")
+            typer.echo(f"Agent '{agent}' not found. Run `spawn` to list agents.")
         return
 
     entries = db.query_by_agent(agent_id, include_archived=include_archived)

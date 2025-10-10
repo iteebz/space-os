@@ -170,7 +170,7 @@ def archive(
                     }
                 )
             elif not quiet_output:
-                typer.echo(f"❌ Channel '{channel_name}' not found.")
+                typer.echo(f"❌ Channel '{channel_name}' not found. Run `bridge` to list channels.")
     if json_output:
         typer.echo(json.dumps(results))
 
@@ -196,4 +196,4 @@ def delete(
                 json.dumps({"status": "error", "message": f"Channel '{channel}' not found."})
             )
         elif not quiet_output:
-            typer.echo(f"❌ Channel '{channel}' not found.")
+            typer.echo(f"❌ Channel '{channel}' not found. Run `bridge` to list channels.")

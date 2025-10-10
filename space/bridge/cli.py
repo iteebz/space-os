@@ -48,7 +48,7 @@ def main_command(
     """Bridge: AI Coordination Protocol"""
     if help_flag:
         try:
-            typer.echo(readme.load_module("bridge"))
+            typer.echo(readme.load("bridge"))
         except (FileNotFoundError, ValueError) as e:
             typer.echo(f"❌ bridge README not found: {e}")
             typer.echo()
@@ -84,6 +84,21 @@ app.command("notes")(notes_cmds.notes)
 app.command("export")(export_cmds.export)
 app.command("history")(history_cmds.history)
 app.command("archive")(archive_cmd)
+
+
+@app.command()
+def list(
+    agent_id: str = typer.Option(None, "--as", help="Agent identity"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
+):
+    """List all active channels."""
+    if agent_id:
+        from space.spawn import registry
+        agent_id = registry.ensure_agent(agent_id)
+    _print_active_channels(agent_id, json_output, quiet_output)
 
 
 def _print_active_channels(agent_id: str, json_output: bool, quiet_output: bool):

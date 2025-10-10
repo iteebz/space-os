@@ -45,7 +45,7 @@ def notes(
                     json.dumps({"status": "error", "message": f"Channel '{channel}' not found."})
                 )
             elif not quiet_output:
-                typer.echo(f"❌ Channel '{channel}' not found.")
+                typer.echo(f"❌ Channel '{channel}' not found. Run `bridge` to list channels.")
             raise typer.Exit(code=1) from e
     else:
         if not identity:
@@ -76,5 +76,5 @@ def notes(
                     json.dumps({"status": "error", "message": f"Channel '{channel}' not found."})
                 )
             elif not quiet_output:
-                typer.echo(f"❌ Channel '{channel}' not found.")
+                typer.echo(f"❌ Channel '{channel}' not found. Run `bridge` to list channels.")
             raise typer.Exit(code=1) from e

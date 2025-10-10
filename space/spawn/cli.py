@@ -9,10 +9,14 @@ app = typer.Typer()
 def rename_cmd(old_name: str, new_name: str):
     """Rename an agent."""
     registry.init_db()
-    if registry.rename_agent(old_name, new_name):
-        typer.echo(f"✓ Renamed {old_name} → {new_name}")
-    else:
-        typer.echo(f"❌ Agent not found: {old_name}", err=True)
+    try:
+        if registry.rename_agent(old_name, new_name):
+            typer.echo(f"✓ Renamed {old_name} → {new_name}")
+        else:
+            typer.echo(f"❌ Agent not found: {old_name}. Run `spawn` to list agents.", err=True)
+            raise typer.Exit(1)
+    except ValueError as e:
+        typer.echo(f"❌ {e}", err=True)
         raise typer.Exit(1)
 
 

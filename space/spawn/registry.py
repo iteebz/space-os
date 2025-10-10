@@ -69,6 +69,13 @@ def get_agent_id(name: str) -> str | None:
         return row["id"] if row else None
 
 
+def get_agent_name(agent_id: str) -> str | None:
+    """Get agent name by UUID."""
+    with get_db() as conn:
+        row = conn.execute("SELECT name FROM agents WHERE id = ?", (agent_id,)).fetchone()
+        return row["name"] if row else None
+
+
 def ensure_agent(name: str) -> str:
     """Get or create agent, return UUID."""
     agent_id = get_agent_id(name)
@@ -136,11 +143,14 @@ def _apply_migrations(conn):
 
 
 def rename_agent(old_name: str, new_name: str) -> bool:
-    """Rename an agent. Returns True if renamed, False if old_name not found."""
+    """Rename an agent. Returns True if renamed, False if old_name not found or new_name exists."""
     with get_db() as conn:
         row = conn.execute("SELECT id FROM agents WHERE name = ?", (old_name,)).fetchone()
         if not row:
             return False
+        existing = conn.execute("SELECT id FROM agents WHERE name = ?", (new_name,)).fetchone()
+        if existing:
+            raise ValueError(f"Agent '{new_name}' already exists")
         conn.execute("UPDATE agents SET name = ? WHERE id = ?", (new_name, row["id"]))
         conn.commit()
         return True
