@@ -311,7 +311,7 @@ def get_export_data(channel_id: str) -> Export:
 
     participants = sorted({msg.sender for msg in messages})
 
-    return ExportData(
+    return Export(
         channel_id=channel_id,
         channel_name=channel_info["name"] if channel_info else None,
         topic=channel_info["topic"] if channel_info else None,
