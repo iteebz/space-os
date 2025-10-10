@@ -46,6 +46,13 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS invocations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                identity TEXT NOT NULL,
+                invoked_at REAL NOT NULL
+            )
+        """)
         _apply_migrations(conn)
         conn.commit()
 
@@ -270,3 +277,26 @@ def _migrate_rename_idx_sender_topic(conn):
     # Drop the old index and create a new one.
     conn.execute("DROP INDEX IF EXISTS idx_sender_topic")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_topic ON registrations(agent_name, topic)")
+
+
+def record_invocation(identity: str):
+    """Record identity invocation timestamp."""
+    import time
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO invocations (identity, invoked_at) VALUES (?, ?)",
+            (identity, time.time())
+        )
+        conn.commit()
+
+
+def get_invocation_stats(identity: str):
+    """Get invocation stats: last spawn time, total count."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT MAX(invoked_at) as last_spawn, COUNT(*) as total_spawns FROM invocations WHERE identity = ?",
+            (identity,)
+        ).fetchone()
+        if row and row["last_spawn"]:
+            return {"last_spawn": row["last_spawn"], "total_spawns": row["total_spawns"]}
+    return None

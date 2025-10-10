@@ -1,5 +1,4 @@
 import json
-from datetime import datetime, timedelta
 from typing import Annotated
 
 import typer
@@ -10,10 +9,14 @@ app = typer.Typer(invoke_without_command=True)
 
 
 @app.callback()
-def channels_root(ctx: typer.Context):
+def channels_root(
+    ctx: typer.Context,
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON output"),
+    quiet_output: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
+):
     """Bridge channel operations (defaults to listing)."""
     if ctx.invoked_subcommand is None:
-        list_channels()
+        list_channels(json_output=json_output, quiet_output=quiet_output)
 
 
 @app.command("list")
@@ -41,6 +44,7 @@ def list_channels(
                 "message_count": c.message_count,
                 "last_activity": c.last_activity,
                 "unread_count": c.unread_count,
+                "archived_at": c.archived_at,
             }
             for c in all_channels
         ]
@@ -50,29 +54,26 @@ def list_channels(
     active_channels = []
     archived_channels = []
 
-    archived_threshold = datetime.now() - timedelta(days=29)
-
     for channel in all_channels:
-        created_at_dt = datetime.fromisoformat(channel.created_at)
-        if created_at_dt < archived_threshold:
+        if channel.archived_at:
             archived_channels.append(channel)
         else:
             active_channels.append(channel)
-    active_channels.sort(key=lambda t: t.name)
+    active_channels.sort(key=lambda t: t.last_activity, reverse=True)
     archived_channels.sort(key=lambda t: t.name)
 
     if not quiet_output:
-        typer.echo("--- Active Channels ---")
+        typer.echo(f"--- Active Channels ({len(active_channels)}) ---")
 
         for channel in active_channels:
             last_activity, description = utils.format_channel_row(channel)
             typer.echo(f"{last_activity}: {description}")
 
         if archived_channels:
-            typer.echo("\n--- Archived Channels ---")
+            typer.echo(f"\n--- Archived Channels ({len(archived_channels)}) ---")
             for channel in archived_channels:
                 last_activity, description = utils.format_channel_row(channel)
-                typer.echo(f"{last_activity}: {description}")
+                typer.echo(f"  {description} ({last_activity})")
 
 
 @app.command()
@@ -133,14 +134,24 @@ def rename(
 @app.command()
 def archive(
     channels: Annotated[list[str], typer.Argument(...)],
+    prefix: bool = typer.Option(False, "--prefix", help="Treat arguments as prefixes to match."),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    """Archive channels by setting creation date to 30 days ago."""
+    """Archive channels by marking them inactive."""
+    channel_names = channels
+    if prefix:
+        all_channels = api.all_channels()
+        active = [c.name for c in all_channels if not c.archived_at]
+        matched = []
+        for pattern in channels:
+            matched.extend([name for name in active if name.startswith(pattern)])
+        channel_names = list(set(matched))
+
     results = []
-    for channel_name in channels:
+    for channel_name in channel_names:
         try:
             api.archive_channel(channel_name)
             if json_output:

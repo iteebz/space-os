@@ -71,3 +71,15 @@ def test_inbox_excludes_archived_channels(setup_channel):
     inbox_after = channels.inbox_channels(identity)
     test_channel_count_after = sum(1 for c in inbox_after if c.name == channel_name)
     assert test_channel_count_after == 0
+
+
+def test_all_channels_marks_archived_channels(setup_channel):
+    channel_name, channel_id, identity, message_content = setup_channel
+
+    channels.archive_channel(channel_name)
+
+    all_channel_records = channels.all_channels()
+    matched = [c for c in all_channel_records if c.name == channel_name]
+
+    assert matched
+    assert matched[0].archived_at is not None

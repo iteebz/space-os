@@ -21,6 +21,7 @@ class Channel:
     name: str
     topic: str | None = None
     created_at: str | None = None
+    archived_at: str | None = None
     participants: list[str] = None
     message_count: int = 0
     last_activity: str | None = None

@@ -47,6 +47,10 @@ def wake(
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
 ):
     """Load identity context + pull active bridge channels."""
+    from .spawn import registry
+    
+    registry.record_invocation(identity)
+    
     if not quiet:
         typer.echo(f"Waking {identity}...")
         typer.echo()
@@ -57,7 +61,8 @@ def wake(
 
     channels = bridge_channels.inbox_channels(identity)
     if channels:
-        typer.echo(f"📬 {len(channels)} unread channels:")
+        total_msgs = sum(ch.unread_count for ch in channels)
+        typer.echo(f"📬 {total_msgs} messages in {len(channels)} channels:")
         for ch in channels[:5]:
             typer.echo(f"  #{ch.name} ({ch.unread_count} unread)")
         if len(channels) > 5:

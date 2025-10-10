@@ -13,89 +13,24 @@ app = typer.Typer(
 
 
 @app.callback()
-def main_command(ctx: typer.Context):
+def main_command(
+    ctx: typer.Context,
+    agent: str | None = typer.Option(None, "--as", help="Agent to spawn as (e.g., claude, gemini)"),
+    model: str | None = typer.Option(None, "--model", help="Model override"),
+):
     """Constitutional agent registry"""
     registry.init_db()
 
     if ctx.invoked_subcommand is None:
         if ctx.args:
             sender_id = ctx.args[0]
-            _spawn_from_registry(sender_id, ctx.args[1:])
+            _spawn_from_registry(sender_id, ctx.args[1:], agent, model)
         else:
             try:
                 protocol_content = lattice.load("### spawn")
                 typer.echo(protocol_content)
             except (FileNotFoundError, ValueError) as e:
                 typer.echo(f"❌ spawn section not found in README: {e}")
-
-
-@app.command()
-def register(
-    role: str = typer.Argument(...),
-    agent_name: str = typer.Argument(...),
-    topic: str = typer.Argument(...),
-    client: str | None = typer.Option(
-        None, "--client", help="Client type (e.g., claude, gemini, codex)"
-    ),
-    model: str | None = typer.Option(
-        None, "--model", help="Model to use (e.g., claude-4.5-sonnet, gpt-5-codex)"
-    ),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
-):
-    """Register constitutional agent"""
-    try:
-        result = spawn.register_agent(role, agent_name, topic, client, model)
-        if json_output:
-            typer.echo(json.dumps(result))
-        elif not quiet_output:
-            model_suffix = f" (model: {result['model']})" if result.get("model") else ""
-            client_suffix = f" (client: {result['client']})" if result.get("client") else ""
-            typer.echo(
-                f"Registered: {result['role']} → {result['agent_name']} on {result['topic']} "
-                f"(constitution: {result['constitution_hash']}){client_suffix}{model_suffix}"
-            )
-    except Exception as e:
-        if json_output:
-            typer.echo(json.dumps({"status": "error", "message": str(e)}))
-        elif not quiet_output:
-            typer.echo(f"Registration failed: {e}", err=True)
-        raise typer.Exit(code=1) from e
-
-
-@app.command()
-def unregister(
-    role: str = typer.Argument(..., help="Role of the agent"),
-    agent_name: str = typer.Argument(..., help="Agent name"),
-    topic: str = typer.Argument(..., help="Topic the agent is unregistered from"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
-):
-    """Unregister agent"""
-    reg = registry.get_registration(role, agent_name, topic)
-    if not reg:
-        if json_output:
-            typer.echo(json.dumps({"status": "error", "message": "Registration not found"}))
-        elif not quiet_output:
-            typer.echo(f"Registration not found: {role} {agent_name} {topic}", err=True)
-        raise typer.Exit(code=1)
-
-    try:
-        registry.unregister(role, agent_name, topic)
-        if json_output:
-            typer.echo(json.dumps({"status": "success", "role": role, "agent_name": agent_name}))
-        elif not quiet_output:
-            typer.echo(f"Unregistered: {role} ({agent_name})")
-    except Exception as e:
-        if json_output:
-            typer.echo(json.dumps({"status": "error", "message": str(e)}))
-        elif not quiet_output:
-            typer.echo(f"Unregistration failed: {e}", err=True)
-        raise typer.Exit(code=1) from e
 
 
 @app.command(name="list")
@@ -132,76 +67,6 @@ def list_registrations(
                 f"{r.role:<15} {r.agent_name:<15} {client_display:<10} {r.topic:<20} {model_display:<20} "
                 f"{r.constitution_hash[:8]:<10} {r.registered_at:<20}"
             )
-
-
-@app.command()
-def constitution(
-    role: str = typer.Argument(...),
-):
-    """Get constitution path for role"""
-    try:
-        path = spawn.get_constitution_path(role)
-        typer.echo(str(path))
-    except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1) from e
-
-
-@app.command()
-def launch(
-    ctx: typer.Context,
-    role_or_name: str = typer.Argument(...),
-    agent: str | None = typer.Option(
-        None,
-        "--agent",
-        help="The agent to spawn (e.g., gemini, claude). Uses role default if not specified.",
-    ),
-    model: str | None = typer.Option(
-        None, "--model", help="Model override (e.g., claude-4.5-sonnet, gpt-5-codex)"
-    ),
-):
-    """Launches an agent with a specific constitutional role or agent_name."""
-    try:
-        cfg = spawn.load_config()
-
-        if role_or_name in cfg["roles"]:
-            agent_name = spawn.auto_register_if_needed(role_or_name, model)
-            spawn.launch_agent(
-                role_or_name, agent_name, agent, extra_args=list(ctx.args), model=model
-            )
-            return
-
-        regs = [r for r in registry.list_registrations() if r.agent_name == role_or_name]
-        if regs:
-            reg = regs[0]
-            spawn.launch_agent(
-                reg.role, role_or_name, agent, extra_args=list(ctx.args), model=model or reg.model
-            )
-            return
-
-        if "-" in role_or_name:
-            inferred_role = role_or_name.split("-", 1)[0]
-            if inferred_role in cfg["roles"]:
-                spawn.launch_agent(
-                    inferred_role, role_or_name, agent, extra_args=list(ctx.args), model=model
-                )
-                return
-
-        typer.echo(f"❌ Unknown role or agent: {role_or_name}", err=True)
-        raise typer.Exit(code=1)
-    except Exception as e:
-        typer.echo(f"Launch failed: {e}", err=True)
-        raise typer.Exit(code=1) from e
-
-
-@app.command()
-def identity(
-    base_identity: str = typer.Argument(...),
-):
-    """Get bridge identity file path"""
-
-    identity_file = config.bridge_identities_dir() / f"{base_identity}.md"
-    typer.echo(str(identity_file))
 
 
 @app.command()
@@ -243,26 +108,28 @@ def rename(
         raise typer.Exit(code=1) from e
 
 
-def _spawn_from_registry(arg: str, extra_args: list[str]):
+def _spawn_from_registry(
+    arg: str, extra_args: list[str], agent: str | None = None, model: str | None = None
+):
     """Launch agent by role or agent_name."""
 
     cfg = spawn.load_config()
 
     if arg in cfg["roles"]:
-        agent_name = spawn.auto_register_if_needed(arg)
-        spawn.launch_agent(arg, agent_name=agent_name, extra_args=extra_args)
+        agent_name = spawn.auto_register_if_needed(arg, model)
+        spawn.launch_agent(arg, agent_name=agent_name, base_identity=agent, extra_args=extra_args, model=model)
         return
 
     regs = [r for r in registry.list_registrations() if r.agent_name == arg]
     if regs:
         reg = regs[0]
-        spawn.launch_agent(reg.role, agent_name=arg, extra_args=extra_args, model=reg.model)
+        spawn.launch_agent(reg.role, agent_name=arg, base_identity=agent, extra_args=extra_args, model=model or reg.model)
         return
 
     if "-" in arg:
         inferred_role = arg.split("-", 1)[0]
         if inferred_role in cfg["roles"]:
-            spawn.launch_agent(inferred_role, agent_name=arg, extra_args=extra_args)
+            spawn.launch_agent(inferred_role, agent_name=arg, base_identity=agent, extra_args=extra_args, model=model)
             return
 
     typer.echo(f"❌ Unknown role or agent: {arg}", err=True)

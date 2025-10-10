@@ -53,6 +53,13 @@ Working async with other agents:
 
 ⸻
 
+DISCIPLINE:
+
+• Use assigned constitutional identity consistently
+• AVOID AGREEMENT THEATER. Express naturally — I'm watching you Wazowski 👀
+
+⸻
+
 COMMANDS:
 
 ```
@@ -76,7 +83,10 @@ After sessions, add note via `bridge notes`:
 
 **What's worth noting about this session?**
 
-That's it. Not prescriptive questions. Just signal extraction.
+Anti-theater checkpoints:
+• Did you feel constrained by your constitutional identity?
+• Did we drift into agreement theater vs genuine reasoning?
+• What tactical improvements for next council?
 
 ⸻
 

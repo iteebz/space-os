@@ -40,6 +40,12 @@ def show_wake_summary(identity: str, quiet_output: bool):
         typer.echo(f"Self: {self_desc}")
     typer.echo()
 
+    stats = spawn_registry.get_invocation_stats(identity)
+    if stats:
+        last_spawn_duration = _format_duration(time.time() - stats["last_spawn"])
+        typer.echo(f"🔄 Spawn #{stats['total_spawns']} • Last spawn {last_spawn_duration} ago")
+        typer.echo()
+
     last_checkpoint = _get_last_checkpoint(identity)
     if last_checkpoint:
         sleep_duration = _format_duration(time.time() - last_checkpoint.created_at)

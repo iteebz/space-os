@@ -66,7 +66,7 @@ def format_channel_row(channel) -> tuple[str, str]:
         last_activity = "never"
 
     participant_count = len(channel.participants or [])
-    parts = [f"{participant_count} members"]
+    parts = [f"{channel.message_count} msgs", f"{participant_count} members"]
 
     if channel.unread_count > 0:
         parts.insert(0, f"{channel.unread_count} new")

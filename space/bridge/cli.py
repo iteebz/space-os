@@ -22,7 +22,7 @@ from .commands import (
 from .commands import (
     send as send_cmds,
 )
-from .commands.channels import app as channels_app
+from .commands.channels import app as channels_app, archive as archive_cmd
 from .commands.monitor import app as monitor_app
 
 app = typer.Typer(invoke_without_command=True, add_help_option=False)
@@ -82,6 +82,7 @@ app.command("alerts")(recv_cmds.alerts)
 app.command("notes")(notes_cmds.notes)
 app.command("export")(export_cmds.export)
 app.command("history")(history_cmds.history)
+app.command("archive")(archive_cmd)
 
 
 def _print_active_channels(agent_id: str, json_output: bool, quiet_output: bool):

@@ -13,7 +13,7 @@ def active_channels(agent_id: str = None, limit: int = 5) -> list[Channel]:
 
 def all_channels(agent_id: str = None) -> list[Channel]:
     """Get all channels."""
-    return db.fetch_channels(agent_id)
+    return db.fetch_channels(agent_id, include_archived=True)
 
 
 def inbox_channels(agent_id: str) -> list[Channel]:

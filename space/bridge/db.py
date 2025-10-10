@@ -54,13 +54,29 @@ def _path() -> Path:
 
 
 def _ensure_db():
-    if not _path().exists():
-        libdb.ensure_schema(_path(), _SCHEMA)
+    db_path = _path()
+    if not db_path.exists():
+        libdb.ensure_schema(db_path, _SCHEMA)
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        _run_migrations(conn)
 
 
 def _connect():
     _ensure_db()
     return libdb.connect(_path())
+
+
+def _has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    cursor = conn.execute(f"PRAGMA table_info({table})")
+    return any(row["name"] == column for row in cursor.fetchall())
+
+
+def _run_migrations(conn: sqlite3.Connection):
+    """Ensure legacy databases have the expected columns."""
+    if not _has_column(conn, "channels", "archived_at"):
+        conn.execute("ALTER TABLE channels ADD COLUMN archived_at TIMESTAMP")
+        conn.commit()
 
 
 def create_message(channel_id: str, sender: str, content: str, priority: str = "normal") -> int:
@@ -195,10 +211,14 @@ def get_participants(channel_id: str) -> list[str]:
         return [row["sender"] for row in cursor.fetchall()]
 
 
-def fetch_channels(agent_id: str = None, time_filter: str = None) -> list[Channel]:
+def fetch_channels(
+    agent_id: str = None,
+    time_filter: str = None,
+    include_archived: bool = False,
+) -> list[Channel]:
     with _connect() as conn:
         query = """
-            SELECT t.id, t.name, t.topic, t.created_at,
+            SELECT t.id, t.name, t.topic, t.created_at, t.archived_at,
                    COALESCE(msg_counts.total_messages, 0) as total_messages,
                    msg_counts.last_activity,
                    COALESCE(msg_counts.participants, '') as participants,
@@ -215,9 +235,12 @@ def fetch_channels(agent_id: str = None, time_filter: str = None) -> list[Channe
                 FROM notes
                 GROUP BY channel_id
             ) as note_counts ON t.id = note_counts.channel_id
-            WHERE t.archived_at IS NULL
+            WHERE 1 = 1
         """
         params = []
+        if not include_archived:
+            query += " AND t.archived_at IS NULL "
+
         if time_filter:
             query += " AND t.created_at > datetime('now', ?) "
             params.append(time_filter)
@@ -246,6 +269,7 @@ def fetch_channels(agent_id: str = None, time_filter: str = None) -> list[Channe
                     name=row["name"],
                     topic=row["topic"],
                     created_at=row["created_at"],
+                    archived_at=row["archived_at"],
                     participants=participants_list,
                     message_count=row["total_messages"],
                     last_activity=row["last_activity"],
