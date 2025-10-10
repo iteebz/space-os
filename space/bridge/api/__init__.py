@@ -19,19 +19,19 @@ from .channels import (
     resolve_channel_id,
 )
 from .messages import (
+    fetch_agent_history,
     fetch_messages,
-    fetch_sender_history,
     recv_updates,
-    rename_sender,
+    rename_agent,
     send_message,
 )
 from .notes import add_note, get_notes
 
 __all__ = [
     "fetch_messages",
-    "fetch_sender_history",
+    "fetch_agent_history",
     "recv_updates",
-    "rename_sender",
+    "rename_agent",
     "send_message",
     "add_note",
     "get_notes",

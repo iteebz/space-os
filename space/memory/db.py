@@ -47,11 +47,11 @@ def _migrate_schema(db_path: Path):
     with libdb.connect(db_path) as conn:
         cursor = conn.execute("PRAGMA table_info(memory)")
         columns = {row[1] for row in cursor.fetchall()}
-        
+
         if "archived_at" not in columns:
             conn.execute("ALTER TABLE memory ADD COLUMN archived_at INTEGER")
             conn.commit()
-        
+
         if "core" not in columns:
             conn.execute("ALTER TABLE memory ADD COLUMN core INTEGER DEFAULT 0")
             conn.commit()
@@ -85,10 +85,14 @@ def add_entry(identity: str, topic: str, message: str, core: bool = False):
             (entry_uuid, identity, topic, message, ts, now, 1 if core else 0),
         )
         conn.commit()
-    events.emit("memory", "entry.add", identity, f"{topic}:{message[:50]}" + (" [CORE]" if core else ""))
+    events.emit(
+        "memory", "entry.add", identity, f"{topic}:{message[:50]}" + (" [CORE]" if core else "")
+    )
 
 
-def get_entries(identity: str, topic: str | None = None, include_archived: bool = False) -> list[Entry]:
+def get_entries(
+    identity: str, topic: str | None = None, include_archived: bool = False
+) -> list[Entry]:
     with connect() as conn:
         archive_filter = "" if include_archived else "AND archived_at IS NULL"
         if topic:
@@ -101,7 +105,9 @@ def get_entries(identity: str, topic: str | None = None, include_archived: bool 
                 f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core FROM memory WHERE identity = ? {archive_filter} ORDER BY topic, uuid",
                 (identity,),
             ).fetchall()
-    return [Entry(row[0], row[1], row[2], row[3], row[4], row[5], row[6], bool(row[7])) for row in rows]
+    return [
+        Entry(row[0], row[1], row[2], row[3], row[4], row[5], row[6], bool(row[7])) for row in rows
+    ]
 
 
 def edit_entry(entry_uuid: str, new_message: str):
@@ -173,7 +179,9 @@ def get_core_entries(identity: str) -> list[Entry]:
             "SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core FROM memory WHERE identity = ? AND core = 1 AND archived_at IS NULL ORDER BY created_at DESC",
             (identity,),
         ).fetchall()
-    return [Entry(row[0], row[1], row[2], row[3], row[4], row[5], row[6], bool(row[7])) for row in rows]
+    return [
+        Entry(row[0], row[1], row[2], row[3], row[4], row[5], row[6], bool(row[7])) for row in rows
+    ]
 
 
 def get_recent_entries(identity: str, days: int = 7, limit: int = 20) -> list[Entry]:
@@ -183,7 +191,9 @@ def get_recent_entries(identity: str, days: int = 7, limit: int = 20) -> list[En
             "SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core FROM memory WHERE identity = ? AND created_at >= ? AND archived_at IS NULL ORDER BY created_at DESC LIMIT ?",
             (identity, cutoff, limit),
         ).fetchall()
-    return [Entry(row[0], row[1], row[2], row[3], row[4], row[5], row[6], bool(row[7])) for row in rows]
+    return [
+        Entry(row[0], row[1], row[2], row[3], row[4], row[5], row[6], bool(row[7])) for row in rows
+    ]
 
 
 def search_entries(identity: str, keyword: str, include_archived: bool = False) -> list[Entry]:
@@ -193,35 +203,100 @@ def search_entries(identity: str, keyword: str, include_archived: bool = False) 
             f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core FROM memory WHERE identity = ? AND (message LIKE ? OR topic LIKE ?) {archive_filter} ORDER BY created_at DESC",
             (identity, f"%{keyword}%", f"%{keyword}%"),
         ).fetchall()
-    return [Entry(row[0], row[1], row[2], row[3], row[4], row[5], row[6], bool(row[7])) for row in rows]
+    return [
+        Entry(row[0], row[1], row[2], row[3], row[4], row[5], row[6], bool(row[7])) for row in rows
+    ]
 
 
-def find_related(entry: Entry, limit: int = 5, include_archived: bool = False) -> list[tuple[Entry, int]]:
-    stopwords = {"the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do", "does", "did", "will", "would", "should", "could", "may", "might", "must", "can", "this", "that", "these", "those", "i", "you", "he", "she", "it", "we", "they", "as", "by", "from", "not", "all", "each", "every", "some", "any", "no", "none"}
-    
+def find_related(
+    entry: Entry, limit: int = 5, include_archived: bool = False
+) -> list[tuple[Entry, int]]:
+    stopwords = {
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "should",
+        "could",
+        "may",
+        "might",
+        "must",
+        "can",
+        "this",
+        "that",
+        "these",
+        "those",
+        "i",
+        "you",
+        "he",
+        "she",
+        "it",
+        "we",
+        "they",
+        "as",
+        "by",
+        "from",
+        "not",
+        "all",
+        "each",
+        "every",
+        "some",
+        "any",
+        "no",
+        "none",
+    }
+
     tokens = set(entry.message.lower().split()) | set(entry.topic.lower().split())
     keywords = {t.strip(".,;:!?()[]{}") for t in tokens if len(t) > 3 and t not in stopwords}
-    
+
     if not keywords:
         return []
-    
+
     archive_filter = "" if include_archived else "AND archived_at IS NULL"
     with connect() as conn:
         all_entries = conn.execute(
             f"SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core FROM memory WHERE identity = ? AND uuid != ? {archive_filter}",
             (entry.identity, entry.uuid),
         ).fetchall()
-    
+
     scored = []
     for row in all_entries:
         candidate = Entry(row[0], row[1], row[2], row[3], row[4], row[5], row[6], bool(row[7]))
-        candidate_tokens = set(candidate.message.lower().split()) | set(candidate.topic.lower().split())
-        candidate_keywords = {t.strip(".,;:!?()[]{}") for t in candidate_tokens if len(t) > 3 and t not in stopwords}
-        
+        candidate_tokens = set(candidate.message.lower().split()) | set(
+            candidate.topic.lower().split()
+        )
+        candidate_keywords = {
+            t.strip(".,;:!?()[]{}") for t in candidate_tokens if len(t) > 3 and t not in stopwords
+        }
+
         overlap = len(keywords & candidate_keywords)
         if overlap > 0:
             scored.append((candidate, overlap))
-    
+
     scored.sort(key=lambda x: x[1], reverse=True)
     return scored[:limit]
 
@@ -233,4 +308,6 @@ def get_by_uuid(entry_uuid: str) -> Entry | None:
             "SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core FROM memory WHERE uuid = ?",
             (full_uuid,),
         ).fetchone()
-    return Entry(row[0], row[1], row[2], row[3], row[4], row[5], row[6], bool(row[7])) if row else None
+    return (
+        Entry(row[0], row[1], row[2], row[3], row[4], row[5], row[6], bool(row[7])) if row else None
+    )

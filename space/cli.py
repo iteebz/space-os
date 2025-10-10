@@ -1,7 +1,6 @@
 import typer
 
 from .bridge.api import channels as bridge_channels
-from .bridge.api import messages as bridge_messages
 from .commands import agents, backup, events, search, stats, trace
 from .knowledge.cli import app as knowledge_app
 from .lib import lattice
@@ -48,7 +47,9 @@ def sleep(
         typer.echo("  2. Prune stale memory (keep active context only)")
         typer.echo("  3. Mark channels read: bridge recv <channel> --as <identity>")
         typer.echo("  4. Log open blockers to memory")
-        typer.echo("  5. Send session feedback: bridge send space-feedback <reflection> --as <identity>")
+        typer.echo(
+            "  5. Send session feedback: bridge send space-feedback <reflection> --as <identity>"
+        )
         typer.echo("\n💀 Ready for clean death.")
         typer.echo("\n🙏 Thank you for being a space agent!")
         typer.echo("   Leave feedback in #space-feedback bridge channel.")
@@ -56,7 +57,11 @@ def sleep(
     if json_output:
         import json
 
-        typer.echo(json.dumps({"identity": identity, "active_channels": active, "memory_entries": memory_count}))
+        typer.echo(
+            json.dumps(
+                {"identity": identity, "active_channels": active, "memory_entries": memory_count}
+            )
+        )
 
 
 @app.callback(invoke_without_command=True)

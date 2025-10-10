@@ -33,7 +33,7 @@ def history(
         elif preview:
             typer.echo(f"📤 Last {len(messages)} sent by {identity}:")
             for msg in reversed(messages):
-                prev = msg.content[:60].replace('\n', ' ')
+                prev = msg.content[:60].replace("\n", " ")
                 if len(msg.content) > 60:
                     prev += "..."
                 typer.echo(f"  • {msg.channel_id}: {prev}")

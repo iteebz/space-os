@@ -43,7 +43,7 @@ def test_mixed_model_registrations():
         regs = registry.list_registrations()
         assert len(regs) == 3
 
-        models = {r.sender_id: r.model for r in regs}
+        models = {r.agent_name: r.model for r in regs}
         assert models["zealot-sonnet"] == "claude-4.5-sonnet"
         assert models["sentinel-codex"] == "gpt-5-codex"
         assert models["scribe-1"] is None

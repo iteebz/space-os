@@ -27,13 +27,15 @@ def trace(
                 (f"%{concept}%",),
             ).fetchall()
             for row in rows:
-                timeline.append({
-                    "source": "events",
-                    "type": f"{row[1]}.{row[3]}",
-                    "identity": row[2],
-                    "data": row[4],
-                    "timestamp": row[5],
-                })
+                timeline.append(
+                    {
+                        "source": "events",
+                        "type": f"{row[1]}.{row[3]}",
+                        "identity": row[2],
+                        "data": row[4],
+                        "timestamp": row[5],
+                    }
+                )
 
     if memory_db.database_path().exists():
         with memory_db.connect() as conn:
@@ -42,13 +44,15 @@ def trace(
                 (f"%{concept}%", f"%{concept}%"),
             ).fetchall()
             for row in rows:
-                timeline.append({
-                    "source": "memory",
-                    "type": row[1],
-                    "identity": row[0],
-                    "data": row[2],
-                    "timestamp": row[3] if isinstance(row[3], int) else 0,
-                })
+                timeline.append(
+                    {
+                        "source": "memory",
+                        "type": row[1],
+                        "identity": row[0],
+                        "data": row[2],
+                        "timestamp": row[3] if isinstance(row[3], int) else 0,
+                    }
+                )
 
     if knowledge_db.database_path().exists():
         with knowledge_db.connect() as conn:
@@ -57,13 +61,15 @@ def trace(
                 (f"%{concept}%", f"%{concept}%"),
             ).fetchall()
             for row in rows:
-                timeline.append({
-                    "source": "knowledge",
-                    "type": row[0],
-                    "identity": row[2],
-                    "data": row[1],
-                    "timestamp": row[3] if isinstance(row[3], int) else 0,
-                })
+                timeline.append(
+                    {
+                        "source": "knowledge",
+                        "type": row[0],
+                        "identity": row[2],
+                        "data": row[1],
+                        "timestamp": row[3] if isinstance(row[3], int) else 0,
+                    }
+                )
 
     if bridge_config.DB_PATH.exists():
         with libdb.connect(bridge_config.DB_PATH) as conn:
@@ -78,13 +84,15 @@ def trace(
                         ts = int(datetime.fromisoformat(row[3]).timestamp())
                     except (ValueError, TypeError):
                         ts = row[3] if isinstance(row[3], int) else 0
-                timeline.append({
-                    "source": "bridge",
-                    "type": row[0],
-                    "identity": row[1],
-                    "data": row[2],
-                    "timestamp": ts,
-                })
+                timeline.append(
+                    {
+                        "source": "bridge",
+                        "type": row[0],
+                        "identity": row[1],
+                        "data": row[2],
+                        "timestamp": ts,
+                    }
+                )
 
     timeline.sort(key=lambda x: x["timestamp"])
 

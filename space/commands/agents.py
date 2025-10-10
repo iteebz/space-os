@@ -5,7 +5,6 @@ import typer
 
 from ..spawn import registry
 
-
 app = typer.Typer(invoke_without_command=True)
 
 
@@ -31,19 +30,19 @@ def _list_agents(json_output: bool, quiet_output: bool):
     seen = set()
     unique_agents = []
     for reg in regs:
-        if reg.sender_id not in seen:
-            seen.add(reg.sender_id)
-            self_desc = registry.get_self_description(reg.sender_id)
-            unique_agents.append({"sender_id": reg.sender_id, "description": self_desc})
+        if reg.agent_name not in seen:
+            seen.add(reg.agent_name)
+            self_desc = registry.get_self_description(reg.agent_name)
+            unique_agents.append({"agent_name": reg.agent_name, "description": self_desc})
 
     if json_output:
         typer.echo(json.dumps(unique_agents))
     elif not quiet_output:
         for agent in unique_agents:
             if agent["description"]:
-                typer.echo(f"{agent['sender_id']}: {agent['description']}")
+                typer.echo(f"{agent['agent_name']}: {agent['description']}")
             else:
-                typer.echo(agent["sender_id"])
+                typer.echo(agent["agent_name"])
 
 
 @app.callback()

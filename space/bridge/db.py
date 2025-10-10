@@ -322,13 +322,13 @@ def rename_channel(old_name: str, new_name: str) -> bool:
         return False
 
 
-def rename_sender_id(old_sender_id: str, new_sender_id: str):
+def rename_agent_name(old_agent_name: str, new_agent_name: str):
     with _connect() as conn:
         conn.execute(
-            "UPDATE messages SET sender = ? WHERE sender = ?", (new_sender_id, old_sender_id)
+            "UPDATE messages SET sender = ? WHERE sender = ?", (new_agent_name, old_agent_name)
         )
         conn.execute(
-            "UPDATE bookmarks SET agent_id = ? WHERE agent_id = ?", (new_sender_id, old_sender_id)
+            "UPDATE bookmarks SET agent_id = ? WHERE agent_id = ?", (new_agent_name, old_agent_name)
         )
         conn.commit()
 

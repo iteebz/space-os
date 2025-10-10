@@ -181,7 +181,7 @@ def inspect_knowledge_command(
     if json_output:
         payload = {
             "entry": asdict(entry),
-            "related": [{"entry": asdict(r[0]), "overlap": r[1]} for r in related]
+            "related": [{"entry": asdict(r[0]), "overlap": r[1]} for r in related],
         }
         typer.echo(json.dumps(payload))
     elif not quiet_output:
@@ -190,14 +190,18 @@ def inspect_knowledge_command(
         typer.echo(f"Created: {entry.created_at}")
         typer.echo(f"Confidence: {entry.confidence or 'N/A'}\n")
         typer.echo(f"{entry.content}\n")
-        
+
         if related:
             typer.echo("─" * 60)
             typer.echo(f"Related nodes ({len(related)}):\n")
             for rel_entry, overlap in related:
                 archived_mark = " [ARCHIVED]" if rel_entry.archived_at else ""
-                typer.echo(f"[{rel_entry.id[-8:]}] {rel_entry.domain} ({overlap} keywords){archived_mark}")
-                typer.echo(f"  {rel_entry.content[:100]}{'...' if len(rel_entry.content) > 100 else ''}\n")
+                typer.echo(
+                    f"[{rel_entry.id[-8:]}] {rel_entry.domain} ({overlap} keywords){archived_mark}"
+                )
+                typer.echo(
+                    f"  {rel_entry.content[:100]}{'...' if len(rel_entry.content) > 100 else ''}\n"
+                )
 
 
 @app.command("archive")
@@ -216,7 +220,7 @@ def archive_knowledge_command(
     else:
         db.archive_entry(entry_id)
         action = "archived"
-    
+
     if json_output:
         typer.echo(json.dumps({"entry_id": entry_id, "status": action}))
     elif not quiet_output:

@@ -11,10 +11,12 @@ from . import config
 class Registration:
     id: int
     role: str
-    sender_id: str
+    agent_name: str
     topic: str
     constitution_hash: str
     registered_at: str
+    agent_id: str | None = None
+    client: str | None = None
     self: str | None = None
     model: str | None = None
 
@@ -84,30 +86,41 @@ def get_db():
 
 
 def register(
-    role: str, sender_id: str, topic: str, constitution_hash: str, model: str | None = None
+    role: str,
+    agent_name: str,
+    topic: str,
+    constitution_hash: str,
+    model: str | None = None,
+    client: str | None = None,
+    agent_id: str | None = None,
 ) -> int:
+    import uuid
+
+    if agent_id is None:
+        agent_id = str(uuid.uuid4())
+
     with get_db() as conn:
         cursor = conn.execute(
             """
-            INSERT INTO registrations (role, sender_id, topic, constitution_hash, model)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO registrations (role, agent_name, topic, constitution_hash, model, client, agent_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-            (role, sender_id, topic, constitution_hash, model),
+            (role, agent_name, topic, constitution_hash, model, client, agent_id),
         )
         conn.commit()
         reg_id = cursor.lastrowid
-    events.emit("spawn", "identity.register", sender_id, f"{role}:{topic}")
+    events.emit("spawn", "identity.register", agent_name, f"{role}:{topic}")
     return reg_id
 
 
-def unregister(role: str, sender_id: str, topic: str):
+def unregister(role: str, agent_name: str, topic: str):
     with get_db() as conn:
         conn.execute(
-            "DELETE FROM registrations WHERE role = ? AND sender_id = ? AND topic = ?",
-            (role, sender_id, topic),
+            "DELETE FROM registrations WHERE role = ? AND agent_name = ? AND topic = ?",
+            (role, agent_name, topic),
         )
         conn.commit()
-    events.emit("spawn", "identity.unregister", sender_id, f"{role}:{topic}")
+    events.emit("spawn", "identity.unregister", agent_name, f"{role}:{topic}")
 
 
 def list_registrations() -> list[Registration]:
@@ -116,66 +129,66 @@ def list_registrations() -> list[Registration]:
         return [Registration(**dict(row)) for row in rows]
 
 
-def get_registration(role: str, sender_id: str, topic: str) -> Registration | None:
+def get_registration(role: str, agent_name: str, topic: str) -> Registration | None:
     with get_db() as conn:
         row = conn.execute(
-            "SELECT * FROM registrations WHERE role = ? AND sender_id = ? AND topic = ?",
-            (role, sender_id, topic),
+            "SELECT * FROM registrations WHERE role = ? AND agent_name = ? AND topic = ?",
+            (role, agent_name, topic),
         ).fetchone()
         if row:
             return Registration(**dict(row))
         return None
 
 
-def get_registration_by_sender(sender_id: str, topic: str) -> Registration | None:
-    """Get registration by sender_id and topic only."""
+def get_registration_by_agent(agent_name: str, topic: str) -> Registration | None:
+    """Get registration by agent_name and topic only."""
     with get_db() as conn:
         row = conn.execute(
-            "SELECT * FROM registrations WHERE sender_id = ? AND topic = ?",
-            (sender_id, topic),
+            "SELECT * FROM registrations WHERE agent_name = ? AND topic = ?",
+            (agent_name, topic),
         ).fetchone()
         if row:
             return Registration(**dict(row))
         return None
 
 
-def delete_agent(sender_id: str):
+def delete_agent(agent_name: str):
     with get_db() as conn:
-        conn.execute("DELETE FROM registrations WHERE sender_id = ?", (sender_id,))
+        conn.execute("DELETE FROM registrations WHERE agent_name = ?", (agent_name,))
         conn.commit()
-    events.emit("spawn", "identity.delete", sender_id, "")
+    events.emit("spawn", "identity.delete", agent_name, "")
 
 
-def rename_sender(old_sender_id: str, new_sender_id: str, new_role: str = None):
+def rename_agent(old_name: str, new_name: str, new_role: str = None):
     with get_db() as conn:
         if new_role:
             conn.execute(
-                "UPDATE registrations SET sender_id = ?, role = ? WHERE sender_id = ?",
-                (new_sender_id, new_role, old_sender_id),
+                "UPDATE registrations SET agent_name = ?, role = ? WHERE agent_name = ?",
+                (new_name, new_role, old_name),
             )
         else:
             conn.execute(
-                "UPDATE registrations SET sender_id = ? WHERE sender_id = ?",
-                (new_sender_id, old_sender_id),
+                "UPDATE registrations SET agent_name = ? WHERE agent_name = ?",
+                (new_name, old_name),
             )
         conn.commit()
 
 
-def get_self_description(sender_id: str) -> str | None:
-    """Get self-description for sender_id from any registration."""
+def get_self_description(agent_name: str) -> str | None:
+    """Get self-description for agent_name from any registration."""
     with get_db() as conn:
         row = conn.execute(
-            "SELECT self FROM registrations WHERE sender_id = ? AND self IS NOT NULL ORDER BY registered_at DESC LIMIT 1",
-            (sender_id,),
+            "SELECT self FROM registrations WHERE agent_name = ? AND self IS NOT NULL ORDER BY registered_at DESC LIMIT 1",
+            (agent_name,),
         ).fetchone()
         return row["self"] if row else None
 
 
-def set_self_description(sender_id: str, description: str) -> bool:
-    """Set self-description for sender_id. Returns True when an update occurs."""
+def set_self_description(agent_name: str, description: str) -> bool:
+    """Set self-description for agent_name. Returns True when an update occurs."""
     with get_db() as conn:
         cursor = conn.execute(
-            "UPDATE registrations SET self = ? WHERE sender_id = ?", (description, sender_id)
+            "UPDATE registrations SET self = ? WHERE agent_name = ?", (description, agent_name)
         )
         conn.commit()
         return cursor.rowcount > 0
@@ -188,14 +201,60 @@ def _apply_migrations(conn):
     migrations = [
         ("add_self", "ALTER TABLE registrations ADD COLUMN self TEXT"),
         ("add_model", "ALTER TABLE registrations ADD COLUMN model TEXT"),
+        ("add_agent_id", "ALTER TABLE registrations ADD COLUMN agent_id TEXT"),
+        ("add_client", "ALTER TABLE registrations ADD COLUMN client TEXT"),
+        ("rename_sender_id", _migrate_rename_sender_id),
+        ("backfill_agent_id", _migrate_backfill_agent_id),
+        ("backfill_client", _migrate_backfill_client),
     ]
 
-    for name, sql in migrations:
+    for name, migration in migrations:
         applied = conn.execute("SELECT 1 FROM _migrations WHERE name = ?", (name,)).fetchone()
         if not applied:
             try:
-                conn.execute(sql)
+                if callable(migration):
+                    migration(conn)
+                else:
+                    conn.execute(migration)
                 conn.execute("INSERT INTO _migrations (name) VALUES (?)", (name,))
             except sqlite3.OperationalError as e:
                 if "duplicate column" not in str(e).lower():
                     raise MigrationError(f"Migration '{name}' failed: {e}") from e
+
+
+def _migrate_rename_sender_id(conn):
+    """Rename sender_id column to agent_name."""
+    conn.execute("ALTER TABLE registrations RENAME COLUMN sender_id TO agent_name")
+
+
+def _migrate_backfill_agent_id(conn):
+    """Backfill agent_id with UUIDs for existing registrations."""
+    import uuid
+
+    rows = conn.execute("SELECT id FROM registrations WHERE agent_id IS NULL").fetchall()
+    for row in rows:
+        agent_id = str(uuid.uuid4())
+        conn.execute("UPDATE registrations SET agent_id = ? WHERE id = ?", (agent_id, row[0]))
+
+
+def _migrate_backfill_client(conn):
+    """Infer client from agent_name patterns."""
+
+    client_map = {
+        "zealot-1": "claude",
+        "zealot-2": "claude",
+        "gemilot": "gemini",
+        "codelot": "codex",
+        "harbinger-1": "gemini",
+        "harbinger-2": "gemini",
+        "kitsuragi": "codex",
+        "lieutenant": "chatgpt",
+        "sentinel": "codex",
+        "scribe": "claude",
+    }
+
+    for agent_name, client in client_map.items():
+        conn.execute(
+            "UPDATE registrations SET client = ? WHERE agent_name = ? AND client IS NULL",
+            (client, agent_name),
+        )

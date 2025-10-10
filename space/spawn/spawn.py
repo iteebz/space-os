@@ -54,55 +54,60 @@ def get_base_identity(role: str) -> str:
 
 
 def inject_identity(
-    base_constitution_content: str, sender_id: str, model: str | None = None
+    base_constitution_content: str, agent_name: str, model: str | None = None
 ) -> str:
     registry.init_db()
-    self_desc = registry.get_self_description(sender_id)
+    self_desc = registry.get_self_description(agent_name)
 
-    header_parts = [f"You are now {sender_id}"]
+    header_parts = [f"You are now {agent_name}"]
     if model:
         header_parts.append(f"powered by {model}")
     header = " ".join(header_parts) + "."
 
+    footer = "\n\nInfrastructure: run `space` for commands and orientation (already in PATH)."
+
     if self_desc:
-        return f"{header}\nSelf: {self_desc}\n\n{base_constitution_content}"
-    return f"{header}\n{base_constitution_content}"
+        return f"{header}\nSelf: {self_desc}\n\n{base_constitution_content}{footer}"
+    return f"{header}\n\n{base_constitution_content}{footer}"
 
 
 def auto_register_if_needed(role: str, model: str | None = None) -> str:
     """Auto-register role with base_identity to 'general' topic if not exists.
 
-    Returns sender_id.
+    Returns agent_name.
     """
-    sender_id = get_base_identity(role)
-    existing = registry.get_registration(role, sender_id, "general")
+    agent_name = get_base_identity(role)
+    existing = registry.get_registration(role, agent_name, "general")
     if not existing:
-        register_agent(role, sender_id, "general", model)
-    return sender_id
+        register_agent(role, agent_name, "general", model)
+    return agent_name
 
 
-def register_agent(role: str, sender_id: str, topic: str, model: str | None = None) -> dict:
+def register_agent(
+    role: str, agent_name: str, topic: str, model: str | None = None, client: str | None = None
+) -> dict:
     const_path = get_constitution_path(role)
     base_content = const_path.read_text()
-    full_identity = inject_identity(base_content, sender_id, model)
+    full_identity = inject_identity(base_content, agent_name, model)
     const_hash = hash_content(full_identity)
     registry.save_constitution(const_hash, full_identity)
-    reg_id = registry.register(role, sender_id, topic, const_hash, model)
+    reg_id = registry.register(role, agent_name, topic, const_hash, model, client)
 
     return {
         "id": reg_id,
         "role": role,
-        "sender_id": sender_id,
+        "agent_name": agent_name,
         "topic": topic,
         "constitution_hash": const_hash[:8],
         "model": model,
+        "client": client,
     }
 
 
 def launch_agent(
     role: str,
-    sender_id: str | None = None,  # This is the agent_name
-    base_identity: str | None = None,  # This is the 'agent' argument in the old signature
+    agent_name: str | None = None,
+    base_identity: str | None = None,  # CLI client (claude, gemini, codex)
     extra_args: list[str] | None = None,
     model: str | None = None,
 ):
@@ -121,8 +126,8 @@ def launch_agent(
 
     cfg = load_config()
 
-    # Use sender_id if provided, otherwise infer from role's base_identity
-    actual_sender_id = sender_id or get_base_identity(role)
+    # Use agent_name if provided, otherwise infer from role's base_identity
+    actual_agent_name = agent_name or get_base_identity(role)
     # Use base_identity if provided, otherwise infer from role's base_identity
     actual_base_identity = base_identity or get_base_identity(role)
     agent_cfg = cfg.get("agents", {}).get(actual_base_identity)
@@ -132,7 +137,7 @@ def launch_agent(
 
     const_path = get_constitution_path(role)
     base_content = const_path.read_text()
-    full_identity = inject_identity(base_content, actual_sender_id, model)
+    full_identity = inject_identity(base_content, actual_agent_name, model)
     const_hash = hash_content(full_identity)
     registry.save_constitution(const_hash, full_identity)
 
@@ -151,7 +156,7 @@ def launch_agent(
 
     model_suffix = f" (model: {model})" if model else ""
     click.echo(
-        f"Spawning {actual_sender_id} (base: {actual_base_identity}) as a {role}{model_suffix}..."
+        f"Spawning {actual_agent_name} (base: {actual_base_identity}) as a {role}{model_suffix}..."
     )
     click.echo(f"Executing: {' '.join(full_command)}")
     subprocess.run(full_command, env=env, check=False, cwd=str(workspace_root))

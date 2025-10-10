@@ -49,13 +49,13 @@ def test_fetch_sender_history(bridge_workspace):
     """Verify that fetch_sender_history retrieves all messages from a sender."""
     channel_id1 = api.create_channel("history-channel-1")
     channel_id2 = api.create_channel("history-channel-2")
-    sender_id = "history-sender"
+    agent_name = "history-sender"
 
-    api.send_message(channel_id1, sender_id, "message1")
-    api.send_message(channel_id2, sender_id, "message2")
+    api.send_message(channel_id1, agent_name, "message1")
+    api.send_message(channel_id2, agent_name, "message2")
     api.send_message(channel_id1, "other-sender", "message3")
 
-    history = api.fetch_sender_history(sender_id)
+    history = api.fetch_agent_history(agent_name)
     assert len(history) == 2
     assert {msg.content for msg in history} == {"message1", "message2"}
 

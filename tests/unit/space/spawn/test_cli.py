@@ -25,7 +25,7 @@ def test_register_json_output(spawn_workspace):
     assert result.exit_code == 0
     data = json.loads(result.stdout)
     assert data["role"] == "zealot"
-    assert data["sender_id"] == "test-agent"
+    assert data["agent_name"] == "test-agent"
     assert data["topic"] == "test-topic"
 
 

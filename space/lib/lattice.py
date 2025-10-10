@@ -15,7 +15,22 @@ Zero duplication. Impossible drift. Documentation IS executable.
 import hashlib
 from pathlib import Path
 
-README = Path(__file__).parent.parent.parent / "README.md"
+
+def _resolve_readme() -> Path:
+    """Locate README in both source tree and installed package layouts."""
+    base = Path(__file__).resolve()
+    candidates = [
+        Path.cwd() / "README.md",
+        base.parents[2] / "README.md",
+        base.parents[1] / "README.md",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(f"README not found in any known location: {candidates}")
+
+
+README = _resolve_readme()
 
 
 def load(section_heading: str) -> str:

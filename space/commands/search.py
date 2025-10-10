@@ -32,7 +32,9 @@ def search(
                 "SELECT domain, content, contributor FROM knowledge WHERE content LIKE ? OR domain LIKE ?",
                 (f"%{keyword}%", f"%{keyword}%"),
             ).fetchall()
-            results["knowledge"] = [{"domain": r[0], "content": r[1], "contributor": r[2]} for r in rows]
+            results["knowledge"] = [
+                {"domain": r[0], "content": r[1], "contributor": r[2]} for r in rows
+            ]
 
     if bridge_config.DB_PATH.exists():
         with libdb.connect(bridge_config.DB_PATH) as conn:
@@ -54,7 +56,9 @@ def search(
         typer.echo(f"No results for '{keyword}'")
         return
 
-    typer.echo(f"Found in memory ({len(results['memory'])}), knowledge ({len(results['knowledge'])}), bridge ({len(results['bridge'])})\n")
+    typer.echo(
+        f"Found in memory ({len(results['memory'])}), knowledge ({len(results['knowledge'])}), bridge ({len(results['bridge'])})\n"
+    )
 
     if results["memory"]:
         typer.echo("MEMORY:")

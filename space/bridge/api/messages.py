@@ -1,6 +1,7 @@
 """Business logic for handling messages."""
 
 from .. import db
+from ..db import _connect
 from ..models import Message
 
 
@@ -35,11 +36,14 @@ def fetch_messages(channel_id: str) -> list[Message]:
     return db.get_all_messages(channel_id)
 
 
-def fetch_sender_history(sender: str, limit: int | None = None) -> list[Message]:
-    """Retrieve all messages from sender across all channels."""
-    return db.get_sender_history(sender, limit)
+def fetch_agent_history(agent_name: str, limit: int | None = None) -> list[Message]:
+    with _connect() as conn:
+        query = "SELECT id, channel_id, sender, content, created_at FROM messages WHERE sender = ? ORDER BY created_at DESC"
+        params = (agent_name, limit) if limit else (agent_name,)
+        if limit:
+            query += " LIMIT ?"
+        return [Message(**row) for row in conn.execute(query, params).fetchall()]
 
 
-def rename_sender(old_sender_id: str, new_sender_id: str):
-    """Rename sender across all bridge messages and bookmarks."""
-    db.rename_sender_id(old_sender_id, new_sender_id)
+def rename_agent(old_agent_name: str, new_agent_name: str):
+    db.rename_agent_name(old_agent_name, new_agent_name)

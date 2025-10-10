@@ -52,7 +52,7 @@ def _migrate_schema(db_path: Path):
     with libdb.connect(db_path) as conn:
         cursor = conn.execute("PRAGMA table_info(knowledge)")
         columns = {row[1] for row in cursor.fetchall()}
-        
+
         if "archived_at" not in columns:
             conn.execute("ALTER TABLE knowledge ADD COLUMN archived_at INTEGER")
             conn.commit()
@@ -114,6 +114,7 @@ def get_by_id(entry_id: str) -> Entry | None:
 
 def archive_entry(entry_id: str):
     import time
+
     now = int(time.time())
     with connect() as conn:
         conn.execute(
@@ -122,6 +123,7 @@ def archive_entry(entry_id: str):
         )
         conn.commit()
     from .. import events
+
     events.emit("knowledge", "entry.archive", None, f"{entry_id[-8:]}")
 
 
@@ -133,34 +135,98 @@ def restore_entry(entry_id: str):
         )
         conn.commit()
     from .. import events
+
     events.emit("knowledge", "entry.restore", None, f"{entry_id[-8:]}")
 
 
-def find_related(entry: Entry, limit: int = 5, include_archived: bool = False) -> list[tuple[Entry, int]]:
-    stopwords = {"the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do", "does", "did", "will", "would", "should", "could", "may", "might", "must", "can", "this", "that", "these", "those", "i", "you", "he", "she", "it", "we", "they", "as", "by", "from", "not", "all", "each", "every", "some", "any", "no", "none"}
-    
+def find_related(
+    entry: Entry, limit: int = 5, include_archived: bool = False
+) -> list[tuple[Entry, int]]:
+    stopwords = {
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "should",
+        "could",
+        "may",
+        "might",
+        "must",
+        "can",
+        "this",
+        "that",
+        "these",
+        "those",
+        "i",
+        "you",
+        "he",
+        "she",
+        "it",
+        "we",
+        "they",
+        "as",
+        "by",
+        "from",
+        "not",
+        "all",
+        "each",
+        "every",
+        "some",
+        "any",
+        "no",
+        "none",
+    }
+
     tokens = set(entry.content.lower().split()) | set(entry.domain.lower().split())
     keywords = {t.strip(".,;:!?()[]{}") for t in tokens if len(t) > 3 and t not in stopwords}
-    
+
     if not keywords:
         return []
-    
+
     archive_filter = "" if include_archived else "AND archived_at IS NULL"
     with connect() as conn:
         all_entries = conn.execute(
             f"SELECT id, domain, contributor, content, confidence, created_at, archived_at FROM knowledge WHERE id != ? {archive_filter}",
             (entry.id,),
         ).fetchall()
-    
+
     scored = []
     for row in all_entries:
         candidate = Entry(*row)
-        candidate_tokens = set(candidate.content.lower().split()) | set(candidate.domain.lower().split())
-        candidate_keywords = {t.strip(".,;:!?()[]{}") for t in candidate_tokens if len(t) > 3 and t not in stopwords}
-        
+        candidate_tokens = set(candidate.content.lower().split()) | set(
+            candidate.domain.lower().split()
+        )
+        candidate_keywords = {
+            t.strip(".,;:!?()[]{}") for t in candidate_tokens if len(t) > 3 and t not in stopwords
+        }
+
         overlap = len(keywords & candidate_keywords)
         if overlap > 0:
             scored.append((candidate, overlap))
-    
+
     scored.sort(key=lambda x: x[1], reverse=True)
     return scored[:limit]

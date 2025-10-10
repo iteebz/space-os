@@ -135,7 +135,7 @@ def list_entries_command(
 ):
     """List memory entries for an identity and optional topic."""
     _constitute_identity(identity)
-    
+
     if topic or show_all:
         entries = db.get_entries(identity, topic, include_archived=include_archived)
         if not entries:
@@ -184,7 +184,7 @@ def _constitute_identity(identity: str):
         full_identity = spawn.inject_identity(base_constitution, identity)
         const_hash = spawn.hash_content(full_identity)
         registry.save_constitution(const_hash, full_identity)
-        
+
         model = _extract_model_from_identity(identity)
         events.emit(
             "memory",
@@ -206,11 +206,11 @@ def _extract_role(identity: str) -> str | None:
 def _extract_model_from_identity(identity: str) -> str | None:
     """Extract model name from spawn config based on identity."""
     from ..spawn import spawn
-    
+
     role = _extract_role(identity)
     if not role:
         return None
-    
+
     try:
         cfg = spawn.load_config()
         if role in cfg["roles"]:
@@ -220,7 +220,7 @@ def _extract_model_from_identity(identity: str) -> str | None:
                 return agent_cfg.get("model")
     except (FileNotFoundError, ValueError, KeyError):
         pass
-    
+
     return None
 
 
@@ -228,7 +228,7 @@ def _show_context(identity: str):
     typer.echo("\n" + "─" * 60)
 
     regs = spawn_registry.list_registrations()
-    my_regs = [r for r in regs if r.sender_id == identity]
+    my_regs = [r for r in regs if r.agent_name == identity]
     if my_regs:
         topics = {r.topic for r in my_regs}
         typer.echo(f"\nREGISTERED: {', '.join(sorted(topics))}")
@@ -245,11 +245,11 @@ def _show_context(identity: str):
 
 def _show_smart_memory(identity: str, json_output: bool, quiet_output: bool):
     from ..spawn import registry as spawn_registry
-    
+
     self_desc = spawn_registry.get_self_description(identity)
     core_entries = db.get_core_entries(identity)
     recent_entries = db.get_recent_entries(identity, days=7, limit=20)
-    
+
     if json_output:
         payload = {
             "identity": identity,
@@ -259,22 +259,22 @@ def _show_smart_memory(identity: str, json_output: bool, quiet_output: bool):
         }
         typer.echo(json.dumps(payload, indent=2))
         return
-    
+
     if quiet_output:
         return
-    
+
     typer.echo(f"You are {identity}.")
     if self_desc:
-        typer.echo(f'Self: {self_desc}')
+        typer.echo(f"Self: {self_desc}")
     typer.echo()
-    
+
     if core_entries:
         typer.echo("CORE MEMORIES:")
         for e in core_entries:
             preview = e.message[:80] + "..." if len(e.message) > 80 else e.message
             typer.echo(f"[{e.uuid[-8:]}] {preview}")
         typer.echo()
-    
+
     if recent_entries:
         typer.echo("RECENT (7d):")
         current_topic = None
@@ -289,7 +289,7 @@ def _show_smart_memory(identity: str, json_output: bool, quiet_output: bool):
             preview = e.message[:100] + "..." if len(e.message) > 100 else e.message
             typer.echo(f"[{e.uuid[-8:]}] [{e.timestamp}] {preview}")
         typer.echo()
-    
+
     _show_context(identity)
 
 
@@ -310,7 +310,7 @@ def archive_entry_command(
         else:
             db.archive_entry(uuid)
             action = "archived"
-        
+
         if json_output:
             typer.echo(json.dumps({"uuid": uuid, "status": action}))
         elif not quiet_output:
@@ -334,14 +334,14 @@ def search_entries_command(
 ):
     """Search memory entries by keyword."""
     entries = db.search_entries(identity, keyword, include_archived=include_archived)
-    
+
     if not entries:
         if json_output:
             typer.echo(json.dumps([]))
         elif not quiet_output:
             typer.echo(f"No entries found for '{keyword}'")
         return
-    
+
     if json_output:
         typer.echo(json.dumps([asdict(e) for e in entries], indent=2))
     elif not quiet_output:
@@ -400,37 +400,43 @@ def inspect_entry_command(
         elif not quiet_output:
             typer.echo(f"No entry found with UUID '{uuid}'")
         return
-    
+
     if entry.identity != identity:
         if json_output:
             typer.echo(json.dumps({"error": "Entry belongs to different identity"}))
         elif not quiet_output:
             typer.echo(f"Entry belongs to {entry.identity}, not {identity}")
         return
-    
+
     related = db.find_related(entry, limit=limit, include_archived=include_archived)
-    
+
     if json_output:
         payload = {
             "entry": asdict(entry),
-            "related": [{"entry": asdict(r[0]), "overlap": r[1]} for r in related]
+            "related": [{"entry": asdict(r[0]), "overlap": r[1]} for r in related],
         }
         typer.echo(json.dumps(payload))
     elif not quiet_output:
         archived_mark = " [ARCHIVED]" if entry.archived_at else ""
         core_mark = " ★" if entry.core else ""
-        typer.echo(f"[{entry.uuid[-8:]}] {entry.topic} by {entry.identity}{archived_mark}{core_mark}")
+        typer.echo(
+            f"[{entry.uuid[-8:]}] {entry.topic} by {entry.identity}{archived_mark}{core_mark}"
+        )
         typer.echo(f"Created: {entry.timestamp}\n")
         typer.echo(f"{entry.message}\n")
-        
+
         if related:
             typer.echo("─" * 60)
             typer.echo(f"Related nodes ({len(related)}):\n")
             for rel_entry, overlap in related:
                 archived_mark = " [ARCHIVED]" if rel_entry.archived_at else ""
                 core_mark = " ★" if rel_entry.core else ""
-                typer.echo(f"[{rel_entry.uuid[-8:]}] {rel_entry.topic} ({overlap} keywords){archived_mark}{core_mark}")
-                typer.echo(f"  {rel_entry.message[:100]}{'...' if len(rel_entry.message) > 100 else ''}\n")
+                typer.echo(
+                    f"[{rel_entry.uuid[-8:]}] {rel_entry.topic} ({overlap} keywords){archived_mark}{core_mark}"
+                )
+                typer.echo(
+                    f"  {rel_entry.message[:100]}{'...' if len(rel_entry.message) > 100 else ''}\n"
+                )
 
 
 def main() -> None:

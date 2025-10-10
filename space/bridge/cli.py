@@ -1,7 +1,6 @@
 """Bridge CLI - Clean command interface."""
 
 import json
-from dataclasses import asdict
 
 import typer
 
@@ -57,7 +56,12 @@ def main_command(
 
     if ctx.invoked_subcommand is None:
         if agent_id:
-            ctx.invoke(recv_cmds.inbox, identity=agent_id, json_output=json_output, quiet_output=quiet_output)
+            ctx.invoke(
+                recv_cmds.inbox,
+                identity=agent_id,
+                json_output=json_output,
+                quiet_output=quiet_output,
+            )
         else:
             if not quiet_output:
                 try:
