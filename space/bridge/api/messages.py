@@ -1,13 +1,15 @@
 """Business logic for handling messages."""
 
+from space.models import Message
+
 from .. import db
 from ..db import _connect
-from ..models import Message
 
 
 def send_message(channel_id: str, sender: str, content: str, priority: str = "normal") -> str:
     """Orchestrate sending a message: validate, ensure identity, and store."""
-    db.get_channel_name(channel_id)
+    if db.get_channel_name(channel_id) is None:
+        raise ValueError(f"Channel with ID '{channel_id}' not found.")
     db.create_message(
         channel_id=channel_id,
         sender=sender,

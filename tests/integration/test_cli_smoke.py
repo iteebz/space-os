@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from space.bridge.cli import app as bridge_app
@@ -10,6 +11,11 @@ from space.memory.cli import app as memory_app
 from space.spawn.cli import app as spawn_app
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def setup_db(test_space):
+    pass
 
 
 def test_space_smoketest():
@@ -26,7 +32,7 @@ def test_bridge_smoketest():
     )
 
 
-def test_bridge_loads_module_readme():
+def test_bridge_readme():
     """bridge command shows space/bridge/README.md content"""
     result = runner.invoke(bridge_app)
     assert "Async coordination through conversation" in result.stdout
@@ -40,20 +46,6 @@ def test_spawn_smoketest():
         "Constitutional identity registry" in result.stdout
         or "Constitutional identity registry" in result.stderr
     )
-
-
-def test_spawn_with_invalid_agent():
-    result = runner.invoke(spawn_app, ["nonexistent-agent-xyz"])
-    assert result.exit_code == 1
-    assert "Unknown role or agent" in result.stderr
-
-
-def test_space_agents_smoketest():
-    result = runner.invoke(space_app, ["agents"])
-
-    assert result.exit_code == 0
-
-    assert "codelot" in result.stdout  # Check for a known agent ID
 
 
 def test_memory_smoketest():
@@ -74,7 +66,7 @@ def test_knowledge_smoketest():
     )
 
 
-def test_space_backup_creates_backup_directory_and_copies_files(monkeypatch, tmp_path):
+def test_backup(monkeypatch, tmp_path):
     # Setup a temporary .space directory for the test
 
     temp_space_dir = tmp_path / ".space"

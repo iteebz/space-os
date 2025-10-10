@@ -1,4 +1,4 @@
-"""Bridge data models and types."""
+"""Shared data models and types."""
 
 from dataclasses import dataclass
 
@@ -52,7 +52,7 @@ class Note:
 
 
 @dataclass
-class ExportData:
+class Export:
     """Complete channel export for research."""
 
     channel_id: str
@@ -63,3 +63,40 @@ class ExportData:
     message_count: int
     messages: list[Message]
     notes: list[Note]
+
+
+@dataclass
+class Memory:
+    uuid: str
+    identity: str
+    topic: str
+    message: str
+    timestamp: str
+    created_at: int
+    archived_at: int | None = None
+    core: bool = False
+    source: str = "manual"
+    bridge_channel: str | None = None
+    code_anchors: str | None = None
+
+
+@dataclass
+class Event:
+    """An event for provenance tracking."""
+
+    id: str
+    timestamp: str
+    type: str
+    source: str
+    data: dict | None = None
+
+
+@dataclass
+class Knowledge:
+    """A knowledge artifact."""
+
+    id: str
+    title: str
+    content: str
+    source: str
+    created_at: str

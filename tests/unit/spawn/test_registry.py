@@ -1,33 +1,4 @@
-import contextlib
-import sqlite3
-
-import pytest
-
 from space.spawn import registry, spawn
-
-
-@pytest.fixture
-def in_memory_db():
-    # Create a single in-memory connection
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-
-    # Temporarily override registry.get_db to return this connection
-    original_get_db = registry.get_db
-
-    @contextlib.contextmanager
-    def mock_get_db():
-        yield conn
-
-    registry.get_db = mock_get_db
-
-    # Initialize schema for both tables on this connection
-    registry.init_db()
-
-    yield conn
-
-    conn.close()
-    registry.get_db = original_get_db  # Restore original
 
 
 def test_save_and_get_agent_identity(in_memory_db):
@@ -50,7 +21,7 @@ def test_save_and_get_agent_identity(in_memory_db):
     assert non_existent_identity is None
 
 
-def test_save_long_identity(in_memory_db):
+def test_save_long_identity(test_space):
     long_full_identity = "A" * 10000
     constitution_hash = spawn.hash_content(long_full_identity)
 
@@ -59,7 +30,7 @@ def test_save_long_identity(in_memory_db):
     assert retrieved_identity == long_full_identity
 
 
-def test_save_special_chars_identity(in_memory_db):
+def test_save_special_chars_identity(test_space):
     special_char_identity = "Hello!@#$%^&*()_+-=[]{}|;':\",./<>?`~"
     constitution_hash = spawn.hash_content(special_char_identity)
 

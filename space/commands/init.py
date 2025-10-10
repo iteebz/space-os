@@ -1,24 +1,22 @@
 import typer
 
-from ..bridge import db as bridge_db
-from ..knowledge import db as knowledge_db
-from ..lib.db import workspace_root
-from ..memory import db as memory_db
-from ..spawn import registry as spawn_registry
+from .. import bridge, knowledge, memory
+from ..lib import paths
+from ..spawn import registry
 
 
 def init():
     """Initialize space workspace structure and databases."""
-    root = workspace_root()
+    root = paths.workspace_root()
 
     (root / ".space").mkdir(parents=True, exist_ok=True)
     (root / "canon").mkdir(parents=True, exist_ok=True)
     (root / "projects").mkdir(parents=True, exist_ok=True)
 
-    spawn_registry.init_db()
-    bridge_db._ensure_db()
-    memory_db.connect().close()
-    knowledge_db.connect().close()
+    registry.init_db()
+    bridge.db._connect().close()
+    memory.db.connect().close()
+    knowledge.db.connect().close()
 
     typer.echo(f"✓ Initialized workspace at {root}")
     typer.echo("  .space/     → infrastructure")

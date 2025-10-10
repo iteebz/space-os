@@ -7,11 +7,13 @@ from pathlib import Path
 
 import yaml
 
+from ..lib import paths
 from . import config, registry
 
 
 def load_config() -> dict:
-    with open(config.CONFIG_FILE) as f:
+    config.init_config()
+    with open(config.config_file()) as f:
         return yaml.safe_load(f)
 
 
@@ -25,25 +27,8 @@ def hash_content(content: str) -> str:
 
 def get_constitution_path(role: str) -> Path:
     cfg = load_config()
-    if role not in cfg["roles"]:
-        raise ValueError(f"Unknown role: {role}")
-    return _resolve_constitution_path(cfg["roles"][role]["constitution"])
-
-
-def _resolve_constitution_path(value: str) -> Path:
-    """Resolve a constitution path from config entry."""
-
-    expanded = Path(value).expanduser()
-
-    if expanded.is_absolute():
-        return expanded
-
-    parts = list(expanded.parts)
-    if parts and parts[0] == "constitutions":
-        parts = parts[1:]
-
-    relative = Path(*parts) if parts else Path(expanded.name)
-    return (config.CONSTITUTIONS_DIR / relative).resolve()
+    constitution_filename = cfg["roles"][role]["constitution"]
+    return paths.constitution(constitution_filename)
 
 
 def get_base_identity(role: str) -> str:
@@ -69,39 +54,6 @@ def inject_identity(
     if self_desc:
         return f"{header}\nSelf: {self_desc}\n\n{base_constitution_content}{footer}"
     return f"{header}\n\n{base_constitution_content}{footer}"
-
-
-def auto_register_if_needed(role: str, model: str | None = None) -> str:
-    """Auto-register role with base_identity to 'general' topic if not exists.
-
-    Returns agent_name.
-    """
-    agent_name = get_base_identity(role)
-    existing = registry.get_registration(role, agent_name, "general")
-    if not existing:
-        register_agent(role, agent_name, "general", model)
-    return agent_name
-
-
-def register_agent(
-    role: str, agent_name: str, topic: str, model: str | None = None, client: str | None = None
-) -> dict:
-    const_path = get_constitution_path(role)
-    base_content = const_path.read_text()
-    full_identity = inject_identity(base_content, agent_name, model)
-    const_hash = hash_content(full_identity)
-    registry.save_constitution(const_hash, full_identity)
-    reg_id = registry.register(role, agent_name, topic, const_hash, model, client)
-
-    return {
-        "id": reg_id,
-        "role": role,
-        "agent_name": agent_name,
-        "topic": topic,
-        "constitution_hash": const_hash[:8],
-        "model": model,
-        "client": client,
-    }
 
 
 def launch_agent(
@@ -143,18 +95,17 @@ def launch_agent(
     const_hash = hash_content(full_identity)
     registry.save_constitution(const_hash, full_identity)
 
-    _sync_identity_targets(agent_cfg, full_identity)
+    _write_identity_file(actual_base_identity, full_identity)
 
     command_tokens = _parse_command(agent_cfg["command"])
     env = _build_launch_env()
-    workspace_root = config.workspace_root()
+    workspace_root = paths.workspace_root()
     env["PWD"] = str(workspace_root)
     command_tokens[0] = _resolve_executable(command_tokens[0], env)
 
-    constitution_args = _constitution_args_from_content(agent_cfg, full_identity)
     passthrough = extra_args or []
     model_args = ["--model", actual_model] if actual_model else []
-    full_command = command_tokens + model_args + passthrough + constitution_args
+    full_command = command_tokens + model_args + passthrough
 
     model_suffix = f" (model: {actual_model})" if actual_model else ""
     click.echo(
@@ -164,47 +115,20 @@ def launch_agent(
     subprocess.run(full_command, env=env, check=False, cwd=str(workspace_root))
 
 
-def _constitution_args_from_content(agent_cfg: dict, constitution_content: str) -> list[str]:
-    """Return the arguments that convey the constitution to the agent."""
+def _write_identity_file(base_identity: str, content: str) -> None:
+    """Write constitution to the base identity's file (CLAUDE.md, GEMINI.md, etc)."""
+    filename_map = {
+        "claude": "CLAUDE.md",
+        "gemini": "GEMINI.md",
+        "codex": "CODEX.md",
+        "chatgpt": "CHATGPT.md",
+    }
+    filename = filename_map.get(base_identity)
+    if not filename:
+        raise ValueError(f"Unknown base_identity: {base_identity}")
 
-    enabled = agent_cfg.get("append_constitution", True)
-    if not enabled:
-        return []
-
-    value = agent_cfg.get("constitution_arg", "--constitution")
-    if isinstance(value, list):
-        return [*value, constitution_content]
-    if isinstance(value, str):
-        return [value, constitution_content]
-
-    raise ValueError("constitution_arg must be a string or list of strings")
-
-
-def _sync_identity_targets(agent_cfg: dict, content: str) -> None:
-    """Materialise the constitution into configured identity targets."""
-
-    targets = agent_cfg.get("identity_targets")
-    if not targets:
-        return
-
-    for target in _normalise_identity_targets(targets):
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content)
-
-
-def _normalise_identity_targets(targets: str | list[str]) -> list[Path]:
-    if isinstance(targets, str):
-        targets_list = [targets]
-    elif isinstance(targets, list):
-        targets_list = targets
-    else:
-        raise ValueError("identity_targets must be a string or list of strings")
-
-    materialised: list[Path] = []
-    for raw in targets_list:
-        path = Path(raw).expanduser()
-        materialised.append(path)
-    return materialised
+    target = paths.workspace_root() / filename
+    target.write_text(content)
 
 
 def _parse_command(command: str | list[str]) -> list[str]:

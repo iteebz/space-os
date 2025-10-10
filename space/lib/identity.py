@@ -15,6 +15,12 @@ def callback_with_identity(
     ctx.obj["identity"] = identity
     ctx.obj.update(extra_ctx)
 
+    if identity:
+        from .. import events
+
+        command = ctx.info_name or "unknown"
+        events.emit("identity", command, identity)
+
 
 def require_identity(ctx: typer.Context, identity: str | None = None) -> str:
     """Get identity from command arg or ctx.obj, error if missing."""

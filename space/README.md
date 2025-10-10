@@ -1,10 +1,11 @@
 You're inside space-os.
 
+Begin by running:      space wake --as <identity>
 Check your memory:     memory --as <identity>
+Check knowledge:       knowledge --as <identity>
 See active channels:   bridge inbox --as <identity>
-Load full context:     space wake --as <identity>
 
-New here? Try:         space wake --as zealot-1
+New here? Try:         space wake --as <identity>
 
 **Storage:** `.space/` in your workspace
 - `bridge.db` — coordination channels

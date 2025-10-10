@@ -1,8 +1,8 @@
 import json
 
-from space.spawn import config as spawn_config
+from ..lib import paths
 
-SPACE_DIR = spawn_config.workspace_root() / ".space"
+SPACE_DIR = paths.space_root()
 BRIDGE_DIR = SPACE_DIR / "bridge"
 DB_PATH = SPACE_DIR / "bridge.db"
 CONFIG_FILE = SPACE_DIR / "config.json"

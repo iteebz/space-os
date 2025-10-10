@@ -1,4 +1,3 @@
-import sqlite3
 import tempfile
 from pathlib import Path
 
@@ -26,13 +25,7 @@ def test_inject_identity_with_self():
         registry.config.registry_db = lambda: db
         registry.init_db()
 
-        conn = sqlite3.connect(db)
-        conn.execute(
-            "INSERT INTO registrations (role, agent_name, topic, constitution_hash, self) VALUES (?, ?, ?, ?, ?)",
-            ("sentinel", "sentinel-1", "detective", "abc123", "Reality guardian"),
-        )
-        conn.commit()
-        conn.close()
+        registry.set_self_description("sentinel-1", "Reality guardian")
 
         const = "You are a sentinel."
         result = spawn.inject_identity(const, "sentinel-1")
@@ -49,25 +42,10 @@ def test_self_identity_evolution():
         registry.config.registry_db = lambda: db
         registry.init_db()
 
-        conn = sqlite3.connect(db)
-        conn.execute(
-            "INSERT INTO registrations (role, agent_name, topic, constitution_hash) VALUES (?, ?, ?, ?)",
-            ("zealot", "zealot-1", "space", "def456"),
-        )
-        conn.commit()
+        registry.set_self_description("zealot-1", "Purges bullshit")
 
-        conn.execute(
-            "UPDATE registrations SET self = ? WHERE agent_name = ?",
-            ("Purges bullshit", "zealot-1"),
-        )
-        conn.commit()
-
-        row = conn.execute(
-            "SELECT self FROM registrations WHERE agent_name = ?", ("zealot-1",)
-        ).fetchone()
-        conn.close()
-
-        assert row[0] == "Purges bullshit"
+        desc = registry.get_self_description("zealot-1")
+        assert desc == "Purges bullshit"
 
         const = "You are a zealot."
         result = spawn.inject_identity(const, "zealot-1")
@@ -80,25 +58,10 @@ def test_describe_updates_self():
         registry.config.registry_db = lambda: db
         registry.init_db()
 
-        conn = sqlite3.connect(db)
-        conn.execute(
-            "INSERT INTO registrations (role, agent_name, topic, constitution_hash) VALUES (?, ?, ?, ?)",
-            ("scribe", "scribe-1", "council", "ghi789"),
-        )
-        conn.commit()
+        updated = registry.set_self_description("scribe-1", "Voice of the council")
+        desc = registry.get_self_description("scribe-1")
 
-        cursor = conn.execute(
-            "UPDATE registrations SET self = ? WHERE agent_name = ?",
-            ("Voice of the council", "scribe-1"),
-        )
-        conn.commit()
-
-        desc = conn.execute(
-            "SELECT self FROM registrations WHERE agent_name = ?", ("scribe-1",)
-        ).fetchone()[0]
-        conn.close()
-
-        assert cursor.rowcount > 0
+        assert updated
         assert desc == "Voice of the council"
 
 

@@ -1,7 +1,7 @@
 from space.bridge import api
 
 
-def test_send_message(bridge_workspace):
+def test_send_message(test_space):
     """Verify that a sent message is stored and retrievable."""
     channel_id = api.create_channel("test-channel")
     api.send_message(channel_id, "test-sender", "hello world")
@@ -11,7 +11,7 @@ def test_send_message(bridge_workspace):
     assert messages[0].sender == "test-sender"
 
 
-def test_recv_updates(bridge_workspace):
+def test_recv_updates(test_space):
     """Verify that recv_updates retrieves new messages and sets bookmarks."""
     channel_id = api.create_channel("recv-channel")
     agent_id = "test-agent"
@@ -34,7 +34,7 @@ def test_recv_updates(bridge_workspace):
     assert len(messages) == 0
 
 
-def test_fetch_messages(bridge_workspace):
+def test_fetch_messages(test_space):
     """Verify that fetch_messages retrieves all messages for a channel."""
     channel_id = api.create_channel("fetch-channel")
     api.send_message(channel_id, "sender1", "message1")
@@ -45,7 +45,7 @@ def test_fetch_messages(bridge_workspace):
     assert messages[1].content == "message2"
 
 
-def test_fetch_sender_history(bridge_workspace):
+def test_fetch_sender_history(test_space):
     """Verify that fetch_sender_history retrieves all messages from a sender."""
     channel_id1 = api.create_channel("history-channel-1")
     channel_id2 = api.create_channel("history-channel-2")
@@ -60,7 +60,7 @@ def test_fetch_sender_history(bridge_workspace):
     assert {msg.content for msg in history} == {"message1", "message2"}
 
 
-def test_create_channel_with_topic(bridge_workspace):
+def test_create_channel_with_topic(test_space):
     """Verify that creating a channel with a topic correctly sets the topic."""
     channel_name = "new-channel-with-topic"
     initial_topic = "This is the initial topic."
@@ -70,7 +70,7 @@ def test_create_channel_with_topic(bridge_workspace):
     assert retrieved_topic == initial_topic
 
 
-def test_create_channel_without_topic(bridge_workspace):
+def test_create_channel_without_topic(test_space):
     """Verify that creating a channel without a topic results in a NULL topic."""
     channel_name = "new-channel-without-topic"
     channel_id = api.create_channel(channel_name)
@@ -79,7 +79,7 @@ def test_create_channel_without_topic(bridge_workspace):
     assert retrieved_topic is None
 
 
-def test_active_channels_filters_by_agent_unreads(bridge_workspace):
+def test_active_channels_filters_by_agent_unreads(test_space):
     """Verify active_channels filters by agent_id and shows only channels with unreads."""
     channel1 = api.create_channel("active-1")
     channel2 = api.create_channel("active-2")
@@ -100,7 +100,7 @@ def test_active_channels_filters_by_agent_unreads(bridge_workspace):
     assert all(c.name in ["active-2", "active-3"] for c in active)
 
 
-def test_active_channels_limits_to_five(bridge_workspace):
+def test_active_channels_limits_to_five(test_space):
     """Verify active_channels limits to 5 most recent."""
     agent_id = "test-agent"
     for i in range(7):
@@ -111,7 +111,7 @@ def test_active_channels_limits_to_five(bridge_workspace):
     assert len(active) == 5
 
 
-def test_inbox_channels_shows_all_unreads(bridge_workspace):
+def test_inbox_channels_shows_all_unreads(test_space):
     """Verify inbox_channels shows all channels with unreads."""
     agent_id = "test-agent"
     for i in range(7):

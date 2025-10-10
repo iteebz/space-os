@@ -3,9 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..lib import db as libdb
+from ..lib import db, paths
 from ..lib.ids import uuid7
-from ..spawn import config as spawn_config
 
 KNOWLEDGE_DB_NAME = "knowledge.db"
 
@@ -36,20 +35,25 @@ class Entry:
     created_at: str
     archived_at: int | None = None
 
+    @property
+    def contributors(self) -> list[str]:
+        return [c.strip() for c in self.contributor.split(",")]
+
 
 def database_path() -> Path:
-    return libdb.workspace_db_path(spawn_config.workspace_root(), KNOWLEDGE_DB_NAME)
+    return paths.space_root() / KNOWLEDGE_DB_NAME
 
 
 def connect():
     db_path = database_path()
-    if db_path.exists():
-        _migrate_schema(db_path)
-    return libdb.workspace_db(spawn_config.workspace_root(), KNOWLEDGE_DB_NAME, _KNOWLEDGE_SCHEMA)
+    if not db_path.exists():
+        db.ensure_schema(db_path, _KNOWLEDGE_SCHEMA)
+    _migrate_schema(db_path)
+    return db.connect(db_path)
 
 
 def _migrate_schema(db_path: Path):
-    with libdb.connect(db_path) as conn:
+    with db.connect(db_path) as conn:
         cursor = conn.execute("PRAGMA table_info(knowledge)")
         columns = {row[1] for row in cursor.fetchall()}
 
@@ -59,9 +63,12 @@ def _migrate_schema(db_path: Path):
 
 
 def write_knowledge(
-    domain: str, contributor: str, content: str, confidence: float | None = None
+    domain: str, contributor: str | list[str], content: str, confidence: float | None = None
 ) -> str:
     from .. import events
+
+    if isinstance(contributor, list):
+        contributor = ",".join(contributor)
 
     entry_id = uuid7()
     with connect() as conn:
@@ -88,8 +95,8 @@ def query_by_contributor(contributor: str, include_archived: bool = False) -> li
     archive_filter = "" if include_archived else "AND archived_at IS NULL"
     with connect() as conn:
         rows = conn.execute(
-            f"SELECT id, domain, contributor, content, confidence, created_at, archived_at FROM knowledge WHERE contributor = ? {archive_filter} ORDER BY created_at DESC",
-            (contributor,),
+            f"SELECT id, domain, contributor, content, confidence, created_at, archived_at FROM knowledge WHERE contributor LIKE ? {archive_filter} ORDER BY created_at DESC",
+            (f"%{contributor}%",),
         ).fetchall()
     return [Entry(*row) for row in rows]
 

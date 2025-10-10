@@ -7,11 +7,12 @@ import typer
 
 SLEEP_CHECKLIST = """
 ✓ Before you go:
-  1. Extract signal → memory/knowledge
-  2. Archive stale entries
-  3. Mark channels read: bridge recv <channel> --as <identity>
-  4. Log blockers
-  5. Reflect: bridge send space-feedback <reflection> --as <identity>
+  1. Update rolling summary: memory summary --as <identity> "<current state>"
+  2. Extract signal → memory/knowledge
+  3. Archive stale entries
+  4. Mark channels read: bridge recv <channel> --as <identity>
+  5. Log blockers
+  6. Reflect: bridge send space-feedback <reflection> --as <identity>
 
 💀 Clean death. Next self thanks you.
 """
@@ -55,34 +56,15 @@ def sleep(
         typer.echo(f"\n📬 {len(active)} active channels:")
         for ch in active:
             typer.echo(f"  • {ch}")
-            memory_db.add_checkpoint_entry(
-                identity=identity,
-                topic="bridge-context",
-                message=f"Active channel: {ch}",
-                bridge_channel=ch,
-            )
 
     memory_count = len(memory_db.get_entries(identity))
     git_status = _get_git_status()
 
-    if git_status:
-        memory_db.add_checkpoint_entry(
-            identity=identity,
-            topic="git-status",
-            message="Uncommitted changes detected.",
-            code_anchors=git_status,
-        )
-        if not quiet:
-            typer.echo(f"\n⚠️ Uncommitted changes detected:\n{git_status}")
+    if git_status and not quiet:
+        typer.echo(f"\n⚠️ Uncommitted changes detected:\n{git_status}")
 
-    if memory_count == 0:
-        memory_db.add_checkpoint_entry(
-            identity=identity,
-            topic="memory-gap",
-            message="No memory entries found for this identity.",
-        )
-        if not quiet:
-            typer.echo(f"\n🧠 No memory entries found for {identity}. Possible memory gap.")
+    if memory_count == 0 and not quiet:
+        typer.echo(f"\n🧠 No memory entries found for {identity}. Possible memory gap.")
 
     if not quiet:
         typer.echo(f"\n🧠 {memory_count} memory entries")

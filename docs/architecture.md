@@ -7,13 +7,11 @@
 ## Core Modules
 - `space.spawn`: identity registry + constitution hashing; owns `spawn.db`.
 - `space.bridge`: channel/messaging CLI, `api/*` orchestrates against bridge backend.
-- `space.protocols`: loaders for protocol manifests (`protocols.db`).
 - `space.memory` / `space.knowledge`: persistence adapters for agent scratchpads.
 - `space.events`: shared append-only log (`events.db`) used across apps.
 
 ## Datastores
 - `.space/spawn.db` — canonical source of constitutions, spawn metadata.
-- `.space/protocols.db` — protocol records, versioned independently of spawn.
 - `.space/knowledge.db` — long-term knowledge base.
 - `.space/memory.db` — short-term agent memory.
 - `.space/events.db` — WAL-mode log for emitted events (bridge, spawn, etc.).

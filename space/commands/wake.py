@@ -9,8 +9,6 @@ import typer
 IDENTITY_HEADER = "You are {identity}."
 SELF_DESCRIPTION = "Self: {description}"
 SPAWN_STATUS = "🔄 Spawn #{count} • Last spawn {duration} ago"
-SLEEP_STATUS = "💤 Asleep for {duration} (since {timestamp})"
-CHECKPOINT_STATUS = "📌 Last checkpoint: {message}"
 
 SECTION_CORE = "CORE:"
 SECTION_RECENT = "RECENT:"
@@ -29,11 +27,10 @@ def wake(
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
 ):
     """Load your context. Resume where you left off."""
+    typer.echo(f"Waking up {identity}")
     from .. import events
     from ..bridge.api import channels as bridge_channels
-    from ..spawn import registry
 
-    registry.record_invocation(identity)
     events.identify(identity, "wake")
 
     from ..memory.display import show_wake_summary

@@ -11,13 +11,8 @@ def test_app_help():
     assert "Usage:" in result.stdout
 
 
-def test_memory_list_no_bridge_context(tmp_path, monkeypatch):
-    monkeypatch.setenv("SPACE_HOME", str(tmp_path))
-
+def test_memory_list_no_bridge_context(test_space):
     from space.memory import db
-    from space.spawn import config
-
-    monkeypatch.setattr(config, "workspace_root", lambda: tmp_path)
 
     identity = "test-agent"
     db.add_entry(identity, "test-topic", "test message")

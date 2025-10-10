@@ -1,7 +1,8 @@
 """Business logic for alerts."""
 
+from space.models import Message
+
 from .. import db
-from ..models import Message
 
 
 def get_alerts(agent_id: str) -> list[Message]:

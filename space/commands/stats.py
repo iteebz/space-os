@@ -3,7 +3,7 @@ from dataclasses import asdict
 
 import typer
 
-from .. import stats as space_stats
+from ..lib import stats as space_stats
 
 
 def stats(

@@ -25,7 +25,7 @@ def main_command(
 @app.command("add")
 def add_knowledge_command(
     domain: str = typer.Option(..., help="Domain of the knowledge"),
-    contributor: str = typer.Option(..., help="Contributor of the knowledge"),
+    contributor: str = typer.Option(..., help="Contributor(s) - comma-separated for co-authorship"),
     content: str = typer.Argument(..., help="The knowledge content"),
     confidence: float = typer.Option(None, help="Confidence score (0.0-1.0)"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),

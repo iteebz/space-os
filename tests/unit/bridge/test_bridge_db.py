@@ -1,4 +1,4 @@
-def test_recv_respects_bookmarks(bridge_workspace):
+def test_recv_respects_bookmarks(test_space):
     from space.bridge import api
     from space.bridge.api import messages as coordination_messages
 

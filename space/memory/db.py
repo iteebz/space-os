@@ -5,10 +5,9 @@ from datetime import datetime
 from pathlib import Path
 
 from .. import events
-from ..lib import db as libdb
+from ..lib import db, paths
 from ..lib.ids import uuid7
-from ..spawn import config as spawn_config
-from .models import Entry
+from ..models import Memory
 
 MEMORY_DB_NAME = "memory.db"
 
@@ -36,18 +35,19 @@ CREATE INDEX IF NOT EXISTS idx_memory_core ON memory(core);
 
 
 def database_path() -> Path:
-    return libdb.workspace_db_path(spawn_config.workspace_root(), MEMORY_DB_NAME)
+    return paths.space_root() / MEMORY_DB_NAME
 
 
 def connect():
     db_path = database_path()
-    if db_path.exists():
-        _migrate_schema(db_path)
-    return libdb.workspace_db(spawn_config.workspace_root(), MEMORY_DB_NAME, _MEMORY_SCHEMA)
+    if not db_path.exists():
+        db.ensure_schema(db_path, _MEMORY_SCHEMA)
+    _migrate_schema(db_path)
+    return db.connect(db_path)
 
 
 def _migrate_schema(db_path: Path):
-    with libdb.connect(db_path) as conn:
+    with db.connect(db_path) as conn:
         cursor = conn.execute("PRAGMA table_info(memory)")
         columns = {row[1] for row in cursor.fetchall()}
 
@@ -105,39 +105,46 @@ def add_entry(identity: str, topic: str, message: str, core: bool = False, sourc
     )
 
 
-def add_checkpoint_entry(
-    identity: str,
-    topic: str,
-    message: str,
-    bridge_channel: str | None = None,
-    code_anchors: str | None = None,
-):
-    entry_uuid = uuid7()
+def set_summary(identity: str, message: str):
     now = int(time.time())
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+
     with connect() as conn:
+        old = conn.execute(
+            "SELECT uuid, message FROM memory WHERE identity = ? AND source = 'summary'",
+            (identity,),
+        ).fetchone()
+
+        if old:
+            events.emit("memory", "summary.replace", identity, f"old: {old[1][:50]}")
+
         conn.execute(
-            "INSERT INTO memory (uuid, identity, topic, message, timestamp, created_at, core, source, bridge_channel, code_anchors) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                entry_uuid,
-                identity,
-                topic,
-                message,
-                ts,
-                now,
-                0,
-                "checkpoint",
-                bridge_channel,
-                code_anchors,
-            ),
+            "DELETE FROM memory WHERE identity = ? AND source = 'summary'",
+            (identity,),
+        )
+
+        entry_uuid = uuid7()
+        conn.execute(
+            "INSERT INTO memory (uuid, identity, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (entry_uuid, identity, "summary", message, ts, now, 0, "summary"),
         )
         conn.commit()
-    events.emit("memory", "entry.add", identity, f"{topic}:{message[:50]} [CHECKPOINT]")
+
+    events.emit("memory", "summary.set", identity, message[:50])
+
+
+def get_summary(identity: str) -> str | None:
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT message FROM memory WHERE identity = ? AND source = 'summary'",
+            (identity,),
+        ).fetchone()
+    return row[0] if row else None
 
 
 def get_entries(
     identity: str, topic: str | None = None, include_archived: bool = False
-) -> list[Entry]:
+) -> list[Memory]:
     with connect() as conn:
         archive_filter = "" if include_archived else "AND archived_at IS NULL"
         if topic:
@@ -151,7 +158,7 @@ def get_entries(
                 (identity,),
             ).fetchall()
     return [
-        Entry(
+        Memory(
             row[0],
             row[1],
             row[2],
@@ -231,14 +238,14 @@ def mark_core(entry_uuid: str, core: bool = True):
     events.emit("memory", "entry.core", None, f"{full_uuid[-8:]} → {core}")
 
 
-def get_core_entries(identity: str) -> list[Entry]:
+def get_core_entries(identity: str) -> list[Memory]:
     with connect() as conn:
         rows = conn.execute(
             "SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE identity = ? AND core = 1 AND archived_at IS NULL ORDER BY created_at DESC",
             (identity,),
         ).fetchall()
     return [
-        Entry(
+        Memory(
             row[0],
             row[1],
             row[2],
@@ -255,7 +262,7 @@ def get_core_entries(identity: str) -> list[Entry]:
     ]
 
 
-def get_recent_entries(identity: str, days: int = 7, limit: int = 20) -> list[Entry]:
+def get_recent_entries(identity: str, days: int = 7, limit: int = 20) -> list[Memory]:
     cutoff = int(time.time()) - (days * 86400)
     with connect() as conn:
         rows = conn.execute(
@@ -263,7 +270,7 @@ def get_recent_entries(identity: str, days: int = 7, limit: int = 20) -> list[En
             (identity, cutoff, limit),
         ).fetchall()
     return [
-        Entry(
+        Memory(
             row[0],
             row[1],
             row[2],
@@ -280,7 +287,7 @@ def get_recent_entries(identity: str, days: int = 7, limit: int = 20) -> list[En
     ]
 
 
-def search_entries(identity: str, keyword: str, include_archived: bool = False) -> list[Entry]:
+def search_entries(identity: str, keyword: str, include_archived: bool = False) -> list[Memory]:
     archive_filter = "" if include_archived else "AND archived_at IS NULL"
     with connect() as conn:
         rows = conn.execute(
@@ -288,7 +295,7 @@ def search_entries(identity: str, keyword: str, include_archived: bool = False) 
             (identity, f"%{keyword}%", f"%{keyword}%"),
         ).fetchall()
     return [
-        Entry(
+        Memory(
             row[0],
             row[1],
             row[2],
@@ -306,8 +313,8 @@ def search_entries(identity: str, keyword: str, include_archived: bool = False) 
 
 
 def find_related(
-    entry: Entry, limit: int = 5, include_archived: bool = False
-) -> list[tuple[Entry, int]]:
+    entry: Memory, limit: int = 5, include_archived: bool = False
+) -> list[tuple[Memory, int]]:
     stopwords = {
         "the",
         "a",
@@ -382,7 +389,7 @@ def find_related(
 
     scored = []
     for row in all_entries:
-        candidate = Entry(
+        candidate = Memory(
             row[0],
             row[1],
             row[2],
@@ -410,7 +417,7 @@ def find_related(
     return scored[:limit]
 
 
-def get_by_uuid(entry_uuid: str) -> Entry | None:
+def get_by_uuid(entry_uuid: str) -> Memory | None:
     full_uuid = _resolve_uuid(entry_uuid)
     with connect() as conn:
         row = conn.execute(
@@ -418,7 +425,7 @@ def get_by_uuid(entry_uuid: str) -> Entry | None:
             (full_uuid,),
         ).fetchone()
     return (
-        Entry(
+        Memory(
             row[0],
             row[1],
             row[2],

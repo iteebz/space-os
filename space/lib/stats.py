@@ -3,10 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from .bridge import config as bridge_config
-from .knowledge import db as knowledge_db
-from .lib import db as libdb
-from .memory import db as memory_db
+from . import db, paths
 
 
 @dataclass
@@ -75,11 +72,11 @@ class SpaceStats:
 
 
 def bridge_stats(limit: int = None) -> BridgeStats:
-    db = bridge_config.DB_PATH
-    if not db.exists():
+    db_path = paths.space_root() / "bridge.db"
+    if not db_path.exists():
         return BridgeStats(available=False)
 
-    with libdb.connect(db) as conn:
+    with db.connect(db_path) as conn:
         total = conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
         channels = conn.execute(
             "SELECT COUNT(DISTINCT channel_id) FROM messages WHERE channel_id IS NOT NULL"
@@ -117,11 +114,11 @@ def bridge_stats(limit: int = None) -> BridgeStats:
 
 
 def memory_stats(limit: int = None) -> MemoryStats:
-    db_path = memory_db.database_path()
+    db_path = paths.space_root() / "memory.db"
     if not db_path.exists():
         return MemoryStats(available=False)
 
-    with memory_db.connect() as conn:
+    with db.connect(db_path) as conn:
         total = conn.execute("SELECT COUNT(*) FROM memory").fetchone()[0]
         active = conn.execute("SELECT COUNT(*) FROM memory WHERE archived_at IS NULL").fetchone()[0]
         archived = conn.execute(
@@ -153,11 +150,11 @@ def memory_stats(limit: int = None) -> MemoryStats:
 
 
 def knowledge_stats(limit: int = None) -> KnowledgeStats:
-    db_path = knowledge_db.database_path()
+    db_path = paths.space_root() / "knowledge.db"
     if not db_path.exists():
         return KnowledgeStats(available=False)
 
-    with knowledge_db.connect() as conn:
+    with db.connect(db_path) as conn:
         total = conn.execute("SELECT COUNT(*) FROM knowledge").fetchone()[0]
         active = conn.execute(
             "SELECT COUNT(*) FROM knowledge WHERE archived_at IS NULL"
@@ -191,20 +188,17 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
 
 
 def agent_stats(limit: int = None) -> list[AgentStats] | None:
-    from . import events
-    from .spawn import config as spawn_config
-    from .spawn import registry
-
-    bridge_db = bridge_config.DB_PATH
-    mem_db = memory_db.database_path()
-    know_db = knowledge_db.database_path()
+    bridge_db = paths.space_root() / "bridge.db"
+    mem_db = paths.space_root() / "memory.db"
+    know_db = paths.space_root() / "knowledge.db"
+    spawn_db = paths.space_root() / "spawn.db"
 
     if not bridge_db.exists():
         return None
 
     identities = {}
 
-    with libdb.connect(bridge_db) as conn:
+    with db.connect(bridge_db) as conn:
         for row in conn.execute("SELECT sender, COUNT(*) as msgs FROM messages GROUP BY sender"):
             identities[row[0]] = {
                 "msgs": row[1],
@@ -221,17 +215,17 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
             if row[0] in identities:
                 identities[row[0]]["channels"] = channels
 
-    if events.DB_PATH.exists():
-        with libdb.connect(events.DB_PATH) as conn:
+    events_db = paths.space_root() / "events.db"
+    if events_db.exists():
+        with db.connect(events_db) as conn:
             for row in conn.execute(
                 "SELECT identity, MAX(timestamp) FROM events WHERE identity IS NOT NULL GROUP BY identity"
             ):
                 if row[0] in identities:
                     identities[row[0]]["last_active"] = str(row[1])
 
-    spawn_db = spawn_config.registry_db()
     if spawn_db.exists():
-        with registry.get_db() as conn:
+        with db.connect(spawn_db) as conn:
             for row in conn.execute(
                 "SELECT agent_name, COUNT(*) FROM registrations GROUP BY agent_name"
             ):
@@ -239,13 +233,13 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
                     identities[row[0]]["spawns"] = row[1]
 
     if mem_db.exists():
-        with memory_db.connect() as conn:
+        with db.connect(mem_db) as conn:
             for row in conn.execute("SELECT identity, COUNT(*) FROM memory GROUP BY identity"):
                 if row[0] in identities:
                     identities[row[0]]["mems"] = row[1]
 
     if know_db.exists():
-        with knowledge_db.connect() as conn:
+        with db.connect(know_db) as conn:
             for row in conn.execute(
                 "SELECT contributor, COUNT(*) FROM knowledge GROUP BY contributor"
             ):
@@ -294,14 +288,11 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
 
 
 def spawn_stats() -> SpawnStats:
-    from .spawn import config as spawn_config
-    from .spawn import registry
-
-    db_path = spawn_config.registry_db()
+    db_path = paths.space_root() / "spawn.db"
     if not db_path.exists():
         return SpawnStats(available=False)
 
-    with registry.get_db() as conn:
+    with db.connect(db_path) as conn:
         total = conn.execute("SELECT COUNT(*) FROM invocations").fetchone()[0]
 
         active_agents = conn.execute("SELECT DISTINCT agent_name FROM registrations").fetchall()

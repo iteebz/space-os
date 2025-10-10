@@ -1,11 +1,10 @@
 import sqlite3
 import uuid
-from pathlib import Path
 
-from ..errors import ChannelNotFoundError
-from ..lib import db as libdb
+from space.models import Channel, Export, Message, Note
+
+from ..lib import db
 from . import config
-from .models import Channel, ExportData, Message, Note
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS messages (
@@ -49,22 +48,14 @@ CREATE INDEX IF NOT EXISTS idx_messages_priority ON messages(priority);
 """
 
 
-def _path() -> Path:
-    return config.DB_PATH
-
-
-def _ensure_db():
-    db_path = _path()
+def _connect():
+    db_path = config.DB_PATH
     if not db_path.exists():
-        libdb.ensure_schema(db_path, _SCHEMA)
+        db.ensure_schema(db_path, _SCHEMA)
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
         _run_migrations(conn)
-
-
-def _connect():
-    _ensure_db()
-    return libdb.connect(_path())
+    return db.connect(db_path)
 
 
 def _has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
@@ -175,7 +166,7 @@ def get_channel_id(channel_name: str) -> str:
         cursor = conn.execute("SELECT id FROM channels WHERE name = ?", (channel_name,))
         result = cursor.fetchone()
     if not result:
-        raise ChannelNotFoundError(f"Channel '{channel_name}' not found")
+        raise ValueError(f"Channel '{channel_name}' not found")
     return result["id"]
 
 
@@ -280,7 +271,7 @@ def fetch_channels(
     return channels
 
 
-def get_export_data(channel_id: str) -> ExportData:
+def get_export_data(channel_id: str) -> Export:
     with _connect() as conn:
         channel_cursor = conn.execute(
             "SELECT name, topic, created_at FROM channels WHERE id = ?", (channel_id,)
