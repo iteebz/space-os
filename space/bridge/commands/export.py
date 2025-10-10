@@ -4,7 +4,9 @@ from datetime import datetime
 
 import typer
 
+from ... import events
 from .. import api
+from ...spawn import registry
 from ...spawn.registry import get_agent_name
 
 app = typer.Typer()
@@ -13,13 +15,17 @@ app = typer.Typer()
 @app.command()
 def export(
     channel: str = typer.Argument(...),
+    identity: str = typer.Option(None, "--as", help="Agent identity"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
     """Export channel transcript with interleaved notes."""
+    agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
     try:
+        if agent_id:
+            events.emit("bridge", "export_starting", agent_id, json.dumps({"channel": channel}))
         data = api.export_channel(channel)
 
         if json_output:
@@ -73,8 +79,12 @@ def export(
                     typer.echo(f"[NOTE: {author_name} | {timestamp}]")
                     typer.echo(item.content)
                     typer.echo()
+        if agent_id:
+            events.emit("bridge", "export_completed", agent_id, json.dumps({"channel": channel, "message_count": data.message_count}))
 
     except ValueError as e:
+        if agent_id:
+            events.emit("bridge", "error_occurred", agent_id, json.dumps({"command": "export", "details": str(e)}))
         if json_output:
             typer.echo(
                 json.dumps({"status": "error", "message": f"Channel '{channel}' not found."})

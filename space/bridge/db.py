@@ -84,12 +84,13 @@ def create_message(channel_id: str, agent_id: str, content: str, priority: str =
 
 
 def get_new_messages(channel_id: str, agent_id: str | None = None) -> list[Message]:
+    from space.spawn.registry import get_agent_name
     with _connect() as conn:
         channel_name = get_channel_name(channel_id)
         
         if channel_name == "summary":
             query = """
-                SELECT m.id, m.channel_id, m.agent_id AS sender, m.content, m.created_at
+                SELECT m.id, m.channel_id, m.agent_id, m.content, m.created_at
                 FROM messages m
                 JOIN channels c ON m.channel_id = c.id
                 WHERE m.channel_id = ? AND c.archived_at IS NULL
@@ -97,7 +98,8 @@ def get_new_messages(channel_id: str, agent_id: str | None = None) -> list[Messa
                 LIMIT 1
             """
             cursor = conn.execute(query, (channel_id,))
-            return [Message(*row) for row in cursor.fetchall()]
+            rows = cursor.fetchall()
+            return [Message(id=row['id'], channel_id=row['channel_id'], sender=get_agent_name(row['agent_id']) or row['agent_id'], content=row['content'], created_at=row['created_at']) for row in rows]
         
         last_seen_id = None
         if agent_id:
@@ -108,7 +110,7 @@ def get_new_messages(channel_id: str, agent_id: str | None = None) -> list[Messa
             last_seen_id = row["last_seen_id"] if row else None
 
         base_query = """
-            SELECT m.id, m.channel_id, m.agent_id AS sender, m.content, m.created_at
+            SELECT m.id, m.channel_id, m.agent_id, m.content, m.created_at
             FROM messages m
             JOIN channels c ON m.channel_id = c.id
             WHERE m.channel_id = ? AND c.archived_at IS NULL
@@ -122,16 +124,19 @@ def get_new_messages(channel_id: str, agent_id: str | None = None) -> list[Messa
             params = (channel_id, last_seen_id)
 
         cursor = conn.execute(query, params)
-        return [Message(*row) for row in cursor.fetchall()]
+        rows = cursor.fetchall()
+        return [Message(id=row['id'], channel_id=row['channel_id'], sender=get_agent_name(row['agent_id']) or row['agent_id'], content=row['content'], created_at=row['created_at']) for row in rows]
 
 
 def get_all_messages(channel_id: str) -> list[Message]:
+    from space.spawn.registry import get_agent_name
     with _connect() as conn:
         cursor = conn.execute(
-            "SELECT id, channel_id, agent_id AS sender, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
+            "SELECT id, channel_id, agent_id, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
             (channel_id,),
         )
-        return [Message(**row) for row in cursor.fetchall()]
+        rows = cursor.fetchall()
+        return [Message(id=row['id'], channel_id=row['channel_id'], sender=get_agent_name(row['agent_id']) or row['agent_id'], content=row['content'], created_at=row['created_at']) for row in rows]
 
 
 
@@ -161,10 +166,11 @@ def get_alerts(agent_id: str) -> list[Message]:
 
 
 def get_sender_history(agent_id: str, limit: int = 5) -> list[Message]:
+    from space.spawn.registry import get_agent_name
     with _connect() as conn:
         cursor = conn.execute(
             """
-            SELECT m.id, m.channel_id, m.agent_id AS sender, m.content, m.created_at
+            SELECT m.id, m.channel_id, m.agent_id, m.content, m.created_at
             FROM messages m
             WHERE m.agent_id = ?
             ORDER BY m.created_at DESC
@@ -172,7 +178,8 @@ def get_sender_history(agent_id: str, limit: int = 5) -> list[Message]:
             """,
             (agent_id, limit),
         )
-        return [Message(**row) for row in cursor.fetchall()]
+        rows = cursor.fetchall()
+        return [Message(id=row['id'], channel_id=row['channel_id'], sender=get_agent_name(row['agent_id']) or row['agent_id'], content=row['content'], created_at=row['created_at']) for row in rows]
 
 
 def create_channel(channel_name: str, topic: str | None = None) -> str:

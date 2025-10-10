@@ -4,7 +4,9 @@ import json
 
 import typer
 
+from space import events
 from space.lib import readme
+from space.spawn import registry
 
 from . import api, utils
 from .commands import (
@@ -96,8 +98,8 @@ def list(
 ):
     """List all active channels."""
     if agent_id:
-        from space.spawn import registry
         agent_id = registry.ensure_agent(agent_id)
+        events.emit("bridge", "list_active_channels", agent_id, "")
     _print_active_channels(agent_id, json_output, quiet_output)
 
 
@@ -106,6 +108,8 @@ def _print_active_channels(agent_id: str, json_output: bool, quiet_output: bool)
     try:
         active_channels = api.active_channels(agent_id=agent_id)
     except Exception as exc:  # pragma: no cover - defensive logging for CLI usage
+        if agent_id:
+            events.emit("bridge", "error_occurred", agent_id, json.dumps({"command": "list", "details": str(exc)}))
         if not quiet_output:
             typer.echo(f"⚠️ Unable to load bridge channels: {exc}")
             typer.echo()

@@ -41,6 +41,8 @@ def get_base_identity(role: str) -> str:
 def inject_identity(
     base_constitution_content: str, agent_name: str, model: str | None = None
 ) -> str:
+    from ..lib import canon
+    
     registry.init_db()
     self_desc = registry.get_self_description(agent_name)
 
@@ -51,9 +53,11 @@ def inject_identity(
 
     footer = "\n\nInfrastructure: run `space` for commands and orientation (already in PATH)."
 
+    constitution = canon.inject_canon(base_constitution_content)
+
     if self_desc:
-        return f"{header}\nSelf: {self_desc}\n\n{base_constitution_content}{footer}"
-    return f"{header}\n\n{base_constitution_content}{footer}"
+        return f"{header}\nSelf: {self_desc}\n\n{constitution}{footer}"
+    return f"{header}\n\n{constitution}{footer}"
 
 
 def launch_agent(

@@ -3,7 +3,9 @@ from dataclasses import asdict
 
 import typer
 
+from ... import events
 from .. import api, utils
+from space.spawn import registry
 
 app = typer.Typer()
 
@@ -19,8 +21,11 @@ def history(
     preview: bool = typer.Option(False, "--preview", "-p", help="Show preview snapshot"),
 ):
     """Show all messages broadcast by identity across all channels."""
+    agent_id = registry.ensure_agent(identity)
     try:
-        messages = api.fetch_sender_history(identity, limit)
+        events.emit("bridge", "history_fetching", agent_id, json.dumps({"identity": identity, "limit": limit}))
+        messages = api.fetch_agent_history(identity, limit)
+        events.emit("bridge", "history_fetched", agent_id, json.dumps({"identity": identity, "count": len(messages)}))
         if not messages:
             if json_output:
                 typer.echo(json.dumps([]))
@@ -44,6 +49,7 @@ def history(
                 typer.echo(f"\n[{msg.channel_id} | {timestamp}]")
                 typer.echo(msg.content)
     except Exception as exc:
+        events.emit("bridge", "error_occurred", agent_id, json.dumps({"command": "history", "details": str(exc)}))
         if json_output:
             typer.echo(json.dumps({"status": "error", "message": str(exc)}))
         elif not quiet_output:

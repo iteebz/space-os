@@ -40,3 +40,9 @@ def fetch_messages(channel_id: str) -> list[Message]:
     return db.get_all_messages(channel_id)
 
 
+def fetch_agent_history(identity: str, limit: int = 5) -> list[Message]:
+    """Retrieve message history for a given agent identity."""
+    agent_id = registry.ensure_agent(identity)
+    return db.get_sender_history(agent_id, limit)
+
+

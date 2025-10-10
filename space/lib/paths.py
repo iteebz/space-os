@@ -19,3 +19,8 @@ def package_root() -> Path:
 def constitution(filename: str) -> Path:
     """Returns the full path to a constitution file."""
     return package_root() / "constitutions" / filename
+
+
+def canon_path() -> Path:
+    """Returns path to human's canonical values."""
+    return space_root() / "canon.md"
