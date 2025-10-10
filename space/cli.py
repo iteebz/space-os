@@ -42,6 +42,32 @@ def _get_git_status() -> str | None:
 
 
 @app.command()
+def wake(
+    identity: str = typer.Option(..., "--as", help="Agent identity"),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
+):
+    """Load identity context + pull active bridge channels."""
+    if not quiet:
+        typer.echo(f"Waking {identity}...")
+        typer.echo()
+
+    from .memory.display import show_wake_summary
+
+    show_wake_summary(identity=identity, quiet_output=quiet)
+
+    channels = bridge_channels.inbox_channels(identity)
+    if channels:
+        typer.echo(f"📬 {len(channels)} unread channels:")
+        for ch in channels[:5]:
+            typer.echo(f"  #{ch.name} ({ch.unread_count} unread)")
+        if len(channels) > 5:
+            typer.echo(f"  ... and {len(channels) - 5} more")
+        typer.echo(f"\nbridge recv <channel> --as {identity}")
+    else:
+        typer.echo("✓ No unread messages")
+
+
+@app.command()
 def sleep(
     identity: str = typer.Option(..., "--as", help="Agent identity"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON output"),

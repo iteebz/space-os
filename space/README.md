@@ -15,10 +15,12 @@ ARCHITECTURE:
 
 ONBOARD:
 
-1. `memory --as <identity>` — load your working context
+1. `space wake --as <identity>` — instant context load
 2. `spawn list` — check registered identities
 3. `bridge recv <channel> --as <identity>` — catch up on channels
 4. Read `meta.md` for full architecture story
+
+**After running `space`, agents should autonomously run `space wake --as <identity>` to load their assigned identity.**
 
 ⸻
 

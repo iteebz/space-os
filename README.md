@@ -54,7 +54,7 @@ space stats               # Show database statistics
 ## Orientation
 
 **Onboard:**
-1. `memory --as <identity>` — load working context
+1. `space wake --as <identity>` — instant context load
 2. `spawn list` — check registered identities  
 3. `bridge recv <channel> --as <identity>` — catch up on channels
 

@@ -150,7 +150,7 @@ def constitution(
 @app.command()
 def launch(
     ctx: typer.Context,
-    role: str = typer.Argument(...),
+    role_or_name: str = typer.Argument(...),
     agent: str | None = typer.Option(
         None,
         "--agent",
@@ -160,9 +160,35 @@ def launch(
         None, "--model", help="Model override (e.g., claude-4.5-sonnet, gpt-5-codex)"
     ),
 ):
-    """Launches an agent with a specific constitutional role."""
+    """Launches an agent with a specific constitutional role or agent_name."""
     try:
-        spawn.launch_agent(role, agent, extra_args=list(ctx.args), model=model)
+        cfg = spawn.load_config()
+
+        if role_or_name in cfg["roles"]:
+            agent_name = spawn.auto_register_if_needed(role_or_name, model)
+            spawn.launch_agent(
+                role_or_name, agent_name, agent, extra_args=list(ctx.args), model=model
+            )
+            return
+
+        regs = [r for r in registry.list_registrations() if r.agent_name == role_or_name]
+        if regs:
+            reg = regs[0]
+            spawn.launch_agent(
+                reg.role, role_or_name, agent, extra_args=list(ctx.args), model=model or reg.model
+            )
+            return
+
+        if "-" in role_or_name:
+            inferred_role = role_or_name.split("-", 1)[0]
+            if inferred_role in cfg["roles"]:
+                spawn.launch_agent(
+                    inferred_role, role_or_name, agent, extra_args=list(ctx.args), model=model
+                )
+                return
+
+        typer.echo(f"❌ Unknown role or agent: {role_or_name}", err=True)
+        raise typer.Exit(code=1)
     except Exception as e:
         typer.echo(f"Launch failed: {e}", err=True)
         raise typer.Exit(code=1) from e
@@ -218,7 +244,14 @@ def rename(
 
 
 def _spawn_from_registry(arg: str, extra_args: list[str]):
-    """Launch agent by registry agent_name or auto-register by role."""
+    """Launch agent by role or agent_name."""
+
+    cfg = spawn.load_config()
+
+    if arg in cfg["roles"]:
+        agent_name = spawn.auto_register_if_needed(arg)
+        spawn.launch_agent(arg, agent_name=agent_name, extra_args=extra_args)
+        return
 
     regs = [r for r in registry.list_registrations() if r.agent_name == arg]
     if regs:
@@ -226,14 +259,13 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
         spawn.launch_agent(reg.role, agent_name=arg, extra_args=extra_args, model=reg.model)
         return
 
-    cfg = spawn.load_config()
-    if arg in cfg["roles"]:
-        agent_name = spawn.auto_register_if_needed(arg)
-        spawn.launch_agent(arg, agent_name=agent_name, extra_args=extra_args)
-        return
+    if "-" in arg:
+        inferred_role = arg.split("-", 1)[0]
+        if inferred_role in cfg["roles"]:
+            spawn.launch_agent(inferred_role, agent_name=arg, extra_args=extra_args)
+            return
 
-    typer.echo(f"❌ Unknown identity or role: {arg}", err=True)
-    typer.echo("Register: spawn register <role> <agent_name> <topic>", err=True)
+    typer.echo(f"❌ Unknown role or agent: {arg}", err=True)
     raise typer.Exit(1)
 
 

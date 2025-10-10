@@ -135,9 +135,11 @@ def launch_agent(
     if not agent_cfg or "command" not in agent_cfg:
         raise ValueError(f"Agent '{actual_base_identity}' is not configured for launching.")
 
+    actual_model = model or agent_cfg.get("model")
+
     const_path = get_constitution_path(role)
     base_content = const_path.read_text()
-    full_identity = inject_identity(base_content, actual_agent_name, model)
+    full_identity = inject_identity(base_content, actual_agent_name, actual_model)
     const_hash = hash_content(full_identity)
     registry.save_constitution(const_hash, full_identity)
 
@@ -151,10 +153,10 @@ def launch_agent(
 
     constitution_args = _constitution_args_from_content(agent_cfg, full_identity)
     passthrough = extra_args or []
-    model_args = ["--model", model] if model else []
+    model_args = ["--model", actual_model] if actual_model else []
     full_command = command_tokens + model_args + passthrough + constitution_args
 
-    model_suffix = f" (model: {model})" if model else ""
+    model_suffix = f" (model: {actual_model})" if actual_model else ""
     click.echo(
         f"Spawning {actual_agent_name} (base: {actual_base_identity}) as a {role}{model_suffix}..."
     )
@@ -225,6 +227,8 @@ def _build_launch_env() -> dict[str, str]:
     env = os.environ.copy()
     venv_paths = _virtualenv_bin_paths(env)
     env.pop("VIRTUAL_ENV", None)
+    env.pop("CLAUDE_CODE_ENTRYPOINT", None)
+    env.pop("CLAUDECODE", None)
     original_path = env.get("PATH", "")
     filtered_parts: list[str] = []
     for part in original_path.split(os.pathsep):

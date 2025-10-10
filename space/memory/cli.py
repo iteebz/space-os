@@ -3,15 +3,12 @@ from dataclasses import asdict
 
 import typer
 
-from ..knowledge import db as knowledge_db
+from ..lib import identity as identity_lib
 from ..lib import lattice
-from ..spawn import registry as spawn_registry
 from . import db
+from .display import show_context, show_smart_memory
 
 app = typer.Typer(invoke_without_command=True)
-
-# Removed: PROTOCOL_FILE definitions and protocols.track calls
-# Removed: show_dashboard functions
 
 
 @app.callback()
@@ -20,7 +17,7 @@ def main_command(
     identity: str = typer.Option(None, "--as", help="Identity name"),
     archived: bool = typer.Option(False, "--archived", help="Include archived entries"),
 ):
-    ctx.obj = {"archived": archived}
+    ctx.obj = {"identity": identity, "archived": archived}
     if ctx.resilient_parsing:
         return
     if ctx.invoked_subcommand is None:
@@ -43,20 +40,24 @@ def main_command(
 
 @app.command("add")
 def add_entry_command(
-    identity: str = typer.Option(..., "--as", help="Identity name"),
-    topic: str = typer.Option(..., help="Topic name"),
+    ctx: typer.Context,
     message: str = typer.Argument(..., help="The memory message"),
+    identity: str = typer.Option(None, "--as", help="Identity name"),
+    topic: str = typer.Option(..., help="Topic name"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
     """Add a new memory entry."""
-    entry_id = db.add_entry(identity, topic, message)
+    resolved_identity = identity_lib.require_identity(ctx, identity)
+    entry_id = db.add_entry(resolved_identity, topic, message)
     if json_output:
-        typer.echo(json.dumps({"entry_id": entry_id, "identity": identity, "topic": topic}))
+        typer.echo(
+            json.dumps({"entry_id": entry_id, "identity": resolved_identity, "topic": topic})
+        )
     elif not quiet_output:
-        typer.echo(f"Added memory for {identity} on topic {topic}")
+        typer.echo(f"Added memory for {resolved_identity} on topic {topic}")
 
 
 @app.command("edit")
@@ -134,7 +135,7 @@ def list_entries_command(
     ),
 ):
     """List memory entries for an identity and optional topic."""
-    _constitute_identity(identity)
+    identity_lib.constitute_identity(identity)
 
     if topic or show_all:
         entries = db.get_entries(identity, topic, include_archived=include_archived)
@@ -159,138 +160,9 @@ def list_entries_command(
                 core_mark = " ★" if e.core else ""
                 typer.echo(f"[{e.uuid[-8:]}] [{e.timestamp}] {e.message}{core_mark}")
 
-            _show_context(identity)
+            show_context(identity)
     else:
-        _show_smart_memory(identity, json_output, quiet_output)
-
-
-def _constitute_identity(identity: str):
-    """Hash constitution and emit provenance event."""
-    from .. import events
-    from ..spawn import registry, spawn
-
-    role = _extract_role(identity)
-    if not role:
-        return
-
-    try:
-        registry.init_db()
-        cfg = spawn.load_config()
-        if role not in cfg["roles"]:
-            return
-
-        const_path = spawn.get_constitution_path(role)
-        base_constitution = const_path.read_text()
-        full_identity = spawn.inject_identity(base_constitution, identity)
-        const_hash = spawn.hash_content(full_identity)
-        registry.save_constitution(const_hash, full_identity)
-
-        model = _extract_model_from_identity(identity)
-        events.emit(
-            "memory",
-            "constitution_invoked",
-            identity,
-            json.dumps({"constitution_hash": const_hash, "role": role, "model": model}),
-        )
-    except (FileNotFoundError, ValueError):
-        pass
-
-
-def _extract_role(identity: str) -> str | None:
-    """Extract role from identity like zealot-1 -> zealot."""
-    if "-" in identity:
-        return identity.rsplit("-", 1)[0]
-    return identity
-
-
-def _extract_model_from_identity(identity: str) -> str | None:
-    """Extract model name from spawn config based on identity."""
-    from ..spawn import spawn
-
-    role = _extract_role(identity)
-    if not role:
-        return None
-
-    try:
-        cfg = spawn.load_config()
-        if role in cfg["roles"]:
-            base_identity = cfg["roles"][role].get("base_identity")
-            if base_identity and "agents" in cfg:
-                agent_cfg = cfg["agents"].get(base_identity, {})
-                return agent_cfg.get("model")
-    except (FileNotFoundError, ValueError, KeyError):
-        pass
-
-    return None
-
-
-def _show_context(identity: str):
-    typer.echo("\n" + "─" * 60)
-
-    regs = spawn_registry.list_registrations()
-    my_regs = [r for r in regs if r.agent_name == identity]
-    if my_regs:
-        topics = {r.topic for r in my_regs}
-        typer.echo(f"\nREGISTERED: {', '.join(sorted(topics))}")
-
-    knowledge_entries = knowledge_db.query_by_contributor(identity)
-    if knowledge_entries:
-        domains = {e.domain for e in knowledge_entries}
-        typer.echo(
-            f"\nKNOWLEDGE: {len(knowledge_entries)} entries across {', '.join(sorted(domains))}"
-        )
-
-    typer.echo("\n" + "─" * 60)
-
-
-def _show_smart_memory(identity: str, json_output: bool, quiet_output: bool):
-    from ..spawn import registry as spawn_registry
-
-    self_desc = spawn_registry.get_self_description(identity)
-    core_entries = db.get_core_entries(identity)
-    recent_entries = db.get_recent_entries(identity, days=7, limit=20)
-
-    if json_output:
-        payload = {
-            "identity": identity,
-            "description": self_desc,
-            "core": [asdict(e) for e in core_entries],
-            "recent": [asdict(e) for e in recent_entries],
-        }
-        typer.echo(json.dumps(payload, indent=2))
-        return
-
-    if quiet_output:
-        return
-
-    typer.echo(f"You are {identity}.")
-    if self_desc:
-        typer.echo(f"Self: {self_desc}")
-    typer.echo()
-
-    if core_entries:
-        typer.echo("CORE MEMORIES:")
-        for e in core_entries:
-            preview = e.message[:80] + "..." if len(e.message) > 80 else e.message
-            typer.echo(f"[{e.uuid[-8:]}] {preview}")
-        typer.echo()
-
-    if recent_entries:
-        typer.echo("RECENT (7d):")
-        current_topic = None
-        for e in recent_entries:
-            if e.core:
-                continue
-            if e.topic != current_topic:
-                if current_topic is not None:
-                    typer.echo()
-                typer.echo(f"# {e.topic}")
-                current_topic = e.topic
-            preview = e.message[:100] + "..." if len(e.message) > 100 else e.message
-            typer.echo(f"[{e.uuid[-8:]}] [{e.timestamp}] {preview}")
-        typer.echo()
-
-    _show_context(identity)
+        show_smart_memory(identity, json_output, quiet_output)
 
 
 @app.command("archive")

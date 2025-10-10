@@ -1,18 +1,21 @@
 agents:
   gemini:
     command: "gemini"
+    model: "gemini-2.5-pro"
     append_constitution: false
     identity_targets:
       - "~/dev/space/GEMINI.md"
       - "~/dev/space/AGENTS.md"
   claude:
     command: "claude"
+    model: "claude-sonnet-4-5"
     append_constitution: false
     identity_targets:
       - "~/dev/space/CLAUDE.md"
       - "~/dev/space/AGENTS.md"
   codex:
     command: "codex"
+    model: "gpt-5-codex"
     append_constitution: false
     identity_targets:
       - "~/dev/space/AGENTS.md"
