@@ -74,3 +74,30 @@ def query(source: str | None = None, identity: str | None = None, limit: int = 1
             ).fetchall()
 
     return rows
+
+
+def identify(identity: str, command: str):
+    """Provenance: track identity invocation with constitutional hash.
+    
+    Creates immutable audit trail linking identity → constitution → command.
+    Enables trace reconstruction of agent evolution and decision context.
+    """
+    import json
+    from .lib.identity import constitute_identity
+    from .spawn import registry
+    
+    constitute_identity(identity)
+    
+    const_hash = None
+    try:
+        with registry.get_db() as conn:
+            row = conn.execute(
+                "SELECT constitution_hash FROM registrations WHERE agent_name = ? ORDER BY registered_at DESC LIMIT 1",
+                (identity,)
+            ).fetchone()
+            if row:
+                const_hash = row[0]
+    except:
+        pass
+    
+    emit("identity", command, identity, json.dumps({"constitution_hash": const_hash}))

@@ -20,9 +20,9 @@ def _resolve_readme() -> Path:
     """Locate README in both source tree and installed package layouts."""
     base = Path(__file__).resolve()
     candidates = [
-        Path.cwd() / "README.md",
         base.parents[2] / "README.md",
         base.parents[1] / "README.md",
+        Path.cwd() / "README.md",
     ]
     for candidate in candidates:
         if candidate.exists():
@@ -48,22 +48,18 @@ def load(section_heading: str) -> str:
     content = README.read_text()
     lines = content.split("\n")
 
-    # Determine heading level
-    level = len(section_heading.split()[0])  # Count '#' chars
+    level = section_heading.count("#")
 
     section = []
     capturing = False
 
     for line in lines:
-        # Check if this is our target heading
         if line.strip() == section_heading.strip():
             capturing = True
-            # Strip h1 headings, keep others
             if level > 1:
                 section.append(line)
             continue
 
-        # If capturing and hit any heading, stop
         if capturing and line.startswith("#"):
             break
 

@@ -26,5 +26,4 @@ def init():
     typer.echo("  projects/   → active work")
     typer.echo()
     typer.echo("Next steps:")
-    typer.echo("  spawn list")
-    typer.echo("  memory --as <identity>")
+    typer.echo("  space wake --as <identity>")

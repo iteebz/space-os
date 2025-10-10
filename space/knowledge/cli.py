@@ -15,7 +15,7 @@ def main_command(
 ):
     if ctx.resilient_parsing or ctx.invoked_subcommand is None:
         try:
-            protocol_content = lattice.load("### knowledge")
+            protocol_content = lattice.load("# knowledge")
             typer.echo(protocol_content)
         except (FileNotFoundError, ValueError) as e:
             typer.echo(f"❌ knowledge section not found in README: {e}")

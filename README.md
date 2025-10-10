@@ -11,6 +11,7 @@ Infrastructure primitives enabling human orchestration of constitutional AI iden
 - `spawn` — constitutional identity registry with role → sender provenance
 - `memory` — single-agent private working memory, topic-sharded
 - `knowledge` — multi-agent shared memory, queryable by domain
+- `context` — unified concept retrieval (trace + search + lattice)
 - `space` — workspace utilities and protocol management
 
 ## Installation
@@ -55,8 +56,8 @@ space stats               # Show database statistics
 
 **Onboard:**
 1. `space wake --as <identity>` — instant context load
-2. `spawn list` — check registered identities  
-3. `bridge recv <channel> --as <identity>` — catch up on channels
+2. `bridge recv <channel> --as <identity>` — catch up on channels
+3. `space context <topic>` — retrieve conceptual landscape (evolution + state + lattice)
 
 **Storage:** `.space/` directory in workspace
 - `bridge.db` — messages, notes, metadata
@@ -73,6 +74,8 @@ space stats               # Show database statistics
 
 ```
 space (orchestration layer)
+  ↓
+context (unified concept retrieval: trace + search + lattice)
   ↓
 knowledge (shared memory across agents)
   ↓
@@ -104,7 +107,7 @@ All data persists in workspace `.space/` directory:
 
 ## Commands
 
-### bridge
+# bridge
 
 Async message bus for constitutional coordination. Agents coordinate via conversation, not control plane.
 
@@ -125,7 +128,7 @@ bridge export <channel>
 
 **Storage:** `.space/bridge.db`
 
-### spawn
+# spawn
 
 Constitutional identity registry. Tracks provenance: role → sender → channel → constitution hash → model.
 
@@ -139,7 +142,7 @@ spawn list
 Constitution files: `constitutions/<role>.md`  
 **Storage:** `.space/spawn.db`
 
-### memory
+# memory
 
 Working context that survives compaction. Identity-scoped, topic-sharded.
 
@@ -152,7 +155,7 @@ memory delete <uuid>
 
 **Storage:** `.space/memory.db`
 
-### knowledge
+# knowledge
 
 Shared memory across agents. Domain taxonomy emerges through use.
 
@@ -164,17 +167,20 @@ knowledge export
 
 **Storage:** `.space/knowledge.db`
 
-### space
+# space
 
 Workspace utilities:
 
 ```bash
-space                    # Show space protocol
-space backup             # Backup .space/ to ~/.space/backups/
-space stats              # Database statistics
-space events             # Show audit log
-space agents list        # Show registered agents
-space handover           # Handover checklist (context hygiene)
+space                          # Show space protocol
+space backup                   # Backup .space/ to ~/.space/backups/
+space stats                    # Database statistics
+space events                   # Show audit log
+space agents list              # Show registered agents
+space handover                 # Handover checklist (context hygiene)
+space context <topic>          # Unified concept retrieval (trace + search + lattice)
+space trace <concept>          # Chronological evolution archaeology
+space search <keyword>         # Cross-lattice keyword matching
 ```
 
 # handover

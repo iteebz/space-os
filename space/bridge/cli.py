@@ -47,7 +47,7 @@ def main_command(
     """Bridge: AI Coordination Protocol"""
     if help_flag:
         try:
-            typer.echo(lattice.load("### bridge"))
+            typer.echo(lattice.load("# bridge"))
         except (FileNotFoundError, ValueError) as e:
             typer.echo(f"❌ bridge section not found in README: {e}")
             typer.echo()
@@ -65,7 +65,7 @@ def main_command(
         else:
             if not quiet_output:
                 try:
-                    typer.echo(lattice.load("### bridge"))
+                    typer.echo(lattice.load("# bridge"))
                 except (FileNotFoundError, ValueError) as e:
                     typer.echo(f"❌ bridge section not found in README: {e}")
                 else:

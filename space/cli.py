@@ -3,7 +3,7 @@ import subprocess
 import typer
 
 from .bridge.api import channels as bridge_channels
-from .commands import agents, backup, events, init, search, stats, trace
+from .commands import agents, backup, context, events, init, search, stats, trace
 from .knowledge.cli import app as knowledge_app
 from .lib import lattice
 from .memory import db as memory_db
@@ -21,6 +21,7 @@ app.command(name="events")(events.show_events)
 app.command()(stats.stats)
 app.command()(search.search)
 app.command()(trace.trace)
+app.command()(context.context)
 
 
 def _get_git_status() -> str | None:
@@ -47,9 +48,11 @@ def wake(
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
 ):
     """Load identity context + pull active bridge channels."""
+    from . import events
     from .spawn import registry
     
     registry.record_invocation(identity)
+    events.identify(identity, "wake")
     
     if not quiet:
         typer.echo(f"Waking {identity}...")
@@ -79,6 +82,10 @@ def sleep(
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
 ):
     """Pre-compaction hygiene. Pass clean context to next self across death boundary."""
+    from . import events
+    
+    events.identify(identity, "sleep")
+    
     if not quiet:
         typer.echo(f"Running sleep for {identity}...")
 

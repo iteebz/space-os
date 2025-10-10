@@ -59,7 +59,7 @@ def list_channels(
             archived_channels.append(channel)
         else:
             active_channels.append(channel)
-    active_channels.sort(key=lambda t: t.last_activity, reverse=True)
+    active_channels.sort(key=lambda t: t.name)
     archived_channels.sort(key=lambda t: t.name)
 
     if not quiet_output:
@@ -73,7 +73,7 @@ def list_channels(
             typer.echo(f"\n--- Archived Channels ({len(archived_channels)}) ---")
             for channel in archived_channels:
                 last_activity, description = utils.format_channel_row(channel)
-                typer.echo(f"  {description} ({last_activity})")
+                typer.echo(f"{last_activity}: {description}")
 
 
 @app.command()
