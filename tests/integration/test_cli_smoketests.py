@@ -30,7 +30,13 @@ def test_spawn_smoketest():
 
     assert (
         "### spawn" in result.stdout or "### spawn" in result.stderr
-    )  # Check for a known instruction from spawn.cli
+    )
+
+
+def test_spawn_with_invalid_agent():
+    result = runner.invoke(spawn_app, ["nonexistent-agent-xyz"])
+    assert result.exit_code == 1
+    assert "Unknown role or agent" in result.stderr
 
 
 def test_space_agents_smoketest():
