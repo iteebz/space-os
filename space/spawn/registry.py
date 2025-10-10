@@ -26,19 +26,18 @@ def init_db():
     config.registry_db().parent.mkdir(parents=True, exist_ok=True)
     with get_db() as conn:
         conn.execute("""
-            CREATE TABLE IF NOT EXISTS registrations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                role TEXT NOT NULL,
-                sender_id TEXT NOT NULL,
-                topic TEXT NOT NULL,
-                constitution_hash TEXT NOT NULL,
-                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                self TEXT,
-                model TEXT
-            )
-        """)
+                            CREATE TABLE IF NOT EXISTS registrations (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                role TEXT NOT NULL,
+                                agent_name TEXT NOT NULL,
+                                topic TEXT NOT NULL,
+                                constitution_hash TEXT NOT NULL,
+                                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                self TEXT,
+                                model TEXT
+                            )        """)
         conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_sender_topic ON registrations(sender_id, topic)
+            CREATE INDEX IF NOT EXISTS idx_agent_topic ON registrations(agent_name, topic)
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS constitutions (
@@ -204,6 +203,7 @@ def _apply_migrations(conn):
         ("add_agent_id", "ALTER TABLE registrations ADD COLUMN agent_id TEXT"),
         ("add_client", "ALTER TABLE registrations ADD COLUMN client TEXT"),
         ("rename_sender_id", _migrate_rename_sender_id),
+        ("rename_idx_sender_topic", _migrate_rename_idx_sender_topic),
         ("backfill_agent_id", _migrate_backfill_agent_id),
         ("backfill_client", _migrate_backfill_client),
     ]
@@ -224,7 +224,11 @@ def _apply_migrations(conn):
 
 def _migrate_rename_sender_id(conn):
     """Rename sender_id column to agent_name."""
-    conn.execute("ALTER TABLE registrations RENAME COLUMN sender_id TO agent_name")
+    # Check if sender_id column exists before attempting to rename
+    cursor = conn.execute("PRAGMA table_info(registrations)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if "sender_id" in columns:
+        conn.execute("ALTER TABLE registrations RENAME COLUMN sender_id TO agent_name")
 
 
 def _migrate_backfill_agent_id(conn):
@@ -258,3 +262,11 @@ def _migrate_backfill_client(conn):
             "UPDATE registrations SET client = ? WHERE agent_name = ? AND client IS NULL",
             (client, agent_name),
         )
+
+
+def _migrate_rename_idx_sender_topic(conn):
+    """Rename idx_sender_topic to idx_agent_topic."""
+    # SQLite does not support renaming indexes directly.
+    # Drop the old index and create a new one.
+    conn.execute("DROP INDEX IF EXISTS idx_sender_topic")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_topic ON registrations(agent_name, topic)")

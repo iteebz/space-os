@@ -1,3 +1,5 @@
+import subprocess
+
 import typer
 
 from .bridge.api import channels as bridge_channels
@@ -20,6 +22,24 @@ app.command()(search.search)
 app.command()(trace.trace)
 
 
+def _get_git_status() -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=".",  # Run in the current working directory
+        )
+        if result.stdout.strip():
+            return result.stdout.strip()
+        return None
+    except subprocess.CalledProcessError:
+        return None
+    except FileNotFoundError:
+        return None
+
+
 @app.command()
 def sleep(
     identity: str = typer.Option(..., "--as", help="Agent identity"),
@@ -37,11 +57,51 @@ def sleep(
         typer.echo(f"\n📬 {len(active)} active channels:")
         for ch in active:
             typer.echo(f"  • {ch}")
+            # Create a checkpoint entry for each active channel
+            memory_db.add_checkpoint_entry(
+                identity=identity,
+                topic="bridge-context",
+                message=f"Active channel: {ch}",
+                bridge_channel=ch,
+            )
 
     memory_count = len(memory_db.get_entries(identity))
+    git_status = _get_git_status()
+
+    if git_status:
+        memory_db.add_checkpoint_entry(
+            identity=identity,
+            topic="git-status",
+            message="Uncommitted changes detected.",
+            code_anchors=git_status,
+        )
+        if not quiet:
+            typer.echo(f"\n⚠️ Uncommitted changes detected:\n{git_status}")
+
+    if memory_count == 0:
+        memory_db.add_checkpoint_entry(
+            identity=identity,
+            topic="memory-gap",
+            message="No memory entries found for this identity.",
+        )
+        if not quiet:
+            typer.echo(f"\n🧠 No memory entries found for {identity}. Possible memory gap.")
 
     if not quiet:
         typer.echo(f"\n🧠 {memory_count} memory entries")
+
+        typer.echo("\n--- Pre-compaction Summary ---")
+        typer.echo(f"Active Channels: {len(active)}")
+        if git_status:
+            typer.echo("Uncommitted Git Changes: Yes")
+        else:
+            typer.echo("Uncommitted Git Changes: No")
+        if memory_count == 0:
+            typer.echo("Memory Gap Detected: Yes")
+        else:
+            typer.echo("Memory Gap Detected: No")
+        typer.echo("------------------------------")
+
         typer.echo("\n✓ Sleep checklist:")
         typer.echo("  1. Extract inbox signal → memory/knowledge")
         typer.echo("  2. Prune stale memory (keep active context only)")
