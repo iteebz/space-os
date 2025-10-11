@@ -72,10 +72,11 @@ def drop_columns():
                 agent_id TEXT,
                 event_type TEXT NOT NULL,
                 data TEXT,
-                timestamp INTEGER NOT NULL
+                timestamp INTEGER NOT NULL,
+                session_id TEXT
             )
             """,
-            "INSERT INTO events_new SELECT id, source, agent_id, event_type, data, timestamp FROM events",
+            "INSERT INTO events_new SELECT id, source, agent_id, event_type, data, timestamp, session_id FROM events",
         ),
     ]
 

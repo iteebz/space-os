@@ -16,6 +16,8 @@ def search(
     ),
 ):
     """Search across memory, knowledge, and bridge."""
+    from ..spawn import registry
+
     results = {"memory": [], "knowledge": [], "bridge": []}
 
     if memory_db.database_path().exists():
@@ -24,7 +26,10 @@ def search(
                 "SELECT agent_id, topic, message FROM memory WHERE message LIKE ? AND archived_at IS NULL",
                 (f"%{keyword}%",),
             ).fetchall()
-            results["memory"] = [{"identity": r[0], "topic": r[1], "message": r[2]} for r in rows]
+            results["memory"] = [
+                {"identity": registry.get_agent_name(r[0]) or r[0], "topic": r[1], "message": r[2]}
+                for r in rows
+            ]
 
     if knowledge_db.database_path().exists():
         with knowledge_db.connect() as conn:
@@ -33,7 +38,8 @@ def search(
                 (f"%{keyword}%", f"%{keyword}%"),
             ).fetchall()
             results["knowledge"] = [
-                {"domain": r[0], "content": r[1], "contributor": r[2]} for r in rows
+                {"domain": r[0], "content": r[1], "contributor": registry.get_agent_name(r[2]) or r[2]}
+                for r in rows
             ]
 
     if bridge_config.DB_PATH.exists():
@@ -42,7 +48,10 @@ def search(
                 "SELECT c.name, m.agent_id, m.content FROM messages m JOIN channels c ON m.channel_id = c.id WHERE m.content LIKE ? AND c.archived_at IS NULL",
                 (f"%{keyword}%",),
             ).fetchall()
-            results["bridge"] = [{"channel": r[0], "sender": r[1], "content": r[2]} for r in rows]
+            results["bridge"] = [
+                {"channel": r[0], "sender": registry.get_agent_name(r[1]) or r[1], "content": r[2]}
+                for r in rows
+            ]
 
     if json_output:
         typer.echo(json.dumps(results))

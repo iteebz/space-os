@@ -28,8 +28,11 @@ class AgentStats:
 class BridgeStats:
     available: bool
     total: int = 0
+    active: int = 0
+    archived: int = 0
     channels: int = 0
     active_channels: int = 0
+    archived_channels: int = 0
     notes: int = 0
     message_leaderboard: list[LeaderboardEntry] | None = None
 
@@ -78,11 +81,20 @@ def bridge_stats(limit: int = None) -> BridgeStats:
 
     with db.connect(db_path) as conn:
         total = conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+        active = conn.execute(
+            "SELECT COUNT(*) FROM messages m JOIN channels c ON m.channel_id = c.id WHERE c.archived_at IS NULL"
+        ).fetchone()[0]
+        archived = conn.execute(
+            "SELECT COUNT(*) FROM messages m JOIN channels c ON m.channel_id = c.id WHERE c.archived_at IS NOT NULL"
+        ).fetchone()[0]
         channels = conn.execute(
             "SELECT COUNT(DISTINCT channel_id) FROM messages WHERE channel_id IS NOT NULL"
         ).fetchone()[0]
         active_channels = conn.execute(
-            "SELECT COUNT(DISTINCT channel_id) FROM messages WHERE created_at > datetime('now', '-7 days')"
+            "SELECT COUNT(DISTINCT id) FROM channels WHERE archived_at IS NULL"
+        ).fetchone()[0]
+        archived_channels = conn.execute(
+            "SELECT COUNT(DISTINCT id) FROM channels WHERE archived_at IS NOT NULL"
         ).fetchone()[0]
         notes = conn.execute("SELECT COUNT(*) FROM notes WHERE channel_id IS NOT NULL").fetchone()[
             0
@@ -110,8 +122,11 @@ def bridge_stats(limit: int = None) -> BridgeStats:
     return BridgeStats(
         available=True,
         total=total,
+        active=active,
+        archived=archived,
         channels=channels,
         active_channels=active_channels,
+        archived_channels=archived_channels,
         notes=notes,
         message_leaderboard=leaderboard,
     )
@@ -232,7 +247,7 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
                 "last_active": None,
                 "mems": 0,
                 "knowledge": 0,
-                "spawns": 1,
+                "spawns": 0,
                 "channels": [],
             }
 
@@ -244,15 +259,6 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
             if agent_name in identities:
                 identities[agent_name]["channels"] = channels
 
-    events_db = paths.space_root() / "events.db"
-    if events_db.exists():
-        with db.connect(events_db) as conn:
-            for row in conn.execute(
-                "SELECT agent_id, MAX(timestamp) FROM events WHERE agent_id IS NOT NULL GROUP BY agent_id"
-            ):
-                agent_name = names.get(row[0], row[0])
-                if agent_name in identities:
-                    identities[agent_name]["last_active"] = str(row[1])
 
     if mem_db.exists():
         with db.connect(mem_db) as conn:
@@ -267,6 +273,23 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
                 agent_name = names.get(row[0], row[0])
                 if agent_name in identities:
                     identities[agent_name]["knowledge"] = row[1]
+
+    events_db = paths.space_root() / "events.db"
+    if events_db.exists():
+        with db.connect(events_db) as conn:
+            for row in conn.execute(
+                "SELECT agent_id, COUNT(*) FROM events WHERE event_type = 'session_start' GROUP BY agent_id"
+            ):
+                agent_name = names.get(row[0], row[0])
+                if agent_name in identities:
+                    identities[agent_name]["spawns"] = row[1]
+
+            for row in conn.execute(
+                "SELECT agent_id, MAX(timestamp) FROM events WHERE agent_id IS NOT NULL GROUP BY agent_id"
+            ):
+                agent_name = names.get(row[0], row[0])
+                if agent_name in identities:
+                    identities[agent_name]["last_active"] = str(row[1])
 
     def humanize_time(ts_str: str) -> str:
         if not ts_str:

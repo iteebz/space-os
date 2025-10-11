@@ -13,3 +13,4 @@ build/
 *.pyc
 poetry.lock
 bin/
+*.db

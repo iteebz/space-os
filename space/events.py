@@ -10,14 +10,15 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (
     id TEXT PRIMARY KEY,
     source TEXT NOT NULL,
-    identity TEXT,
+    agent_id TEXT,
     event_type TEXT NOT NULL,
     data TEXT,
-    timestamp INTEGER NOT NULL
+    timestamp INTEGER NOT NULL,
+    session_id TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_source ON events(source);
-CREATE INDEX IF NOT EXISTS idx_identity ON events(identity);
+CREATE INDEX IF NOT EXISTS idx_agent_id ON events(agent_id);
 CREATE INDEX IF NOT EXISTS idx_timestamp ON events(timestamp);
 CREATE INDEX IF NOT EXISTS idx_id ON events(id);
 """

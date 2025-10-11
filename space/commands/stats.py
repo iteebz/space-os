@@ -7,17 +7,11 @@ from ..lib import stats as space_stats
 
 
 def stats(
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
+    json_output: bool = False,
+    quiet_output: bool = False,
 ):
     """Show space statistics."""
     s = space_stats.collect()
-
-    if json_output:
-        typer.echo(json.dumps(asdict(s)))
-        return
 
     if quiet_output:
         return
@@ -40,9 +34,8 @@ overview"""
         )
 
     if s.bridge.available:
-        inactive = s.bridge.channels - s.bridge.active_channels
         lines.append(
-            f"  bridge · {s.bridge.active_channels} active · {inactive} idle · {s.bridge.total} msgs · {s.bridge.notes} notes"
+            f"  bridge · {s.bridge.active_channels} active · {s.bridge.archived_channels} archived · {s.bridge.active} msgs ({s.bridge.archived} archived) · {s.bridge.notes} notes"
         )
 
     if s.memory.available and s.memory.total > 0:

@@ -12,7 +12,7 @@ _KNOWLEDGE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS knowledge (
     id TEXT PRIMARY KEY,
     domain TEXT NOT NULL,
-    contributor TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
     content TEXT NOT NULL,
     confidence REAL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS knowledge (
 );
 
 CREATE INDEX IF NOT EXISTS idx_knowledge_domain ON knowledge(domain);
-CREATE INDEX IF NOT EXISTS idx_knowledge_contributor ON knowledge(contributor);
+CREATE INDEX IF NOT EXISTS idx_knowledge_agent ON knowledge(agent_id);
 CREATE INDEX IF NOT EXISTS idx_knowledge_archived ON knowledge(archived_at);
 """
 
@@ -57,10 +57,6 @@ def _migrate_schema(db_path: Path):
             conn.execute("ALTER TABLE knowledge ADD COLUMN archived_at INTEGER")
             conn.commit()
 
-        if "agent_id" not in columns:
-            conn.execute("ALTER TABLE knowledge ADD COLUMN agent_id TEXT")
-            conn.commit()
-
 
 def write_knowledge(
     domain: str, agent_id: str, content: str, confidence: float | None = None
@@ -70,8 +66,8 @@ def write_knowledge(
     entry_id = uuid7()
     with connect() as conn:
         conn.execute(
-            "INSERT INTO knowledge (id, domain, contributor, content, confidence, agent_id) VALUES (?, ?, ?, ?, ?, ?)",
-            (entry_id, domain, agent_id, content, confidence, agent_id),
+            "INSERT INTO knowledge (id, domain, agent_id, content, confidence) VALUES (?, ?, ?, ?, ?)",
+            (entry_id, domain, agent_id, content, confidence),
         )
         conn.commit()
     events.emit("knowledge", "entry.write", agent_id, f"{domain}:{content[:50]}")

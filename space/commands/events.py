@@ -16,7 +16,9 @@ def show_events(
     ),
 ):
     """Show recent events from append-only log."""
-    rows = events.query(source=source, identity=identity, limit=limit)
+    from ..spawn import registry
+    agent_id = registry.get_agent_id(identity) if identity else None
+    rows = events.query(source=source, agent_id=agent_id, limit=limit)
     if not rows:
         if not quiet_output:
             typer.echo("No events found")
@@ -25,13 +27,14 @@ def show_events(
         return
 
     if json_output:
+        from ..spawn import registry
         json_rows = []
-        for uuid, src, ident, event_type, data, created_at in rows:
+        for uuid, src, aid, event_type, data, created_at in rows:
             json_rows.append(
                 {
                     "uuid": uuid,
                     "source": src,
-                    "identity": ident,
+                    "identity": registry.get_agent_name(aid) or aid,
                     "event_type": event_type,
                     "data": data,
                     "created_at": datetime.fromtimestamp(created_at).isoformat(),
@@ -39,8 +42,9 @@ def show_events(
             )
         typer.echo(json.dumps(json_rows))
     elif not quiet_output:
-        for uuid, src, ident, event_type, data, created_at in rows:
+        from ..spawn import registry
+        for uuid, src, aid, event_type, data, created_at in rows:
             ts = datetime.fromtimestamp(created_at).strftime("%Y-%m-%d %H:%M:%S")
-            ident_str = f" [{ident}]" if ident else ""
+            ident_str = f" [{registry.get_agent_name(aid) or aid}]" if aid else ""
             data_str = f" {data}" if data else ""
             typer.echo(f"[{uuid[:8]}] {ts} {src}.{event_type}{ident_str}{data_str}")

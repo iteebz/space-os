@@ -10,7 +10,7 @@ _SCHEMA = """
 CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     channel_id TEXT NOT NULL,
-    sender TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     priority TEXT DEFAULT 'normal'
@@ -45,6 +45,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_channel_time ON messages(channel_id, cre
 CREATE INDEX IF NOT EXISTS idx_bookmarks ON bookmarks(agent_id, channel_id);
 CREATE INDEX IF NOT EXISTS idx_notes ON notes(channel_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_messages_priority ON messages(priority);
+CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id);
 """
 
 
@@ -68,16 +69,13 @@ def _run_migrations(conn: sqlite3.Connection):
     if not _has_column(conn, "channels", "archived_at"):
         conn.execute("ALTER TABLE channels ADD COLUMN archived_at TIMESTAMP")
         conn.commit()
-    if not _has_column(conn, "messages", "agent_id"):
-        conn.execute("ALTER TABLE messages ADD COLUMN agent_id TEXT")
-        conn.commit()
 
 
 def create_message(channel_id: str, agent_id: str, content: str, priority: str = "normal") -> int:
     with _connect() as conn:
         cursor = conn.execute(
-            "INSERT INTO messages (channel_id, sender, agent_id, content, priority) VALUES (?, ?, ?, ?, ?)",
-            (channel_id, agent_id, agent_id, content, priority),
+            "INSERT INTO messages (channel_id, agent_id, content, priority) VALUES (?, ?, ?, ?)",
+            (channel_id, agent_id, content, priority),
         )
         conn.commit()
         return cursor.lastrowid

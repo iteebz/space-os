@@ -71,21 +71,6 @@ def _migrate_schema(db_path: Path):
             conn.execute("ALTER TABLE memory ADD COLUMN code_anchors TEXT")
             conn.commit()
 
-        if "agent_id" not in columns:
-            conn.execute("ALTER TABLE memory ADD COLUMN agent_id TEXT")
-            conn.commit()
-
-            from ..spawn import registry
-
-            rows = conn.execute(
-                "SELECT uuid, identity FROM memory WHERE agent_id IS NULL"
-            ).fetchall()
-            for uuid, identity in rows:
-                agent_id = registry.get_agent_id(identity)
-                if agent_id:
-                    conn.execute("UPDATE memory SET agent_id = ? WHERE uuid = ?", (agent_id, uuid))
-            conn.commit()
-
 
 def _resolve_uuid(short_uuid: str) -> str:
     with connect() as conn:
@@ -139,8 +124,8 @@ def set_summary(agent_id: str, message: str):
     entry_uuid = uuid7()
     with connect() as conn:
         conn.execute(
-            "INSERT INTO memory (uuid, identity, agent_id, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (entry_uuid, identity, agent_id, "summary", message, ts, now, 0, "summary"),
+            "INSERT INTO memory (uuid, agent_id, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (entry_uuid, agent_id, "summary", message, ts, now, 0, "summary"),
         )
         conn.commit()
 
@@ -500,26 +485,28 @@ def find_related(
 
 
 def get_by_uuid(entry_uuid: str) -> Memory | None:
+    from ..spawn import registry
+
     full_uuid = _resolve_uuid(entry_uuid)
     with connect() as conn:
         row = conn.execute(
-            "SELECT uuid, identity, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE uuid = ?",
+            "SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE uuid = ?",
             (full_uuid,),
         ).fetchone()
-    return (
-        Memory(
-            row[0],
-            row[1],
-            row[2],
-            row[3],
-            row[4],
-            row[5],
-            row[6],
-            bool(row[7]),
-            row[8],
-            row[9],
-            row[10],
-        )
-        if row
-        else None
+    if not row:
+        return None
+    
+    identity = registry.get_agent_name(row[1]) or row[1]
+    return Memory(
+        row[0],
+        identity,
+        row[2],
+        row[3],
+        row[4],
+        row[5],
+        row[6],
+        bool(row[7]),
+        row[8],
+        row[9],
+        row[10],
     )
