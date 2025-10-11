@@ -4,6 +4,7 @@ from .commands import (
     agent,
     analytics,
     backup,
+    check,
     context,
     describe,
     events,
@@ -27,6 +28,7 @@ app.command()(wake.wake)
 app.command()(sleep.sleep)
 app.command()(backup.backup)
 app.command()(init.init)
+app.command()(check.check)
 app.command(name="events")(events.show_events)
 app.add_typer(stats.app, name="stats")
 app.command()(analytics.analytics)
