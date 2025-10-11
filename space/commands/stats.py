@@ -2,7 +2,7 @@ import typer
 
 from ..lib import stats as space_stats
 
-app = typer.Typer()
+app = typer.Typer(invoke_without_command=True)
 
 
 def overview():
@@ -59,6 +59,12 @@ overview"""
             lines.append("  " + " · ".join(parts))
 
     typer.echo("\n".join(lines) + "\n")
+
+
+@app.callback(invoke_without_command=True)
+def main_command(ctx: typer.Context):
+    if ctx.invoked_subcommand is None:
+        overview()
 
 
 @app.command()

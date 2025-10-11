@@ -9,11 +9,12 @@ def test_workspace_root_finds_dotspace():
         workspace = Path(tmpdir) / "project"
         workspace.mkdir()
         (workspace / ".space").mkdir()
-        
+
         subdir = workspace / "nested" / "deep"
         subdir.mkdir(parents=True)
-        
+
         import os
+
         orig_cwd = os.getcwd()
         try:
             os.chdir(subdir)
@@ -26,8 +27,9 @@ def test_workspace_root_fallback_to_cwd():
     with tempfile.TemporaryDirectory() as tmpdir:
         workspace = Path(tmpdir) / "no-dotspace"
         workspace.mkdir()
-        
+
         import os
+
         orig_cwd = os.getcwd()
         try:
             os.chdir(workspace)
@@ -42,11 +44,12 @@ def test_space_root_finds_dotspace():
         workspace.mkdir()
         dotspace = workspace / ".space"
         dotspace.mkdir()
-        
+
         subdir = workspace / "nested" / "deep"
         subdir.mkdir(parents=True)
-        
+
         import os
+
         orig_cwd = os.getcwd()
         try:
             os.chdir(subdir)
@@ -59,8 +62,9 @@ def test_space_root_fallback_to_home():
     with tempfile.TemporaryDirectory() as tmpdir:
         workspace = Path(tmpdir) / "no-dotspace"
         workspace.mkdir()
-        
+
         import os
+
         orig_cwd = os.getcwd()
         try:
             os.chdir(workspace)
