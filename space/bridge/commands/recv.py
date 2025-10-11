@@ -154,7 +154,12 @@ def inbox(
     try:
         events.emit("bridge", "inbox_checking", agent_id, json.dumps({"identity": identity}))
         channels = api.inbox_channels(identity)
-        events.emit("bridge", "inbox_checked", agent_id, json.dumps({"identity": identity, "count": len(channels)}))
+        events.emit(
+            "bridge",
+            "inbox_checked",
+            agent_id,
+            json.dumps({"identity": identity, "count": len(channels)}),
+        )
         if not channels:
             if json_output:
                 typer.echo(json.dumps([]))
@@ -169,7 +174,12 @@ def inbox(
                 last_activity, description = utils.format_channel_row(channel)
                 typer.echo(f"  {last_activity}: {description}")
     except Exception as exc:
-        events.emit("bridge", "error_occurred", agent_id, json.dumps({"command": "inbox", "details": str(exc)}))
+        events.emit(
+            "bridge",
+            "error_occurred",
+            agent_id,
+            json.dumps({"command": "inbox", "details": str(exc)}),
+        )
         if json_output:
             typer.echo(json.dumps({"status": "error", "message": str(exc)}))
         elif not quiet_output:

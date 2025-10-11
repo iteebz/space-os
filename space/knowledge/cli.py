@@ -3,9 +3,10 @@ from dataclasses import asdict
 
 import typer
 
+from space.spawn import registry
+
 from ..lib import readme
 from . import db
-from space.spawn import registry
 
 app = typer.Typer(invoke_without_command=True)
 

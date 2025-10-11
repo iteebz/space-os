@@ -97,16 +97,16 @@ def bridge_stats(limit: int = None) -> BridgeStats:
             rows = conn.execute(
                 "SELECT agent_id, COUNT(*) as count FROM messages GROUP BY agent_id ORDER BY count DESC"
             ).fetchall()
-    
+
     from ..spawn import registry
+
     with registry.get_db() as reg_conn:
         names = {row[0]: row[1] for row in reg_conn.execute("SELECT id, name FROM agents")}
-    
+
     leaderboard = [
-        LeaderboardEntry(identity=names.get(row[0], row[0]), count=row[1])
-        for row in rows
+        LeaderboardEntry(identity=names.get(row[0], row[0]), count=row[1]) for row in rows
     ]
-    
+
     return BridgeStats(
         available=True,
         total=total,
@@ -143,10 +143,13 @@ def memory_stats(limit: int = None) -> MemoryStats:
             ).fetchall()
 
     from ..spawn import registry
+
     with registry.get_db() as reg_conn:
         names = {row[0]: row[1] for row in reg_conn.execute("SELECT id, name FROM agents")}
-    
-    leaderboard = [LeaderboardEntry(identity=names.get(row[0], row[0]), count=row[1]) for row in rows]
+
+    leaderboard = [
+        LeaderboardEntry(identity=names.get(row[0], row[0]), count=row[1]) for row in rows
+    ]
     return MemoryStats(
         available=True,
         total=total,
@@ -185,10 +188,13 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
             ).fetchall()
 
     from ..spawn import registry
+
     with registry.get_db() as reg_conn:
         names = {row[0]: row[1] for row in reg_conn.execute("SELECT id, name FROM agents")}
-    
-    leaderboard = [LeaderboardEntry(identity=names.get(row[0], row[0]), count=row[1]) for row in rows]
+
+    leaderboard = [
+        LeaderboardEntry(identity=names.get(row[0], row[0]), count=row[1]) for row in rows
+    ]
     return KnowledgeStats(
         available=True,
         total=total,
@@ -201,23 +207,25 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
 
 def agent_stats(limit: int = None) -> list[AgentStats] | None:
     from ..spawn import registry
-    
+
     bridge_db = paths.space_root() / "bridge.db"
     mem_db = paths.space_root() / "memory.db"
     know_db = paths.space_root() / "knowledge.db"
-    spawn_db = paths.space_root() / "spawn.db"
+    paths.space_root() / "spawn.db"
 
     if not bridge_db.exists():
         return None
 
     with registry.get_db() as reg_conn:
         names = {row[0]: row[1] for row in reg_conn.execute("SELECT id, name FROM agents")}
-        agent_ids = set(names.keys())
+        set(names.keys())
 
     identities = {}
 
     with db.connect(bridge_db) as conn:
-        for row in conn.execute("SELECT agent_id, COUNT(*) as msgs FROM messages GROUP BY agent_id"):
+        for row in conn.execute(
+            "SELECT agent_id, COUNT(*) as msgs FROM messages GROUP BY agent_id"
+        ):
             agent_name = names.get(row[0], row[0])
             identities[agent_name] = {
                 "msgs": row[1],
@@ -225,7 +233,7 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
                 "mems": 0,
                 "knowledge": 0,
                 "spawns": 1,
-                "channels": []
+                "channels": [],
             }
 
         for row in conn.execute(
@@ -255,9 +263,7 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
 
     if know_db.exists():
         with db.connect(know_db) as conn:
-            for row in conn.execute(
-                "SELECT agent_id, COUNT(*) FROM knowledge GROUP BY agent_id"
-            ):
+            for row in conn.execute("SELECT agent_id, COUNT(*) FROM knowledge GROUP BY agent_id"):
                 agent_name = names.get(row[0], row[0])
                 if agent_name in identities:
                     identities[agent_name]["knowledge"] = row[1]

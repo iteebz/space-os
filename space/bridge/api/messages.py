@@ -1,10 +1,9 @@
 """Business logic for handling messages."""
 
 from space.models import Message
+from space.spawn import registry
 
 from .. import db
-from ..db import _connect
-from space.spawn import registry
 
 
 def send_message(channel_id: str, sender: str, content: str, priority: str = "normal") -> str:
@@ -44,5 +43,3 @@ def fetch_agent_history(identity: str, limit: int = 5) -> list[Message]:
     """Retrieve message history for a given agent identity."""
     agent_id = registry.ensure_agent(identity)
     return db.get_sender_history(agent_id, limit)
-
-

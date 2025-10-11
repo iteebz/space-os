@@ -4,9 +4,10 @@ import json
 
 import typer
 
+from space.spawn import registry
+
 from ... import events
 from .. import api
-from space.spawn import registry
 
 app = typer.Typer()
 

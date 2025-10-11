@@ -17,7 +17,7 @@ def rename_cmd(old_name: str, new_name: str):
             raise typer.Exit(1)
     except ValueError as e:
         typer.echo(f"❌ {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 @app.callback()

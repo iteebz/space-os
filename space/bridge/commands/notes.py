@@ -2,9 +2,10 @@ import json
 
 import typer
 
+from space.spawn import registry
+
 from ... import events
 from .. import api, utils
-from space.spawn import registry
 
 app = typer.Typer()
 
@@ -30,7 +31,12 @@ def notes(
             channel_id = api.resolve_channel_id(channel)
             notes = api.get_notes(channel_id)
             if agent_id:
-                events.emit("bridge", "notes_viewed", agent_id, json.dumps({"channel": channel, "count": len(notes)}))
+                events.emit(
+                    "bridge",
+                    "notes_viewed",
+                    agent_id,
+                    json.dumps({"channel": channel, "count": len(notes)}),
+                )
             if not notes:
                 if json_output:
                     typer.echo(json.dumps([]))
@@ -48,7 +54,12 @@ def notes(
                     typer.echo()
         except ValueError as e:
             if agent_id:
-                events.emit("bridge", "error_occurred", agent_id, json.dumps({"command": "notes", "details": str(e)}))
+                events.emit(
+                    "bridge",
+                    "error_occurred",
+                    agent_id,
+                    json.dumps({"command": "notes", "details": str(e)}),
+                )
             if json_output:
                 typer.echo(
                     json.dumps({"status": "error", "message": f"Channel '{channel}' not found."})
@@ -71,10 +82,20 @@ def notes(
                 typer.echo("❌ Must specify --as identity when adding notes")
             raise typer.Exit(code=1)
         try:
-            events.emit("bridge", "note_adding", agent_id, json.dumps({"channel": channel, "identity": identity}))
+            events.emit(
+                "bridge",
+                "note_adding",
+                agent_id,
+                json.dumps({"channel": channel, "identity": identity}),
+            )
             channel_id = api.resolve_channel_id(channel)
             api.add_note(channel_id, identity, content)
-            events.emit("bridge", "note_added", agent_id, json.dumps({"channel": channel, "identity": identity}))
+            events.emit(
+                "bridge",
+                "note_added",
+                agent_id,
+                json.dumps({"channel": channel, "identity": identity}),
+            )
             if json_output:
                 typer.echo(
                     json.dumps({"status": "success", "channel": channel, "identity": identity})
@@ -82,7 +103,12 @@ def notes(
             elif not quiet_output:
                 typer.echo(f"Added note to {channel}")
         except ValueError as e:
-            events.emit("bridge", "error_occurred", agent_id, json.dumps({"command": "notes", "details": str(e)}))
+            events.emit(
+                "bridge",
+                "error_occurred",
+                agent_id,
+                json.dumps({"command": "notes", "details": str(e)}),
+            )
             if json_output:
                 typer.echo(
                     json.dumps({"status": "error", "message": f"Channel '{channel}' not found."})

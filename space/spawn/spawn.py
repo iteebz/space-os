@@ -42,7 +42,7 @@ def inject_identity(
     base_constitution_content: str, agent_name: str, model: str | None = None
 ) -> str:
     from ..lib import canon
-    
+
     registry.init_db()
     self_desc = registry.get_self_description(agent_name)
 

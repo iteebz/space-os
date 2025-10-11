@@ -22,6 +22,7 @@ CREATE INDEX IF NOT EXISTS idx_timestamp ON events(timestamp);
 CREATE INDEX IF NOT EXISTS idx_id ON events(id);
 """
 
+
 def _migrate_schema(db_path: Path):
     with db.connect(db_path) as conn:
         cursor = conn.execute("PRAGMA table_info(events)")
@@ -30,10 +31,11 @@ def _migrate_schema(db_path: Path):
         if "agent_id" not in columns:
             conn.execute("ALTER TABLE events ADD COLUMN agent_id TEXT")
             conn.commit()
-        
+
         if "session_id" not in columns:
             conn.execute("ALTER TABLE events ADD COLUMN session_id TEXT")
             conn.commit()
+
 
 def _connect():
     if not DB_PATH.exists():
@@ -42,7 +44,13 @@ def _connect():
     return db.connect(DB_PATH)
 
 
-def emit(source: str, event_type: str, agent_id: str | None = None, data: str | None = None, session_id: str | None = None):
+def emit(
+    source: str,
+    event_type: str,
+    agent_id: str | None = None,
+    data: str | None = None,
+    session_id: str | None = None,
+):
     """Emit event to append-only log."""
     event_id = uuid7()
     event_timestamp = int(time.time())
@@ -101,16 +109,16 @@ def identify(identity: str, command: str, session_id: str | None = None):
 def start_session(agent_id: str) -> str:
     """Start new session, auto-close any open session for this agent."""
     session_id = uuid7()
-    
+
     with _connect() as conn:
         open_session = conn.execute(
             "SELECT session_id FROM events WHERE agent_id = ? AND event_type = 'session_start' AND session_id NOT IN (SELECT session_id FROM events WHERE event_type = 'session_end' AND agent_id = ?) ORDER BY timestamp DESC LIMIT 1",
             (agent_id, agent_id),
         ).fetchone()
-        
+
         if open_session:
             emit("session", "session_end", agent_id, "auto_closed", open_session[0])
-    
+
     emit("session", "session_start", agent_id, "", session_id)
     return session_id
 

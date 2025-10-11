@@ -5,9 +5,9 @@ from datetime import datetime
 import typer
 
 from ... import events
-from .. import api
 from ...spawn import registry
 from ...spawn.registry import get_agent_name
+from .. import api
 
 app = typer.Typer()
 
@@ -80,11 +80,21 @@ def export(
                     typer.echo(item.content)
                     typer.echo()
         if agent_id:
-            events.emit("bridge", "export_completed", agent_id, json.dumps({"channel": channel, "message_count": data.message_count}))
+            events.emit(
+                "bridge",
+                "export_completed",
+                agent_id,
+                json.dumps({"channel": channel, "message_count": data.message_count}),
+            )
 
     except ValueError as e:
         if agent_id:
-            events.emit("bridge", "error_occurred", agent_id, json.dumps({"command": "export", "details": str(e)}))
+            events.emit(
+                "bridge",
+                "error_occurred",
+                agent_id,
+                json.dumps({"command": "export", "details": str(e)}),
+            )
         if json_output:
             typer.echo(
                 json.dumps({"status": "error", "message": f"Channel '{channel}' not found."})

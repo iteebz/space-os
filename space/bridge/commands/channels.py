@@ -3,9 +3,10 @@ from typing import Annotated
 
 import typer
 
+from space.spawn import registry
+
 from ... import events
 from .. import api, utils
-from space.spawn import registry
 
 app = typer.Typer(invoke_without_command=True)
 
@@ -98,10 +99,17 @@ def create(
     agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
     try:
         if agent_id:
-            events.emit("bridge", "channel_creating", agent_id, json.dumps({"channel_name": channel_name}))
+            events.emit(
+                "bridge", "channel_creating", agent_id, json.dumps({"channel_name": channel_name})
+            )
         channel_id = api.create_channel(channel_name, topic)
         if agent_id:
-            events.emit("bridge", "channel_created", agent_id, json.dumps({"channel_name": channel_name, "channel_id": channel_id}))
+            events.emit(
+                "bridge",
+                "channel_created",
+                agent_id,
+                json.dumps({"channel_name": channel_name, "channel_id": channel_id}),
+            )
         if json_output:
             typer.echo(
                 json.dumps(
@@ -112,7 +120,12 @@ def create(
             typer.echo(f"Created channel: {channel_name} (ID: {channel_id})")
     except ValueError as e:
         if agent_id:
-            events.emit("bridge", "error_occurred", agent_id, json.dumps({"command": "create", "details": str(e)}))
+            events.emit(
+                "bridge",
+                "error_occurred",
+                agent_id,
+                json.dumps({"command": "create", "details": str(e)}),
+            )
         if json_output:
             typer.echo(json.dumps({"status": "error", "message": str(e)}))
         elif not quiet_output:
@@ -134,11 +147,21 @@ def rename(
     old_channel = old_channel.lstrip("#")
     new_channel = new_channel.lstrip("#")
     if agent_id:
-        events.emit("bridge", "channel_renaming", agent_id, json.dumps({"old_channel": old_channel, "new_channel": new_channel}))
+        events.emit(
+            "bridge",
+            "channel_renaming",
+            agent_id,
+            json.dumps({"old_channel": old_channel, "new_channel": new_channel}),
+        )
     success = api.rename_channel(old_channel, new_channel)
     if agent_id:
         status = "success" if success else "failed"
-        events.emit("bridge", f"channel_rename_{status}", agent_id, json.dumps({"old_channel": old_channel, "new_channel": new_channel}))
+        events.emit(
+            "bridge",
+            f"channel_rename_{status}",
+            agent_id,
+            json.dumps({"old_channel": old_channel, "new_channel": new_channel}),
+        )
     if json_output:
         typer.echo(
             json.dumps(
@@ -181,17 +204,26 @@ def archive(
     for channel_name in channel_names:
         try:
             if agent_id:
-                events.emit("bridge", "channel_archiving", agent_id, json.dumps({"channel": channel_name}))
+                events.emit(
+                    "bridge", "channel_archiving", agent_id, json.dumps({"channel": channel_name})
+                )
             api.archive_channel(channel_name)
             if agent_id:
-                events.emit("bridge", "channel_archived", agent_id, json.dumps({"channel": channel_name}))
+                events.emit(
+                    "bridge", "channel_archived", agent_id, json.dumps({"channel": channel_name})
+                )
             if json_output:
                 results.append({"channel": channel_name, "status": "archived"})
             elif not quiet_output:
                 typer.echo(f"Archived channel: {channel_name}")
         except ValueError as e:
             if agent_id:
-                events.emit("bridge", "error_occurred", agent_id, json.dumps({"command": "archive", "details": str(e)}))
+                events.emit(
+                    "bridge",
+                    "error_occurred",
+                    agent_id,
+                    json.dumps({"command": "archive", "details": str(e)}),
+                )
             if json_output:
                 results.append(
                     {
@@ -229,7 +261,12 @@ def delete(
             typer.echo(f"Deleted channel: {channel}")
     except ValueError as e:
         if agent_id:
-            events.emit("bridge", "error_occurred", agent_id, json.dumps({"command": "delete", "details": str(e)}))
+            events.emit(
+                "bridge",
+                "error_occurred",
+                agent_id,
+                json.dumps({"command": "delete", "details": str(e)}),
+            )
         if json_output:
             typer.echo(
                 json.dumps({"status": "error", "message": f"Channel '{channel}' not found."})

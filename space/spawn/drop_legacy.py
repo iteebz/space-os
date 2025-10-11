@@ -1,4 +1,5 @@
 """Drop legacy name columns after UUID migration."""
+
 import sqlite3
 
 from ..lib import paths
@@ -6,9 +7,9 @@ from ..lib import paths
 
 def drop_columns():
     """Drop old name columns from all tables."""
-    
+
     print("Creating new tables without legacy columns...")
-    
+
     dbs = [
         (
             paths.space_root() / "bridge.db",
@@ -83,32 +84,40 @@ def drop_columns():
             continue
 
         conn = sqlite3.connect(db_path)
-        
+
         conn.execute(create_sql)
         conn.execute(insert_sql)
         conn.execute(f"DROP TABLE {table}")
         conn.execute(f"ALTER TABLE {table}_new RENAME TO {table}")
-        
+
         if table == "messages":
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_messages_channel_time ON messages(channel_id, created_at)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_messages_channel_time ON messages(channel_id, created_at)"
+            )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_messages_priority ON messages(priority)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id)")
         elif table == "memory":
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_memory_agent_topic ON memory(agent_id, topic)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_memory_agent_created ON memory(agent_id, created_at)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_memory_agent_topic ON memory(agent_id, topic)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_memory_agent_created ON memory(agent_id, created_at)"
+            )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_memory_uuid ON memory(uuid)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_memory_archived ON memory(archived_at)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_memory_core ON memory(core)")
         elif table == "knowledge":
             conn.execute("CREATE INDEX IF NOT EXISTS idx_knowledge_domain ON knowledge(domain)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_knowledge_agent ON knowledge(agent_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_knowledge_archived ON knowledge(archived_at)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_knowledge_archived ON knowledge(archived_at)"
+            )
         elif table == "events":
             conn.execute("CREATE INDEX IF NOT EXISTS idx_source ON events(source)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_id ON events(agent_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON events(timestamp)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_id ON events(id)")
-        
+
         conn.commit()
         conn.close()
         print(f"✓ Dropped legacy columns from {table}")

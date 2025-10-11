@@ -29,6 +29,8 @@ def main_command(
     if ctx.resilient_parsing or ctx.invoked_subcommand is None:
         try:
             typer.echo(readme.load("space"))
+            typer.echo("\n")
+            stats.stats()
         except (FileNotFoundError, ValueError) as e:
             typer.echo(f"❌ space README not found: {e}")
 

@@ -14,7 +14,7 @@ MEMORY_DB_NAME = "memory.db"
 _MEMORY_SCHEMA = """
 CREATE TABLE IF NOT EXISTS memory (
     uuid TEXT PRIMARY KEY,
-    identity TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
     topic TEXT NOT NULL,
     message TEXT NOT NULL,
     timestamp TEXT NOT NULL,
@@ -26,8 +26,8 @@ CREATE TABLE IF NOT EXISTS memory (
     code_anchors TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_memory_identity_topic ON memory(identity, topic);
-CREATE INDEX IF NOT EXISTS idx_memory_identity_created ON memory(identity, created_at);
+CREATE INDEX IF NOT EXISTS idx_memory_agent_topic ON memory(agent_id, topic);
+CREATE INDEX IF NOT EXISTS idx_memory_agent_created ON memory(agent_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_memory_uuid ON memory(uuid);
 CREATE INDEX IF NOT EXISTS idx_memory_archived ON memory(archived_at);
 CREATE INDEX IF NOT EXISTS idx_memory_core ON memory(core);
@@ -74,9 +74,12 @@ def _migrate_schema(db_path: Path):
         if "agent_id" not in columns:
             conn.execute("ALTER TABLE memory ADD COLUMN agent_id TEXT")
             conn.commit()
-            
+
             from ..spawn import registry
-            rows = conn.execute("SELECT uuid, identity FROM memory WHERE agent_id IS NULL").fetchall()
+
+            rows = conn.execute(
+                "SELECT uuid, identity FROM memory WHERE agent_id IS NULL"
+            ).fetchall()
             for uuid, identity in rows:
                 agent_id = registry.get_agent_id(identity)
                 if agent_id:
@@ -104,18 +107,18 @@ def _resolve_uuid(short_uuid: str) -> str:
 
 def add_entry(agent_id: str, topic: str, message: str, core: bool = False, source: str = "manual"):
     from ..spawn import registry
-    
+
     identity = registry.get_agent_name(agent_id)
     if not identity:
         raise ValueError(f"No identity for agent_id {agent_id}")
-    
+
     entry_uuid = uuid7()
     now = int(time.time())
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
     with connect() as conn:
         conn.execute(
-            "INSERT INTO memory (uuid, identity, agent_id, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (entry_uuid, identity, agent_id, topic, message, ts, now, 1 if core else 0, source),
+            "INSERT INTO memory (uuid, agent_id, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (entry_uuid, agent_id, topic, message, ts, now, 1 if core else 0, source),
         )
         conn.commit()
     events.emit(
@@ -125,11 +128,11 @@ def add_entry(agent_id: str, topic: str, message: str, core: bool = False, sourc
 
 def set_summary(agent_id: str, message: str):
     from ..spawn import registry
-    
+
     identity = registry.get_agent_name(agent_id)
     if not identity:
         raise ValueError(f"No identity for agent_id {agent_id}")
-    
+
     now = int(time.time())
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
 
@@ -157,11 +160,11 @@ def get_summary(agent_id: str) -> str | None:
 def get_summaries(agent_id: str, limit: int = 5) -> list[Memory]:
     """Get recent summaries (linked list of session handoffs)."""
     from ..spawn import registry
-    
+
     identity = registry.get_agent_name(agent_id)
     if not identity:
         return []
-    
+
     with connect() as conn:
         rows = conn.execute(
             "SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE agent_id = ? AND source = 'summary' ORDER BY created_at DESC LIMIT ?",
@@ -189,11 +192,11 @@ def get_entries(
     identity: str, topic: str | None = None, include_archived: bool = False
 ) -> list[Memory]:
     from ..spawn import registry
-    
+
     agent_id = registry.get_agent_id(identity)
     if not agent_id:
         return []
-    
+
     with connect() as conn:
         archive_filter = "" if include_archived else "AND archived_at IS NULL"
         if topic:
@@ -246,11 +249,11 @@ def delete_entry(entry_uuid: str):
 
 def clear_entries(identity: str, topic: str | None = None):
     from ..spawn import registry
-    
+
     agent_id = registry.get_agent_id(identity)
     if not agent_id:
         return
-    
+
     with connect() as conn:
         if topic:
             conn.execute("DELETE FROM memory WHERE agent_id = ? AND topic = ?", (agent_id, topic))
@@ -295,11 +298,11 @@ def mark_core(entry_uuid: str, core: bool = True):
 
 def get_core_entries(identity: str) -> list[Memory]:
     from ..spawn import registry
-    
+
     agent_id = registry.get_agent_id(identity)
     if not agent_id:
         return []
-    
+
     with connect() as conn:
         rows = conn.execute(
             "SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE agent_id = ? AND core = 1 AND archived_at IS NULL ORDER BY created_at DESC",
@@ -325,11 +328,11 @@ def get_core_entries(identity: str) -> list[Memory]:
 
 def get_recent_entries(identity: str, days: int = 7, limit: int = 20) -> list[Memory]:
     from ..spawn import registry
-    
+
     agent_id = registry.get_agent_id(identity)
     if not agent_id:
         return []
-    
+
     cutoff = int(time.time()) - (days * 86400)
     with connect() as conn:
         rows = conn.execute(
@@ -356,11 +359,11 @@ def get_recent_entries(identity: str, days: int = 7, limit: int = 20) -> list[Me
 
 def search_entries(identity: str, keyword: str, include_archived: bool = False) -> list[Memory]:
     from ..spawn import registry
-    
+
     agent_id = registry.get_agent_id(identity)
     if not agent_id:
         return []
-    
+
     archive_filter = "" if include_archived else "AND archived_at IS NULL"
     with connect() as conn:
         rows = conn.execute(
@@ -454,11 +457,11 @@ def find_related(
         return []
 
     from ..spawn import registry
-    
+
     agent_id = registry.get_agent_id(entry.identity)
     if not agent_id:
         return []
-    
+
     archive_filter = "" if include_archived else "AND archived_at IS NULL"
     with connect() as conn:
         all_entries = conn.execute(

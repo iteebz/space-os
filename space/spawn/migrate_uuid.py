@@ -1,4 +1,5 @@
 """Migrate name strings to agent_id UUIDs."""
+
 import sqlite3
 
 from ..lib import paths

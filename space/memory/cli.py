@@ -3,11 +3,12 @@ from dataclasses import asdict
 
 import typer
 
+from space.spawn import registry
+
 from ..lib import identity as identity_lib
 from ..lib import readme
 from . import db
 from .display import show_context, show_smart_memory
-from space.spawn import registry
 
 app = typer.Typer(invoke_without_command=True)
 

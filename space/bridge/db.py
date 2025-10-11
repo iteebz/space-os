@@ -85,9 +85,10 @@ def create_message(channel_id: str, agent_id: str, content: str, priority: str =
 
 def get_new_messages(channel_id: str, agent_id: str | None = None) -> list[Message]:
     from space.spawn.registry import get_agent_name
+
     with _connect() as conn:
         channel_name = get_channel_name(channel_id)
-        
+
         if channel_name == "summary":
             query = """
                 SELECT m.id, m.channel_id, m.agent_id, m.content, m.created_at
@@ -99,8 +100,17 @@ def get_new_messages(channel_id: str, agent_id: str | None = None) -> list[Messa
             """
             cursor = conn.execute(query, (channel_id,))
             rows = cursor.fetchall()
-            return [Message(id=row['id'], channel_id=row['channel_id'], sender=get_agent_name(row['agent_id']) or row['agent_id'], content=row['content'], created_at=row['created_at']) for row in rows]
-        
+            return [
+                Message(
+                    id=row["id"],
+                    channel_id=row["channel_id"],
+                    sender=get_agent_name(row["agent_id"]) or row["agent_id"],
+                    content=row["content"],
+                    created_at=row["created_at"],
+                )
+                for row in rows
+            ]
+
         last_seen_id = None
         if agent_id:
             row = conn.execute(
@@ -125,20 +135,37 @@ def get_new_messages(channel_id: str, agent_id: str | None = None) -> list[Messa
 
         cursor = conn.execute(query, params)
         rows = cursor.fetchall()
-        return [Message(id=row['id'], channel_id=row['channel_id'], sender=get_agent_name(row['agent_id']) or row['agent_id'], content=row['content'], created_at=row['created_at']) for row in rows]
+        return [
+            Message(
+                id=row["id"],
+                channel_id=row["channel_id"],
+                sender=get_agent_name(row["agent_id"]) or row["agent_id"],
+                content=row["content"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
 
 
 def get_all_messages(channel_id: str) -> list[Message]:
     from space.spawn.registry import get_agent_name
+
     with _connect() as conn:
         cursor = conn.execute(
             "SELECT id, channel_id, agent_id, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
             (channel_id,),
         )
         rows = cursor.fetchall()
-        return [Message(id=row['id'], channel_id=row['channel_id'], sender=get_agent_name(row['agent_id']) or row['agent_id'], content=row['content'], created_at=row['created_at']) for row in rows]
-
-
+        return [
+            Message(
+                id=row["id"],
+                channel_id=row["channel_id"],
+                sender=get_agent_name(row["agent_id"]) or row["agent_id"],
+                content=row["content"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
 
 
 def set_bookmark(agent_id: str, channel_id: str, last_seen_id: int):
@@ -167,6 +194,7 @@ def get_alerts(agent_id: str) -> list[Message]:
 
 def get_sender_history(agent_id: str, limit: int = 5) -> list[Message]:
     from space.spawn.registry import get_agent_name
+
     with _connect() as conn:
         cursor = conn.execute(
             """
@@ -179,7 +207,16 @@ def get_sender_history(agent_id: str, limit: int = 5) -> list[Message]:
             (agent_id, limit),
         )
         rows = cursor.fetchall()
-        return [Message(id=row['id'], channel_id=row['channel_id'], sender=get_agent_name(row['agent_id']) or row['agent_id'], content=row['content'], created_at=row['created_at']) for row in rows]
+        return [
+            Message(
+                id=row["id"],
+                channel_id=row["channel_id"],
+                sender=get_agent_name(row["agent_id"]) or row["agent_id"],
+                content=row["content"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
 
 
 def create_channel(channel_name: str, topic: str | None = None) -> str:
@@ -227,18 +264,18 @@ def get_topic(channel_id: str) -> str | None:
 
 def get_participants(channel_id: str) -> list[str]:
     from ..spawn import registry
-    
+
     with _connect() as conn:
         cursor = conn.execute(
             "SELECT DISTINCT agent_id FROM messages WHERE channel_id = ? ORDER BY agent_id",
             (channel_id,),
         )
-        
+
         agent_ids = [row["agent_id"] for row in cursor.fetchall()]
-        
+
         with registry.get_db() as reg_conn:
             names = {row[0]: row[1] for row in reg_conn.execute("SELECT id, name FROM agents")}
-        
+
         return [names.get(aid, aid) for aid in agent_ids]
 
 
@@ -375,8 +412,6 @@ def rename_channel(old_name: str, new_name: str) -> bool:
         return True
     except sqlite3.Error:
         return False
-
-
 
 
 def create_note(channel_id: str, author: str, content: str) -> int:

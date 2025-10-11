@@ -2,28 +2,22 @@
 
 import typer
 
-SUMMARY_PROMPT = """Analyze this session and produce structured markdown:
+SUMMARY_PROMPT = """Dump working state to memory before you go.
 
-## Accomplished
-[2-3 sentences: what got done, key decisions made]
+**What to capture:**
+- What you accomplished this session
+- Active work threads (what you're in the middle of)
+- Blockers or non-obvious state
+- What comes next
 
-## Pending
-- [task]
-- [task]
+**Format:**
+memory add --as <you> --topic <work-area> "<entry>"
 
-## Completed  
-- [task]
-- [task]
-
-## Context
-[Critical threads, blockers, or handoff notes for next spawn]
-
----
-Requirements:
+**Requirements:**
 - Terse, technical language
-- Tasks = actionable items only
-- Context = blockers or non-obvious state
-- Skip ceremony, capture signal"""
+- Actionable for future-you
+- Signal over transcript
+- No ceremony"""
 
 
 def sleep(
@@ -42,10 +36,10 @@ def sleep(
         if not quiet:
             typer.echo(f"No active session for {identity}")
         return
-    
+
     events_db = paths.space_root() / "events.db"
     session_id = None
-    
+
     if events_db.exists():
         with lib_db.connect(events_db) as conn:
             result = conn.execute(
@@ -54,7 +48,7 @@ def sleep(
             ).fetchone()
             if result:
                 session_id = result[0]
-    
+
     if session_id:
         events.identify(identity, "sleep", session_id)
         events.end_session(agent_id, session_id)
@@ -64,10 +58,8 @@ def sleep(
     memory_count = len(memory_db.get_entries(identity))
 
     if not quiet:
-        typer.echo(f"💀 Sleeping {identity}...")
-        typer.echo(f"🧠 {memory_count} memory entries")
+        typer.echo(f"💀 Sleeping {identity}")
+        typer.echo(f"🧠 {memory_count} memories persisted")
         typer.echo()
-        typer.echo("Generate sleep summary with:")
-        typer.echo(f'  memory summary --as {identity} "<summary>"')
-        typer.echo()
+        typer.echo("**Before you go:**")
         typer.echo(SUMMARY_PROMPT)

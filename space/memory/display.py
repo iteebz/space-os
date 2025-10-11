@@ -39,12 +39,12 @@ def show_wake_summary(identity: str, quiet_output: bool):
 
     from .. import events
     from ..spawn import registry
-    
+
     agent_id = registry.get_agent_id(identity)
-    
+
     if agent_id:
         spawn_count = events.get_session_count(agent_id)
-        
+
         events_db = paths.space_root() / "events.db"
         if events_db.exists():
             with lib_db.connect(events_db) as conn:
@@ -56,7 +56,9 @@ def show_wake_summary(identity: str, quiet_output: bool):
                 if last_session_start:
                     last_spawn_duration = _format_duration(time.time() - last_session_start[0])
                     typer.echo(
-                        wake_prompts.SPAWN_STATUS.format(count=spawn_count, duration=last_spawn_duration)
+                        wake_prompts.SPAWN_STATUS.format(
+                            count=spawn_count, duration=last_spawn_duration
+                        )
                     )
 
                     last_session_end = conn.execute(
@@ -71,7 +73,7 @@ def show_wake_summary(identity: str, quiet_output: bool):
                     typer.echo()
 
     from ..spawn import registry
-    
+
     agent_id = registry.get_agent_id(identity)
     if agent_id:
         summaries = db.get_summaries(agent_id, limit=3)

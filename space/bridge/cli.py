@@ -109,7 +109,12 @@ def _print_active_channels(agent_id: str, json_output: bool, quiet_output: bool)
         active_channels = api.active_channels(agent_id=agent_id)
     except Exception as exc:  # pragma: no cover - defensive logging for CLI usage
         if agent_id:
-            events.emit("bridge", "error_occurred", agent_id, json.dumps({"command": "list", "details": str(exc)}))
+            events.emit(
+                "bridge",
+                "error_occurred",
+                agent_id,
+                json.dumps({"command": "list", "details": str(exc)}),
+            )
         if not quiet_output:
             typer.echo(f"⚠️ Unable to load bridge channels: {exc}")
             typer.echo()

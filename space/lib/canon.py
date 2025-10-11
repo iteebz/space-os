@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from . import paths
 
 
@@ -24,7 +22,7 @@ def init_canon() -> None:
     canon = paths.canon_path()
     if canon.exists():
         return
-    
+
     canon.parent.mkdir(parents=True, exist_ok=True)
     canon.write_text("""# CANON
 
