@@ -66,9 +66,8 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
     cfg = spawn.load_config()
 
     if arg in cfg["roles"]:
-        agent_name = spawn.get_base_identity(arg)
         spawn.launch_agent(
-            arg, agent_name=agent_name, base_identity=agent, extra_args=passthrough, model=model
+            arg, agent_name=arg, base_identity=agent, extra_args=passthrough, model=model
         )
         return
 

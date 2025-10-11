@@ -14,27 +14,29 @@ app = typer.Typer(invoke_without_command=True)
 @app.callback()
 def channels_root(
     ctx: typer.Context,
+    all_channels_flag: bool = typer.Option(False, "--all", help="Include archived channels"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON output"),
     quiet_output: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
 ):
     """Bridge channel operations (defaults to listing)."""
     if ctx.invoked_subcommand is None:
-        list_channels(json_output=json_output, quiet_output=quiet_output)
+        list_channels(all_channels_flag=all_channels_flag, json_output=json_output, quiet_output=quiet_output)
 
 
 @app.command("list")
 def list_channels(
     identity: str = typer.Option(None, "--as", help="Agent identity"),
+    all_channels_flag: bool = typer.Option(False, "--all", help="Include archived channels"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    """List all channels with metadata."""
+    """List channels (active by default, use --all for archived)."""
     agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
     if agent_id:
         events.emit("bridge", "channels_listing", agent_id, "")
-    all_channels = api.all_channels()
+    all_channels = api.all_channels() if all_channels_flag else [c for c in api.all_channels() if not c.archived_at]
     if agent_id:
         events.emit("bridge", "channels_listed", agent_id, json.dumps({"count": len(all_channels)}))
 
@@ -72,17 +74,17 @@ def list_channels(
     archived_channels.sort(key=lambda t: t.name)
 
     if not quiet_output:
-        typer.echo(f"--- Active Channels ({len(active_channels)}) ---")
+        if active_channels:
+            typer.echo(f"ACTIVE CHANNELS ({len(active_channels)}):")
+            for channel in active_channels:
+                last_activity, description = utils.format_channel_row(channel)
+                typer.echo(f"  {last_activity}: {description}")
 
-        for channel in active_channels:
-            last_activity, description = utils.format_channel_row(channel)
-            typer.echo(f"{last_activity}: {description}")
-
-        if archived_channels:
-            typer.echo(f"\n--- Archived Channels ({len(archived_channels)}) ---")
+        if all_channels_flag and archived_channels:
+            typer.echo(f"\nARCHIVED ({len(archived_channels)}):")
             for channel in archived_channels:
                 last_activity, description = utils.format_channel_row(channel)
-                typer.echo(f"{last_activity}: {description}")
+                typer.echo(f"  {last_activity}: {description}")
 
 
 @app.command()
@@ -153,9 +155,9 @@ def rename(
             agent_id,
             json.dumps({"old_channel": old_channel, "new_channel": new_channel}),
         )
-    success = api.rename_channel(old_channel, new_channel)
+    result = api.rename_channel(old_channel, new_channel)
     if agent_id:
-        status = "success" if success else "failed"
+        status = "success" if result is True else "failed"
         events.emit(
             "bridge",
             f"channel_rename_{status}",
@@ -166,15 +168,17 @@ def rename(
         typer.echo(
             json.dumps(
                 {
-                    "status": "success" if success else "failed",
+                    "status": "success" if result is True else "failed",
                     "old_channel": old_channel,
                     "new_channel": new_channel,
                 }
             )
         )
     elif not quiet_output:
-        if success:
+        if result is True:
             typer.echo(f"Renamed channel: {old_channel} -> {new_channel}")
+        elif result == "archived":
+            typer.echo(f"❌ Rename failed: {new_channel} exists as archived channel (rename the archived channel first)")
         else:
             typer.echo(f"❌ Rename failed: {old_channel} not found or {new_channel} already exists")
 

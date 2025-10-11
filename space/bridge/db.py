@@ -397,14 +397,17 @@ def delete_channel(channel_id: str):
         conn.commit()
 
 
-def rename_channel(old_name: str, new_name: str) -> bool:
+def rename_channel(old_name: str, new_name: str) -> bool | str:
     try:
         with _connect() as conn:
             cursor = conn.execute("SELECT 1 FROM channels WHERE name = ?", (old_name,))
             if not cursor.fetchone():
                 return False
-            cursor = conn.execute("SELECT 1 FROM channels WHERE name = ?", (new_name,))
-            if cursor.fetchone():
+            cursor = conn.execute("SELECT archived_at FROM channels WHERE name = ?", (new_name,))
+            existing = cursor.fetchone()
+            if existing:
+                if existing["archived_at"]:
+                    return "archived"
                 return False
             conn.execute("UPDATE channels SET name = ? WHERE name = ?", (new_name, old_name))
             conn.commit()
