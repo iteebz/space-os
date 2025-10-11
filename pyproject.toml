@@ -25,9 +25,10 @@ pyyaml = "^6.0"
 [tool.poetry.scripts]
 bridge = "space.bridge.cli:main"
 spawn = "space.spawn.cli:main"
-memory = "space.memory.cli:app"
+memory = "space.memory.cli:main"
 knowledge = "space.knowledge.cli:main"
-space = "space.cli:app"
+context = "space.context.cli:main"
+space = "space.cli:main"
 wake = "space.commands.wake_entry:main"
 sleep = "space.commands.sleep_entry:main"
 

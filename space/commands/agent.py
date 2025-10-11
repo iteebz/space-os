@@ -2,143 +2,56 @@ import typer
 
 from ..spawn import registry
 
-app = typer.Typer()
+app = typer.Typer(invoke_without_command=True)
 
 
-@app.command()
-def list(
-    all: bool = typer.Option(False, "--all", help="Show all agents including duplicates"),
-    stats: bool = typer.Option(False, "--stats", "-s", help="Show activity stats"),
-    archived: bool = typer.Option(False, "--archived", help="Show archived agents"),
+@app.callback()
+def main(
+    ctx: typer.Context,
 ):
-    """List agents."""
-    registry.init_db()
+    """Show agents with self-descriptions and s/b/m/k ladder."""
+    if ctx.invoked_subcommand is not None:
+        return
+    
+    _show_agents()
 
-    from datetime import datetime
+
+def _show_agents():
+    registry.init_db()
 
     from ..lib import db, paths
     from ..lib import stats as stats_lib
 
-    activity = {}
-    metrics = {}
-
-    if stats:
-        events_db = paths.space_root() / "events.db"
-        if events_db.exists():
-            with db.connect(events_db) as conn:
-                rows = conn.execute("""
-                    SELECT agent_id,
-                           MIN(timestamp) as first_spawn,
-                           MAX(timestamp) as last_spawn
-                    FROM events
-                    GROUP BY agent_id
-                """).fetchall()
-                for row in rows:
-                    activity[row[0]] = {"first_spawn": row[1], "last_spawn": row[2]}
-
-        metrics = stats_lib.get_agent_metrics()
+    metrics = stats_lib.get_agent_metrics()
 
     with registry.get_db() as conn:
-        archive_filter = "" if archived else "WHERE archived_at IS NULL"
+        agents = conn.execute(
+            "SELECT id, name, self_description FROM agents WHERE archived_at IS NULL ORDER BY name"
+        ).fetchall()
 
-        if all:
-            agents = conn.execute(
-                f"SELECT id, name FROM agents {archive_filter} ORDER BY name, created_at"
-            ).fetchall()
+        typer.echo(f"{'NAME':<20} {'SELF':<40} {'S/B/M/K':<15}")
+        typer.echo("-" * 80)
 
-            if stats:
-                typer.echo(f"{'NAME':<20} {'ID':<38} {'FIRST':<12} {'LAST':<12} {'S-B-M-K':<15}")
-                typer.echo("-" * 110)
-            else:
-                typer.echo(f"{'NAME':<30} {'ID':<38}")
-                typer.echo("-" * 80)
+        for agent in agents:
+            name = agent["name"] or "(unnamed)"
+            self_desc = agent["self_description"] or "-"
+            if len(self_desc) > 40:
+                self_desc = self_desc[:37] + "..."
+            
+            agent_id = agent["id"]
+            m = metrics.get(agent_id, {"spawns": 0, "msgs": 0, "mems": 0, "knowledge": 0})
+            sbmk = f"{m['spawns']}/{m['msgs']}/{m['mems']}/{m['knowledge']}"
+            
+            typer.echo(f"{name:<20} {self_desc:<40} {sbmk:<15}")
 
-            for agent in agents:
-                name = agent["name"] or "(unnamed)"
-                agent_id = agent["id"]
+        typer.echo()
+        typer.echo(f"Total: {len(agents)}")
 
-                if stats:
-                    act = activity.get(agent_id, {})
-                    first = (
-                        datetime.fromtimestamp(act["first_spawn"]).strftime("%Y-%m-%d")
-                        if act.get("first_spawn")
-                        else "-"
-                    )
-                    last = (
-                        datetime.fromtimestamp(act["last_spawn"]).strftime("%Y-%m-%d")
-                        if act.get("last_spawn")
-                        else "-"
-                    )
 
-                    m = metrics.get(agent_id, {"spawns": 0, "msgs": 0, "mems": 0, "knowledge": 0})
-                    sbmk = f"{m['spawns']}-{m['msgs']}-{m['mems']}-{m['knowledge']}"
-
-                    typer.echo(f"{name:<20} {agent_id} {first:<12} {last:<12} {sbmk:<15}")
-                else:
-                    typer.echo(f"{name:<30} {agent_id}")
-
-            typer.echo()
-            typer.echo(f"Total: {len(agents)}")
-        else:
-            unique_agents = conn.execute(
-                f"SELECT name, COUNT(*) as count FROM agents {archive_filter} GROUP BY name ORDER BY name"
-            ).fetchall()
-
-            if stats:
-                typer.echo(f"{'NAME':<20} {'COUNT':<8} {'FIRST':<12} {'LAST':<12} {'S-B-M-K':<15}")
-                typer.echo("-" * 110)
-            else:
-                typer.echo(f"{'NAME':<30} {'COUNT':<8}")
-                typer.echo("-" * 50)
-
-            for row in unique_agents:
-                name = row["name"] or "(unnamed)"
-                count = row["count"]
-
-                agent_ids = registry.get_agent_ids(name, include_archived=archived)
-
-                if stats:
-                    total_metrics = {"spawns": 0, "msgs": 0, "mems": 0, "knowledge": 0}
-                    first_spawn = None
-                    last_spawn = None
-
-                    for agent_id in agent_ids:
-                        act = activity.get(agent_id, {})
-                        if act.get("first_spawn") and (
-                            not first_spawn or act["first_spawn"] < first_spawn
-                        ):
-                            first_spawn = act["first_spawn"]
-                        if act.get("last_spawn") and (
-                            not last_spawn or act["last_spawn"] > last_spawn
-                        ):
-                            last_spawn = act["last_spawn"]
-
-                        m = metrics.get(
-                            agent_id, {"spawns": 0, "msgs": 0, "mems": 0, "knowledge": 0}
-                        )
-                        total_metrics["spawns"] += m["spawns"]
-                        total_metrics["msgs"] += m["msgs"]
-                        total_metrics["mems"] += m["mems"]
-                        total_metrics["knowledge"] += m["knowledge"]
-
-                    first = (
-                        datetime.fromtimestamp(first_spawn).strftime("%Y-%m-%d")
-                        if first_spawn
-                        else "-"
-                    )
-                    last = (
-                        datetime.fromtimestamp(last_spawn).strftime("%Y-%m-%d")
-                        if last_spawn
-                        else "-"
-                    )
-                    sbmk = f"{total_metrics['spawns']}-{total_metrics['msgs']}-{total_metrics['mems']}-{total_metrics['knowledge']}"
-
-                    typer.echo(f"{name:<20} {count:<8} {first:<12} {last:<12} {sbmk:<15}")
-                else:
-                    typer.echo(f"{name:<30} {count:<8}")
-
-            typer.echo()
-            typer.echo(f"Total unique names: {len(unique_agents)}")
+@app.command()
+def list():
+    """Alias for default command."""
+    _show_agents()
 
 
 @app.command()

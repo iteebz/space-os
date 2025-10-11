@@ -22,6 +22,8 @@ def show_context(identity: str):
         typer.echo(
             f"\nKNOWLEDGE: {len(knowledge_entries)} entries across {', '.join(sorted(domains))}"
         )
+    else:
+        typer.echo("\nYou haven't made any knowledge contributions yet. Build more confidence first before doing that.")
 
     typer.echo("\n" + "─" * 60)
 

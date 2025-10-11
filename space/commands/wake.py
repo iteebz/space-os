@@ -66,7 +66,7 @@ def _suggest_action(priority_ch, identity):
 def wake(
     identity: str = typer.Option(..., "--as", help="Agent identity"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
-    check: bool = typer.Option(False, "--check", help="Preview without spawning events"),
+    check: bool = typer.Option(False, "--check", help="Preview context without spawning (use after first wake)"),
 ):
     """Load your context. Resume where you left off."""
     typer.echo(f"Waking up {identity}")
@@ -75,10 +75,14 @@ def wake(
 
     agent_id = registry.ensure_agent(identity)
 
-    if check:
-        spawn_count = events.get_session_count(agent_id)
-        is_first_spawn = spawn_count == 0
-    else:
+    spawn_count = events.get_session_count(agent_id)
+    is_first_spawn = spawn_count == 0
+
+    if check and is_first_spawn:
+        typer.echo("⚠️  --check only works after first spawn. Waking normally.")
+        check = False
+
+    if not check:
         session_id = events.start_session(agent_id)
         spawn_count = events.get_session_count(agent_id)
         is_first_spawn = spawn_count == 1

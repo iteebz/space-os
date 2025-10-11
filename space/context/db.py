@@ -1,91 +1,12 @@
-"""Unified concept retrieval: evolution + current state + lattice."""
-
 import json
 from datetime import datetime
-
-import typer
 
 from ..bridge import config as bridge_config
 from ..events import DB_PATH
 from ..knowledge import db as knowledge_db
 from ..lib import db as libdb
-from ..lib import readme
 from ..memory import db as memory_db
-
-
-def context(
-    topic: str | None = typer.Argument(None, help="Topic to retrieve context for"),
-    identity: str | None = typer.Option(None, "--as", help="Scope to identity (default: all)"),
-    all_agents: bool = typer.Option(False, "--all", help="Cross-agent perspective"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format"),
-    quiet_output: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
-):
-    """Unified context retrieval: trace evolution + current state + lattice docs."""
-
-    if not topic:
-        try:
-            from pathlib import Path
-
-            readme_path = Path(__file__).parent / "README.context.md"
-            typer.echo(readme_path.read_text())
-        except (FileNotFoundError, ValueError) as e:
-            typer.echo(f"❌ context README not found: {e}")
-        return
-
-    timeline = _collect_timeline(topic, identity, all_agents)
-    current_state = _collect_current_state(topic, identity, all_agents)
-    lattice_docs = _search_lattice(topic)
-
-    if json_output:
-        typer.echo(
-            json.dumps({"evolution": timeline, "state": current_state, "lattice": lattice_docs})
-        )
-        return
-
-    if quiet_output:
-        return
-
-    if timeline:
-        typer.echo("## EVOLUTION (last 10)\n")
-        for entry in timeline:
-            ts = datetime.fromtimestamp(entry["timestamp"]).strftime("%Y-%m-%d %H:%M")
-            typ = entry["type"]
-            identity_str = entry["identity"] or "system"
-            data = entry["data"][:100] if entry["data"] else ""
-            typer.echo(f"[{ts}] {typ} ({identity_str})")
-            typer.echo(f"  {data}\n")
-
-    if current_state["memory"] or current_state["knowledge"] or current_state["bridge"]:
-        typer.echo("\n## CURRENT STATE\n")
-
-        if current_state["memory"]:
-            typer.echo(f"memory: {len(current_state['memory'])}")
-            for r in current_state["memory"][:5]:
-                typer.echo(f"  {r['topic']}: {r['message'][:80]}")
-            typer.echo()
-
-        if current_state["knowledge"]:
-            typer.echo(f"knowledge: {len(current_state['knowledge'])}")
-            for r in current_state["knowledge"][:5]:
-                typer.echo(f"  {r['domain']}: {r['content'][:80]}")
-            typer.echo()
-
-        if current_state["bridge"]:
-            typer.echo(f"bridge: {len(current_state['bridge'])}")
-            for r in current_state["bridge"][:5]:
-                typer.echo(f"  [{r['channel']}] {r['content'][:80]}")
-            typer.echo()
-
-    if lattice_docs:
-        typer.echo("\n## LATTICE DOCS\n")
-        for heading, content in lattice_docs.items():
-            typer.echo(f"### {heading}\n")
-            preview = "\n".join(content.split("\n")[:5])
-            typer.echo(f"{preview}...\n")
-
-    if not timeline and not any(current_state.values()) and not lattice_docs:
-        typer.echo(f"No context found for '{topic}'")
-
+from ..spawn import registry
 
 def _query_with_identity(base_query: str, params: list, identity: str | None, all_agents: bool):
     if identity and not all_agents:
@@ -94,9 +15,7 @@ def _query_with_identity(base_query: str, params: list, identity: str | None, al
     return base_query, params
 
 
-def _collect_timeline(topic: str, identity: str | None, all_agents: bool):
-    from ..spawn import registry
-
+def collect_timeline(topic: str, identity: str | None, all_agents: bool):
     timeline = []
     seen_hashes = set()
 
@@ -220,9 +139,7 @@ def _collect_timeline(topic: str, identity: str | None, all_agents: bool):
     return timeline[-10:]
 
 
-def _collect_current_state(topic: str, identity: str | None, all_agents: bool):
-    from ..spawn import registry
-
+def collect_current_state(topic: str, identity: str | None, all_agents: bool):
     results = {"memory": [], "knowledge": [], "bridge": []}
 
     if memory_db.database_path().exists():
@@ -263,24 +180,3 @@ def _collect_current_state(topic: str, identity: str | None, all_agents: bool):
             ]
 
     return results
-
-
-def _search_lattice(topic: str):
-    """Search README for relevant sections."""
-    try:
-        content = readme.README.read_text()
-        lines = content.split("\n")
-        matches = {}
-
-        for line in lines:
-            if line.startswith("#") and topic.lower() in line.lower():
-                heading = line.strip()
-                try:
-                    section_content = readme.load_section(heading)
-                    matches[heading] = section_content
-                except ValueError:
-                    pass
-
-        return matches
-    except Exception:
-        return {}

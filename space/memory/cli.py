@@ -438,4 +438,17 @@ def chain_command(
 
 def main() -> None:
     """Entry point for poetry script."""
-    app()
+    import sys
+    from .. import events as event_log
+    
+    try:
+        app()
+    except SystemExit as e:
+        if e.code and e.code != 0:
+            cmd = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "(no command)"
+            event_log.emit("cli", "error", data=f"memory {cmd}")
+        sys.exit(e.code if e.code is not None else 0)
+    except BaseException as e:
+        cmd = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "(no command)"
+        event_log.emit("cli", "error", data=f"memory {cmd}: {str(e)}")
+        sys.exit(1)
