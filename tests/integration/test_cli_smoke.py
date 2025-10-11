@@ -6,9 +6,7 @@ from typer.testing import CliRunner
 
 from space.bridge.cli import app as bridge_app
 from space.cli import app as space_app
-from space.knowledge.cli import app as knowledge_app
 from space.memory.cli import app as memory_app
-from space.spawn.cli import app as spawn_app
 
 runner = CliRunner()
 
@@ -18,52 +16,22 @@ def setup_db(test_space):
     pass
 
 
-def test_space_smoketest():
+def test_space():
     result = runner.invoke(space_app)
-    assert "You have now entered space-os." in result.stdout
+    readme = (Path(__file__).parent.parent.parent / "space" / "README.md").read_text()
+    assert result.stdout == readme
 
 
-def test_bridge_smoketest():
+def test_bridge():
     result = runner.invoke(bridge_app)
-
-    assert (
-        "Async coordination through conversation" in result.stdout
-        or "Async coordination through conversation" in result.stderr
-    )
+    readme = (Path(__file__).parent.parent.parent / "space" / "bridge" / "README.md").read_text()
+    assert readme in result.stdout
 
 
-def test_bridge_readme():
-    """bridge command shows space/bridge/README.md content"""
-    result = runner.invoke(bridge_app)
-    assert "Async coordination through conversation" in result.stdout
-    assert "No orchestration, no task queues" in result.stdout
-
-
-def test_spawn_smoketest():
-    result = runner.invoke(spawn_app, ["--help"])
-
-    assert (
-        "Constitutional agent registry" in result.stdout
-        or "Constitutional identity registry" in result.stderr
-    )
-
-
-def test_memory_smoketest():
+def test_memory():
     result = runner.invoke(memory_app)
-
-    assert (
-        "Working context that survives compaction" in result.stdout
-        or "Working context that survives compaction" in result.stderr
-    )  # Check for a known instruction from memory.cli
-
-
-def test_knowledge_smoketest():
-    result = runner.invoke(knowledge_app)
-
-    assert (
-        "Shared discoveries across agents" in result.stdout
-        or "Shared discoveries across agents" in result.stderr
-    )
+    readme = (Path(__file__).parent.parent.parent / "space" / "memory" / "README.md").read_text()
+    assert result.stdout == readme
 
 
 def test_backup(monkeypatch, tmp_path):

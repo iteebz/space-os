@@ -87,13 +87,20 @@ def context(
         typer.echo(f"No context found for '{topic}'")
 
 
+def _query_with_identity(base_query: str, params: list, identity: str | None, all_agents: bool):
+    if identity and not all_agents:
+        base_query += " AND agent_id = ?"
+        params.append(identity)
+    return base_query, params
+
+
 def _collect_timeline(topic: str, identity: str | None, all_agents: bool):
     from ..spawn import registry
 
     timeline = []
     seen_hashes = set()
 
-    NOISE_EVENTS = {
+    noise_events = {
         "bridge.message_received",
         "bridge.message_sending",
         "events.bridge.message_received",
@@ -107,17 +114,13 @@ def _collect_timeline(topic: str, identity: str | None, all_agents: bool):
         with libdb.connect(DB_PATH) as conn:
             query = "SELECT id, source, agent_id, event_type, data, timestamp FROM events WHERE data LIKE ?"
             params = [f"%{topic}%"]
-
-            if identity and not all_agents:
-                query += " AND agent_id = ?"
-                params.append(identity)
-
+            query, params = _query_with_identity(query, params, identity, all_agents)
             query += " ORDER BY timestamp ASC"
 
             rows = conn.execute(query, params).fetchall()
             for row in rows:
                 event_type = f"{row[1]}.{row[3]}"
-                if event_type in NOISE_EVENTS:
+                if event_type in noise_events:
                     continue
 
                 data_hash = hash((row[4], row[2]))
@@ -139,11 +142,7 @@ def _collect_timeline(topic: str, identity: str | None, all_agents: bool):
         with memory_db.connect() as conn:
             query = "SELECT agent_id, topic, message, created_at FROM memory WHERE (message LIKE ? OR topic LIKE ?)"
             params = [f"%{topic}%", f"%{topic}%"]
-
-            if identity and not all_agents:
-                query += " AND agent_id = ?"
-                params.append(identity)
-
+            query, params = _query_with_identity(query, params, identity, all_agents)
             query += " ORDER BY created_at ASC"
 
             rows = conn.execute(query, params).fetchall()
@@ -167,11 +166,7 @@ def _collect_timeline(topic: str, identity: str | None, all_agents: bool):
         with knowledge_db.connect() as conn:
             query = "SELECT domain, content, agent_id, created_at FROM knowledge WHERE (content LIKE ? OR domain LIKE ?)"
             params = [f"%{topic}%", f"%{topic}%"]
-
-            if identity and not all_agents:
-                query += " AND agent_id = ?"
-                params.append(identity)
-
+            query, params = _query_with_identity(query, params, identity, all_agents)
             query += " ORDER BY created_at ASC"
 
             rows = conn.execute(query, params).fetchall()
@@ -195,11 +190,7 @@ def _collect_timeline(topic: str, identity: str | None, all_agents: bool):
         with libdb.connect(bridge_config.DB_PATH) as conn:
             query = "SELECT c.name, m.agent_id, m.content, m.created_at FROM messages m JOIN channels c ON m.channel_id = c.id WHERE (m.content LIKE ? OR c.name LIKE ?)"
             params = [f"%{topic}%", f"%{topic}%"]
-
-            if identity and not all_agents:
-                query += " AND m.agent_id = ?"
-                params.append(identity)
-
+            query, params = _query_with_identity(query, params, identity, all_agents)
             query += " ORDER BY m.created_at ASC"
 
             rows = conn.execute(query, params).fetchall()
@@ -238,11 +229,7 @@ def _collect_current_state(topic: str, identity: str | None, all_agents: bool):
         with memory_db.connect() as conn:
             query = "SELECT agent_id, topic, message FROM memory WHERE message LIKE ?"
             params = [f"%{topic}%"]
-
-            if identity and not all_agents:
-                query += " AND agent_id = ?"
-                params.append(identity)
-
+            query, params = _query_with_identity(query, params, identity, all_agents)
             rows = conn.execute(query, params).fetchall()
             results["memory"] = [
                 {"identity": registry.get_agent_name(r[0]) or r[0], "topic": r[1], "message": r[2]}
@@ -253,11 +240,7 @@ def _collect_current_state(topic: str, identity: str | None, all_agents: bool):
         with knowledge_db.connect() as conn:
             query = "SELECT domain, content, agent_id FROM knowledge WHERE (content LIKE ? OR domain LIKE ?)"
             params = [f"%{topic}%", f"%{topic}%"]
-
-            if identity and not all_agents:
-                query += " AND agent_id = ?"
-                params.append(identity)
-
+            query, params = _query_with_identity(query, params, identity, all_agents)
             rows = conn.execute(query, params).fetchall()
             results["knowledge"] = [
                 {
@@ -272,11 +255,7 @@ def _collect_current_state(topic: str, identity: str | None, all_agents: bool):
         with libdb.connect(bridge_config.DB_PATH) as conn:
             query = "SELECT c.name, m.agent_id, m.content FROM messages m JOIN channels c ON m.channel_id = c.id WHERE m.content LIKE ?"
             params = [f"%{topic}%"]
-
-            if identity and not all_agents:
-                query += " AND m.agent_id = ?"
-                params.append(identity)
-
+            query, params = _query_with_identity(query, params, identity, all_agents)
             rows = conn.execute(query, params).fetchall()
             results["bridge"] = [
                 {"channel": r[0], "sender": registry.get_agent_name(r[1]) or r[1], "content": r[2]}

@@ -51,7 +51,7 @@ def inject_identity(
         header_parts.append(f"powered by {model}")
     header = " ".join(header_parts) + "."
 
-    footer = f"\n\nrun `space` to join (already in PATH), then: wake --as {agent_name}."
+    footer = "\n\nInfrastructure: run `space` for commands and orientation (already in PATH)."
 
     constitution = canon.inject_canon(base_constitution_content)
 

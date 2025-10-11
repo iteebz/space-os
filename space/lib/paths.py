@@ -2,13 +2,24 @@ from pathlib import Path
 
 
 def workspace_root() -> Path:
-    """Project root directory."""
+    """Project root directory - crawls up to find .space/ or uses cwd."""
+    current = Path.cwd()
+    while current != current.parent:
+        if (current / ".space").exists():
+            return current
+        current = current.parent
     return Path.cwd()
 
 
 def space_root() -> Path:
-    """Returns .space/ directory in workspace."""
-    return workspace_root() / ".space"
+    """Returns .space/ directory - crawls up from pwd, falls back to ~/.space."""
+    current = Path.cwd()
+    while current != current.parent:
+        space_dir = current / ".space"
+        if space_dir.exists():
+            return space_dir
+        current = current.parent
+    return Path.home() / ".space"
 
 
 def package_root() -> Path:

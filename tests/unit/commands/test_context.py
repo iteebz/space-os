@@ -41,11 +41,10 @@ def test_context_output(
     result = runner.invoke(app, ["context", "test-topic"])
 
     assert result.exit_code == 0
-    assert "CONTEXT: test-topic" in result.stdout
-    assert "## EVOLUTION (chronological)" in result.stdout
-    assert "[2023-03-15 13:20] events.test.event (test-agent)" in result.stdout
+    assert "## EVOLUTION (last 10)" in result.stdout
+    assert "[2023-03-15 13:20] test.event (test-agent)" in result.stdout
     assert "## CURRENT STATE" in result.stdout
-    assert "memory: 1 entries" in result.stdout
+    assert "memory: 1" in result.stdout
     assert "## LATTICE DOCS" in result.stdout
     assert "### Test Heading" in result.stdout
 

@@ -80,16 +80,14 @@ def show_wake_summary(identity: str, quiet_output: bool):
             typer.echo()
             typer.echo("Previous sessions:")
             for s in reversed(summaries[-3:-1]):
-                preview = s.message[:200] + "..." if len(s.message) > 200 else s.message
-                typer.echo(f"  [{s.timestamp}] {preview}")
+                typer.echo(f"  [{s.timestamp}] {s.message}")
         typer.echo()
 
     core_entries = db.get_core_entries(identity)
     if core_entries:
         typer.echo(wake_prompts.SECTION_CORE)
         for e in core_entries[:5]:
-            preview = e.message[:80] + "..." if len(e.message) > 80 else e.message
-            typer.echo(f"  [{e.uuid[-8:]}] {preview}")
+            typer.echo(f"  [{e.uuid[-8:]}] {e.message}")
         typer.echo()
 
     recent = db.get_recent_entries(identity, days=7, limit=30)
@@ -98,8 +96,7 @@ def show_wake_summary(identity: str, quiet_output: bool):
         typer.echo(wake_prompts.SECTION_RECENT)
         for e in non_summary:
             ts = datetime.fromtimestamp(e.created_at).strftime("%m-%d %H:%M")
-            preview = e.message[:60] + "..." if len(e.message) > 60 else e.message
-            typer.echo(f"  [{ts}] {e.topic}: {preview}")
+            typer.echo(f"  [{ts}] {e.topic}: {e.message}")
         typer.echo()
 
     sent_msgs = bridge_db.get_sender_history(identity, limit=5)

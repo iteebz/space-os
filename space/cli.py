@@ -41,8 +41,6 @@ def main_command(
 ):
     if ctx.invoked_subcommand is None:
         typer.echo(readme.load("space"))
-        typer.echo("\n")
-        stats.overview()
 
 
 def main() -> None:
