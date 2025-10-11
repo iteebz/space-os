@@ -38,7 +38,11 @@ def search(
                 (f"%{keyword}%", f"%{keyword}%"),
             ).fetchall()
             results["knowledge"] = [
-                {"domain": r[0], "content": r[1], "contributor": registry.get_agent_name(r[2]) or r[2]}
+                {
+                    "domain": r[0],
+                    "content": r[1],
+                    "contributor": registry.get_agent_name(r[2]) or r[2],
+                }
                 for r in rows
             ]
 

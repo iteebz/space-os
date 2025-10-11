@@ -36,7 +36,7 @@ def recv(
         )
         channel_id = api.resolve_channel_id(channel)
         messages, count, context, participants = api.recv_updates(channel_id, identity)
-        
+
         for msg in messages:
             events.emit(
                 "bridge",
@@ -51,7 +51,7 @@ def recv(
                     }
                 ),
             )
-        
+
         if json_output:
             typer.echo(
                 json.dumps(

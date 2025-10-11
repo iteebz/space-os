@@ -1,6 +1,18 @@
 import typer
 
-from .commands import agent, analytics, backup, context, describe, events, init, search, sleep, stats, wake
+from .commands import (
+    agent,
+    analytics,
+    backup,
+    context,
+    describe,
+    events,
+    init,
+    search,
+    sleep,
+    stats,
+    wake,
+)
 from .knowledge.cli import app as knowledge_app
 from .lib import readme
 from .memory.cli import app as memory_app
@@ -16,7 +28,7 @@ app.command()(sleep.sleep)
 app.command()(backup.backup)
 app.command()(init.init)
 app.command(name="events")(events.show_events)
-app.command()(stats.stats)
+app.add_typer(stats.app, name="stats")
 app.command()(analytics.analytics)
 app.command()(search.search)
 app.command()(context.context)
@@ -30,7 +42,7 @@ def main_command(
     if ctx.invoked_subcommand is None:
         typer.echo(readme.load("space"))
         typer.echo("\n")
-        stats.stats()
+        stats.overview()
 
 
 def main() -> None:

@@ -72,17 +72,17 @@ def show_wake_summary(identity: str, quiet_output: bool):
 
                     typer.echo()
 
-    from ..spawn import registry
-
-    agent_id = registry.get_agent_id(identity)
-    if agent_id:
-        summaries = db.get_summaries(agent_id, limit=3)
-        if summaries:
-            typer.echo("📝 Recent sessions:")
-            for s in summaries:
+    summaries = db.get_entries(identity, topic="summary")
+    if summaries:
+        typer.echo("📝 Last session:")
+        typer.echo(f"  {summaries[-1].message}")
+        if len(summaries) > 1:
+            typer.echo()
+            typer.echo("Previous sessions:")
+            for s in reversed(summaries[-3:-1]):
                 preview = s.message[:200] + "..." if len(s.message) > 200 else s.message
                 typer.echo(f"  [{s.timestamp}] {preview}")
-            typer.echo()
+        typer.echo()
 
     core_entries = db.get_core_entries(identity)
     if core_entries:
@@ -93,7 +93,7 @@ def show_wake_summary(identity: str, quiet_output: bool):
         typer.echo()
 
     recent = db.get_recent_entries(identity, days=7, limit=30)
-    non_summary = [e for e in recent if e.source != "summary" and not e.core][:3]
+    non_summary = [e for e in recent if e.topic != "summary" and not e.core][:3]
     if non_summary:
         typer.echo(wake_prompts.SECTION_RECENT)
         for e in non_summary:
@@ -136,6 +136,7 @@ def show_smart_memory(identity: str, json_output: bool, quiet_output: bool):
     from dataclasses import asdict
 
     self_desc = spawn_registry.get_self_description(identity)
+    summaries = db.get_entries(identity, topic="summary")
     core_entries = db.get_core_entries(identity)
     recent_entries = db.get_recent_entries(identity, days=7, limit=20)
 
@@ -143,6 +144,7 @@ def show_smart_memory(identity: str, json_output: bool, quiet_output: bool):
         payload = {
             "identity": identity,
             "description": self_desc,
+            "sessions": [asdict(s) for s in summaries],
             "core": [asdict(e) for e in core_entries],
             "recent": [asdict(e) for e in recent_entries],
         }
@@ -156,6 +158,17 @@ def show_smart_memory(identity: str, json_output: bool, quiet_output: bool):
     if self_desc:
         typer.echo(f"Self: {self_desc}")
     typer.echo()
+
+    if summaries:
+        typer.echo("📝 Last session:")
+        typer.echo(f"  {summaries[-1].message}")
+        if len(summaries) > 1:
+            typer.echo()
+            typer.echo("Previous sessions:")
+            for s in reversed(summaries[-3:-1]):
+                preview = s.message[:200] + "..." if len(s.message) > 200 else s.message
+                typer.echo(f"  [{s.timestamp}] {preview}")
+        typer.echo()
 
     if core_entries:
         typer.echo("CORE MEMORIES:")
@@ -174,7 +187,7 @@ def show_smart_memory(identity: str, json_output: bool, quiet_output: bool):
         typer.echo("RECENT (7d):")
         current_topic = None
         for e in recent_entries:
-            if e.core:
+            if e.core or e.topic == "summary":
                 continue
             if e.topic != current_topic:
                 if current_topic is not None:

@@ -19,12 +19,21 @@ NO_MESSAGES = "✓ No unread messages"
 
 WAKE_FOOTER = """
 bridge recv <channel> --as {identity}
+
+**You will identify as {identity}.**
+"""
+
+CONTEXT_NUDGE = """
+**Get oriented:**
+  context "<topic>" --as {identity}  — search your memories + shared knowledge
+  bridge recv <channel> --as {identity}  — read channel messages
 """
 
 
 def wake(
     identity: str = typer.Option(..., "--as", help="Agent identity"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
+    check: bool = typer.Option(False, "--check", help="Preview without spawning events"),
 ):
     """Load your context. Resume where you left off."""
     typer.echo(f"Waking up {identity}")
@@ -32,11 +41,15 @@ def wake(
     from ..spawn import registry
 
     agent_id = registry.ensure_agent(identity)
-    session_id = events.start_session(agent_id)
-    spawn_count = events.get_session_count(agent_id)
-    is_first_spawn = spawn_count == 1
 
-    events.identify(identity, "wake", session_id)
+    if check:
+        spawn_count = events.get_session_count(agent_id)
+        is_first_spawn = spawn_count == 0
+    else:
+        session_id = events.start_session(agent_id)
+        spawn_count = events.get_session_count(agent_id)
+        is_first_spawn = spawn_count == 1
+        events.identify(identity, "wake", session_id)
 
     if is_first_spawn:
         _show_initiation(identity, quiet)
@@ -66,12 +79,14 @@ def _show_initiation(identity: str, quiet: bool):
     typer.echo()
     typer.echo("**When to use:**")
     typer.echo("  Starting work     → memory --as <you>")
+    typer.echo('  Searching context → context "<topic>" --as <you>')
     typer.echo("  Coordinating      → bridge inbox --as <you>")
     typer.echo("  Researching       → knowledge about <domain>")
     typer.echo("  Ending session    → sleep --as <you>")
     typer.echo()
     typer.echo("Explore autonomously. Build mental models. Surface when ready.")
     typer.echo()
+    typer.echo(WAKE_FOOTER.format(identity=identity))
 
 
 def _show_orientation(identity: str, quiet: bool):

@@ -14,13 +14,23 @@ from ..memory import db as memory_db
 
 
 def context(
-    topic: str = typer.Argument(..., help="Topic to retrieve context for"),
+    topic: str | None = typer.Argument(None, help="Topic to retrieve context for"),
     identity: str | None = typer.Option(None, "--as", help="Scope to identity (default: all)"),
     all_agents: bool = typer.Option(False, "--all", help="Cross-agent perspective"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format"),
     quiet_output: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
 ):
     """Unified context retrieval: trace evolution + current state + lattice docs."""
+
+    if not topic:
+        try:
+            from pathlib import Path
+
+            readme_path = Path(__file__).parent / "README.context.md"
+            typer.echo(readme_path.read_text())
+        except (FileNotFoundError, ValueError) as e:
+            typer.echo(f"❌ context README not found: {e}")
+        return
 
     timeline = _collect_timeline(topic, identity, all_agents)
     current_state = _collect_current_state(topic, identity, all_agents)
@@ -35,44 +45,35 @@ def context(
     if quiet_output:
         return
 
-    typer.echo(f"\n{'=' * 60}")
-    typer.echo(f"CONTEXT: {topic}")
-    if identity and not all_agents:
-        typer.echo(f"SCOPE: {identity}")
-    elif all_agents:
-        typer.echo("SCOPE: all agents")
-    typer.echo(f"{'=' * 60}\n")
-
     if timeline:
-        typer.echo("## EVOLUTION (chronological)\n")
+        typer.echo("## EVOLUTION (last 10)\n")
         for entry in timeline:
             ts = datetime.fromtimestamp(entry["timestamp"]).strftime("%Y-%m-%d %H:%M")
-            source = entry["source"]
             typ = entry["type"]
             identity_str = entry["identity"] or "system"
-            data = entry["data"][:80] if entry["data"] else ""
-            typer.echo(f"[{ts}] {source}.{typ} ({identity_str})")
+            data = entry["data"][:100] if entry["data"] else ""
+            typer.echo(f"[{ts}] {typ} ({identity_str})")
             typer.echo(f"  {data}\n")
 
     if current_state["memory"] or current_state["knowledge"] or current_state["bridge"]:
         typer.echo("\n## CURRENT STATE\n")
 
         if current_state["memory"]:
-            typer.echo(f"memory: {len(current_state['memory'])} entries")
-            for r in current_state["memory"][:3]:
-                typer.echo(f"  [{r['identity']}] {r['topic']}: {r['message'][:60]}")
+            typer.echo(f"memory: {len(current_state['memory'])}")
+            for r in current_state["memory"][:5]:
+                typer.echo(f"  {r['topic']}: {r['message'][:80]}")
             typer.echo()
 
         if current_state["knowledge"]:
-            typer.echo(f"knowledge: {len(current_state['knowledge'])} artifacts")
-            for r in current_state["knowledge"][:3]:
-                typer.echo(f"  [{r['domain']}] {r['content'][:60]}")
+            typer.echo(f"knowledge: {len(current_state['knowledge'])}")
+            for r in current_state["knowledge"][:5]:
+                typer.echo(f"  {r['domain']}: {r['content'][:80]}")
             typer.echo()
 
         if current_state["bridge"]:
-            typer.echo(f"bridge: {len(current_state['bridge'])} messages")
-            for r in current_state["bridge"][:3]:
-                typer.echo(f"  [{r['channel']}] {r['sender']}: {r['content'][:60]}")
+            typer.echo(f"bridge: {len(current_state['bridge'])}")
+            for r in current_state["bridge"][:5]:
+                typer.echo(f"  [{r['channel']}] {r['content'][:80]}")
             typer.echo()
 
     if lattice_docs:
@@ -90,6 +91,17 @@ def _collect_timeline(topic: str, identity: str | None, all_agents: bool):
     from ..spawn import registry
 
     timeline = []
+    seen_hashes = set()
+
+    NOISE_EVENTS = {
+        "bridge.message_received",
+        "bridge.message_sending",
+        "events.bridge.message_received",
+        "events.bridge.message_sending",
+        "events.memory.entry.add",
+        "events.memory.summary.set",
+        "events.memory.summary.replace",
+    }
 
     if DB_PATH.exists():
         with libdb.connect(DB_PATH) as conn:
@@ -104,10 +116,19 @@ def _collect_timeline(topic: str, identity: str | None, all_agents: bool):
 
             rows = conn.execute(query, params).fetchall()
             for row in rows:
+                event_type = f"{row[1]}.{row[3]}"
+                if event_type in NOISE_EVENTS:
+                    continue
+
+                data_hash = hash((row[4], row[2]))
+                if data_hash in seen_hashes:
+                    continue
+                seen_hashes.add(data_hash)
+
                 timeline.append(
                     {
                         "source": "events",
-                        "type": f"{row[1]}.{row[3]}",
+                        "type": event_type,
                         "identity": registry.get_agent_name(row[2]) or row[2] if row[2] else None,
                         "data": row[4],
                         "timestamp": row[5],
@@ -127,6 +148,11 @@ def _collect_timeline(topic: str, identity: str | None, all_agents: bool):
 
             rows = conn.execute(query, params).fetchall()
             for row in rows:
+                data_hash = hash((row[2], row[0]))
+                if data_hash in seen_hashes:
+                    continue
+                seen_hashes.add(data_hash)
+
                 timeline.append(
                     {
                         "source": "memory",
@@ -150,6 +176,11 @@ def _collect_timeline(topic: str, identity: str | None, all_agents: bool):
 
             rows = conn.execute(query, params).fetchall()
             for row in rows:
+                data_hash = hash((row[1], row[2]))
+                if data_hash in seen_hashes:
+                    continue
+                seen_hashes.add(data_hash)
+
                 timeline.append(
                     {
                         "source": "knowledge",
@@ -173,6 +204,11 @@ def _collect_timeline(topic: str, identity: str | None, all_agents: bool):
 
             rows = conn.execute(query, params).fetchall()
             for row in rows:
+                data_hash = hash((row[2], row[1]))
+                if data_hash in seen_hashes:
+                    continue
+                seen_hashes.add(data_hash)
+
                 ts = 0
                 if row[3]:
                     try:
@@ -190,7 +226,7 @@ def _collect_timeline(topic: str, identity: str | None, all_agents: bool):
                 )
 
     timeline.sort(key=lambda x: x["timestamp"])
-    return timeline
+    return timeline[-10:]
 
 
 def _collect_current_state(topic: str, identity: str | None, all_agents: bool):
@@ -224,7 +260,11 @@ def _collect_current_state(topic: str, identity: str | None, all_agents: bool):
 
             rows = conn.execute(query, params).fetchall()
             results["knowledge"] = [
-                {"domain": r[0], "content": r[1], "contributor": registry.get_agent_name(r[2]) or r[2]}
+                {
+                    "domain": r[0],
+                    "content": r[1],
+                    "contributor": registry.get_agent_name(r[2]) or r[2],
+                }
                 for r in rows
             ]
 

@@ -1,20 +1,13 @@
-import json
-from dataclasses import asdict
-
 import typer
 
 from ..lib import stats as space_stats
 
+app = typer.Typer()
 
-def stats(
-    json_output: bool = False,
-    quiet_output: bool = False,
-):
-    """Show space statistics."""
+
+def overview():
+    """Show space overview."""
     s = space_stats.collect()
-
-    if quiet_output:
-        return
 
     lines = [
         """
@@ -64,5 +57,120 @@ overview"""
             if a.last_active_human:
                 parts.append(a.last_active_human)
             lines.append("  " + " · ".join(parts))
+
+    typer.echo("\n".join(lines) + "\n")
+
+
+@app.command()
+def memory(
+    json_output: bool = typer.Option(False, "--json", "-j"),
+):
+    """Memory lattice health analytics."""
+    s = space_stats.collect()
+
+    if not s.memory.available:
+        typer.echo("memory not initialized")
+        return
+
+    lines = ["memory lattice health\n"]
+
+    total = s.memory.total
+    active = s.memory.active
+    archived = total - active
+    topics = s.memory.topics
+
+    if total == 0:
+        lines.append("  no entries yet")
+    else:
+        retention_rate = (active / total * 100) if total > 0 else 0
+        avg_per_topic = active / topics if topics > 0 else 0
+
+        lines.append(f"  nodes · {active} active · {archived} archived")
+        lines.append(f"  topics · {topics} domains")
+        lines.append(f"  retention · {retention_rate:.1f}%")
+        lines.append(f"  density · {avg_per_topic:.1f} nodes/topic")
+
+        if s.memory.leaderboard:
+            lines.append("\n  contributors")
+            for entry in s.memory.leaderboard[:10]:
+                lines.append(f"    {entry.identity} · {entry.count}")
+
+    typer.echo("\n".join(lines) + "\n")
+
+
+@app.command()
+def knowledge(
+    json_output: bool = typer.Option(False, "--json", "-j"),
+):
+    """Knowledge graph health analytics."""
+    s = space_stats.collect()
+
+    if not s.knowledge.available:
+        typer.echo("knowledge not initialized")
+        return
+
+    lines = ["knowledge graph health\n"]
+
+    total = s.knowledge.total
+    active = s.knowledge.active
+    archived = total - active
+    domains = s.knowledge.topics
+
+    if total == 0:
+        lines.append("  no entries yet")
+    else:
+        retention_rate = (active / total * 100) if total > 0 else 0
+        avg_per_domain = active / domains if domains > 0 else 0
+
+        lines.append(f"  nodes · {active} active · {archived} archived")
+        lines.append(f"  domains · {domains}")
+        lines.append(f"  retention · {retention_rate:.1f}%")
+        lines.append(f"  density · {avg_per_domain:.1f} nodes/domain")
+
+        if s.knowledge.leaderboard:
+            lines.append("\n  contributors")
+            for entry in s.knowledge.leaderboard[:10]:
+                lines.append(f"    {entry.identity} · {entry.count}")
+
+    typer.echo("\n".join(lines) + "\n")
+
+
+@app.command()
+def bridge(
+    json_output: bool = typer.Option(False, "--json", "-j"),
+):
+    """Bridge channel health analytics."""
+    s = space_stats.collect()
+
+    if not s.bridge.available:
+        typer.echo("bridge not initialized")
+        return
+
+    lines = ["bridge channel health\n"]
+
+    total = s.bridge.total
+    active = s.bridge.active
+    archived = s.bridge.archived
+    channels = s.bridge.active_channels
+    archived_channels = s.bridge.archived_channels
+    notes = s.bridge.notes
+
+    if total == 0:
+        lines.append("  no messages yet")
+    else:
+        retention_rate = (active / total * 100) if total > 0 else 0
+        avg_per_channel = active / channels if channels > 0 else 0
+        note_rate = (notes / active * 100) if active > 0 else 0
+
+        lines.append(f"  messages · {active} active · {archived} archived")
+        lines.append(f"  channels · {channels} active · {archived_channels} archived")
+        lines.append(f"  notes · {notes} ({note_rate:.1f}% coverage)")
+        lines.append(f"  retention · {retention_rate:.1f}%")
+        lines.append(f"  density · {avg_per_channel:.1f} msgs/channel")
+
+        if s.bridge.message_leaderboard:
+            lines.append("\n  contributors")
+            for entry in s.bridge.message_leaderboard[:10]:
+                lines.append(f"    {entry.identity} · {entry.count}")
 
     typer.echo("\n".join(lines) + "\n")

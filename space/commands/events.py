@@ -17,6 +17,7 @@ def show_events(
 ):
     """Show recent events from append-only log."""
     from ..spawn import registry
+
     agent_id = registry.get_agent_id(identity) if identity else None
     rows = events.query(source=source, agent_id=agent_id, limit=limit)
     if not rows:
@@ -28,6 +29,7 @@ def show_events(
 
     if json_output:
         from ..spawn import registry
+
         json_rows = []
         for uuid, src, aid, event_type, data, created_at in rows:
             json_rows.append(
@@ -43,6 +45,7 @@ def show_events(
         typer.echo(json.dumps(json_rows))
     elif not quiet_output:
         from ..spawn import registry
+
         for uuid, src, aid, event_type, data, created_at in rows:
             ts = datetime.fromtimestamp(created_at).strftime("%Y-%m-%d %H:%M:%S")
             ident_str = f" [{registry.get_agent_name(aid) or aid}]" if aid else ""

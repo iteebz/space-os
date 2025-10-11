@@ -111,68 +111,6 @@ def add_entry(agent_id: str, topic: str, message: str, core: bool = False, sourc
     )
 
 
-def set_summary(agent_id: str, message: str):
-    from ..spawn import registry
-
-    identity = registry.get_agent_name(agent_id)
-    if not identity:
-        raise ValueError(f"No identity for agent_id {agent_id}")
-
-    now = int(time.time())
-    ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-
-    entry_uuid = uuid7()
-    with connect() as conn:
-        conn.execute(
-            "INSERT INTO memory (uuid, agent_id, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (entry_uuid, agent_id, "summary", message, ts, now, 0, "summary"),
-        )
-        conn.commit()
-
-    events.emit("memory", "summary.add", agent_id, message[:50])
-
-
-def get_summary(agent_id: str) -> str | None:
-    """Get most recent summary."""
-    with connect() as conn:
-        row = conn.execute(
-            "SELECT message FROM memory WHERE agent_id = ? AND source = 'summary' ORDER BY created_at DESC LIMIT 1",
-            (agent_id,),
-        ).fetchone()
-    return row[0] if row else None
-
-
-def get_summaries(agent_id: str, limit: int = 5) -> list[Memory]:
-    """Get recent summaries (linked list of session handoffs)."""
-    from ..spawn import registry
-
-    identity = registry.get_agent_name(agent_id)
-    if not identity:
-        return []
-
-    with connect() as conn:
-        rows = conn.execute(
-            "SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE agent_id = ? AND source = 'summary' ORDER BY created_at DESC LIMIT ?",
-            (agent_id, limit),
-        ).fetchall()
-    return [
-        Memory(
-            row[0],
-            identity,
-            row[2],
-            row[3],
-            row[4],
-            row[5],
-            row[6],
-            bool(row[7]),
-            row[8],
-            row[9],
-            row[10],
-        )
-        for row in rows
-    ]
-
-
 def get_entries(
     identity: str, topic: str | None = None, include_archived: bool = False
 ) -> list[Memory]:
@@ -186,12 +124,12 @@ def get_entries(
         archive_filter = "" if include_archived else "AND archived_at IS NULL"
         if topic:
             rows = conn.execute(
-                f"SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE agent_id = ? AND topic = ? {archive_filter} ORDER BY uuid",
+                f"SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE agent_id = ? AND topic = ? {archive_filter} ORDER BY created_at ASC",
                 (agent_id, topic),
             ).fetchall()
         else:
             rows = conn.execute(
-                f"SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE agent_id = ? {archive_filter} ORDER BY topic, uuid",
+                f"SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors FROM memory WHERE agent_id = ? {archive_filter} ORDER BY topic, created_at ASC",
                 (agent_id,),
             ).fetchall()
     return [
@@ -495,7 +433,7 @@ def get_by_uuid(entry_uuid: str) -> Memory | None:
         ).fetchone()
     if not row:
         return None
-    
+
     identity = registry.get_agent_name(row[1]) or row[1]
     return Memory(
         row[0],

@@ -11,7 +11,7 @@ SUMMARY_PROMPT = """Dump working state to memory before you go.
 - What comes next
 
 **Format:**
-memory add --as <you> --topic <work-area> "<entry>"
+memory add --as <you> --topic summary "<session-summary>"
 
 **Requirements:**
 - Terse, technical language
@@ -63,3 +63,5 @@ def sleep(
         typer.echo()
         typer.echo("**Before you go:**")
         typer.echo(SUMMARY_PROMPT)
+        typer.echo()
+        typer.echo(f"**You identified as {identity}.**")

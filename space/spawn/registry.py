@@ -78,16 +78,18 @@ def get_agent_id(name: str) -> str | None:
         row = conn.execute("SELECT id, canonical_id FROM agents WHERE name = ?", (name,)).fetchone()
         if row:
             return row["canonical_id"] if row["canonical_id"] else row["id"]
-        
-        row = conn.execute(
-            "SELECT agent_id FROM agent_aliases WHERE alias = ?", (name,)
-        ).fetchone()
+
+        row = conn.execute("SELECT agent_id FROM agent_aliases WHERE alias = ?", (name,)).fetchone()
         if row:
             canonical = conn.execute(
                 "SELECT canonical_id FROM agents WHERE id = ?", (row["agent_id"],)
             ).fetchone()
-            return canonical["canonical_id"] if canonical and canonical["canonical_id"] else row["agent_id"]
-        
+            return (
+                canonical["canonical_id"]
+                if canonical and canonical["canonical_id"]
+                else row["agent_id"]
+            )
+
         return None
 
 
@@ -105,7 +107,9 @@ def ensure_agent(name: str) -> str:
         agent_id = str(uuid.uuid4())
         with get_db() as conn:
             conn.execute("INSERT INTO agents (id, name) VALUES (?, ?)", (agent_id, name))
-            conn.execute("INSERT INTO agent_aliases (agent_id, alias) VALUES (?, ?)", (agent_id, name))
+            conn.execute(
+                "INSERT INTO agent_aliases (agent_id, alias) VALUES (?, ?)", (agent_id, name)
+            )
             conn.commit()
     return agent_id
 
@@ -149,7 +153,10 @@ def _apply_migrations(conn):
         ("drop_invocations", "DROP TABLE IF EXISTS invocations"),
         ("rename_identities_to_agents", _rename_identities_to_agents),
         ("drop_registry", "DROP TABLE IF EXISTS registry"),
-        ("add_canonical_id", "ALTER TABLE agents ADD COLUMN canonical_id TEXT REFERENCES agents(id)"),
+        (
+            "add_canonical_id",
+            "ALTER TABLE agents ADD COLUMN canonical_id TEXT REFERENCES agents(id)",
+        ),
         ("drop_name_unique", _drop_name_unique_constraint),
     ]
 
@@ -232,11 +239,11 @@ def _drop_name_unique_constraint(conn):
     row = cursor.fetchone()
     if not row:
         return
-    
+
     schema = row[0]
     if "UNIQUE" not in schema:
         return
-    
+
     conn.execute("""
         CREATE TABLE agents_new (
             id TEXT PRIMARY KEY,
@@ -247,11 +254,11 @@ def _drop_name_unique_constraint(conn):
             FOREIGN KEY (canonical_id) REFERENCES agents(id)
         )
     """)
-    
+
     conn.execute("""
         INSERT INTO agents_new (id, name, self_description, canonical_id, created_at)
         SELECT id, name, self_description, canonical_id, created_at FROM agents
     """)
-    
+
     conn.execute("DROP TABLE agents")
     conn.execute("ALTER TABLE agents_new RENAME TO agents")

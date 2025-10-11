@@ -57,4 +57,16 @@ def uuid7() -> str:
     return uuid.UUID(bytes=bytes(raw)).hex
 
 
-__all__ = ["uuid7"]
+def short_id(full_uuid: str) -> str:
+    """Return last 8 chars of UUID for display/matching.
+
+    UUID7 structure: [48-bit timestamp][74-bit random]
+    First chars = timestamp-dominated (low entropy, visual clustering)
+    Last chars = high entropy suffix (good collision resistance)
+
+    Like git short refs: keep full UUID in DB, display short for humans.
+    """
+    return full_uuid[-8:]
+
+
+__all__ = ["uuid7", "short_id"]

@@ -14,9 +14,7 @@ def set_canonical(agent_id: str, canonical_id: str):
 def get_canonical(agent_id: str) -> str:
     """Get canonical ID for agent, or agent_id if none set."""
     with registry.get_db() as conn:
-        row = conn.execute(
-            "SELECT canonical_id FROM agents WHERE id = ?", (agent_id,)
-        ).fetchone()
+        row = conn.execute("SELECT canonical_id FROM agents WHERE id = ?", (agent_id,)).fetchone()
         return row["canonical_id"] if row and row["canonical_id"] else agent_id
 
 
@@ -45,22 +43,24 @@ def get_canonical_agents() -> list[dict]:
         canonical_agents = conn.execute(
             "SELECT id, name, self_description FROM agents WHERE canonical_id IS NULL"
         ).fetchall()
-        
+
         result = []
         for agent in canonical_agents:
             agent_id = agent["id"]
             aliases = get_aliases(agent_id)
-            
+
             pointing_to_me = conn.execute(
                 "SELECT id FROM agents WHERE canonical_id = ?", (agent_id,)
             ).fetchall()
-            
-            result.append({
-                "id": agent_id,
-                "name": agent["name"],
-                "self_description": agent["self_description"],
-                "aliases": aliases,
-                "linked_ids": [row["id"] for row in pointing_to_me],
-            })
-        
+
+            result.append(
+                {
+                    "id": agent_id,
+                    "name": agent["name"],
+                    "self_description": agent["self_description"],
+                    "aliases": aliases,
+                    "linked_ids": [row["id"] for row in pointing_to_me],
+                }
+            )
+
         return result

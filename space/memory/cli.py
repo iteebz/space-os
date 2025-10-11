@@ -256,37 +256,6 @@ def mark_core_command(
             raise typer.BadParameter(str(e)) from e
 
 
-@app.command("summary")
-def summary_command(
-    ctx: typer.Context,
-    message: str = typer.Argument(None, help="Summary message (omit to read current)"),
-    identity: str = typer.Option(None, "--as", help="Identity name"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
-):
-    """Set or read rolling summary (ephemeral scratchpad, replaces on write)."""
-    resolved_identity = identity_lib.require_identity(ctx, identity)
-    agent_id = registry.ensure_agent(resolved_identity)
-
-    if message is None:
-        current = db.get_summary(agent_id)
-        if json_output:
-            typer.echo(json.dumps({"identity": resolved_identity, "summary": current}))
-        elif not quiet_output:
-            if current:
-                typer.echo(f"Summary for {resolved_identity}:\n{current}")
-            else:
-                typer.echo(f"No summary set for {resolved_identity}")
-    else:
-        db.set_summary(agent_id, message)
-        if json_output:
-            typer.echo(json.dumps({"identity": resolved_identity, "summary": message}))
-        elif not quiet_output:
-            typer.echo(f"Summary set for {resolved_identity}")
-
-
 @app.command("inspect")
 def inspect_entry_command(
     uuid: str = typer.Argument(..., help="UUID of the entry to inspect"),
