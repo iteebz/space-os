@@ -1,27 +1,25 @@
 import sys
-from functools import wraps
 
 import typer
 
 from . import events as event_log
 from .commands import (
     agent,
-    analytics,
     backup,
     check,
     describe,
     errors,
-    events,
     init,
     search,
     sleep,
     stats,
     wake,
 )
+from .commands import events as events_cmd
+from .context.cli import app as context_app
 from .knowledge.cli import app as knowledge_app
 from .lib import readme
 from .memory.cli import app as memory_app
-from .context.cli import app as context_app
 
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False)
 
@@ -29,8 +27,16 @@ app.add_typer(knowledge_app, name="knowledge")
 app.add_typer(memory_app, name="memory")
 app.add_typer(agent.app, name="agents")
 app.add_typer(context_app, name="context")
-
-from .context.cli import app as context_app
+app.add_typer(stats.app, name="stats")
+app.command(name="backup")(backup.backup)
+app.command(name="check")(check.check)
+app.command(name="describe")(describe.describe)
+app.command(name="errors")(errors.errors)
+app.command(name="events")(events_cmd.show_events)
+app.command(name="init")(init.init)
+app.command(name="search")(search.search)
+app.command(name="wake")(wake.wake)
+app.command(name="sleep")(sleep.sleep)
 
 
 @app.callback(invoke_without_command=True)
@@ -50,22 +56,13 @@ def main_command(
 
 def main() -> None:
     """Entry point for poetry script."""
-    import click
-    
-    original_invoke = app.__call__
-    
-    def wrapped_invoke(*args, **kwargs):
-        try:
-            return original_invoke(*args, **kwargs)
-        except SystemExit as e:
-            if e.code and e.code != 0:
-                cmd = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "(no command)"
-                event_log.emit("cli", "error", data=f"{cmd}")
-            raise
-        except BaseException as e:
-            cmd = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "(no command)"
-            event_log.emit("cli", "error", data=f"{cmd}: {str(e)}")
-            raise SystemExit(1)
-    
-    app.__call__ = wrapped_invoke
-    app()
+
+    try:
+        app()
+    except SystemExit as e:
+        if e.code and e.code != 0:
+            event_log.emit("cli", "error", data=f"{cmd} (exit={e.code})")
+        raise
+    except BaseException as e:
+        event_log.emit("cli", "error", data=f"{cmd}: {str(e)}")
+        raise SystemExit(1) from e

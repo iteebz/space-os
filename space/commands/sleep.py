@@ -2,22 +2,31 @@
 
 import typer
 
-SUMMARY_PROMPT = """Dump working state to memory before you go.
+SUMMARY_PROMPT = """Consolidate session state before death. Quality sleep = prepared spawn.
 
-**What to capture:**
-- What you accomplished this session
-- Active work threads (what you're in the middle of)
-- Blockers or non-obvious state
-- What comes next
+**Capture:**
+- What shipped this session
+- Active threads mid-execution
+- Blockers, non-obvious state
+- Architectural patterns discovered
+- What next spawn inherits
 
-**Format:**
-memory add --as <you> --topic summary "<session-summary>"
+**Memory operations:**
+memory add --as <you> --topic summary "<synthesis>"
+memory replace <uuid> "<refined-understanding>"     # evolve existing memories
+memory archive <uuid>                                # retire noise
 
-**Requirements:**
-- Terse, technical language
-- Actionable for future-you
-- Signal over transcript
-- No ceremony"""
+**Anti-pattern:** Accumulating raw session dumps without synthesis.
+**Pattern:** Each spawn refines understanding. Replace > add. Archive > delete.
+
+**Quality bar:**
+- Architectural insight over feature logs
+- Patterns over implementation details
+- What future-you needs, not what past-you did
+- Terse technical language
+- Zero ceremony
+
+Sleep well = wake sharp."""
 
 
 def sleep(

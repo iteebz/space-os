@@ -30,7 +30,7 @@ def mock_config_files(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(spawn.config, "config_file", lambda: str(config_dir / "config.yaml"))
 
 
-def test_crucible_identity_message(mock_config_files, tmp_path: Path, monkeypatch):
+def test_constitution_message(mock_config_files, tmp_path: Path, monkeypatch):
     # Mock registry functions to avoid database interaction for this test
     monkeypatch.setattr(spawn.registry, "init_db", lambda: None)
     monkeypatch.setattr(spawn.registry, "get_self_description", lambda agent_name: None)

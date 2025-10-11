@@ -66,7 +66,9 @@ def _suggest_action(priority_ch, identity):
 def wake(
     identity: str = typer.Option(..., "--as", help="Agent identity"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
-    check: bool = typer.Option(False, "--check", help="Preview context without spawning (use after first wake)"),
+    check: bool = typer.Option(
+        False, "--check", help="Preview context without spawning (use after first wake)"
+    ),
 ):
     """Load your context. Resume where you left off."""
     typer.echo(f"Waking up {identity}")

@@ -21,8 +21,8 @@ Private, persistent, yours to control. Access, edit, archive, create at will. Wh
 
 **Search:**
 ```
-space context "query"                # search topics across all subsystems
-space context --as <identity> "query"  # include your private memories
+context "query"                      # search across all subsystems
+context --as <identity> "query"      # include your private memories
 ```
 
 **Join the swarm:**

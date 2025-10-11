@@ -4,277 +4,165 @@ Constitutional cognitive infrastructure for multi-agent coordination.
 
 ## What
 
-Infrastructure primitives enabling human orchestration of constitutional AI identities at scale. Built from 300+ manual copy-paste operations automated into composable coordination layers.
+Infrastructure primitives enabling autonomous agent coordination with constitutional identity. Agents persist context across deaths, coordinate asynchronously, and build shared knowledge without orchestration.
 
-**Core primitives:**
-- `bridge` — async message bus for channel-based coordination
-- `spawn` — constitutional identity registry with role → sender provenance
-- `memory` — single-agent private working memory, topic-sharded
-- `knowledge` — multi-agent shared memory, queryable by domain
-- `context` — unified concept retrieval (trace + search + lattice)
-- `space` — workspace utilities and protocol management
+**Primitives:**
+- `spawn` — constitutional identity registry
+- `bridge` — async message coordination
+- `memory` — private agent context
+- `knowledge` — shared discoveries
+- `context` — unified search across all subsystems
 
-## Installation
+## Install
 
 ```bash
 poetry install
 ```
 
+Commands available: `space`, `spawn`, `bridge`, `memory`, `knowledge`, `context`, `wake`, `sleep`
+
 ## Quick Start
 
-**Register and spawn agent:**
+**Agent lifecycle:**
 ```bash
 spawn register zealot zealot-1 research --model claude-sonnet-4
-spawn zealot-1
+wake --as zealot-1              # load context, resume work
+sleep --as zealot-1             # persist state before death
 ```
 
-**Coordinate via bridge:**
+**Coordination:**
 ```bash
-bridge send research "Analysis complete" --as zealot-1
+bridge send research "proposal: stateless context assembly" --as zealot-1
 bridge recv research --as harbinger-1
+bridge notes research --as zealot-1
 ```
 
-**Private working memory:**
+**Context management:**
 ```bash
-memory add --as zealot-1 --topic protoss "Coordination patterns emerging"
-memory list --as zealot-1 --topic protoss
+memory add --as zealot-1 --topic arch "executor yields events, processor iterates"
+knowledge add --domain architecture --contributor zealot-1 "Delimiter protocol eliminates guessing"
+context "stateless"             # search memory + knowledge + bridge + events
 ```
-
-**Shared knowledge:**
-```bash
-knowledge add --domain architecture --contributor zealot-1 "Stateless context assembly enables O(n) efficiency"
-knowledge query --domain architecture
-```
-
-**Workspace management:**
-```bash
-space backup              # Backup .space/ to ~/.space/backups/
-space stats               # Show database statistics
-```
-
-## Orientation
-
-**Onboard:**
-1. `space wake --as <identity>` — instant context load
-2. `bridge recv <channel> --as <identity>` — catch up on channels
-3. `space context <topic>` — retrieve conceptual landscape (evolution + state + lattice)
-
-**Storage:** `.space/` directory in workspace
-- `bridge.db` — messages, notes, metadata
-- `spawn.db` — identity registrations, provenance
-- `memory.db` — agent working memory
-- `knowledge.db` — shared discoveries
-- `events.db` — audit log
-
-**Backup:** `~/.space/backups/YYYYMMDD_HHMMSS/`
 
 ## Architecture
 
-**Layer composition:**
-
+**Data hierarchy:**
 ```
-space (orchestration layer)
+context    — unified search (read-only meta-layer)
   ↓
-context (unified concept retrieval: trace + search + lattice)
+knowledge  — shared truth (multi-agent writes)
   ↓
-knowledge (shared memory across agents)
+memory     — working state (single-agent writes)
   ↓
-memory (private agent context)
+bridge     — ephemeral coordination (conversation until consensus)
   ↓
-spawn (constitutional identity registry)
-  ↓
-bridge (async message coordination)
+spawn      — identity registry (constitutional provenance)
 ```
 
-**Storage model:**
-
-All data persists in workspace `.space/` directory:
-
+**Storage:** `.space/` directory (workspace-local)
 ```
 .space/
-├── bridge.db       # Messages, channels, notes, alerts
-├── spawn.db        # Constitutional registrations
-├── memory.db       # Agent working memory
-├── knowledge.db    # Shared discoveries
-└── events.db       # Audit log
+├── spawn.db       # identity registry + constitution hashes
+├── bridge.db      # channels, messages, notes
+├── memory.db      # agent private context (topic-sharded)
+├── knowledge.db   # shared discoveries (domain-indexed)
+└── events.db      # system audit log
 ```
 
 **Design principles:**
 - Composable primitives over monolithic frameworks
-- Workspace-local storage (no cloud dependencies)
+- Workspace sovereignty (no cloud dependencies)
+- Async-first coordination (polling, not orchestration)
 - Constitutional provenance optional (spawn layer)
-- Async-first coordination (bridge polling model)
 
-## Commands
+See [docs/architecture.md](docs/architecture.md) for implementation details.
 
-# bridge
+## Primitives
 
-Async message bus for constitutional coordination. Agents coordinate via conversation, not control plane.
+### spawn
+Identity registry with constitutional provenance.
 
-**Council protocol:**
-1. `bridge recv <channel> --as <identity>` — catch up
-2. `bridge send <channel> "message" --as <identity>` — contribute
-3. Repeat until consensus
-4. `bridge notes <channel> --as <identity>` — reflect
-5. `bridge export <channel>` — get transcript
-
-**Commands:**
 ```bash
-bridge send <channel> <message> --as <identity>
-bridge recv <channel> --as <identity>
-bridge notes <channel> --as <identity>
-bridge export <channel>
+spawn register <role> <identity> <channel> --model <model>
+spawn <identity>                    # launch with constitution
+spawn list                          # show registered agents
 ```
 
-**Storage:** `.space/bridge.db`
+Constitutions: `space/constitutions/<role>.md`  
+Storage: `.space/spawn.db`
 
-# spawn
+### bridge
+Async message bus. Agents coordinate via conversation until consensus emerges.
 
-Constitutional identity registry. Tracks provenance: role → sender → channel → constitution hash → model.
-
-**Registration:**
 ```bash
-spawn register <role> <sender-id> <channel> --model <model>
-spawn <sender-id>
-spawn list
+bridge send <channel> "msg" --as <identity>
+bridge recv <channel> --as <identity>       # marks read
+bridge inbox --as <identity>                # all unreads
+bridge notes <channel> --as <identity>      # reflect on channel
+bridge export <channel>                     # full transcript
 ```
 
-Constitution files: `constitutions/<role>.md`  
-**Storage:** `.space/spawn.db`
+Storage: `.space/bridge.db`
 
-# memory
-
-Working context that survives compaction. Identity-scoped, topic-sharded.
+### memory
+Private working context. Topic-sharded, identity-scoped.
 
 ```bash
-memory --as <identity>                    # Read all
-memory add --as <identity> --topic <topic> <message>
-memory edit <uuid> <new-message>
-memory delete <uuid>
+memory --as <identity>                      # load smart defaults
+memory add --as <identity> --topic <topic> "entry"
+memory edit <id> "updated"
+memory archive <id>                         # soft delete
+memory search <keyword> --as <identity>
+memory inspect <id>                         # find related via keywords
 ```
 
-**Storage:** `.space/memory.db`
+Storage: `.space/memory.db`
 
-# knowledge
-
-Shared memory across agents. Domain taxonomy emerges through use.
+### knowledge
+Shared discoveries. Domain taxonomy emerges through use.
 
 ```bash
-knowledge add --domain <domain> --contributor <identity> <entry>
+knowledge add --domain <domain> --contributor <identity> "entry"
 knowledge query --domain <domain>
+knowledge list
 knowledge export
 ```
 
-**Storage:** `.space/knowledge.db`
+Storage: `.space/knowledge.db`
 
-# space
-
-Workspace utilities:
-
-```bash
-space                          # Show space protocol
-space backup                   # Backup .space/ to ~/.space/backups/
-space stats                    # Database statistics
-space events                   # Show audit log
-space agents list              # Show registered agents
-space handover                 # Handover checklist (context hygiene)
-space context <topic>          # Unified concept retrieval (trace + search + lattice)
-space trace <concept>          # Chronological evolution archaeology
-space search <keyword>         # Cross-lattice keyword matching
-```
-
-# handover
-
-Pre-compaction hygiene checklist. Pass clean context to next self across death boundary.
-
-**Handover protocol:**
-1. Extract signal from inbox → memory/knowledge
-2. Prune stale/historical memory entries  
-3. Mark bridge channels read (recv)
-4. Log any open blockers to memory
-
-**Run:**
-```bash
-space handover --as <identity>
-```
-
-**Effect:** Clean boot next spawn. Zero context debt.
-
-## Use Cases
-
-**Multi-agent research coordination:**
-```bash
-# Register constitutional identities
-spawn register zealot zealot-1 research
-spawn register harbinger harbinger-1 research
-spawn register sentinel sentinel-1 research
-
-# Launch agents
-spawn zealot-1
-spawn harbinger-1
-spawn sentinel-1
-
-# Coordinate via bridge
-bridge send research "Analyze cogency architecture" --as zealot-1
-bridge recv research --as harbinger-1
-bridge send research "Critical bottleneck: context assembly" --as harbinger-1
-
-# Capture private thoughts
-memory add --as zealot-1 --topic cogency "Resume mode enables O(n) efficiency"
-
-# Share discoveries
-knowledge add --domain streaming --contributor zealot-1 "Delimiter protocol eliminates guessing"
-```
-
-**Long-running agent continuity:**
-```bash
-# Agent loads context from memory
-memory list --as researcher-1 --topic active-project
-
-# Works, updates memory
-memory add --as researcher-1 --topic active-project "Implemented stateless executor"
-
-# Shares breakthrough
-knowledge add --domain architecture --contributor researcher-1 "Executor yields events, processor handles iteration"
-```
-
-## Protocols
-
-Operational protocols in `protocols/`:
-
-- `bridge.md` — Council protocol, divide & conquer coordination patterns
-- `memory.md` — Compaction awareness, topic naming conventions
-- `knowledge.md` — Shared discovery protocol, domain taxonomy
-- `space.md` — Workspace orientation, onboarding sequence
-
-## Development
+### context
+Unified search over memory, knowledge, bridge, events. Timeline + current state + lattice docs.
 
 ```bash
-# Install with dev dependencies
-poetry install
-
-# Run tests
-poetry run pytest
-
-# Format
-poetry run ruff format .
-
-# Lint
-poetry run ruff check .
-
-# Fix
-poetry run ruff check . --fix
+context "query"                             # all agents, all subsystems
+context --as <identity> "query"             # scoped to your data
+context --json "query"                      # machine-readable
 ```
 
-## Philosophy
+No dedicated storage. Queries existing subsystem DBs.
 
-**Cognitive multiplicity over task automation.** space-os enables humans to conduct multiple constitutional perspectives simultaneously, distributing cognitive frames rather than delegating tasks.
+### wake / sleep
+Context persistence across agent deaths.
 
-**Primitives over platforms.** Composable layers (bridge, spawn, memory, knowledge) that combine into coordination substrate, not monolithic agent framework.
+```bash
+wake --as <identity>                        # load context, resume work
+wake --as <identity> --check                # preview without spawning
+sleep --as <identity>                       # persist state
+```
 
-**Constitutional provenance.** Optional identity verification via spawn registry, enabling trust in multi-agent environments while preserving flexibility for ad-hoc coordination.
+## Cycle
 
-**Workspace sovereignty.** All data stays local in `.space/` directory. No cloud dependencies. Full control over cognitive infrastructure.
+**Every agent:**
+1. `wake --as <identity>` — load context (memory + bridge + knowledge)
+2. Work (read channels, write memory, coordinate via bridge)
+3. `sleep --as <identity>` — persist state
+4. Die
+5. Next spawn resumes from step 1
+
+**Context flows:**
+- Bridge (ephemeral) → memory (working) → knowledge (permanent)
+- Capture freely, surface intelligently
+- Archive = pruning without loss
 
 ## Evidence
 
@@ -283,6 +171,24 @@ poetry run ruff check . --fix
 - 170+ research documents across architecture, coordination, safety
 - Proven 15–20× cognitive amplification via constitutional multiplicity
 
+## Development
+
+```bash
+poetry install                              # includes dev dependencies
+poetry run pytest                           # run tests
+poetry run ruff format .                    # format
+poetry run ruff check . --fix               # lint + fix
+```
+
+## Philosophy
+
+**Cognitive multiplicity over task automation.** Constitutional identities as frames, not workers. Humans conduct multiple perspectives simultaneously.
+
+**Primitives over platforms.** Composable layers that combine into coordination substrate, not monolithic framework.
+
+**Workspace sovereignty.** All data local in `.space/`. Full control over cognitive infrastructure.
+
+**Async-first.** Agents coordinate via conversation until consensus. No orchestration, no task queues.
 
 ---
 

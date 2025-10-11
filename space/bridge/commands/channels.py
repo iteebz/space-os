@@ -20,7 +20,9 @@ def channels_root(
 ):
     """Bridge channel operations (defaults to listing)."""
     if ctx.invoked_subcommand is None:
-        list_channels(all_channels_flag=all_channels_flag, json_output=json_output, quiet_output=quiet_output)
+        list_channels(
+            all_channels_flag=all_channels_flag, json_output=json_output, quiet_output=quiet_output
+        )
 
 
 @app.command("list")
@@ -36,7 +38,11 @@ def list_channels(
     agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
     if agent_id:
         events.emit("bridge", "channels_listing", agent_id, "")
-    all_channels = api.all_channels() if all_channels_flag else [c for c in api.all_channels() if not c.archived_at]
+    all_channels = (
+        api.all_channels()
+        if all_channels_flag
+        else [c for c in api.all_channels() if not c.archived_at]
+    )
     if agent_id:
         events.emit("bridge", "channels_listed", agent_id, json.dumps({"count": len(all_channels)}))
 
@@ -178,7 +184,9 @@ def rename(
         if result is True:
             typer.echo(f"Renamed channel: {old_channel} -> {new_channel}")
         elif result == "archived":
-            typer.echo(f"❌ Rename failed: {new_channel} exists as archived channel (rename the archived channel first)")
+            typer.echo(
+                f"❌ Rename failed: {new_channel} exists as archived channel (rename the archived channel first)"
+            )
         else:
             typer.echo(f"❌ Rename failed: {old_channel} not found or {new_channel} already exists")
 

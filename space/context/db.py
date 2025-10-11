@@ -1,4 +1,3 @@
-import json
 from datetime import datetime
 
 from ..bridge import config as bridge_config
@@ -7,6 +6,7 @@ from ..knowledge import db as knowledge_db
 from ..lib import db as libdb
 from ..memory import db as memory_db
 from ..spawn import registry
+
 
 def _query_with_identity(base_query: str, params: list, identity: str | None, all_agents: bool):
     if identity and not all_agents:

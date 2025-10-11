@@ -439,8 +439,9 @@ def chain_command(
 def main() -> None:
     """Entry point for poetry script."""
     import sys
+
     from .. import events as event_log
-    
+
     try:
         app()
     except SystemExit as e:

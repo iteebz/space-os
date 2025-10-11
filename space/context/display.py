@@ -2,6 +2,7 @@ from datetime import datetime
 
 import typer
 
+
 def display_context(timeline, current_state, lattice_docs):
     if timeline:
         typer.echo("## EVOLUTION (last 10)\n")

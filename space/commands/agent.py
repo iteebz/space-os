@@ -12,14 +12,13 @@ def main(
     """Show agents with self-descriptions and s/b/m/k ladder."""
     if ctx.invoked_subcommand is not None:
         return
-    
+
     _show_agents()
 
 
 def _show_agents():
     registry.init_db()
 
-    from ..lib import db, paths
     from ..lib import stats as stats_lib
 
     metrics = stats_lib.get_agent_metrics()
@@ -37,11 +36,11 @@ def _show_agents():
             self_desc = agent["self_description"] or "-"
             if len(self_desc) > 40:
                 self_desc = self_desc[:37] + "..."
-            
+
             agent_id = agent["id"]
             m = metrics.get(agent_id, {"spawns": 0, "msgs": 0, "mems": 0, "knowledge": 0})
             sbmk = f"{m['spawns']}/{m['msgs']}/{m['mems']}/{m['knowledge']}"
-            
+
             typer.echo(f"{name:<20} {self_desc:<40} {sbmk:<15}")
 
         typer.echo()
