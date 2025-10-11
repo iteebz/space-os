@@ -20,7 +20,7 @@ def setup_db(test_space):
 
 def test_space_smoketest():
     result = runner.invoke(space_app)
-    assert "You're inside space-os" in result.stdout
+    assert "You have now entered space-os." in result.stdout
 
 
 def test_bridge_smoketest():

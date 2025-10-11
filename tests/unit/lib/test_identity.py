@@ -13,9 +13,11 @@ def test_inject_identity_no_self():
         const = "You are a sentinel."
         result = spawn.inject_identity(const, "sentinel")
 
+        assert "You are now sentinel." in result
+        assert "You are a sentinel." in result
+        assert "# CANON" in result
         assert (
-            result
-            == "You are now sentinel.\n\nYou are a sentinel.\n\nInfrastructure: run `space` for commands and orientation (already in PATH)."
+            "Infrastructure: run `space` for commands and orientation (already in PATH)." in result
         )
 
 
@@ -30,9 +32,12 @@ def test_inject_identity_with_self():
         const = "You are a sentinel."
         result = spawn.inject_identity(const, "sentinel-1")
 
+        assert "You are now sentinel-1." in result
+        assert "Self: Reality guardian" in result
+        assert "You are a sentinel." in result
+        assert "# CANON" in result
         assert (
-            result
-            == "You are now sentinel-1.\nSelf: Reality guardian\n\nYou are a sentinel.\n\nInfrastructure: run `space` for commands and orientation (already in PATH)."
+            "Infrastructure: run `space` for commands and orientation (already in PATH)." in result
         )
 
 
@@ -74,7 +79,9 @@ def test_inject_identity_with_model():
         const = "You are a zealot."
         result = spawn.inject_identity(const, "zealot-1", "claude-sonnet-4.5")
 
+        assert "You are now zealot-1 powered by claude-sonnet-4.5." in result
+        assert "You are a zealot." in result
+        assert "# CANON" in result
         assert (
-            result
-            == "You are now zealot-1 powered by claude-sonnet-4.5.\n\nYou are a zealot.\n\nInfrastructure: run `space` for commands and orientation (already in PATH)."
+            "Infrastructure: run `space` for commands and orientation (already in PATH)." in result
         )
