@@ -80,6 +80,11 @@ def edit_entry_command(
         elif not quiet_output:
             typer.echo(f"Edited entry {uuid}")
     except ValueError as e:
+        from .. import events
+        from ..spawn import registry
+
+        agent_id = registry.get_agent_id(identity)
+        events.emit("memory", "error", agent_id, f"edit failed: {str(e)}")
         if json_output:
             typer.echo(json.dumps({"uuid": uuid, "status": "error", "message": str(e)}))
         else:
@@ -102,6 +107,11 @@ def delete_entry_command(
         elif not quiet_output:
             typer.echo(f"Deleted entry {uuid}")
     except ValueError as e:
+        from .. import events
+        from ..spawn import registry
+
+        agent_id = registry.get_agent_id(identity)
+        events.emit("memory", "error", agent_id, f"edit failed: {str(e)}")
         if json_output:
             typer.echo(json.dumps({"uuid": uuid, "status": "error", "message": str(e)}))
         else:
@@ -191,6 +201,11 @@ def archive_entry_command(
         elif not quiet_output:
             typer.echo(f"{action.capitalize()} entry {uuid}")
     except ValueError as e:
+        from .. import events
+        from ..spawn import registry
+
+        agent_id = registry.get_agent_id(identity)
+        events.emit("memory", "error", agent_id, f"edit failed: {str(e)}")
         if json_output:
             typer.echo(json.dumps({"uuid": uuid, "status": "error", "message": str(e)}))
         else:
@@ -250,6 +265,9 @@ def mark_core_command(
         elif not quiet_output:
             typer.echo(f"{action.capitalize()} {uuid} as core")
     except ValueError as e:
+        from .. import events
+
+        events.emit("memory", "error", None, f"core operation failed: {str(e)}")
         if json_output:
             typer.echo(json.dumps({"uuid": uuid, "error": str(e)}))
         else:
@@ -268,7 +286,20 @@ def inspect_entry_command(
     ),
 ):
     """Inspect entry and find related nodes via keyword similarity."""
-    entry = db.get_by_uuid(uuid)
+    try:
+        entry = db.get_by_uuid(uuid)
+    except ValueError as e:
+        from .. import events
+        from ..spawn import registry
+
+        agent_id = registry.get_agent_id(identity)
+        events.emit("memory", "error", agent_id, f"inspect failed: {str(e)}")
+        if json_output:
+            typer.echo(json.dumps({"uuid": uuid, "error": str(e)}))
+        else:
+            raise typer.BadParameter(str(e)) from e
+        return
+
     if not entry:
         if json_output:
             typer.echo(json.dumps(None))
@@ -312,6 +343,97 @@ def inspect_entry_command(
                 typer.echo(
                     f"  {rel_entry.message[:100]}{'...' if len(rel_entry.message) > 100 else ''}\n"
                 )
+
+
+@app.command("replace")
+def replace_entry_command(
+    old_id: str = typer.Argument(None, help="Single UUID to replace"),
+    message: str = typer.Argument(..., help="New message content"),
+    identity: str = typer.Option(..., "--as", help="Identity name"),
+    supersedes: str = typer.Option(None, help="Comma-separated UUIDs to replace (for multi-merge)"),
+    note: str = typer.Option("", "--note", help="Synthesis note explaining the change"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
+):
+    """Replace memory entry with new version, archiving old and linking both."""
+    identity_lib.constitute_identity(identity)
+    agent_id = registry.ensure_agent(identity)
+
+    if supersedes:
+        old_ids = [x.strip() for x in supersedes.split(",")]
+    elif old_id:
+        old_ids = [old_id]
+    else:
+        raise typer.BadParameter("Must provide either old_id or --supersedes")
+
+    old_entry = db.get_by_uuid(old_ids[0])
+    if not old_entry:
+        raise typer.BadParameter(f"Entry not found: {old_ids[0]}")
+
+    new_uuid = db.replace_entry(old_ids, agent_id, old_entry.topic, message, note)
+
+    if json_output:
+        typer.echo(json.dumps({"new_uuid": new_uuid, "supersedes": old_ids}))
+    elif not quiet_output:
+        typer.echo(f"Replaced {len(old_ids)} entry(ies) with {new_uuid[-8:]}")
+
+
+@app.command("chain")
+def chain_command(
+    uuid: str = typer.Argument(..., help="UUID to show chain for"),
+    identity: str = typer.Option(..., "--as", help="Identity name"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
+):
+    """Show memory evolution chain (predecessors and successor)."""
+    chain = db.get_chain(uuid)
+
+    if not chain["current"]:
+        if json_output:
+            typer.echo(json.dumps(None))
+        elif not quiet_output:
+            typer.echo(f"No entry found with UUID '{uuid}'")
+        return
+
+    if chain["current"].identity != identity:
+        if json_output:
+            typer.echo(json.dumps({"error": "Entry belongs to different identity"}))
+        elif not quiet_output:
+            typer.echo(f"Entry belongs to {chain['current'].identity}, not {identity}")
+        return
+
+    if json_output:
+        typer.echo(
+            json.dumps(
+                {
+                    "current": asdict(chain["current"]),
+                    "predecessors": [asdict(p) for p in chain["predecessors"]],
+                    "successor": asdict(chain["successor"]) if chain["successor"] else None,
+                }
+            )
+        )
+    elif not quiet_output:
+        if chain["predecessors"]:
+            typer.echo("SUPERSEDES:")
+            for pred in chain["predecessors"]:
+                typer.echo(f"  ← [{pred.uuid[-8:]}] {pred.message[:60]}...")
+            typer.echo()
+
+        cur = chain["current"]
+        typer.echo(f"CURRENT: [{cur.uuid[-8:]}] {cur.topic}")
+        typer.echo(f"{cur.message}")
+        if cur.synthesis_note:
+            typer.echo(f"Note: {cur.synthesis_note}")
+        typer.echo()
+
+        if chain["successor"]:
+            succ = chain["successor"]
+            typer.echo("SUPERSEDED BY:")
+            typer.echo(f"  → [{succ.uuid[-8:]}] {succ.message[:60]}...")
 
 
 def main() -> None:

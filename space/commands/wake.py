@@ -30,6 +30,39 @@ CONTEXT_NUDGE = """
 """
 
 
+def _priority_channel(channels):
+    """Identify highest priority channel."""
+    if not channels:
+        return None
+    return max(channels, key=lambda ch: (ch.unread_count, ch.last_activity or ""))
+
+
+def _recent_critical():
+    """Get most recent critical knowledge entry (24h)."""
+    from datetime import datetime, timedelta
+
+    from ..knowledge import db as knowledge_db
+
+    critical_domains = {"decision", "architecture", "operations", "consensus"}
+    entries = knowledge_db.list_all(include_archived=False)
+
+    cutoff = datetime.now() - timedelta(hours=24)
+    recent = [
+        e
+        for e in entries
+        if e.domain in critical_domains and datetime.fromisoformat(e.created_at) > cutoff
+    ]
+
+    return recent[0] if recent else None
+
+
+def _suggest_action(priority_ch, identity):
+    """Suggest concrete next action."""
+    if priority_ch:
+        return f"**Start with:** bridge recv {priority_ch.name} --as {identity}"
+    return None
+
+
 def wake(
     identity: str = typer.Option(..., "--as", help="Agent identity"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
@@ -105,10 +138,30 @@ def _show_orientation(identity: str, quiet: bool):
     if channels:
         total_msgs = sum(ch.unread_count for ch in channels)
         typer.echo(INBOX_HEADER.format(count=total_msgs, channels=len(channels)))
-        for ch in channels[:5]:
-            typer.echo(f"  #{ch.name} ({ch.unread_count} unread)")
+
+        priority_ch = _priority_channel(channels)
+        if priority_ch:
+            typer.echo(f"  #{priority_ch.name} ({priority_ch.unread_count} unread) ← START HERE")
+            remaining = [ch for ch in channels[:5] if ch.name != priority_ch.name]
+            for ch in remaining[:4]:
+                typer.echo(f"  #{ch.name} ({ch.unread_count} unread)")
+        else:
+            for ch in channels[:5]:
+                typer.echo(f"  #{ch.name} ({ch.unread_count} unread)")
+
         if len(channels) > 5:
             typer.echo(f"  ... and {len(channels) - 5} more")
+        typer.echo()
+
+        critical = _recent_critical()
+        if critical:
+            typer.echo(f"💡 Latest critical: [{critical.domain}] {critical.content[:80]}...")
+            typer.echo()
+
+        action = _suggest_action(priority_ch, identity)
+        if action:
+            typer.echo(action)
         typer.echo(WAKE_FOOTER.format(identity=identity))
     else:
         typer.echo(NO_MESSAGES)
+        typer.echo(CONTEXT_NUDGE.format(identity=identity))

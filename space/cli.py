@@ -1,5 +1,8 @@
+import sys
+
 import typer
 
+from . import events as event_log
 from .commands import (
     agent,
     analytics,
@@ -7,6 +10,7 @@ from .commands import (
     check,
     context,
     describe,
+    errors,
     events,
     init,
     search,
@@ -30,6 +34,7 @@ app.command()(backup.backup)
 app.command()(init.init)
 app.command()(check.check)
 app.command(name="events")(events.show_events)
+app.command()(errors.errors)
 app.add_typer(stats.app, name="stats")
 app.command()(analytics.analytics)
 app.command()(search.search)
@@ -41,6 +46,13 @@ app.command()(describe.describe)
 def main_command(
     ctx: typer.Context,
 ):
+    if "space" in sys.argv[0]:
+        cmd = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "(no command)"
+    else:
+        cmd = ctx.invoked_subcommand or "(no command)"
+
+    event_log.emit("cli", "invocation", data=cmd)
+
     if ctx.invoked_subcommand is None:
         typer.echo(readme.load("space"))
 

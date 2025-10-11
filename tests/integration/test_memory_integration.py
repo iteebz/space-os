@@ -34,7 +34,9 @@ def test_memory_replace_single(test_space):
     entries = db.get_entries(identity, topic="insight")
     old_id = entries[0].uuid
 
-    new_uuid = db.replace_entry([old_id], agent_id, "insight", "refined thought", "improved clarity")
+    new_uuid = db.replace_entry(
+        [old_id], agent_id, "insight", "refined thought", "improved clarity"
+    )
     assert new_uuid is not None
 
     active = db.get_entries(identity, include_archived=False)
@@ -62,7 +64,9 @@ def test_memory_replace_multi_merge(test_space):
     entries = db.get_entries(identity, topic="idea")
     ids = [e.uuid for e in entries]
 
-    new_uuid = db.replace_entry(ids, agent_id, "idea", "unified insight", "merged redundant thoughts")
+    new_uuid = db.replace_entry(
+        ids, agent_id, "idea", "unified insight", "merged redundant thoughts"
+    )
     assert new_uuid is not None
 
     active = db.get_entries(identity, include_archived=False)

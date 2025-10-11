@@ -68,8 +68,7 @@ def get_agent_ids(name: str, include_archived: bool = False) -> list[str]:
     with get_db() as conn:
         archive_filter = "" if include_archived else "AND archived_at IS NULL"
         rows = conn.execute(
-            f"SELECT id FROM agents WHERE name = ? {archive_filter}",
-            (name,)
+            f"SELECT id FROM agents WHERE name = ? {archive_filter}", (name,)
         ).fetchall()
         return [row["id"] for row in rows]
 
@@ -157,7 +156,10 @@ def _apply_migrations(conn):
                     conn.execute(migration)
                 conn.execute("INSERT INTO _migrations (name) VALUES (?)", (name,))
             except sqlite3.OperationalError as e:
-                if "duplicate column" not in str(e).lower() and "no such table" not in str(e).lower():
+                if (
+                    "duplicate column" not in str(e).lower()
+                    and "no such table" not in str(e).lower()
+                ):
                     raise RuntimeError(f"Migration '{name}' failed: {e}") from e
 
 
@@ -263,7 +265,7 @@ def _drop_canonical_id(conn):
     columns = [col[1] for col in cursor.fetchall() if col[1] != "canonical_id"]
     col_list = ", ".join(columns)
 
-    conn.execute(f"""
+    conn.execute("""
         CREATE TABLE agents_new (
             id TEXT PRIMARY KEY,
             name TEXT,
@@ -289,12 +291,9 @@ def archive_agent(name: str) -> bool:
     agent_id = get_agent_id(name)
     if not agent_id:
         return False
-    
+
     with get_db() as conn:
-        conn.execute(
-            "UPDATE agents SET archived_at = ? WHERE id = ?",
-            (int(time.time()), agent_id)
-        )
+        conn.execute("UPDATE agents SET archived_at = ? WHERE id = ?", (int(time.time()), agent_id))
         conn.commit()
     return True
 
@@ -304,20 +303,17 @@ def restore_agent(name: str) -> bool:
     agent_ids = get_agent_ids(name, include_archived=True)
     if not agent_ids:
         return False
-    
+
     with get_db() as conn:
         for agent_id in agent_ids:
-            conn.execute(
-                "UPDATE agents SET archived_at = NULL WHERE id = ?",
-                (agent_id,)
-            )
+            conn.execute("UPDATE agents SET archived_at = NULL WHERE id = ?", (agent_id,))
         conn.commit()
     return True
 
 
 def _resolve_agent(identifier: str) -> str | None:
     """Resolve name or UUID to UUID."""
-    if len(identifier) == 36 and identifier.count('-') == 4:
+    if len(identifier) == 36 and identifier.count("-") == 4:
         with get_db() as conn:
             row = conn.execute("SELECT id FROM agents WHERE id = ?", (identifier,)).fetchone()
             return row["id"] if row else None
@@ -331,54 +327,58 @@ def _resolve_agent(identifier: str) -> str | None:
 def merge_agents(from_identifier: str, to_identifier: str) -> bool:
     """Merge agent histories. Migrates all references from source to target."""
     from ..lib import paths
-    
+
     from_id = _resolve_agent(from_identifier)
     to_id = _resolve_agent(to_identifier)
-    
+
     if not from_id:
         return False
     if not to_id:
         return False
     if from_id == to_id:
         return False
-    
-    spawn_db = config.registry_db()
+
+    config.registry_db()
     events_db = paths.space_root() / "events.db"
     memory_db = paths.space_root() / "memory.db"
     knowledge_db = paths.space_root() / "knowledge.db"
     bridge_db = paths.space_root() / "bridge.db"
-    
+
     with get_db() as conn:
-        conn.execute("UPDATE agents SET name = (SELECT name FROM agents WHERE id = ?) WHERE id = ?", (to_id, from_id))
+        conn.execute(
+            "UPDATE agents SET name = (SELECT name FROM agents WHERE id = ?) WHERE id = ?",
+            (to_id, from_id),
+        )
         conn.commit()
-    
+
     import sqlite3
+
     if events_db.exists():
         conn = sqlite3.connect(events_db)
         conn.execute("UPDATE events SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
         conn.commit()
         conn.close()
-    
+
     if memory_db.exists():
         conn = sqlite3.connect(memory_db)
         conn.execute("UPDATE memory SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
         conn.commit()
         conn.close()
-    
+
     if knowledge_db.exists():
         conn = sqlite3.connect(knowledge_db)
         conn.execute("UPDATE knowledge SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
         conn.commit()
         conn.close()
-    
+
     if bridge_db.exists():
         conn = sqlite3.connect(bridge_db)
         conn.execute("UPDATE messages SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
         conn.commit()
         conn.close()
-    
+
     with get_db() as conn:
         conn.execute("DELETE FROM agents WHERE id = ?", (from_id,))
         conn.commit()
-    
+
     return True

@@ -78,6 +78,9 @@ class Memory:
     source: str = "manual"
     bridge_channel: str | None = None
     code_anchors: str | None = None
+    supersedes: str | None = None
+    superseded_by: str | None = None
+    synthesis_note: str | None = None
 
 
 @dataclass

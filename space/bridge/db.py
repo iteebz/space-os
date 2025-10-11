@@ -323,8 +323,9 @@ def fetch_channels(
                 cursor2 = conn.execute(
                     """
                     SELECT COUNT(*) as count FROM messages m
+                    JOIN channels c ON m.channel_id = c.id
                     LEFT JOIN bookmarks b ON b.channel_id = m.channel_id AND b.agent_id = ?
-                    WHERE m.channel_id = ? AND m.id > COALESCE(b.last_seen_id, 0)
+                    WHERE m.channel_id = ? AND c.archived_at IS NULL AND m.id > COALESCE(b.last_seen_id, 0)
                     """,
                     (agent_id, row["id"]),
                 )
