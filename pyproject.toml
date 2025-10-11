@@ -28,6 +28,8 @@ spawn = "space.spawn.cli:main"
 memory = "space.memory.cli:app"
 knowledge = "space.knowledge.cli:main"
 space = "space.cli:app"
+wake = "space.commands.wake_entry:main"
+sleep = "space.commands.sleep_entry:main"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.13.0"

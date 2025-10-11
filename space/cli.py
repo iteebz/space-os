@@ -9,7 +9,7 @@ app = typer.Typer(invoke_without_command=True)
 
 app.add_typer(knowledge_app, name="knowledge")
 app.add_typer(memory_app, name="memory")
-app.add_typer(agent.app, name="agent")
+app.add_typer(agent.app, name="agents")
 
 app.command()(wake.wake)
 app.command()(sleep.sleep)

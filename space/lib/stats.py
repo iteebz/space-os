@@ -220,6 +220,47 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
     )
 
 
+def get_agent_metrics() -> dict[str, dict]:
+    """Get s-b-m-k metrics for all agents by UUID."""
+    from ..spawn import registry
+    
+    bridge_db = paths.space_root() / "bridge.db"
+    mem_db = paths.space_root() / "memory.db"
+    know_db = paths.space_root() / "knowledge.db"
+    events_db = paths.space_root() / "events.db"
+    
+    metrics = {}
+    
+    if bridge_db.exists():
+        with db.connect(bridge_db) as conn:
+            for row in conn.execute("SELECT agent_id, COUNT(*) FROM messages GROUP BY agent_id"):
+                metrics[row[0]] = {"spawns": 0, "msgs": row[1], "mems": 0, "knowledge": 0}
+    
+    if events_db.exists():
+        with db.connect(events_db) as conn:
+            for row in conn.execute(
+                "SELECT agent_id, COUNT(*) FROM events WHERE event_type = 'session_start' GROUP BY agent_id"
+            ):
+                if row[0] in metrics:
+                    metrics[row[0]]["spawns"] = row[1]
+                else:
+                    metrics[row[0]] = {"spawns": row[1], "msgs": 0, "mems": 0, "knowledge": 0}
+    
+    if mem_db.exists():
+        with db.connect(mem_db) as conn:
+            for row in conn.execute("SELECT agent_id, COUNT(*) FROM memory GROUP BY agent_id"):
+                if row[0] in metrics:
+                    metrics[row[0]]["mems"] = row[1]
+    
+    if know_db.exists():
+        with db.connect(know_db) as conn:
+            for row in conn.execute("SELECT agent_id, COUNT(*) FROM knowledge GROUP BY agent_id"):
+                if row[0] in metrics:
+                    metrics[row[0]]["knowledge"] = row[1]
+    
+    return metrics
+
+
 def agent_stats(limit: int = None) -> list[AgentStats] | None:
     from ..spawn import registry
 
