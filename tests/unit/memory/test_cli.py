@@ -11,7 +11,7 @@ def test_app_help():
     assert "Usage:" in result.stdout
 
 
-def test_memory_list_no_bridge_context(test_space):
+def test_memory_list_no_bridge(test_space):
     from space.memory import db
     from space.spawn import registry
 
@@ -59,7 +59,7 @@ def test_memory_search(test_space):
     assert "rust is fast" not in result.stdout
 
 
-def test_memory_archive_restore(test_space):
+def test_memory_archive_and_restore(test_space):
     from space.memory import db
     from space.spawn import registry
 
@@ -106,7 +106,7 @@ def test_memory_delete(test_space):
     assert "wrong info" not in result.stdout
 
 
-def test_memory_core_marking(test_space):
+def test_memory_core_mark(test_space):
     from space.memory import db
     from space.spawn import registry
 

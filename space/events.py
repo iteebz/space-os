@@ -2,7 +2,7 @@ import time
 from pathlib import Path
 
 from .lib import db, paths
-from .lib.ids import uuid7
+from .lib.uuid7 import uuid7
 
 DB_PATH = paths.space_root() / "events.db"
 

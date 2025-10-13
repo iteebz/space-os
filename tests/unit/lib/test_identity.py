@@ -4,7 +4,7 @@ from pathlib import Path
 from space.spawn import registry, spawn
 
 
-def test_inject_identity_no_self():
+def test_inject_no_self():
     with tempfile.TemporaryDirectory() as tmpdir:
         db = Path(tmpdir) / "spawn.db"
         registry.config.registry_db = lambda: db
@@ -21,7 +21,7 @@ def test_inject_identity_no_self():
         )
 
 
-def test_inject_identity_with_self():
+def test_inject_with_self():
     with tempfile.TemporaryDirectory() as tmpdir:
         db = Path(tmpdir) / "spawn.db"
         registry.config.registry_db = lambda: db
@@ -41,7 +41,7 @@ def test_inject_identity_with_self():
         )
 
 
-def test_self_identity_evolution():
+def test_evolution():
     with tempfile.TemporaryDirectory() as tmpdir:
         db = Path(tmpdir) / "spawn.db"
         registry.config.registry_db = lambda: db
@@ -70,7 +70,7 @@ def test_describe_updates_self():
         assert desc == "Voice of the council"
 
 
-def test_inject_identity_with_model():
+def test_inject_with_model():
     with tempfile.TemporaryDirectory() as tmpdir:
         db = Path(tmpdir) / "spawn.db"
         registry.config.registry_db = lambda: db

@@ -10,6 +10,6 @@ def test_knowledge_list():
     assert result.exit_code == 0
 
 
-def test_knowledge_add_requires_identity():
+def test_add_requires_identity():
     result = runner.invoke(app, ["knowledge", "add", "test content"])
     assert result.exit_code != 0

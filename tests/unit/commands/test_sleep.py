@@ -31,7 +31,7 @@ def test_sleep_smoketest():
         mock_events.end_session.assert_called_once_with("test-agent-id", "session-123")
 
 
-def test_space_sleep_checkpoint_flow(test_space):
+def test_checkpoint_flow(test_space):
     with (
         patch("space.spawn.registry") as mock_registry,
         patch("space.events") as mock_events,

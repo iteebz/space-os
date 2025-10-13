@@ -32,7 +32,7 @@ def test_bridge_inbox_with_identity():
     assert result.exit_code == 0
 
 
-def test_bridge_send_creates_channel_if_missing():
+def test_send_creates_missing_channel():
     result = runner.invoke(app, ["send", "test-channel", "hello", "--as", "test-agent"])
     assert result.exit_code == 0
 

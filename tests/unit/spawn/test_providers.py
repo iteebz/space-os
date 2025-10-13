@@ -34,7 +34,7 @@ def test_codex(mock_run):
 
 @patch("subprocess.run")
 @patch("sys.exit")
-def test_run_launch_called_process_error(mock_exit, mock_run):
+def test_run_launch_process_error(mock_exit, mock_run):
     mock_run.side_effect = subprocess.CalledProcessError(1, "cmd")
     scripts._run_launch("role", "agent")
     mock_exit.assert_called_once_with(1)
@@ -43,7 +43,7 @@ def test_run_launch_called_process_error(mock_exit, mock_run):
 @patch("subprocess.run")
 @patch("sys.exit")
 @patch("builtins.print")
-def test_run_launch_file_not_found_error(mock_print, mock_exit, mock_run):
+def test_run_launch_file_not_found(mock_print, mock_exit, mock_run):
     mock_run.side_effect = FileNotFoundError
     scripts._run_launch("role", "agent")
     mock_exit.assert_called_once_with(1)

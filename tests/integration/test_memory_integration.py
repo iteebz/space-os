@@ -11,12 +11,12 @@ def test_memory_shows_readme():
     assert "memory" in result.stdout.lower()
 
 
-def test_memory_add_requires_identity():
+def test_add_requires_identity():
     result = runner.invoke(app, ["add", "test content"])
     assert result.exit_code != 0
 
 
-def test_memory_add_with_identity():
+def test_add_with_identity():
     result = runner.invoke(app, ["add", "test memory", "--as", "test-agent", "--topic", "testing"])
     assert result.exit_code == 0
     assert "added" in result.stdout.lower() or "memory" in result.stdout.lower()
@@ -50,7 +50,7 @@ def test_memory_replace_single(test_space):
     assert archived_entries[0].message == "initial thought"
 
 
-def test_memory_replace_multi_merge(test_space):
+def test_replace_merge(test_space):
     from space.memory import db
     from space.spawn import registry
 

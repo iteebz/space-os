@@ -2,7 +2,7 @@ from space.lib import paths
 from space.spawn import registry, spawn
 
 
-def test_inject_identity_basic(test_space):
+def test_inject_basic(test_space):
     """Injects identity header and footer."""
     constitution = "# ZEALOT CONSTITUTION\nPurge bullshit."
 
@@ -14,7 +14,7 @@ def test_inject_identity_basic(test_space):
     assert "run `space` for commands" in result
 
 
-def test_inject_identity_with_self_description(test_space):
+def test_inject_self_description(test_space):
     """Includes self-description when present."""
     registry.init_db()
     registry.set_self_description("zealot-1", "Skeptical cothinking partner")
@@ -27,7 +27,7 @@ def test_inject_identity_with_self_description(test_space):
     assert "# ZEALOT CONSTITUTION" in result
 
 
-def test_inject_identity_with_model(test_space):
+def test_inject_with_model(test_space):
     """Includes model in header when provided."""
     constitution = "# ZEALOT CONSTITUTION"
     result = spawn.inject_identity(constitution, "zealot-1", model="claude-sonnet-4-5")
@@ -35,7 +35,7 @@ def test_inject_identity_with_model(test_space):
     assert result.startswith("You are now zealot-1 powered by claude-sonnet-4-5.")
 
 
-def test_inject_identity_with_canon(test_space):
+def test_inject_canon(test_space):
     """Injects canon before constitution."""
     canon_path = paths.canon_path()
     canon_path.parent.mkdir(parents=True, exist_ok=True)
@@ -54,7 +54,7 @@ def test_inject_identity_with_canon(test_space):
     assert "3. Craft" in result
 
 
-def test_inject_identity_assembly_order(test_space):
+def test_inject_assembly_order(test_space):
     """Verifies full assembly: header → canon → constitution → footer."""
     registry.init_db()
     registry.set_self_description("zealot-1", "Skeptical partner")

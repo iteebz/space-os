@@ -32,7 +32,7 @@ def setup_prefix_channels():
             channels.delete_channel(name)
 
 
-def test_archive_with_prefix_flag(setup_prefix_channels):
+def test_with_prefix_flag(setup_prefix_channels):
     from unittest.mock import MagicMock
 
     from space.bridge.commands.channels import archive
@@ -59,7 +59,7 @@ def test_archive_with_prefix_flag(setup_prefix_channels):
     assert "random-channel" in active
 
 
-def test_archive_without_prefix_flag(setup_prefix_channels):
+def test_without_prefix_flag(setup_prefix_channels):
     from space.bridge.commands.channels import archive
 
     archive(

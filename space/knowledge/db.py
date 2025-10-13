@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..lib import db, paths
-from ..lib.ids import uuid7
+from ..lib.uuid7 import uuid7
 
 KNOWLEDGE_DB_NAME = "knowledge.db"
 

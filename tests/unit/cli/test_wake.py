@@ -21,7 +21,7 @@ def test_wake_command_success(test_space):
         mock_identify.assert_called_once_with("test-agent", "wake", ANY)
 
 
-def test_wake_command_with_unread_messages(test_space):
+def test_command_unread_messages(test_space):
     """Verify that the 'space wake' command correctly displays unread messages."""
     mock_channel1 = MagicMock()
     mock_channel1.name = "channel-alpha"

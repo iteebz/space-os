@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from space.lib.ids import uuid7
+from space.lib.uuid7 import uuid7
 from space.memory import db
 from space.spawn import registry
 

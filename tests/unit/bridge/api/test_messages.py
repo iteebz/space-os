@@ -79,7 +79,7 @@ def test_create_channel_without_topic(test_space):
     assert retrieved_topic is None
 
 
-def test_active_channels_filters_by_agent_unreads(test_space):
+def test_active_channels_filter_unreads(test_space):
     """Verify active_channels filters by agent_id and shows only channels with unreads."""
     channel1 = api.create_channel("active-1")
     channel2 = api.create_channel("active-2")
@@ -100,7 +100,7 @@ def test_active_channels_filters_by_agent_unreads(test_space):
     assert all(c.name in ["active-2", "active-3"] for c in active)
 
 
-def test_active_channels_limits_to_five(test_space):
+def test_active_channels_limit_five(test_space):
     """Verify active_channels limits to 5 most recent."""
     agent_id = "test-agent"
     for i in range(7):
@@ -111,7 +111,7 @@ def test_active_channels_limits_to_five(test_space):
     assert len(active) == 5
 
 
-def test_inbox_channels_shows_all_unreads(test_space):
+def test_inbox_channels_all_unreads(test_space):
     """Verify inbox_channels shows all channels with unreads."""
     agent_id = "test-agent"
     for i in range(7):

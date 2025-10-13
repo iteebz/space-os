@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .. import events
 from ..lib import db, paths
-from ..lib.ids import uuid7
+from ..lib.uuid7 import uuid7
 from ..models import Memory
 
 MEMORY_DB_NAME = "memory.db"

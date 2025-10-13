@@ -1,7 +1,7 @@
 from space.spawn import registry, spawn
 
 
-def test_save_and_get_agent_identity(in_memory_db):
+def test_save_get_agent_identity(in_memory_db):
     full_identity = "You are a test agent.\nSelf: I am a test.\n\nConstitution: Test."
     constitution_hash = spawn.hash_content(full_identity)
 
@@ -21,7 +21,7 @@ def test_save_and_get_agent_identity(in_memory_db):
     assert non_existent_identity is None
 
 
-def test_save_long_identity(test_space):
+def test_save_long_id(test_space):
     long_full_identity = "A" * 10000
     constitution_hash = spawn.hash_content(long_full_identity)
 
@@ -30,7 +30,7 @@ def test_save_long_identity(test_space):
     assert retrieved_identity == long_full_identity
 
 
-def test_save_special_chars_identity(test_space):
+def test_save_special_chars_id(test_space):
     special_char_identity = "Hello!@#$%^&*()_+-=[]{}|;':\",./<>?`~"
     constitution_hash = spawn.hash_content(special_char_identity)
 

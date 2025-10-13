@@ -4,7 +4,7 @@ from pathlib import Path
 from space.lib import paths
 
 
-def test_workspace_root_finds_dotspace():
+def test_workspace_root_finds_dot_space():
     with tempfile.TemporaryDirectory() as tmpdir:
         workspace = Path(tmpdir) / "project"
         workspace.mkdir()
@@ -23,7 +23,7 @@ def test_workspace_root_finds_dotspace():
             os.chdir(orig_cwd)
 
 
-def test_workspace_root_fallback_to_cwd():
+def test_workspace_root_fallback_cwd():
     with tempfile.TemporaryDirectory() as tmpdir:
         workspace = Path(tmpdir) / "no-dotspace"
         workspace.mkdir()
@@ -38,7 +38,7 @@ def test_workspace_root_fallback_to_cwd():
             os.chdir(orig_cwd)
 
 
-def test_space_root_finds_dotspace():
+def test_space_root_finds_dot_space():
     with tempfile.TemporaryDirectory() as tmpdir:
         workspace = Path(tmpdir) / "project"
         workspace.mkdir()
@@ -58,7 +58,7 @@ def test_space_root_finds_dotspace():
             os.chdir(orig_cwd)
 
 
-def test_space_root_fallback_to_home():
+def test_space_root_fallback_home():
     with tempfile.TemporaryDirectory() as tmpdir:
         workspace = Path(tmpdir) / "no-dotspace"
         workspace.mkdir()

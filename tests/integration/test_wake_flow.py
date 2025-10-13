@@ -11,7 +11,7 @@ def setup_db(test_space):
     pass
 
 
-def test_first_spawn_shows_initiation():
+def test_first_spawn_initiation():
     """First spawn shows initiation flow."""
     result = runner.invoke(app, ["wake", "--as", "new-agent"])
 
@@ -21,7 +21,7 @@ def test_first_spawn_shows_initiation():
     assert "Explore autonomously" in result.stdout
 
 
-def test_second_spawn_shows_orientation():
+def test_second_spawn_orientation():
     """Subsequent spawns show standard orientation."""
     agent = "existing-agent"
 
@@ -33,7 +33,7 @@ def test_second_spawn_shows_orientation():
     assert "📬" in second.stdout or "No unread" in second.stdout
 
 
-def test_session_tracking_auto_closes_previous():
+def test_session_auto_closes_previous():
     """New wake auto-closes previous session without sleep."""
     from space import events
     from space.spawn import registry

@@ -2,7 +2,7 @@ from space.lib import config as libconfig
 from space.spawn import config
 
 
-def test_init_config_creates_file_from_defaults(tmp_path, monkeypatch):
+def test_init_creates_default_file(tmp_path, monkeypatch):
     monkeypatch.setattr(libconfig, "workspace_root", lambda: tmp_path)
 
     target = tmp_path / ".space" / "config.yaml"
@@ -14,7 +14,7 @@ def test_init_config_creates_file_from_defaults(tmp_path, monkeypatch):
     assert target.read_text().startswith("agents:")
 
 
-def test_init_config_does_not_overwrite_existing(tmp_path, monkeypatch):
+def test_init_no_overwrite(tmp_path, monkeypatch):
     monkeypatch.setattr(libconfig, "workspace_root", lambda: tmp_path)
 
     target = tmp_path / ".space" / "config.yaml"
