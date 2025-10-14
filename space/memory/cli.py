@@ -7,9 +7,9 @@ from space.spawn import registry
 
 from ..lib import identity as identity_lib
 from ..lib import readme
-from . import db
-from .display import show_context, show_smart_memory
 from ..lib.display import humanize_timestamp
+from . import db
+from .display import show_context
 
 app = typer.Typer(invoke_without_command=True)
 
@@ -172,7 +172,9 @@ def list_entries_command(
                 typer.echo(f"# {e.topic}")
                 current_topic = e.topic
             core_mark = " ★" if e.core else ""
-            typer.echo(f"[{e.uuid[-8:]}] [{humanize_timestamp(e.timestamp)}] {e.message}{core_mark}")
+            typer.echo(
+                f"[{e.uuid[-8:]}] [{humanize_timestamp(e.timestamp)}] {e.message}{core_mark}"
+            )
 
         show_context(identity)
 

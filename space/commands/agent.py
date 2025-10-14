@@ -28,20 +28,18 @@ def _show_agents():
             "SELECT id, name, self_description FROM agents WHERE archived_at IS NULL ORDER BY name"
         ).fetchall()
 
-        typer.echo(f"{'NAME':<20} {'SELF':<40} {'S/B/M/K':<15}")
+        typer.echo(f"{'NAME':<20} {'S/B/M/K':<15} {'SELF'}")
         typer.echo("-" * 80)
 
         for agent in agents:
             name = agent["name"] or "(unnamed)"
-            self_desc = agent["self_description"] or "-"
-            if len(self_desc) > 40:
-                self_desc = self_desc[:37] + "..."
+            full_self_desc = agent["self_description"] or "-"
 
             agent_id = agent["id"]
             m = metrics.get(agent_id, {"spawns": 0, "msgs": 0, "mems": 0, "knowledge": 0})
             sbmk = f"{m['spawns']}/{m['msgs']}/{m['mems']}/{m['knowledge']}"
 
-            typer.echo(f"{name:<20} {self_desc:<40} {sbmk:<15}")
+            typer.echo(f"{name:<20} {sbmk:<15} {full_self_desc}")
 
         typer.echo()
         typer.echo(f"Total: {len(agents)}")
