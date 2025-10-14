@@ -4,6 +4,7 @@ import typer
 
 from . import events as event_log
 from .bridge.cli import app as bridge_app
+from .canon.cli import app as canon_app
 from .commands import (
     agent,
     backup,
@@ -30,6 +31,7 @@ app.add_typer(agent.app, name="agents")
 app.add_typer(context_app, name="context")
 app.add_typer(stats.app, name="stats")
 app.add_typer(bridge_app, name="bridge")
+app.add_typer(canon_app, name="canon")
 app.command(name="backup")(backup.backup)
 app.command(name="check")(check.check)
 app.command(name="describe")(describe.describe)
@@ -58,7 +60,7 @@ def main_command(
 
 def main() -> None:
     """Entry point for poetry script."""
-
+    cmd = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "(no command)"
     try:
         app()
     except SystemExit as e:

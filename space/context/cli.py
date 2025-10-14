@@ -5,6 +5,7 @@ import json
 import typer
 
 from ..lib import readme
+from ..lib.paths import canon_path
 from . import (
     db,  # Add this import
     display,  # Add this import
@@ -35,19 +36,29 @@ def main_command(
     timeline = db.collect_timeline(topic, identity, all_agents)  # Call from db module
     current_state = db.collect_current_state(topic, identity, all_agents)  # Call from db module
     lattice_docs = _search_lattice(topic)
+    canon_docs = _search_canon(topic)  # New: Search canon documents
 
     if json_output:
         typer.echo(
-            json.dumps({"evolution": timeline, "state": current_state, "lattice": lattice_docs})
+            json.dumps(
+                {
+                    "evolution": timeline,
+                    "state": current_state,
+                    "lattice": lattice_docs,
+                    "canon": canon_docs,
+                }
+            )
         )
         return
 
     if quiet_output:
         return
 
-    display.display_context(timeline, current_state, lattice_docs)  # Call display function
+    display.display_context(
+        timeline, current_state, lattice_docs, canon_docs
+    )  # Call display function with canon_docs
 
-    if not timeline and not any(current_state.values()) and not lattice_docs:
+    if not timeline and not any(current_state.values()) and not lattice_docs and not canon_docs:
         typer.echo(f"No context found for '{topic}'")
 
 
@@ -70,6 +81,26 @@ def _search_lattice(topic: str):
         return matches
     except Exception:
         return {}
+
+
+def _search_canon(topic: str) -> dict:
+    """Search canon documents for relevant sections."""
+    matches = {}
+    try:
+        canon_root = canon_path()
+        if not canon_root.exists():
+            return {}
+
+        for md_file in canon_root.rglob("*.md"):
+            try:
+                content = md_file.read_text()
+                if topic.lower() in content.lower():
+                    matches[str(md_file.relative_to(canon_root))] = content
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return matches
 
 
 def main() -> None:

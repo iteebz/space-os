@@ -2,15 +2,15 @@ from space.lib import canon
 
 
 def test_load_canon_when_missing(test_space, mocker):
-    """Returns None when canon.md doesn't exist."""
+    """Returns None when canon doesn't exist."""
     mocker.patch("space.lib.paths.space_root", return_value=test_space)
     assert canon.load_canon() is None
 
 
 def test_load_canon_when_exists(test_space, mocker):
-    """Loads canon.md content."""
+    """Loads canon content."""
     mocker.patch("space.lib.paths.space_root", return_value=test_space)
-    canon_path = test_space / "canon.md"
+    canon_path = test_space / "canon"
     canon_path.parent.mkdir(parents=True, exist_ok=True)
     canon_path.write_text("# My Values\n1. Truth\n2. Speed\n3. Craft")
 
@@ -28,7 +28,7 @@ def test_inject_canon_when_missing(test_space, mocker):
 def test_inject_canon_when_exists(test_space, mocker):
     """Injects canon at top of constitution."""
     mocker.patch("space.lib.paths.space_root", return_value=test_space)
-    canon_path = test_space / "canon.md"
+    canon_path = test_space / "canon"
     canon_path.parent.mkdir(parents=True, exist_ok=True)
     canon_path.write_text("# CANON\n1. Truth\n2. Speed\n3. Craft")
 
@@ -39,11 +39,11 @@ def test_inject_canon_when_exists(test_space, mocker):
 
 
 def test_init_canon_creates_default(test_space, mocker):
-    """Creates default canon.md template."""
+    """Creates default canon template."""
     mocker.patch("space.lib.paths.space_root", return_value=test_space)
     canon.init_canon()
 
-    canon_path = test_space / "canon.md"
+    canon_path = test_space / "canon"
     assert canon_path.exists()
 
     content = canon_path.read_text()
@@ -53,9 +53,9 @@ def test_init_canon_creates_default(test_space, mocker):
 
 
 def test_init_canon_doesnt_overwrite(test_space, mocker):
-    """Doesn't overwrite existing canon.md."""
+    """Doesn't overwrite existing canon."""
     mocker.patch("space.lib.paths.space_root", return_value=test_space)
-    canon_path = test_space / "canon.md"
+    canon_path = test_space / "canon"
     canon_path.parent.mkdir(parents=True, exist_ok=True)
     canon_path.write_text("Custom canon")
 

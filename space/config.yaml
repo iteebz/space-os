@@ -57,3 +57,5 @@ roles:
   default:
     constitution: zealot.md
     base_identity: claude
+
+canon_path: private/canon

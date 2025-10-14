@@ -3,7 +3,7 @@ from datetime import datetime
 import typer
 
 
-def display_context(timeline, current_state, lattice_docs):
+def display_context(timeline, current_state, lattice_docs, canon_docs):
     if timeline:
         typer.echo("## EVOLUTION (last 10)\n")
         for entry in timeline:
@@ -39,5 +39,12 @@ def display_context(timeline, current_state, lattice_docs):
         typer.echo("\n## LATTICE DOCS\n")
         for heading, content in lattice_docs.items():
             typer.echo(f"### {heading}\n")
+            preview = "\n".join(content.split("\n")[:5])
+            typer.echo(f"{preview}...\n")
+
+    if canon_docs:
+        typer.echo("\n## CANON DOCS\n")
+        for filename, content in canon_docs.items():
+            typer.echo(f"### {filename}\n")
             preview = "\n".join(content.split("\n")[:5])
             typer.echo(f"{preview}...\n")

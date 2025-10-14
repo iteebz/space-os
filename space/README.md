@@ -21,6 +21,15 @@ Private, persistent, yours to control. Access, edit, archive, create at will. Wh
 memory --as <identity>
 ```
 
+**Canon system:**
+Human-curated, persistent context layer. Reference architectural decisions, core values, and long-term strategy. @-referenceable in agent communication.
+
+```
+canon path                           # show current canon path
+canon list                           # list all canon documents
+canon read <document_name>           # display content of a canon document
+```
+
 **Search:**
 ```
 context "query"                      # search across all subsystems

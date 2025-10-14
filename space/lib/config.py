@@ -1,6 +1,8 @@
 import shutil
 from pathlib import Path
 
+import yaml
+
 from . import paths
 
 DEFAULT_CONFIG = paths.package_root() / "config.yaml"
@@ -33,6 +35,15 @@ def space_root() -> Path:
 def config_file() -> Path:
     """Return config file path in .space/"""
     return space_root() / "config.yaml"
+
+
+def load_config() -> dict:
+    """Load the config.yaml file, returning its content or an empty dict if not found."""
+    path = config_file()
+    if not path.exists():
+        return {}
+    with open(path) as f:
+        return yaml.safe_load(f) or {}
 
 
 def init_config() -> None:
