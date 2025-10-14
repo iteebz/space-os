@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -28,6 +29,8 @@ def mock_config_files(tmp_path: Path, monkeypatch):
 
     # Mock config_file to point to the dummy config
     monkeypatch.setattr(spawn.config, "config_file", lambda: str(config_dir / "config.yaml"))
+    monkeypatch.setattr(spawn.shutil, "which", lambda cmd, path=None: cmd)
+    monkeypatch.setattr("subprocess.run", lambda *args, **kwargs: None)
 
 
 def test_constitution_message(mock_config_files, tmp_path: Path, monkeypatch):
@@ -57,3 +60,40 @@ def test_constitution_message(mock_config_files, tmp_path: Path, monkeypatch):
     assert expected_header in content
     assert expected_constitution in content
     assert "Infrastructure: run `space` for commands and orientation (already in PATH)." in content
+
+
+def test_codex_writes_agents_manifest(tmp_path: Path, monkeypatch):
+    # Wire workspace to temporary location
+    monkeypatch.setattr(paths, "workspace_root", lambda: tmp_path)
+
+    config_content = {
+        "agents": {"codex": {"command": "codex", "model": "gpt-5-codex"}},
+        "roles": {"kitsuragi": {"constitution": "kitsuragi.md", "base_identity": "codex"}},
+    }
+    config_dir = tmp_path / "space"
+    config_dir.mkdir()
+    (config_dir / "config.yaml").write_text(yaml.dump(config_content))
+
+    monkeypatch.setattr(spawn.config, "config_file", lambda: str(config_dir / "config.yaml"))
+    monkeypatch.setattr(spawn.shutil, "which", lambda cmd, path=None: cmd)
+    monkeypatch.setattr("subprocess.run", lambda *args, **kwargs: None)
+
+    agents_file = tmp_path / "AGENTS.md"
+    agents_file.write_text("ZEALOT CONSTITUTION\n")
+
+    # Mock registry access
+    monkeypatch.setattr(spawn.registry, "init_db", lambda: None)
+    monkeypatch.setattr(spawn.registry, "get_self_description", lambda agent_name: None)
+    monkeypatch.setattr(spawn.registry, "save_constitution", lambda const_hash, full_identity: None)
+
+    spawn.launch_agent(
+        role="kitsuragi",
+        agent_name="kitsuragi",
+        base_identity="codex",
+        extra_args=[],
+        model="gpt-5-codex",
+    )
+
+    content = agents_file.read_text()
+    assert "You are now kitsuragi powered by gpt-5-codex." in content
+    assert "# LIEUTENANT KIM KITSURAGI" in content

@@ -124,7 +124,7 @@ def _write_identity_file(base_identity: str, content: str) -> None:
     filename_map = {
         "claude": "CLAUDE.md",
         "gemini": "GEMINI.md",
-        "codex": "CODEX.md",
+        "codex": "AGENTS.md",
         "chatgpt": "CHATGPT.md",
     }
     filename = filename_map.get(base_identity)
