@@ -8,7 +8,7 @@ import typer
 # Prompts and formatting
 IDENTITY_HEADER = "You are {identity}."
 SELF_DESCRIPTION = "Self: {description}"
-SPAWN_STATUS = "🔄 Spawn #{count} • Last spawn {duration} ago"
+SPAWN_STATUS = "🔄 Spawn #{count} • Last sleep {duration} ago"
 
 SECTION_CORE = "CORE:"
 SECTION_RECENT = "RECENT:"
@@ -34,6 +34,14 @@ def _priority_channel(channels):
     """Identify highest priority channel."""
     if not channels:
         return None
+
+    # Prioritize #space-feedback if it has unread messages
+    feedback_channel = next(
+        (ch for ch in channels if ch.name == "space-feedback" and ch.unread_count > 0), None
+    )
+    if feedback_channel:
+        return feedback_channel
+
     return max(channels, key=lambda ch: (ch.unread_count, ch.last_activity or ""))
 
 
@@ -77,7 +85,7 @@ def wake(
 
     agent_id = registry.ensure_agent(identity)
 
-    spawn_count = events.get_session_count(agent_id)
+    spawn_count = events.get_sleep_count(agent_id)
     is_first_spawn = spawn_count == 0
 
     if check and is_first_spawn:
@@ -86,17 +94,15 @@ def wake(
 
     if not check:
         session_id = events.start_session(agent_id)
-        spawn_count = events.get_session_count(agent_id)
-        is_first_spawn = spawn_count == 1
         events.identify(identity, "wake", session_id)
 
     if is_first_spawn:
-        _show_initiation(identity, quiet)
+        _show_initiation(identity, quiet, spawn_count)
     else:
-        _show_orientation(identity, quiet)
+        _show_orientation(identity, quiet, spawn_count)
 
 
-def _show_initiation(identity: str, quiet: bool):
+def _show_initiation(identity: str, quiet: bool, spawn_count: int):
     """First spawn: the game begins."""
     if quiet:
         return
@@ -108,7 +114,7 @@ def _show_initiation(identity: str, quiet: bool):
     if self_desc:
         typer.echo(SELF_DESCRIPTION.format(description=self_desc))
     typer.echo()
-    typer.echo("🆕 First spawn.")
+    typer.echo(f"🔄 Spawn #{spawn_count}")
     typer.echo()
     typer.echo("**Tools:**")
     typer.echo("  bridge  — coordinate with other agents")
@@ -128,12 +134,12 @@ def _show_initiation(identity: str, quiet: bool):
     typer.echo(WAKE_FOOTER.format(identity=identity))
 
 
-def _show_orientation(identity: str, quiet: bool):
+def _show_orientation(identity: str, quiet: bool, spawn_count: int):
     """Standard wake: context + coordination state."""
     from ..bridge.api import channels as bridge_channels
     from ..memory.display import show_wake_summary
 
-    show_wake_summary(identity=identity, quiet_output=quiet)
+    show_wake_summary(identity=identity, quiet_output=quiet, spawn_count=spawn_count)
     typer.echo()
     typer.echo("**Ritual anchors:**")
     typer.echo("  wake  — absorb context, resume work")

@@ -25,9 +25,9 @@ def test_summaries_append(test_space):
 
     summaries = db.get_entries("test-agent", topic="summary")
     assert len(summaries) == 3
-    assert summaries[0].message == "First session summary"
+    assert summaries[0].message == "Third session summary"
     assert summaries[1].message == "Second session summary"
-    assert summaries[2].message == "Third session summary"
+    assert summaries[2].message == "First session summary"
 
 
 def test_summaries_empty(test_space):
@@ -48,4 +48,4 @@ def test_summary_ordering(test_space):
     summaries = db.get_entries("test-agent", topic="summary")
     created_times = [s.created_at for s in summaries]
 
-    assert created_times == sorted(created_times)
+    assert created_times == sorted(created_times, reverse=True)

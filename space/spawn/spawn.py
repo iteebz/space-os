@@ -7,6 +7,8 @@ from pathlib import Path
 
 import yaml
 
+from space.lib import canon
+
 from ..lib import paths
 from . import config, registry
 
@@ -39,25 +41,23 @@ def get_base_identity(role: str) -> str:
 
 
 def inject_identity(
-    base_constitution_content: str, agent_name: str, model: str | None = None
+    base_constitution_content: str, role: str, agent_name: str, model: str | None = None
 ) -> str:
-    from ..lib import canon
+    """Injects identity (self-description + model) into the constitution."""
+    header = f"# {role.upper()} CONSTITUTION"
+    footer = f"run `space` for orientation (already in PATH).\nrun: `memory --as {agent_name}` to access memories."
 
-    registry.init_db()
-    self_desc = registry.get_self_description(agent_name)
+    self_desc = (
+        f"Self: You are {agent_name}. Your model is {model}."
+        if model
+        else f"Self: You are {agent_name}."
+    )
 
-    header_parts = [f"You are now {agent_name}"]
-    if model:
-        header_parts.append(f"powered by {model}")
-    header = " ".join(header_parts) + "."
+    # Inject canon into the base constitution content
+    constitution_with_canon = canon.inject_canon(base_constitution_content)
 
-    footer = "\n\nInfrastructure: run `space` for commands and orientation (already in PATH)."
-
-    constitution = canon.inject_canon(base_constitution_content)
-
-    if self_desc:
-        return f"{header}\nSelf: {self_desc}\n\n{constitution}{footer}"
-    return f"{header}\n\n{constitution}{footer}"
+    # Construct the final identity by wrapping with header, self_desc, and footer
+    return f"{header}\n{self_desc}\n\n{constitution_with_canon}\n{footer}"
 
 
 def launch_agent(
@@ -95,7 +95,7 @@ def launch_agent(
 
     const_path = get_constitution_path(role)
     base_content = const_path.read_text()
-    full_identity = inject_identity(base_content, actual_agent_name, actual_model)
+    full_identity = inject_identity(base_content, role, actual_agent_name, actual_model)
     const_hash = hash_content(full_identity)
     registry.save_constitution(const_hash, full_identity)
 

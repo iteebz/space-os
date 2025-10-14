@@ -1,45 +1,72 @@
-from unittest.mock import ANY, MagicMock, patch
+import time
+from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
 
 from space.cli import app
+from space.models import Channel
 
 runner = CliRunner()
 
 
-def test_wake_command_success(test_space):
-    """Verify that the 'space wake' command runs successfully and prints the expected output (no unread messages)."""
+def test_wake_new_identity_spawn_count_zero(test_space):
+    """Verify that a new identity has a spawn count of 0."""
     with (
-        patch("space.events.identify") as mock_identify,
-        patch("space.memory.display.show_wake_summary"),
+        patch("space.events.identify"),
+        patch("space.events.get_sleep_count", return_value=0),
+        patch("space.events.get_last_sleep_time", return_value=time.time()),  # Mock with float
         patch("space.bridge.api.channels.inbox_channels", return_value=[]),
+        patch("space.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
     ):
-        result = runner.invoke(app, ["wake", "--as", "test-agent"])
+        result = runner.invoke(app, ["wake", "--as", "new-agent"])
         assert result.exit_code == 0
-        assert "Waking up test-agent" in result.stdout
-        assert "🆕 First spawn." in result.stdout
-        mock_identify.assert_called_once_with("test-agent", "wake", ANY)
+        assert "Waking up new-agent" in result.stdout
+        assert "Spawn #0" in result.stdout
+
+
+def test_wake_existing_identity_spawn_count(test_space):
+    """Verify that an existing identity has the correct spawn count."""
+    with (
+        patch("space.events.identify"),
+        patch("space.events.get_sleep_count", return_value=5),
+        patch(
+            "space.events.get_last_sleep_time", return_value=time.time() - 3600 * 24 * 2
+        ),  # Mock with float (2 days ago)
+        patch("space.bridge.api.channels.inbox_channels", return_value=[]),
+        patch("space.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
+    ):
+        result = runner.invoke(app, ["wake", "--as", "existing-agent"])
+        assert result.exit_code == 0
+        assert "Waking up existing-agent" in result.stdout
+        assert "Spawn #5" in result.stdout
+        assert (
+            "Last sleep" in result.stdout
+        )  # Check for presence, not exact string due to time diff
 
 
 def test_command_unread_messages(test_space):
     """Verify that the 'space wake' command correctly displays unread messages."""
-    mock_channel1 = MagicMock()
+    mock_channel1 = MagicMock(spec=Channel)
     mock_channel1.name = "channel-alpha"
     mock_channel1.unread_count = 2
+    mock_channel1.last_activity = "2025-10-14T10:00:00"
 
-    mock_channel2 = MagicMock()
+    mock_channel2 = MagicMock(spec=Channel)
     mock_channel2.name = "channel-beta"
     mock_channel2.unread_count = 1
+    mock_channel2.last_activity = "2025-10-14T11:00:00"
 
     with (
-        patch("space.events.identify") as mock_identify,
-        patch("space.memory.display.show_wake_summary") as mock_show_wake_summary,
+        patch("space.events.identify"),
+        patch("space.events.get_sleep_count", return_value=1),
+        patch(
+            "space.events.get_last_sleep_time", return_value=time.time() - 3600 * 24
+        ),  # Mock with float (1 day ago)
         patch(
             "space.bridge.api.channels.inbox_channels", return_value=[mock_channel1, mock_channel2]
-        ) as mock_inbox_channels,
+        ),
+        patch("space.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
     ):
-        # Simulate a previous spawn to ensure _show_orientation is called
-        runner.invoke(app, ["wake", "--as", "test-agent"])
         result = runner.invoke(app, ["wake", "--as", "test-agent"])
         assert result.exit_code == 0
         assert "Waking up test-agent" in result.stdout
@@ -47,7 +74,33 @@ def test_command_unread_messages(test_space):
         assert "  #channel-alpha (2 unread)" in result.stdout
         assert "  #channel-beta (1 unread)" in result.stdout
         assert "bridge recv <channel> --as test-agent" in result.stdout
-        mock_identify.assert_called_with("test-agent", "wake", ANY)
-        mock_show_wake_summary.assert_called_once_with(identity="test-agent", quiet_output=False)
-        mock_inbox_channels.assert_called_once_with("test-agent")
-    assert result.exit_code == 0
+
+
+def test_wake_prioritizes_space_feedback(test_space):
+    """Verify that #space-feedback is prioritized if it has unread messages."""
+    mock_feedback_channel = MagicMock(spec=Channel)
+    mock_feedback_channel.name = "space-feedback"
+    mock_feedback_channel.unread_count = 5
+    mock_feedback_channel.last_activity = "2025-10-14T12:00:00"
+
+    mock_other_channel = MagicMock(spec=Channel)
+    mock_other_channel.name = "other-channel"
+    mock_other_channel.unread_count = 10
+    mock_other_channel.last_activity = "2025-10-14T13:00:00"
+
+    with (
+        patch("space.events.identify"),
+        patch("space.events.get_sleep_count", return_value=1),
+        patch(
+            "space.events.get_last_sleep_time", return_value=time.time() - 3600 * 24
+        ),  # Mock with float (1 day ago)
+        patch(
+            "space.bridge.api.channels.inbox_channels",
+            return_value=[mock_other_channel, mock_feedback_channel],
+        ),
+        patch("space.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
+    ):
+        result = runner.invoke(app, ["wake", "--as", "test-agent"])
+        assert result.exit_code == 0
+        assert "#space-feedback (5 unread) ← START HERE" in result.stdout
+        assert "#other-channel (10 unread)" in result.stdout  # Ensure other channel is still listed

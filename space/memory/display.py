@@ -7,8 +7,6 @@ import typer
 from ..bridge import db as bridge_db
 from ..commands import wake as wake_prompts
 from ..knowledge import db as knowledge_db
-from ..lib import db as lib_db
-from ..lib import paths
 from ..spawn import registry as spawn_registry
 from . import db
 
@@ -30,7 +28,7 @@ def show_context(identity: str):
     typer.echo("\n" + "─" * 60)
 
 
-def show_wake_summary(identity: str, quiet_output: bool):
+def show_wake_summary(identity: str, quiet_output: bool, spawn_count: int):
     """Show concise wake summary: rolling summary, recent activity."""
     if quiet_output:
         return
@@ -47,34 +45,17 @@ def show_wake_summary(identity: str, quiet_output: bool):
     agent_id = registry.get_agent_id(identity)
 
     if agent_id:
-        spawn_count = events.get_session_count(agent_id)
+        last_sleep_timestamp = events.get_last_sleep_time(agent_id)
 
-        events_db = paths.space_root() / "events.db"
-        if events_db.exists():
-            with lib_db.connect(events_db) as conn:
-                last_session_start = conn.execute(
-                    "SELECT timestamp FROM events WHERE agent_id = ? AND event_type = 'session_start' ORDER BY timestamp DESC LIMIT 1",
-                    (agent_id,),
-                ).fetchone()
+        if last_sleep_timestamp:
+            last_sleep_duration = _format_duration(time.time() - last_sleep_timestamp)
+            typer.echo(
+                wake_prompts.SPAWN_STATUS.format(count=spawn_count, duration=last_sleep_duration)
+            )
+        else:
+            typer.echo(f"🔄 Spawn #{spawn_count}")
 
-                if last_session_start:
-                    last_spawn_duration = _format_duration(time.time() - last_session_start[0])
-                    typer.echo(
-                        wake_prompts.SPAWN_STATUS.format(
-                            count=spawn_count, duration=last_spawn_duration
-                        )
-                    )
-
-                    last_session_end = conn.execute(
-                        "SELECT timestamp FROM events WHERE agent_id = ? AND event_type = 'session_end' ORDER BY timestamp DESC LIMIT 1",
-                        (agent_id,),
-                    ).fetchone()
-
-                    if last_session_end:
-                        sleep_duration = _format_duration(time.time() - last_session_end[0])
-                        typer.echo(f"💤 Last sleep: {sleep_duration} ago")
-
-                    typer.echo()
+        typer.echo()
 
     summaries = db.get_entries(identity, topic="summary")
     if summaries:

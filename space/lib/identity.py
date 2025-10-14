@@ -55,7 +55,8 @@ def constitute_identity(identity: str):
 
         const_path = spawn.get_constitution_path(role)
         base_constitution = const_path.read_text()
-        full_identity = spawn.inject_identity(base_constitution, identity)
+        model = extract_model_from_identity(identity)
+        full_identity = spawn.inject_identity(base_constitution, role, identity, model)
         const_hash = spawn.hash_content(full_identity)
         registry.save_constitution(const_hash, full_identity)
 

@@ -33,5 +33,11 @@ def constitution(filename: str) -> Path:
 
 
 def canon_path() -> Path:
-    """Returns path to human's canonical values."""
-    return space_root() / "canon.md"
+    """Returns path to human's canonical values, configurable via config.yaml."""
+    from .config import load_config
+
+    config = load_config()
+    configured_path = config.get("canon_path")
+    if configured_path:
+        return workspace_root() / configured_path
+    return space_root() / "canon"

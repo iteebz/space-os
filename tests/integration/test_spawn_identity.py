@@ -1,4 +1,3 @@
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -55,11 +54,12 @@ def test_constitution_message(mock_config_files, tmp_path: Path, monkeypatch):
     content = identity_file_path.read_text()
 
     # Assert the expected identity message
-    expected_header = "You are now crucible powered by gemini-2.5-pro."
     expected_constitution = "**YOU ARE NOW CRUCIBLE.**"
-    assert expected_header in content
+    assert "# CRUCIBLE CONSTITUTION" in content
+    assert "Self: You are crucible. Your model is gemini-2.5-pro." in content
     assert expected_constitution in content
-    assert "Infrastructure: run `space` for commands and orientation (already in PATH)." in content
+    assert "run `space` for orientation (already in PATH)." in content
+    assert "run: `memory --as crucible` to access memories." in content
 
 
 def test_codex_writes_agents_manifest(tmp_path: Path, monkeypatch):
@@ -95,5 +95,8 @@ def test_codex_writes_agents_manifest(tmp_path: Path, monkeypatch):
     )
 
     content = agents_file.read_text()
-    assert "You are now kitsuragi powered by gpt-5-codex." in content
+    assert "# KITSURAGI CONSTITUTION" in content
+    assert "Self: You are kitsuragi. Your model is gpt-5-codex." in content
     assert "# LIEUTENANT KIM KITSURAGI" in content
+    assert "run `space` for orientation (already in PATH)." in content
+    assert "run: `memory --as kitsuragi` to access memories." in content

@@ -128,7 +128,10 @@ def add_entry(agent_id: str, topic: str, message: str, core: bool = False, sourc
 
 
 def get_entries(
-    identity: str, topic: str | None = None, include_archived: bool = False
+    identity: str,
+    topic: str | None = None,
+    include_archived: bool = False,
+    limit: int | None = None,
 ) -> list[Memory]:
     from ..spawn import registry
 
@@ -138,14 +141,15 @@ def get_entries(
 
     with connect() as conn:
         archive_filter = "" if include_archived else "AND archived_at IS NULL"
+        limit_clause = f"LIMIT {limit}" if limit else ""
         if topic:
             rows = conn.execute(
-                f"SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors, supersedes, superseded_by, synthesis_note FROM memory WHERE agent_id = ? AND topic = ? {archive_filter} ORDER BY created_at ASC",
+                f"SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors, supersedes, superseded_by, synthesis_note FROM memory WHERE agent_id = ? AND topic = ? {archive_filter} ORDER BY created_at DESC {limit_clause}",
                 (agent_id, topic),
             ).fetchall()
         else:
             rows = conn.execute(
-                f"SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors, supersedes, superseded_by, synthesis_note FROM memory WHERE agent_id = ? {archive_filter} ORDER BY topic, created_at ASC",
+                f"SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors, supersedes, superseded_by, synthesis_note FROM memory WHERE agent_id = ? {archive_filter} ORDER BY topic, created_at ASC {limit_clause}",
                 (agent_id,),
             ).fetchall()
     return [
