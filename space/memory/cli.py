@@ -9,6 +9,7 @@ from ..lib import identity as identity_lib
 from ..lib import readme
 from . import db
 from .display import show_context, show_smart_memory
+from ..lib.display import humanize_timestamp
 
 app = typer.Typer(invoke_without_command=True)
 
@@ -150,32 +151,30 @@ def list_entries_command(
     """List memory entries for an identity and optional topic."""
     identity_lib.constitute_identity(identity)
 
-    if topic or show_all:
-        entries = db.get_entries(identity, topic, include_archived=include_archived)
-        if not entries:
-            scope = f"topic '{topic}'" if topic else "all topics"
-            if json_output:
-                typer.echo(json.dumps([]))
-            elif not quiet_output:
-                typer.echo(f"No entries found for {identity} in {scope}")
-            return
-
+    # Always show all entries by default when an identity is provided
+    entries = db.get_entries(identity, topic, include_archived=include_archived)
+    if not entries:
+        scope = f"topic '{topic}'" if topic else "all topics"
         if json_output:
-            typer.echo(json.dumps([asdict(e) for e in entries], indent=2))
+            typer.echo(json.dumps([]))
         elif not quiet_output:
-            current_topic = None
-            for e in entries:
-                if e.topic != current_topic:
-                    if current_topic is not None:
-                        typer.echo()
-                    typer.echo(f"# {e.topic}")
-                    current_topic = e.topic
-                core_mark = " ★" if e.core else ""
-                typer.echo(f"[{e.uuid[-8:]}] [{e.timestamp}] {e.message}{core_mark}")
+            typer.echo(f"No entries found for {identity} in {scope}")
+        return
 
-            show_context(identity)
-    else:
-        show_smart_memory(identity, json_output, quiet_output)
+    if json_output:
+        typer.echo(json.dumps([asdict(e) for e in entries], indent=2))
+    elif not quiet_output:
+        current_topic = None
+        for e in entries:
+            if e.topic != current_topic:
+                if current_topic is not None:
+                    typer.echo()
+                typer.echo(f"# {e.topic}")
+                current_topic = e.topic
+            core_mark = " ★" if e.core else ""
+            typer.echo(f"[{e.uuid[-8:]}] [{humanize_timestamp(e.timestamp)}] {e.message}{core_mark}")
+
+        show_context(identity)
 
 
 @app.command("archive")

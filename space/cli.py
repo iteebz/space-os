@@ -3,6 +3,7 @@ import sys
 import typer
 
 from . import events as event_log
+from .bridge.cli import app as bridge_app
 from .commands import (
     agent,
     backup,
@@ -28,6 +29,7 @@ app.add_typer(memory_app, name="memory")
 app.add_typer(agent.app, name="agents")
 app.add_typer(context_app, name="context")
 app.add_typer(stats.app, name="stats")
+app.add_typer(bridge_app, name="bridge")
 app.command(name="backup")(backup.backup)
 app.command(name="check")(check.check)
 app.command(name="describe")(describe.describe)

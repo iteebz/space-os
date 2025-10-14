@@ -1,59 +1,54 @@
-import hashlib
-from datetime import datetime, timezone
+from datetime import datetime
+
+from space.models import Export
+from space.spawn.registry import get_agent_name
 
 
-def hash_content(content: str) -> str:
-    """Generates an 8-character SHA256 hash for quick display."""
-    return hashlib.sha256(content.encode()).hexdigest()[:8]
+def resolve_agent_names(export_data: Export) -> Export:
+    """Resolve agent IDs to names in an Export object."""
+    participants = [get_agent_name(p) or p for p in export_data.participants]
+    messages = []
+    for msg in export_data.messages:
+        msg.sender = get_agent_name(msg.sender) or msg.sender
+        messages.append(msg)
 
+    notes = []
+    for note in export_data.notes:
+        note.author = get_agent_name(note.author) or note.author
+        notes.append(note)
 
-def hash_digest(content: str) -> str:
-    """Generates the full SHA256 digest for integrity checks."""
-    return hashlib.sha256(content.encode()).hexdigest()
-
-
-def format_local_time(iso_timestamp: str, fmt: str = "%H:%M:%S") -> str:
-    """Converts an ISO format UTC timestamp string to local time and formats it."""
-    if not iso_timestamp:
-        return ""
-
-    dt_utc_naive = datetime.fromisoformat(iso_timestamp)
-    if dt_utc_naive.tzinfo is None:
-        dt_utc_aware = dt_utc_naive.replace(tzinfo=timezone.utc)
-    else:
-        dt_utc_aware = dt_utc_naive.astimezone(timezone.utc)
-
-    dt_local = dt_utc_aware.astimezone()
-    return dt_local.strftime(fmt)
-
-
-def format_time_ago(timestamp: str) -> str:
-    """Converts an ISO format timestamp string to a human-readable relative time."""
-    if not timestamp:
-        return "no activity"
-
-    last_time_naive = datetime.fromisoformat(timestamp)
-    last_time = last_time_naive.replace(tzinfo=timezone.utc)
-    diff = datetime.now(timezone.utc) - last_time
-
-    if diff.days > 0:
-        return f"{diff.days}d ago"
-    if diff.seconds > 3600:
-        return f"{diff.seconds // 3600}h ago"
-    if diff.seconds > 60:
-        return f"{diff.seconds // 60}m ago"
-    return "just now"
+    return Export(
+        channel_id=export_data.channel_id,
+        channel_name=export_data.channel_name,
+        topic=export_data.topic,
+        created_at=export_data.created_at,
+        participants=participants,
+        message_count=export_data.message_count,
+        messages=messages,
+        notes=notes,
+    )
 
 
 def format_channel_meta(channel) -> str:
-    """Render message/member/note counts for a channel."""
-    participant_count = len(channel.participants or [])
-    parts = [
-        f"{channel.message_count} msgs",
-        f"{participant_count} members",
-    ]
-    notes = getattr(channel, "notes_count", 0) or 0
-    if notes:
+    """Create a metadata string for a channel."""
+    parts = []
+    msgs = channel.message_count
+    members = len(channel.participants)
+    notes = channel.notes_count
+
+    if msgs == 1:
+        parts.append("1 msg")
+    elif msgs > 1:
+        parts.append(f"{msgs} msgs")
+
+    if members == 1:
+        parts.append("1 member")
+    elif members > 1:
+        parts.append(f"{members} members")
+
+    if notes == 1:
+        parts.append("1 note")
+    elif notes > 1:
         parts.append(f"{notes} notes")
     return " | ".join(parts)
 
@@ -64,16 +59,5 @@ def format_channel_row(channel) -> tuple[str, str]:
         last_activity = datetime.fromisoformat(channel.last_activity).strftime("%Y-%m-%d")
     else:
         last_activity = "never"
-
-    participant_count = len(channel.participants or [])
-    parts = [f"{channel.message_count} msgs", f"{participant_count} members"]
-
-    if channel.unread_count > 0:
-        parts.insert(0, f"{channel.unread_count} new")
-
-    notes = getattr(channel, "notes_count", 0) or 0
-    if notes:
-        parts.append(f"{notes} notes")
-
-    meta_str = " | ".join(parts)
+    meta_str = format_channel_meta(channel)
     return last_activity, f"{channel.name} - {meta_str}"

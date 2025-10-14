@@ -348,6 +348,8 @@ def fetch_channels(
 
 
 def get_export_data(channel_id: str) -> Export:
+    from ..spawn.registry import get_agent_name
+
     with _connect() as conn:
         channel_cursor = conn.execute(
             "SELECT name, topic, created_at FROM channels WHERE id = ?", (channel_id,)
@@ -355,16 +357,32 @@ def get_export_data(channel_id: str) -> Export:
         channel_info = channel_cursor.fetchone()
 
         msg_cursor = conn.execute(
-            "SELECT id, channel_id, agent_id AS sender, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
+            "SELECT id, channel_id, agent_id, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
             (channel_id,),
         )
-        messages = [Message(**row) for row in msg_cursor.fetchall()]
+        messages = [
+            Message(
+                id=row["id"],
+                channel_id=row["channel_id"],
+                sender=get_agent_name(row["agent_id"]) or row["agent_id"],
+                content=row["content"],
+                created_at=row["created_at"],
+            )
+            for row in msg_cursor.fetchall()
+        ]
 
         note_cursor = conn.execute(
             "SELECT author, content, created_at FROM notes WHERE channel_id = ? ORDER BY created_at ASC",
             (channel_id,),
         )
-        notes = [Note(**row) for row in note_cursor.fetchall()]
+        notes = [
+            Note(
+                author=get_agent_name(row["author"]) or row["author"],
+                content=row["content"],
+                created_at=row["created_at"],
+            )
+            for row in note_cursor.fetchall()
+        ]
 
     participants = sorted({msg.sender for msg in messages})
 

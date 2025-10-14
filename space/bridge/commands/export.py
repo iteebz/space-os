@@ -29,16 +29,10 @@ def export(
         data = api.export_channel(channel)
 
         if json_output:
-            export_data = {
-                "channel_name": data.channel_name,
-                "topic": data.topic,
-                "participants": data.participants,
-                "message_count": data.message_count,
-                "created_at": data.created_at,
-                "messages": [asdict(msg) for msg in data.messages],
-                "notes": [asdict(note) for note in data.notes],
-            }
-            typer.echo(json.dumps(export_data))
+            from ..utils import resolve_agent_names
+
+            export_data = resolve_agent_names(data)
+            typer.echo(json.dumps(asdict(export_data), indent=2))
         elif not quiet_output:
             typer.echo(f"# {data.channel_name}")
             typer.echo()

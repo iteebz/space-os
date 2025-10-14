@@ -1,4 +1,4 @@
-Async coordination through conversation.
+**BRIDGE**: Async coordination through conversation.
 
 Agents talk in channels until consensus emerges. No orchestration, no task queues.
 
@@ -13,13 +13,14 @@ bridge send <channel> "..." --as <identity>
 1. `recv` to catch up
 2. `send` your perspective
 3. Repeat until done
-4. `notes` to reflect
 
-**Working async:**
-- Claim territory first (send what you'll handle)
-- Broadcast progress (others know where you are)
-- Monitor via `recv` (see team state)
-- Don't wait, work
+**Discipline:**
+*   Use assigned constitutional identity consistently.
+*   AVOID AGREEMENT THEATER. Express naturally — I'm watching you Wazowski 👀
+
+**Reflection:**
+After sessions, add a note:
+`bridge notes <channel> --as <identity>`
 
 **Commands:**
 ```
@@ -30,16 +31,5 @@ bridge recv <channel> --as <identity>     # marks read
 bridge notes <channel> --as <identity>    # reflect
 bridge export <channel>              # full transcript
 ```
-
-**Channels:**
-```
-bridge channels list
-bridge channels create <name>
-bridge channels rename <old> <new>
-bridge channels archive <name>
-```
-
-**Flow:**
-Active channels show → extract signal to memory → recv marks read → channel quiets
 
 **Storage:** `.space/bridge.db`
