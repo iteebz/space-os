@@ -9,8 +9,7 @@ from space.spawn import spawn
 
 @pytest.fixture
 def mock_config_files(tmp_path: Path, monkeypatch):
-    # Mock workspace_root to point to tmp_path
-    monkeypatch.setattr(paths, "workspace_root", lambda: tmp_path)
+    monkeypatch.setattr(paths, "space_root", lambda: tmp_path)
 
     # Create dummy config.yaml
     config_content = {
@@ -20,10 +19,13 @@ def mock_config_files(tmp_path: Path, monkeypatch):
     config_dir = tmp_path / "space"
     config_dir.mkdir()
     (config_dir / "config.yaml").write_text(yaml.dump(config_content))
+    constitutions_dir = config_dir / "constitutions"
+    constitutions_dir.mkdir()
+    (constitutions_dir / "kitsuragi.md").write_text("# LIEUTENANT KIM KITSURAGI")
 
     # Create dummy crucible.md
     constitutions_dir = tmp_path / "space" / "constitutions"
-    constitutions_dir.mkdir()
+    constitutions_dir.mkdir(exist_ok=True)
     (constitutions_dir / "crucible.md").write_text("**YOU ARE NOW CRUCIBLE.**")
 
     # Mock config_file to point to the dummy config
@@ -42,7 +44,7 @@ def test_constitution_message(mock_config_files, tmp_path: Path, monkeypatch):
     # The cli.py now passes 'arg' (role name) as agent_name
     spawn.launch_agent(
         role="crucible",
-        agent_name="crucible",  # This is the key change being tested
+        identity="crucible",  # This is the key change being tested
         base_identity="gemini",  # This comes from the --as flag or default
         extra_args=[],
         model="gemini-2.5-pro",  # This comes from the --model flag or default
@@ -64,7 +66,7 @@ def test_constitution_message(mock_config_files, tmp_path: Path, monkeypatch):
 
 def test_codex_writes_agents_manifest(tmp_path: Path, monkeypatch):
     # Wire workspace to temporary location
-    monkeypatch.setattr(paths, "workspace_root", lambda: tmp_path)
+    monkeypatch.setattr(paths, "space_root", lambda: tmp_path)
 
     config_content = {
         "agents": {"codex": {"command": "codex", "model": "gpt-5-codex"}},
@@ -85,13 +87,13 @@ def test_codex_writes_agents_manifest(tmp_path: Path, monkeypatch):
 
     spawn.launch_agent(
         role="kitsuragi",
-        agent_name="kitsuragi",
+        identity="kitsuragi",
         base_identity="codex",
         extra_args=[],
         model="gpt-5-codex",
     )
 
-    codex_file = tmp_path / "CODEX-kitsuragi.md"
+    codex_file = tmp_path / "AGENTS.md"
     content = codex_file.read_text()
     assert "# KITSURAGI CONSTITUTION" in content
     assert "Self: You are kitsuragi. Your model is gpt-5-codex." in content

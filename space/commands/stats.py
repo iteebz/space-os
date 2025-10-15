@@ -52,7 +52,7 @@ overview"""
         )
 
         for a in sorted_agents[:15]:
-            parts = [a.identity]
+            parts = [a.agent_name]
             parts.append(f"{a.spawns}-{a.msgs}-{a.mems}-{a.knowledge}")
             if a.last_active_human:
                 parts.append(a.last_active_human)

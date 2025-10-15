@@ -8,8 +8,6 @@ from space import events
 from space.lib import errors, readme
 from space.spawn import registry
 
-errors.install_error_handler("bridge")
-
 from . import api, utils
 from .commands import (
     export as export_cmds,
@@ -29,6 +27,8 @@ from .commands import (
 from .commands.channels import app as channels_app
 from .commands.channels import archive as archive_cmd
 from .commands.monitor import app as monitor_app
+
+errors.install_error_handler("bridge")
 
 app = typer.Typer(invoke_without_command=True, add_help_option=False)
 

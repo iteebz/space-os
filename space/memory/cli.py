@@ -4,9 +4,6 @@ from dataclasses import asdict
 import typer
 
 from space.lib import errors
-
-errors.install_error_handler("memory")
-
 from space.spawn import registry
 
 from ..lib import identity as identity_lib
@@ -14,6 +11,8 @@ from ..lib import readme
 from ..lib.display import humanize_timestamp
 from . import db
 from .display import show_context
+
+errors.install_error_handler("memory")
 
 app = typer.Typer(invoke_without_command=True)
 
@@ -35,14 +34,7 @@ def main_command(
             except (FileNotFoundError, ValueError) as e:
                 typer.echo(f"❌ memory README not found: {e}")
         else:
-            list_entries_command(
-                identity=identity,
-                topic=None,
-                json_output=False,
-                quiet_output=False,
-                include_archived=archived,
-                show_all=False,
-            )
+            ctx.invoke(app.get_command("summary"), identity=identity, include_archived=archived)
 
 
 @app.command("add")
@@ -113,9 +105,9 @@ def delete_entry_command(
             typer.echo(f"Deleted entry {uuid}")
     except ValueError as e:
         from .. import events
-        from ..spawn import registry
 
-        agent_id = registry.get_agent_id(identity)
+        entry = db.get_by_uuid(uuid)
+        agent_id = entry.agent_id if entry else None
         events.emit("memory", "error", agent_id, f"edit failed: {str(e)}")
         if json_output:
             typer.echo(json.dumps({"uuid": uuid, "status": "error", "message": str(e)}))
@@ -141,6 +133,69 @@ def clear_entries_command(
         typer.echo(f"Cleared {scope} for {identity}")
 
 
+@app.command("summary")
+def summary_command(
+    ctx: typer.Context,
+    message: str = typer.Argument(
+        None, help="The summary message. If provided, adds/replaces the summary."
+    ),
+    identity: str = typer.Option(..., "--as", help="Identity name"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
+    include_archived: bool = typer.Option(False, "--archived", help="Include archived entries"),
+):
+    """Add, replace, or list summary entries for an identity."""
+    resolved_identity = identity_lib.require_identity(ctx, identity)
+    agent_id = registry.ensure_agent(resolved_identity)
+
+    if message:
+        # Add or replace summary
+        existing_summaries = db.get_memories(resolved_identity, topic="summary", limit=1)
+        if existing_summaries:
+            old_entry = existing_summaries[0]
+            new_uuid = db.replace_entry(
+                [old_entry.memory_id], agent_id, "summary", message, "CLI summary update"
+            )
+            if json_output:
+                typer.echo(json.dumps({"new_uuid": new_uuid, "supersedes": [old_entry.memory_id]}))
+            elif not quiet_output:
+                typer.echo(f"Replaced {len([old_entry.memory_id])} entry(ies) with {new_uuid[-8:]}")
+        else:
+            entry_id = db.add_entry(agent_id, "summary", message)
+            if json_output:
+                typer.echo(
+                    json.dumps(
+                        {"entry_id": entry_id, "identity": resolved_identity, "topic": "summary"}
+                    )
+                )
+            elif not quiet_output:
+                typer.echo(f"Added summary for {resolved_identity}.")
+    else:
+        # List summaries
+        entries = db.get_memories(resolved_identity, topic="summary", limit=1)
+        if not entries:
+            if json_output:
+                typer.echo(json.dumps([]))
+            elif not quiet_output:
+                typer.echo(f"No summary found for {resolved_identity}.")
+            return
+
+        current = entries[0]
+        chain = db.get_chain(current.memory_id)
+
+        if json_output:
+            typer.echo(json.dumps(chain, indent=2))
+        elif not quiet_output:
+            typer.echo(f"CURRENT: [summary] {current.message}")
+            if chain["predecessors"]:
+                typer.echo("SUPERSEDES:")
+                for pred in chain["predecessors"]:
+                    typer.echo(f"  ← [{pred.memory_id[-8:]}] {pred.message}")
+    return
+
+
 @app.command("list")
 def list_entries_command(
     identity: str = typer.Option(..., "--as", help="Identity name"),
@@ -151,13 +206,16 @@ def list_entries_command(
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
-    raw_output: bool = typer.Option(False, "--raw", help="Output raw timestamps instead of humanized."),
+    raw_output: bool = typer.Option(
+        False, "--raw", help="Output raw timestamps instead of humanized."
+    ),
 ):
     """List memory entries for an identity and optional topic."""
     identity_lib.constitute_identity(identity)
 
     # Always show all entries by default when an identity is provided
-    entries = db.get_entries(identity, topic, include_archived=include_archived)
+    entries = db.get_memories(identity, topic, include_archived=include_archived)
+    entries.sort(key=lambda e: (not e.core, e.timestamp), reverse=True)
     if not entries:
         scope = f"topic '{topic}'" if topic else "all topics"
         if json_output:
@@ -178,9 +236,7 @@ def list_entries_command(
                 current_topic = e.topic
             core_mark = " ★" if e.core else ""
             timestamp_display = e.timestamp if raw_output else humanize_timestamp(e.timestamp)
-            typer.echo(
-                f"[{e.uuid[-8:]}] [{timestamp_display}] {e.message}{core_mark}"
-            )
+            typer.echo(f"[{e.memory_id[-8:]}] [{timestamp_display}] {e.message}{core_mark}")
 
         show_context(identity)
 
@@ -251,7 +307,7 @@ def search_entries_command(
                 typer.echo(f"# {e.topic}")
                 current_topic = e.topic
             archived_mark = " [ARCHIVED]" if e.archived_at else ""
-            typer.echo(f"[{e.uuid[-8:]}] [{e.timestamp}] {e.message}{archived_mark}")
+            typer.echo(f"[{e.memory_id[-8:]}] [{e.timestamp}] {e.message}{archived_mark}")
 
 
 @app.command("core")
@@ -293,14 +349,16 @@ def inspect_entry_command(
     ),
 ):
     """Inspect entry and find related nodes via keyword similarity."""
+    from ..spawn import registry
+
+    resolved_agent_id = registry.ensure_agent(identity)
+
     try:
         entry = db.get_by_uuid(uuid)
     except ValueError as e:
         from .. import events
-        from ..spawn import registry
 
-        agent_id = registry.get_agent_id(identity)
-        events.emit("memory", "error", agent_id, f"inspect failed: {str(e)}")
+        events.emit("memory", "error", resolved_agent_id, f"inspect failed: {str(e)}")
         if json_output:
             typer.echo(json.dumps({"uuid": uuid, "error": str(e)}))
         else:
@@ -314,11 +372,11 @@ def inspect_entry_command(
             typer.echo(f"No entry found with UUID '{uuid}'")
         return
 
-    if entry.identity != identity:
+    if entry.agent_id != resolved_agent_id:
         if json_output:
             typer.echo(json.dumps({"error": "Entry belongs to different identity"}))
         elif not quiet_output:
-            typer.echo(f"Entry belongs to {entry.identity}, not {identity}")
+            typer.echo(f"Entry belongs to {registry.get_identity(entry.agent_id)}, not {identity}")
         return
 
     related = db.find_related(entry, limit=limit, include_archived=include_archived)
@@ -333,7 +391,7 @@ def inspect_entry_command(
         archived_mark = " [ARCHIVED]" if entry.archived_at else ""
         core_mark = " ★" if entry.core else ""
         typer.echo(
-            f"[{entry.uuid[-8:]}] {entry.topic} by {entry.identity}{archived_mark}{core_mark}"
+            f"[{entry.memory_id[-8:]}] {entry.topic} by {registry.get_identity(entry.agent_id)}{archived_mark}{core_mark}"
         )
         typer.echo(f"Created: {entry.timestamp}\n")
         typer.echo(f"{entry.message}\n")
@@ -345,7 +403,7 @@ def inspect_entry_command(
                 archived_mark = " [ARCHIVED]" if rel_entry.archived_at else ""
                 core_mark = " ★" if rel_entry.core else ""
                 typer.echo(
-                    f"[{rel_entry.uuid[-8:]}] {rel_entry.topic} ({overlap} keywords){archived_mark}{core_mark}"
+                    f"[{rel_entry.memory_id[-8:]}] {rel_entry.topic} ({overlap} keywords){archived_mark}{core_mark}"
                 )
                 typer.echo(
                     f"  {rel_entry.message[:100]}{'...' if len(rel_entry.message) > 100 else ''}\n"
@@ -397,6 +455,10 @@ def chain_command(
     ),
 ):
     """Show memory evolution chain (predecessors and successor)."""
+    from ..spawn import registry
+
+    resolved_agent_id = registry.ensure_agent(identity)
+
     chain = db.get_chain(uuid)
 
     if not chain["current"]:
@@ -406,11 +468,13 @@ def chain_command(
             typer.echo(f"No entry found with UUID '{uuid}'")
         return
 
-    if chain["current"].identity != identity:
+    if chain["current"].agent_id != resolved_agent_id:
         if json_output:
             typer.echo(json.dumps({"error": "Entry belongs to different identity"}))
         elif not quiet_output:
-            typer.echo(f"Entry belongs to {chain['current'].identity}, not {identity}")
+            typer.echo(
+                f"Entry belongs to {registry.get_identity(chain['current'].agent_id)}, not {identity}"
+            )
         return
 
     if json_output:
@@ -427,11 +491,11 @@ def chain_command(
         if chain["predecessors"]:
             typer.echo("SUPERSEDES:")
             for pred in chain["predecessors"]:
-                typer.echo(f"  ← [{pred.uuid[-8:]}] {pred.message[:60]}...")
+                typer.echo(f"  ← [{pred.memory_id[-8:]}] {pred.message[:60]}...")
             typer.echo()
 
         cur = chain["current"]
-        typer.echo(f"CURRENT: [{cur.uuid[-8:]}] {cur.topic}")
+        typer.echo(f"CURRENT: [{cur.memory_id[-8:]}] {cur.topic}")
         typer.echo(f"{cur.message}")
         if cur.synthesis_note:
             typer.echo(f"Note: {cur.synthesis_note}")
@@ -440,7 +504,7 @@ def chain_command(
         if chain["successor"]:
             succ = chain["successor"]
             typer.echo("SUPERSEDED BY:")
-            typer.echo(f"  → [{succ.uuid[-8:]}] {succ.message[:60]}...")
+            typer.echo(f"  → [{succ.memory_id[-8:]}] {succ.message[:60]}...")
 
 
 def main() -> None:

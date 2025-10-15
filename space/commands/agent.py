@@ -32,14 +32,20 @@ def _show_agents():
         typer.echo("-" * 80)
 
         for agent in agents:
-            name = agent["name"] or "(unnamed)"
+            display_name = agent["name"] or "(unnamed)"
+            # Check if the name is a UUID and try to resolve it
+            if len(display_name) == 36 and display_name.count("-") == 4:
+                resolved_name = registry.get_identity(display_name)
+                if resolved_name:
+                    display_name = resolved_name
+
             full_self_desc = agent["self_description"] or "-"
 
             agent_id = agent["id"]
             m = metrics.get(agent_id, {"spawns": 0, "msgs": 0, "mems": 0, "knowledge": 0})
             sbmk = f"{m['spawns']}/{m['msgs']}/{m['mems']}/{m['knowledge']}"
 
-            typer.echo(f"{name:<20} {sbmk:<15} {full_self_desc}")
+            typer.echo(f"{display_name:<20} {sbmk:<15} {full_self_desc}")
 
         typer.echo()
         typer.echo(f"Total: {len(agents)}")

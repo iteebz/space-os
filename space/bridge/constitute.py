@@ -18,9 +18,8 @@ def constitute_identity(identity: str):
 
         const_path = spawn.get_constitution_path(role)
         base_constitution = const_path.read_text()
-        agent_name = _extract_role(identity)  # Extract agent_name
         full_identity = spawn.inject_identity(
-            base_constitution, role, agent_name, model=_extract_model_from_identity(identity)
+            base_constitution, role, identity, model=_extract_model_from_identity(identity)
         )
         const_hash = spawn.hash_content(full_identity)
         registry.save_constitution(const_hash, full_identity)

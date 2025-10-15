@@ -2,9 +2,9 @@ import typer
 
 from space.lib import errors
 
-errors.install_error_handler("spawn")
-
 from . import registry, spawn
+
+errors.install_error_handler("spawn")
 
 app = typer.Typer()
 
@@ -71,7 +71,7 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
 
     if arg in cfg["roles"]:
         spawn.launch_agent(
-            arg, agent_name=arg, base_identity=agent, extra_args=passthrough, model=model
+            arg, identity=arg, base_identity=agent, extra_args=passthrough, model=model
         )
         return
 
@@ -80,7 +80,7 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
         if inferred_role in cfg["roles"]:
             spawn.launch_agent(
                 inferred_role,
-                agent_name=arg,
+                identity=arg,
                 base_identity=agent,
                 extra_args=passthrough,
                 model=model,

@@ -4,7 +4,7 @@ from space.spawn import registry, spawn
 
 def test_inject_self_description(test_space, mocker):
     """Includes self-description when present."""
-    mocker.patch("space.lib.paths.space_root", return_value=test_space)
+    mocker.patch("space.lib.paths.dot_space", return_value=test_space)
     registry.init_db()
     registry.set_self_description("zealot-1", "Skeptical cothinking partner")
 
@@ -18,7 +18,7 @@ def test_inject_self_description(test_space, mocker):
 
 def test_inject_with_model(test_space, mocker):
     """Includes model in header when provided."""
-    mocker.patch("space.lib.paths.space_root", return_value=test_space)
+    mocker.patch("space.lib.paths.dot_space", return_value=test_space)
     constitution = "# ZEALOT CONSTITUTION"
     result = spawn.inject_identity(constitution, "zealot", "zealot-1", model="claude-sonnet-4-5")
 
@@ -28,7 +28,7 @@ def test_inject_with_model(test_space, mocker):
 
 def test_inject_canon(test_space, mocker):
     """Injects canon before constitution."""
-    mocker.patch("space.lib.paths.space_root", return_value=test_space)
+    mocker.patch("space.lib.paths.dot_space", return_value=test_space)
     canon_path = paths.canon_path()
     canon_path.parent.mkdir(parents=True, exist_ok=True)
     canon_path.write_text("# CANON\n1. Truth\n2. Speed\n3. Craft")
@@ -48,7 +48,7 @@ def test_inject_canon(test_space, mocker):
 
 def test_inject_assembly_order(test_space, mocker):
     """Verifies full assembly: header → self → canon → constitution → footer."""
-    mocker.patch("space.lib.paths.space_root", return_value=test_space)
+    mocker.patch("space.lib.paths.dot_space", return_value=test_space)
     registry.init_db()
     registry.set_self_description("zealot-1", "Skeptical partner")
 

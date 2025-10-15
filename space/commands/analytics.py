@@ -44,8 +44,8 @@ def _show_agent_mappings():
 
 def _show_usage_by_agent(agents: list):
     """Show event/message counts per agent."""
-    bridge_db = paths.space_root() / "bridge.db"
-    events_db = paths.space_root() / "events.db"
+    bridge_db = paths.dot_space() / "bridge.db"
+    events_db = paths.dot_space() / "events.db"
 
     usage = {}
 
@@ -82,8 +82,8 @@ def _show_canonical_agents():
     registry.init_db()
     agents = canonical.get_canonical_agents()
 
-    bridge_db = paths.space_root() / "bridge.db"
-    events_db = paths.space_root() / "events.db"
+    bridge_db = paths.dot_space() / "bridge.db"
+    events_db = paths.dot_space() / "events.db"
 
     usage = {}
     if bridge_db.exists():

@@ -50,7 +50,9 @@ def notes(
                 typer.echo(f"Notes for {channel}:")
                 for note in notes:
                     timestamp = utils.format_local_time(note["created_at"])
-                    typer.echo(f"[{timestamp}] {note['author']}: {note['content']}")
+                    typer.echo(
+                        f"[{timestamp}] {registry.get_identity(note.agent_id)}: {note.content}"
+                    )
                     typer.echo()
         except ValueError as e:
             if agent_id:

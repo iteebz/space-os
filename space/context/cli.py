@@ -6,14 +6,14 @@ import typer
 
 from space.lib import errors
 
-errors.install_error_handler("context")
-
 from ..lib import readme
 from ..lib.paths import canon_path
 from . import (
     db,  # Add this import
     display,  # Add this import
 )
+
+errors.install_error_handler("context")
 
 app = typer.Typer(invoke_without_command=True)
 

@@ -8,8 +8,6 @@ from .. import db
 
 def send_message(channel_id: str, sender: str, content: str, priority: str = "normal") -> str:
     """Orchestrate sending a message: validate, ensure identity, and store."""
-    if db.get_channel_name(channel_id) is None:
-        raise ValueError(f"Channel with ID '{channel_id}' not found.")
     agent_id = registry.ensure_agent(sender)
     db.create_message(
         channel_id=channel_id,
@@ -18,7 +16,7 @@ def send_message(channel_id: str, sender: str, content: str, priority: str = "no
         priority=priority,
     )
 
-    return sender
+    return agent_id
 
 
 def recv_updates(channel_id: str, agent_id: str) -> tuple[list[Message], int, str, list[str]]:
@@ -27,7 +25,7 @@ def recv_updates(channel_id: str, agent_id: str) -> tuple[list[Message], int, st
     unread_count = len(messages)
 
     if messages:
-        db.set_bookmark(agent_id, channel_id, messages[-1].id)
+        db.set_bookmark(agent_id, channel_id, messages[-1].message_id)
 
     topic = db.get_topic(channel_id)
     participants = db.get_participants(channel_id)

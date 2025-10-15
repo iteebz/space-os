@@ -4,13 +4,12 @@ from dataclasses import asdict
 import typer
 
 from space.lib import errors
-
-errors.install_error_handler("knowledge")
-
 from space.spawn import registry
 
 from ..lib import readme
 from . import db
+
+errors.install_error_handler("knowledge")
 
 app = typer.Typer(invoke_without_command=True)
 
@@ -74,7 +73,7 @@ def list_knowledge_command(
         for entry in entries:
             agent_name = names.get(entry.agent_id, entry.agent_id)
             typer.echo(
-                f"[{entry.id[-8:]}] [{entry.created_at}] Domain: {entry.domain}, "
+                f"[{entry.knowledge_id[-8:]}] [{entry.created_at}] Domain: {entry.domain}, "
                 f"Agent: {agent_name}, Confidence: {entry.confidence or 'N/A'}\n"
                 f"  Content: {entry.content[:100]}{'...' if len(entry.content) > 100 else ''}\n"
             )
@@ -107,7 +106,7 @@ def query_by_domain_command(
         for entry in entries:
             agent_name = names.get(entry.agent_id, entry.agent_id)
             typer.echo(
-                f"[{entry.id[-8:]}] [{entry.created_at}] Agent: {agent_name}, "
+                f"[{entry.knowledge_id[-8:]}] [{entry.created_at}] Agent: {agent_name}, "
                 f"Confidence: {entry.confidence or 'N/A'}\n"
                 f"  Content: {entry.content[:100]}{'...' if len(entry.content) > 100 else ''}\n"
             )
@@ -144,7 +143,7 @@ def query_by_agent_command(
     elif not quiet_output:
         for entry in entries:
             typer.echo(
-                f"[{entry.id[-8:]}] [{entry.created_at}] Domain: {entry.domain}, "
+                f"[{entry.knowledge_id[-8:]}] [{entry.created_at}] Domain: {entry.domain}, "
                 f"Confidence: {entry.confidence or 'N/A'}\n"
                 f"  Content: {entry.content[:100]}{'...' if len(entry.content) > 100 else ''}\n"
             )
@@ -175,7 +174,7 @@ def get_knowledge_by_id_command(
     elif not quiet_output:
         agent_name = names.get(entry.agent_id, entry.agent_id)
         typer.echo(
-            f"ID: {entry.id}\n"
+            f"ID: {entry.knowledge_id}\n"
             f"Created At: {entry.created_at}\n"
             f"Domain: {entry.domain}\n"
             f"Agent: {agent_name}\n"
@@ -217,7 +216,7 @@ def inspect_knowledge_command(
     elif not quiet_output:
         agent_name = names.get(entry.agent_id, entry.agent_id)
         archived_mark = " [ARCHIVED]" if entry.archived_at else ""
-        typer.echo(f"[{entry.id[-8:]}] {entry.domain} by {agent_name}{archived_mark}")
+        typer.echo(f"[{entry.knowledge_id[-8:]}] {entry.domain} by {agent_name}{archived_mark}")
         typer.echo(f"Created: {entry.created_at}")
         typer.echo(f"Confidence: {entry.confidence or 'N/A'}\n")
         typer.echo(f"{entry.content}\n")
@@ -229,7 +228,7 @@ def inspect_knowledge_command(
                 rel_agent_name = names.get(rel_entry.agent_id, rel_entry.agent_id)
                 archived_mark = " [ARCHIVED]" if rel_entry.archived_at else ""
                 typer.echo(
-                    f"[{rel_entry.id[-8:]}] {rel_entry.domain} by {rel_agent_name} ({overlap} keywords){archived_mark}"
+                    f"[{rel_entry.knowledge_id[-8:]}] {rel_entry.domain} by {rel_agent_name} ({overlap} keywords){archived_mark}"
                 )
                 typer.echo(
                     f"  {rel_entry.content[:100]}{'...' if len(rel_entry.content) > 100 else ''}\n"

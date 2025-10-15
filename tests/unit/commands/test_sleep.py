@@ -17,7 +17,7 @@ def test_sleep_smoketest():
         patch("space.lib.db") as mock_lib_db,
     ):
         mock_registry.get_agent_id.return_value = "test-agent-id"
-        mock_memory_db.get_entries.return_value = []  # Return empty list for smoketest
+        mock_memory_db.get_memories.return_value = []  # Return empty list for smoketest
         mock_conn = MagicMock()
         mock_lib_db.connect.return_value.__enter__.return_value = mock_conn
         mock_conn.execute.return_value.fetchone.return_value = ("session-123",)
@@ -36,11 +36,11 @@ def test_sleep_smoketest():
 
 
 def test_sleep_displays_last_summary_and_guidance():
-    mock_summary_uuid = "12345-abcde"
+    mock_summary_id = "12345-abcde"
     mock_summary_message = "This is a test summary."
     mock_memory = Memory(
-        uuid=mock_summary_uuid,
-        identity="test-agent",
+        memory_id=mock_summary_id,
+        agent_id="test-agent",
         topic="summary",  # Changed to 'summary'
         message=mock_summary_message,
         timestamp=0,
@@ -54,7 +54,7 @@ def test_sleep_displays_last_summary_and_guidance():
         patch("space.lib.db") as mock_lib_db,
     ):
         mock_registry.get_agent_id.return_value = "test-agent-id"
-        mock_memory_db.get_entries.return_value = [mock_memory]
+        mock_memory_db.get_memories.return_value = [mock_memory]
         mock_conn = MagicMock()
         mock_lib_db.connect.return_value.__enter__.return_value = mock_conn
         mock_conn.execute.return_value.fetchone.return_value = ("session-123",)
@@ -65,10 +65,10 @@ def test_sleep_displays_last_summary_and_guidance():
         assert "Your last summary:" in result.stdout
         assert f"  {mock_summary_message}" in result.stdout
         assert (
-            f'  memory --as test-agent replace {mock_summary_uuid} "<new summary>" '
+            f'  memory --as test-agent replace {mock_memory.memory_id} "<new summary>" '
             in result.stdout
         )
-        mock_memory_db.get_entries.assert_called_with(
+        mock_memory_db.get_memories.assert_called_with(
             "test-agent",
             topic="summary",
             limit=1,  # Changed to 'summary'
@@ -83,7 +83,7 @@ def test_sleep_check_flag_prevents_persistence():
         patch("space.lib.db") as mock_lib_db,
     ):
         mock_registry.get_agent_id.return_value = "test-agent-id"
-        mock_memory_db.get_entries.return_value = []
+        mock_memory_db.get_memories.return_value = []  # Added mock_memory_db.get_entries here
         mock_conn = MagicMock()
         mock_lib_db.connect.return_value.__enter__.return_value = mock_conn
         mock_conn.execute.return_value.fetchone.return_value = ("session-123",)
@@ -107,7 +107,7 @@ def test_checkpoint_flow(test_space):
     ):
         mock_paths.space_root.return_value.exists.return_value = True
         mock_registry.get_agent_id.return_value = "test-zealot-id"
-        mock_memory_db.get_entries.return_value = []  # Added mock_memory_db.get_entries here
+        mock_memory_db.get_memories.return_value = []
         mock_conn = MagicMock()
         mock_lib_db.connect.return_value.__enter__.return_value = mock_conn
         mock_conn.execute.return_value.fetchone.return_value = ("session-456",)

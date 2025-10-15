@@ -50,6 +50,10 @@ roles:
     constitution: zealot.md
     base_identity: gemini
 
+  codelot:
+    constitution: zealot.md
+    base_identity: codex
+
   test:
     constitution: zealot.md
     base_identity: claude

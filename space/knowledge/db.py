@@ -10,7 +10,7 @@ KNOWLEDGE_DB_NAME = "knowledge.db"
 
 _KNOWLEDGE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS knowledge (
-    id TEXT PRIMARY KEY,
+    knowledge_id TEXT PRIMARY KEY,
     domain TEXT NOT NULL,
     agent_id TEXT NOT NULL,
     content TEXT NOT NULL,
@@ -26,8 +26,8 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_archived ON knowledge(archived_at);
 
 
 @dataclass
-class Entry:
-    id: str
+class Knowledge:
+    knowledge_id: str
     domain: str
     agent_id: str
     content: str
@@ -36,26 +36,39 @@ class Entry:
     archived_at: int | None = None
 
 
+def _row_to_knowledge(row: dict) -> Knowledge:
+    return Knowledge(
+        knowledge_id=row["knowledge_id"],
+        domain=row["domain"],
+        agent_id=row["agent_id"],
+        content=row["content"],
+        confidence=row["confidence"],
+        created_at=row["created_at"],
+        archived_at=row["archived_at"],
+    )
+
+
 def database_path() -> Path:
-    return paths.space_root() / KNOWLEDGE_DB_NAME
+    return paths.dot_space() / KNOWLEDGE_DB_NAME
 
 
 def connect():
+    import sqlite3
+
     db_path = database_path()
-    if not db_path.exists():
-        db.ensure_schema(db_path, _KNOWLEDGE_SCHEMA)
-    _migrate_schema(db_path)
+    db.ensure_schema(db_path, _KNOWLEDGE_SCHEMA)
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        _run_migrations(conn)
     return db.connect(db_path)
 
 
-def _migrate_schema(db_path: Path):
-    with db.connect(db_path) as conn:
-        cursor = conn.execute("PRAGMA table_info(knowledge)")
-        columns = {row[1] for row in cursor.fetchall()}
-
-        if "archived_at" not in columns:
-            conn.execute("ALTER TABLE knowledge ADD COLUMN archived_at INTEGER")
-            conn.commit()
+def _run_migrations(conn):
+    cursor = conn.execute("PRAGMA table_info(knowledge)")
+    cols = [row["name"] for row in cursor.fetchall()]
+    if "id" in cols and "knowledge_id" not in cols:
+        conn.execute("ALTER TABLE knowledge RENAME COLUMN id TO knowledge_id")
+        conn.commit()
 
 
 def write_knowledge(
@@ -63,85 +76,85 @@ def write_knowledge(
 ) -> str:
     from .. import events
 
-    entry_id = uuid7()
+    knowledge_id = uuid7()
     with connect() as conn:
         conn.execute(
-            "INSERT INTO knowledge (id, domain, agent_id, content, confidence) VALUES (?, ?, ?, ?, ?)",
-            (entry_id, domain, agent_id, content, confidence),
+            "INSERT INTO knowledge (knowledge_id, domain, agent_id, content, confidence) VALUES (?, ?, ?, ?, ?)",
+            (knowledge_id, domain, agent_id, content, confidence),
         )
         conn.commit()
     events.emit("knowledge", "entry.write", agent_id, f"{domain}:{content[:50]}")
-    return entry_id
+    return knowledge_id
 
 
-def query_by_domain(domain: str, include_archived: bool = False) -> list[Entry]:
+def query_by_domain(domain: str, include_archived: bool = False) -> list[Knowledge]:
     archive_filter = "" if include_archived else "AND archived_at IS NULL"
     with connect() as conn:
         rows = conn.execute(
-            f"SELECT id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE domain = ? {archive_filter} ORDER BY created_at DESC",
+            f"SELECT knowledge_id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE domain = ? {archive_filter} ORDER BY created_at DESC",
             (domain,),
         ).fetchall()
-    return [Entry(*row) for row in rows]
+    return [_row_to_knowledge(row) for row in rows]
 
 
-def query_by_agent(agent_id: str, include_archived: bool = False) -> list[Entry]:
+def query_by_agent(agent_id: str, include_archived: bool = False) -> list[Knowledge]:
     archive_filter = "" if include_archived else "AND archived_at IS NULL"
     with connect() as conn:
         rows = conn.execute(
-            f"SELECT id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE agent_id = ? {archive_filter} ORDER BY created_at DESC",
+            f"SELECT knowledge_id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE agent_id = ? {archive_filter} ORDER BY created_at DESC",
             (agent_id,),
         ).fetchall()
-    return [Entry(*row) for row in rows]
+    return [_row_to_knowledge(row) for row in rows]
 
 
-def list_all(include_archived: bool = False) -> list[Entry]:
+def list_all(include_archived: bool = False) -> list[Knowledge]:
     archive_filter = "" if include_archived else "WHERE archived_at IS NULL"
     with connect() as conn:
         rows = conn.execute(
-            f"SELECT id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge {archive_filter} ORDER BY created_at DESC"
+            f"SELECT knowledge_id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge {archive_filter} ORDER BY created_at DESC"
         ).fetchall()
-    return [Entry(*row) for row in rows]
+    return [_row_to_knowledge(row) for row in rows]
 
 
-def get_by_id(entry_id: str) -> Entry | None:
+def get_by_id(knowledge_id: str) -> Knowledge | None:
     with connect() as conn:
         row = conn.execute(
-            "SELECT id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE id = ?",
-            (entry_id,),
+            "SELECT knowledge_id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE knowledge_id = ?",
+            (knowledge_id,),
         ).fetchone()
-    return Entry(*row) if row else None
+    return _row_to_knowledge(row) if row else None
 
 
-def archive_entry(entry_id: str):
+def archive_entry(knowledge_id: str):
     import time
 
     now = int(time.time())
     with connect() as conn:
         conn.execute(
-            "UPDATE knowledge SET archived_at = ? WHERE id = ?",
-            (now, entry_id),
+            "UPDATE knowledge SET archived_at = ? WHERE knowledge_id = ?",
+            (now, knowledge_id),
         )
         conn.commit()
     from .. import events
 
-    events.emit("knowledge", "entry.archive", None, f"{entry_id[-8:]}")
+    events.emit("knowledge", "entry.archive", None, f"{knowledge_id[-8:]}")
 
 
-def restore_entry(entry_id: str):
+def restore_entry(knowledge_id: str):
     with connect() as conn:
         conn.execute(
-            "UPDATE knowledge SET archived_at = NULL WHERE id = ?",
-            (entry_id,),
+            "UPDATE knowledge SET archived_at = NULL WHERE knowledge_id = ?",
+            (knowledge_id,),
         )
         conn.commit()
     from .. import events
 
-    events.emit("knowledge", "entry.restore", None, f"{entry_id[-8:]}")
+    events.emit("knowledge", "entry.restore", None, f"{knowledge_id[-8:]}")
 
 
 def find_related(
-    entry: Entry, limit: int = 5, include_archived: bool = False
-) -> list[tuple[Entry, int]]:
+    entry: Knowledge, limit: int = 5, include_archived: bool = False
+) -> list[tuple[Knowledge, int]]:
     stopwords = {
         "the",
         "a",
@@ -210,13 +223,13 @@ def find_related(
     archive_filter = "" if include_archived else "AND archived_at IS NULL"
     with connect() as conn:
         all_entries = conn.execute(
-            f"SELECT id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE id != ? {archive_filter}",
-            (entry.id,),
+            f"SELECT knowledge_id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE knowledge_id != ? {archive_filter}",
+            (entry.knowledge_id,),
         ).fetchall()
 
     scored = []
     for row in all_entries:
-        candidate = Entry(*row)
+        candidate = _row_to_knowledge(row)
         candidate_tokens = set(candidate.content.lower().split()) | set(
             candidate.domain.lower().split()
         )

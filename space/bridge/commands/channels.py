@@ -212,6 +212,8 @@ def archive(
             matched.extend([name for name in active if name.startswith(pattern)])
         channel_names = list(set(matched))
 
+    print(f"Channel names to archive: {channel_names}")
+
     results = []
     for channel_name in channel_names:
         try:

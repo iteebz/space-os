@@ -46,7 +46,7 @@ def recv(
                     {
                         "channel": channel,
                         "identity": identity,
-                        "sender_id": msg.sender,
+                        "agent_id": msg.agent_id,
                         "content": msg.content,
                     }
                 ),
@@ -65,7 +65,7 @@ def recv(
             )
         elif not quiet_output:
             for msg in messages:
-                typer.echo(f"[{msg.sender}] {msg.content}")
+                typer.echo(f"[{registry.get_identity(msg.agent_id)}] {msg.content}")
                 typer.echo()
     except ValueError as e:
         events.emit(
@@ -121,7 +121,7 @@ def alerts(
         elif not quiet_output:
             typer.echo(f"--- Alerts for {identity} ({len(alert_messages)} unread) ---")
             for msg in alert_messages:
-                typer.echo(f"\n[{msg.sender} | {msg.channel_id}]")
+                typer.echo(f"\n[{registry.get_identity(msg.agent_id)} | {msg.channel_id}]")
                 typer.echo(msg.content)
     except Exception as exc:
         events.emit(

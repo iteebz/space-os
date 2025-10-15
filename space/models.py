@@ -7,9 +7,9 @@ from dataclasses import dataclass
 class Message:
     """A coordination message."""
 
-    id: int
+    message_id: str
     channel_id: str
-    sender: str
+    agent_id: str
     content: str
     created_at: str
 
@@ -18,6 +18,7 @@ class Message:
 class Channel:
     """A coordination channel."""
 
+    channel_id: str
     name: str
     topic: str | None = None
     created_at: str | None = None
@@ -46,7 +47,8 @@ class Bookmark:
 class Note:
     """A note associated with a channel."""
 
-    author: str
+    note_id: str
+    agent_id: str
     content: str
     created_at: str
 
@@ -67,8 +69,8 @@ class Export:
 
 @dataclass
 class Memory:
-    uuid: str
-    identity: str
+    memory_id: str
+    agent_id: str
     topic: str
     message: str
     timestamp: str
@@ -87,7 +89,7 @@ class Memory:
 class Event:
     """An event for provenance tracking."""
 
-    id: str
+    event_id: str
     timestamp: str
     type: str
     source: str
@@ -98,8 +100,10 @@ class Event:
 class Knowledge:
     """A knowledge artifact."""
 
-    id: str
-    title: str
+    knowledge_id: str
+    domain: str
+    agent_id: str
     content: str
-    source: str
+    confidence: float | None
     created_at: str
+    archived_at: int | None = None

@@ -5,14 +5,14 @@ import yaml
 
 from . import paths
 
-DEFAULT_CONFIG = paths.package_root() / "config.yaml"
 
-
+def get_default_config_path() -> Path:
+    return paths.package_root() / "config.yaml"
 
 
 def config_file() -> Path:
     """Return config file path in .space/"""
-    return paths.space_root() / "config.yaml"
+    return paths.dot_space() / "config.yaml"
 
 
 def load_config() -> dict:
@@ -32,7 +32,8 @@ def init_config() -> None:
 
     target.parent.mkdir(parents=True, exist_ok=True)
 
-    if not DEFAULT_CONFIG.exists():
-        raise FileNotFoundError(f"Default config not found at {DEFAULT_CONFIG}")
+    default_config_path = get_default_config_path()
+    if not default_config_path.exists():
+        raise FileNotFoundError(f"Default config not found at {default_config_path}")
 
-    shutil.copy(DEFAULT_CONFIG, target)
+    shutil.copy(default_config_path, target)

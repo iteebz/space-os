@@ -53,7 +53,7 @@ def sleep(
             typer.echo(f"No active session for {identity}")
         return
 
-    events_db = paths.space_root() / "events.db"
+    events_db = paths.dot_space() / "events.db"
     session_id = None
 
     if events_db.exists():
@@ -71,7 +71,7 @@ def sleep(
     elif not check:
         events.identify(identity, "sleep")
 
-    memory_count = len(memory_db.get_entries(identity))
+    memory_count = len(memory_db.get_memories(identity))
 
     if not quiet:
         typer.echo(f"💀 Sleeping {identity}")
@@ -80,7 +80,7 @@ def sleep(
         typer.echo(f"🧠 {memory_count} memories persisted")
 
         # Retrieve and display last session summary
-        summaries = memory_db.get_entries(identity, topic="summary", limit=1)
+        summaries = memory_db.get_memories(identity, topic="summary", limit=1)
         typer.echo()
         typer.echo("Your last summary:")
         if summaries:
@@ -88,7 +88,9 @@ def sleep(
             typer.echo(f"  {last_summary.message}")
             typer.echo()
             typer.echo("To update this summary for your next spawn, use:")
-            typer.echo(f'  memory --as {identity} replace {last_summary.uuid} "<new summary>" ')
+            typer.echo(
+                f'  memory --as {identity} replace {last_summary.memory_id} "<new summary>" '
+            )
         else:
             typer.echo("  No last summary found.")
 

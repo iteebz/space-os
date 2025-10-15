@@ -43,3 +43,14 @@ def test_agents_table_has_uuid(tmp_path: Path, monkeypatch):
     assert row is not None
     assert len(row["id"]) == 36
     assert row["name"] == "test-agent"
+
+
+def test_rename_to_existing_fails(tmp_path: Path, monkeypatch):
+    db = tmp_path / "spawn.db"
+    monkeypatch.setattr(registry.config, "registry_db", lambda: db)
+    registry.init_db()
+
+    registry.set_self_description("crucible-1", "TDD purist")
+    registry.set_self_description("crucible-2", "Another agent")
+
+    assert not registry.rename_agent("crucible-2", "crucible-1")

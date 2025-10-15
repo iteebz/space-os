@@ -1,5 +1,6 @@
 """Error capture for CLI commands."""
 
+import contextlib
 import sys
 
 from .. import events
@@ -8,18 +9,16 @@ from .. import events
 def install_error_handler(source: str):
     """Install sys.excepthook to log uncaught exceptions."""
     original_hook = sys.excepthook
-    
+
     def error_hook(exc_type, exc_value, exc_traceback):
         if exc_type.__name__ not in ("Exit", "Abort", "KeyboardInterrupt"):
             error_msg = f"{exc_type.__name__}: {str(exc_value)}"
-            
-            try:
+
+            with contextlib.suppress(Exception):
                 events.emit(source, "error", None, error_msg)
-            except Exception:
-                pass
-        
+
         original_hook(exc_type, exc_value, exc_traceback)
-    
+
     sys.excepthook = error_hook
 
 

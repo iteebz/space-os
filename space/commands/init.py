@@ -7,10 +7,10 @@ from ..spawn import registry
 
 def init():
     """Initialize space workspace structure and databases."""
-    root = paths.workspace_root()
+    root = paths.space_root()
 
-    (root / ".space").mkdir(parents=True, exist_ok=True)
-    (root / "canon").mkdir(parents=True, exist_ok=True)
+    paths.dot_space().mkdir(parents=True, exist_ok=True)
+    paths.canon_path().mkdir(parents=True, exist_ok=True)
     (root / "projects").mkdir(parents=True, exist_ok=True)
 
     registry.init_db()

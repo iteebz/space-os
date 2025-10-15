@@ -1,11 +1,15 @@
 from space.models import Channel, Export
 
 from .. import db
+from ..db import (
+    fetch_channels,
+    get_channel_id,
+)
 
 
 def active_channels(agent_id: str = None, limit: int = 5) -> list[Channel]:
     """Get active channels with unreads, limited to most recent."""
-    channels = db.fetch_channels(agent_id, time_filter="-7 days")
+    channels = fetch_channels(agent_id, time_filter="-7 days")
     if agent_id:
         channels = [c for c in channels if c.unread_count > 0]
     channels.sort(key=lambda t: t.last_activity if t.last_activity else "", reverse=True)
@@ -14,32 +18,31 @@ def active_channels(agent_id: str = None, limit: int = 5) -> list[Channel]:
 
 def all_channels(agent_id: str = None) -> list[Channel]:
     """Get all channels."""
-    return db.fetch_channels(agent_id, include_archived=True)
+    return fetch_channels(agent_id, include_archived=True)
 
 
 def inbox_channels(agent_id: str) -> list[Channel]:
     """Get all channels with unreads."""
-    channels = db.fetch_channels(agent_id)
+    channels = fetch_channels(agent_id)
     channels = [c for c in channels if c.unread_count > 0]
     channels.sort(key=lambda t: t.last_activity if t.last_activity else "", reverse=True)
     return channels
 
 
 def export_channel(channel_name: str) -> Export:
-    """Export complete channel conversation for research."""
-    channel_id = db.get_channel_id(channel_name)
+    channel_id = get_channel_id(channel_name)
     return db.get_export_data(channel_id)
 
 
 def archive_channel(channel_name: str):
     """Archive resolved channel."""
-    channel_id = db.get_channel_id(channel_name)
+    channel_id = get_channel_id(channel_name)
     db.archive_channel(channel_id)
 
 
 def delete_channel(channel_name: str):
     """Permanently delete channel and all messages."""
-    channel_id = db.get_channel_id(channel_name)
+    channel_id = get_channel_id(channel_name)
     db.delete_channel(channel_id)
 
 
@@ -56,10 +59,10 @@ def get_channel_topic(channel_id: str) -> str | None:
 def resolve_channel_id(channel_name: str) -> str:
     """Resolve channel name to UUID, creating channel if needed."""
 
-    try:
-        return db.get_channel_id(channel_name)
-    except ValueError:
-        return create_channel(channel_name)
+    channel_id = get_channel_id(channel_name)
+    if channel_id is None:
+        channel_id = create_channel(channel_name)
+    return channel_id
 
 
 def create_channel(channel_name: str, topic: str | None = None) -> str:

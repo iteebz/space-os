@@ -5,7 +5,7 @@ from space.cli import app
 runner = CliRunner()
 
 
-def test_agents_list():
+def test_agents_list(test_space):
     result = runner.invoke(app, ["agents", "list"])
     assert result.exit_code == 0
 
@@ -15,6 +15,6 @@ def test_describe_requires_identity():
     assert result.exit_code != 0
 
 
-def test_describe_get():
+def test_describe_get(test_space):
     result = runner.invoke(app, ["describe", "--as", "test-agent"])
     assert result.exit_code == 0

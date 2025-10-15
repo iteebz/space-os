@@ -36,7 +36,7 @@ def show_events(
                 {
                     "uuid": uuid,
                     "source": src,
-                    "identity": registry.get_agent_name(aid) or aid,
+                    "identity": registry.get_identity(aid) or aid,
                     "event_type": event_type,
                     "data": data,
                     "created_at": datetime.fromtimestamp(created_at).isoformat(),
@@ -48,6 +48,6 @@ def show_events(
 
         for uuid, src, aid, event_type, data, created_at in rows:
             ts = datetime.fromtimestamp(created_at).strftime("%Y-%m-%d %H:%M:%S")
-            ident_str = f" [{registry.get_agent_name(aid) or aid}]" if aid else ""
+            ident_str = f" [{registry.get_identity(aid) or aid}]" if aid else ""
             data_str = f" {data}" if data else ""
             typer.echo(f"[{uuid[:8]}] {ts} {src}.{event_type}{ident_str}{data_str}")

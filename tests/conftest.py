@@ -4,7 +4,25 @@ from pathlib import Path
 
 import pytest
 
+from space.knowledge import db as knowledge_db
+from space.memory import db as memory_db
 from space.spawn import registry
+from space.spawn.registry import _apply_migrations
+
+_REGISTRY_SCHEMA = """
+CREATE TABLE IF NOT EXISTS constitutions (
+    hash TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS agents (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    self_description TEXT,
+    archived_at INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
 
 
 @pytest.fixture
@@ -15,38 +33,37 @@ def test_space(monkeypatch, tmp_path):
     (workspace / "AGENTS.md").write_text("test workspace")
     (workspace / ".space").mkdir()
 
-    from space.lib import paths
+    from space.lib import db, paths
 
-    monkeypatch.setattr(paths, "workspace_root", lambda: workspace)
-    monkeypatch.setattr(Path, "home", lambda: workspace)
     monkeypatch.setattr(paths, "space_root", lambda: workspace)
+    monkeypatch.setattr(paths, "dot_space", lambda: workspace / ".space")
+    monkeypatch.setattr(Path, "home", lambda: workspace)
 
     from space import events
-    from space.bridge import config as bridge_config
 
     events.DB_PATH = workspace / ".space" / "events.db"
 
-    bridge_config.SPACE_DIR = workspace / ".space"
-    bridge_config.BRIDGE_DIR = bridge_config.SPACE_DIR / "bridge"
-    bridge_config.IDENTITIES_DIR = bridge_config.BRIDGE_DIR / "identities"
-    bridge_config.DB_PATH = bridge_config.SPACE_DIR / "bridge.db"
-    bridge_config.CONFIG_FILE = bridge_config.SPACE_DIR / "config.json"
-    bridge_config.SENTINEL_LOG_PATH = bridge_config.SPACE_DIR / "security" / "sentinel.log"
-    bridge_config.LEGACY_BRIDGE_DIR = workspace / ".legacy_bridge"
-    bridge_config.LEGACY_SPACE_DIR = workspace / ".legacy_space"
-    bridge_config._config = {}
-
     for path in [
-        bridge_config.SPACE_DIR,
-        bridge_config.BRIDGE_DIR,
-        bridge_config.IDENTITIES_DIR,
-        bridge_config.SENTINEL_LOG_PATH.parent,
-        bridge_config.LEGACY_BRIDGE_DIR,
-        bridge_config.LEGACY_SPACE_DIR,
+        workspace / ".space",
+        workspace / ".space" / "bridge",
+        workspace / ".space" / "security",
     ]:
         path.mkdir(parents=True, exist_ok=True)
 
-    registry.init_db()
+    # Directly initialize registry DB
+    monkeypatch.setattr(registry.config, "registry_db", lambda: workspace / ".space" / "spawn.db")
+    registry_db_path = registry.config.registry_db()
+    with sqlite3.connect(registry_db_path) as conn:
+        conn.executescript(_REGISTRY_SCHEMA)
+        _apply_migrations(conn)
+        conn.commit()
+
+    db.ensure_schema(workspace / ".space" / memory_db.MEMORY_DB_NAME, memory_db._MEMORY_SCHEMA)
+    with sqlite3.connect(workspace / ".space" / memory_db.MEMORY_DB_NAME) as conn:
+        memory_db._run_migrations(conn)
+    db.ensure_schema(
+        workspace / ".space" / knowledge_db.KNOWLEDGE_DB_NAME, knowledge_db._KNOWLEDGE_SCHEMA
+    )
 
     yield workspace
 
@@ -68,6 +85,8 @@ def in_memory_db():
 
     # Initialize schema for both tables on this connection
     registry.init_db()
+    conn.executescript(memory_db._MEMORY_SCHEMA)
+    conn.executescript(knowledge_db._KNOWLEDGE_SCHEMA)
 
     yield conn
 

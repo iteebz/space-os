@@ -1,42 +1,14 @@
 import sqlite3
-from collections.abc import Iterator
-from contextlib import contextmanager
 from pathlib import Path
 
-
-def workspace_root() -> Path:
-    import os
-
-    space_home = os.getenv("SPACE_HOME")
-    if space_home:
-        return Path(space_home).expanduser()
-
-    home_space = Path.home() / "space"
-    if home_space.exists():
-        return home_space
-
-    current = Path.cwd()
-    for candidate in (current, *current.parents):
-        if (candidate / "AGENTS.md").exists():
-            return candidate
-    for candidate in (current, *current.parents):
-        if (candidate / ".git").exists():
-            return candidate
-    for candidate in (current, *current.parents):
-        if (candidate / "pyproject.toml").exists():
-            return candidate
-    return current
+from . import paths
 
 
-@contextmanager
-def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+def connect(db_path: Path):
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
-    try:
-        yield conn
-    finally:
-        conn.close()
+    conn.isolation_level = None  # Ensure autocommit for better test visibility
+    return conn
 
 
 def ensure_schema(db_path: Path, schema: str):
@@ -46,17 +18,9 @@ def ensure_schema(db_path: Path, schema: str):
         conn.commit()
 
 
-def ensure_workspace_db(db_path: Path, schema: str):
+def ensure_space_db(db_name: str, schema: str):
+    """Return a space-scoped connection context manager with schema bootstrapped."""
+    db_path = paths.dot_space() / db_name
     if not db_path.exists():
         ensure_schema(db_path, schema)
     return connect(db_path)
-
-
-def workspace_db_path(workspace_root: Path, db_name: str) -> Path:
-    """Resolve the workspace-scoped .space database path."""
-    return workspace_root / ".space" / db_name
-
-
-def workspace_db(workspace_root: Path, db_name: str, schema: str):
-    """Return a workspace-scoped connection context manager with schema bootstrapped."""
-    return ensure_workspace_db(workspace_db_path(workspace_root, db_name), schema)

@@ -3,6 +3,7 @@ import time
 import typer
 
 from ... import events
+from ...spawn import registry
 from ..renderer import Event, Renderer
 
 app = typer.Typer()
@@ -36,7 +37,7 @@ def _stream_events(channel: str | None = None):
                 typer.echo(f"→ Sent to {data.get('channel')} as {identity}: {data.get('content')}")
             elif event_type == "message_received":
                 typer.echo(
-                    f"← Received from {data.get('sender_id')} in {data.get('channel')}: {data.get('content')}"
+                    f"← Received from {registry.get_identity(data.get('agent_id'))} in {data.get('channel')}: {data.get('content')}"
                 )
 
     renderer = Renderer()
@@ -79,7 +80,7 @@ def _stream_events(channel: str | None = None):
                             elif event_type == "message_received":
                                 yield Event(
                                     type="token",
-                                    content=f"← Received from {data.get('sender_id')} in {data.get('channel')}: {data.get('content')}\n",
+                                    content=f"← Received from {registry.get_identity(data.get('agent_id'))} in {data.get('channel')}: {data.get('content')}\n",
                                 )
                             else:
                                 yield Event(type="status", content=f"Event: {event_type}")

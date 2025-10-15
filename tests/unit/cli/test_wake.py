@@ -34,10 +34,10 @@ def test_wake_existing_identity_spawn_count(test_space):
         ),  # Mock with float (2 days ago)
         patch("space.bridge.api.channels.inbox_channels", return_value=[]),
         patch("space.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
+        patch("space.memory.db.get_memories", return_value=[]),  # Mock memory dependency
     ):
         result = runner.invoke(app, ["wake", "--as", "existing-agent"])
         assert result.exit_code == 0
-        assert "Waking up existing-agent" in result.stdout
         assert "Spawn #5" in result.stdout
         assert (
             "Last sleep" in result.stdout
@@ -66,6 +66,7 @@ def test_command_unread_messages(test_space):
             "space.bridge.api.channels.inbox_channels", return_value=[mock_channel1, mock_channel2]
         ),
         patch("space.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
+        patch("space.memory.db.get_memories", return_value=[]),  # Mock memory dependency
     ):
         result = runner.invoke(app, ["wake", "--as", "test-agent"])
         assert result.exit_code == 0

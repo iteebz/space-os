@@ -42,15 +42,18 @@ def send(
     agent_id = registry.ensure_agent(identity)
 
     try:
+        channel_id = api.resolve_channel_id(channel)
+    except ValueError:
+        channel_id = api.create_channel(channel)
+
+    try:
         events.emit(
             "bridge",
             "message_sending",
             agent_id,
             json.dumps({"channel": channel, "identity": identity, "content": content}),
         )
-        channel_id = api.resolve_channel_id(channel)
-        agent_id = registry.ensure_agent(identity)
-        api.send_message(channel_id, agent_id, content)
+        api.send_message(channel_id, identity, content)
         events.emit(
             "bridge",
             "message_sent",
@@ -105,7 +108,7 @@ def alert(
         )
         channel_id = api.resolve_channel_id(channel)
         agent_id = registry.ensure_agent(identity)
-        api.send_message(channel_id, agent_id, content, priority="alert")
+        api.send_message(channel_id, identity, content, priority="alert")
         events.emit(
             "bridge",
             "alert_triggered",

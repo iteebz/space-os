@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 
 from . import db, paths
 from .display import humanize_timestamp
@@ -15,7 +14,7 @@ class LeaderboardEntry:
 
 @dataclass
 class AgentStats:
-    identity: str
+    agent_name: str
     spawns: int
     msgs: int
     mems: int
@@ -76,7 +75,7 @@ class SpaceStats:
 
 
 def bridge_stats(limit: int = None) -> BridgeStats:
-    db_path = paths.space_root() / "bridge.db"
+    db_path = paths.dot_space() / "bridge.db"
     if not db_path.exists():
         return BridgeStats(available=False)
 
@@ -134,28 +133,30 @@ def bridge_stats(limit: int = None) -> BridgeStats:
 
 
 def memory_stats(limit: int = None) -> MemoryStats:
-    db_path = paths.space_root() / "memory.db"
+    db_path = paths.dot_space() / "memory.db"
     if not db_path.exists():
         return MemoryStats(available=False)
 
     with db.connect(db_path) as conn:
-        total = conn.execute("SELECT COUNT(*) FROM memory").fetchone()[0]
-        active = conn.execute("SELECT COUNT(*) FROM memory WHERE archived_at IS NULL").fetchone()[0]
+        total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
+        active = conn.execute("SELECT COUNT(*) FROM memories WHERE archived_at IS NULL").fetchone()[
+            0
+        ]
         archived = conn.execute(
-            "SELECT COUNT(*) FROM memory WHERE archived_at IS NOT NULL"
+            "SELECT COUNT(*) FROM memories WHERE archived_at IS NOT NULL"
         ).fetchone()[0]
         topics = conn.execute(
-            "SELECT COUNT(DISTINCT topic) FROM memory WHERE archived_at IS NULL"
+            "SELECT COUNT(DISTINCT topic) FROM memories WHERE archived_at IS NULL"
         ).fetchone()[0]
 
         if limit:
             rows = conn.execute(
-                "SELECT agent_id, COUNT(*) as count FROM memory GROUP BY agent_id ORDER BY count DESC LIMIT ?",
+                "SELECT agent_id, COUNT(*) as count FROM memories GROUP BY agent_id ORDER BY count DESC LIMIT ?",
                 (limit,),
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT agent_id, COUNT(*) as count FROM memory GROUP BY agent_id ORDER BY count DESC"
+                "SELECT agent_id, COUNT(*) as count FROM memories GROUP BY agent_id ORDER BY count DESC"
             ).fetchall()
 
     from ..spawn import registry
@@ -177,7 +178,7 @@ def memory_stats(limit: int = None) -> MemoryStats:
 
 
 def knowledge_stats(limit: int = None) -> KnowledgeStats:
-    db_path = paths.space_root() / "knowledge.db"
+    db_path = paths.dot_space() / "knowledge.db"
     if not db_path.exists():
         return KnowledgeStats(available=False)
 
@@ -224,10 +225,10 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
 def get_agent_metrics() -> dict[str, dict]:
     """Get s-b-m-k metrics for all agents by UUID."""
 
-    bridge_db = paths.space_root() / "bridge.db"
-    mem_db = paths.space_root() / "memory.db"
-    know_db = paths.space_root() / "knowledge.db"
-    events_db = paths.space_root() / "events.db"
+    bridge_db = paths.dot_space() / "bridge.db"
+    mem_db = paths.dot_space() / "memory.db"
+    know_db = paths.dot_space() / "knowledge.db"
+    events_db = paths.dot_space() / "events.db"
 
     metrics = {}
 
@@ -248,7 +249,7 @@ def get_agent_metrics() -> dict[str, dict]:
 
     if mem_db.exists():
         with db.connect(mem_db) as conn:
-            for row in conn.execute("SELECT agent_id, COUNT(*) FROM memory GROUP BY agent_id"):
+            for row in conn.execute("SELECT agent_id, COUNT(*) FROM memories GROUP BY agent_id"):
                 if row[0] in metrics:
                     metrics[row[0]]["mems"] = row[1]
 
@@ -264,10 +265,10 @@ def get_agent_metrics() -> dict[str, dict]:
 def agent_stats(limit: int = None) -> list[AgentStats] | None:
     from ..spawn import registry
 
-    bridge_db = paths.space_root() / "bridge.db"
-    mem_db = paths.space_root() / "memory.db"
-    know_db = paths.space_root() / "knowledge.db"
-    paths.space_root() / "spawn.db"
+    bridge_db = paths.dot_space() / "bridge.db"
+    mem_db = paths.dot_space() / "memory.db"
+    know_db = paths.dot_space() / "knowledge.db"
+    paths.dot_space() / "spawn.db"
 
     if not bridge_db.exists():
         return None
@@ -302,7 +303,7 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
 
     if mem_db.exists():
         with db.connect(mem_db) as conn:
-            for row in conn.execute("SELECT agent_id, COUNT(*) FROM memory GROUP BY agent_id"):
+            for row in conn.execute("SELECT agent_id, COUNT(*) FROM memories GROUP BY agent_id"):
                 agent_name = names.get(row[0], row[0])
                 if agent_name in identities:
                     identities[agent_name]["mems"] = row[1]
@@ -331,18 +332,18 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
                 if agent_name in identities:
                     identities[agent_name]["last_active"] = str(row[1])
 
-
-
     agents = [
         AgentStats(
-            identity=ident,
+            agent_name=ident,
             spawns=data["spawns"],
             msgs=data["msgs"],
             mems=data["mems"],
             knowledge=data["knowledge"],
             channels=data.get("channels", []),
             last_active=data.get("last_active"),
-            last_active_human=humanize_timestamp(data.get("last_active")) if data.get("last_active") else None,
+            last_active_human=humanize_timestamp(data.get("last_active"))
+            if data.get("last_active")
+            else None,
         )
         for ident, data in identities.items()
     ]
@@ -352,7 +353,7 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
 
 
 def spawn_stats() -> SpawnStats:
-    db_path = paths.space_root() / "spawn.db"
+    db_path = paths.dot_space() / "spawn.db"
     if not db_path.exists():
         return SpawnStats(available=False)
 

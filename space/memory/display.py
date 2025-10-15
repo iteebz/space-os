@@ -14,7 +14,14 @@ from . import db
 def show_context(identity: str):
     typer.echo("\n" + "─" * 60)
 
-    knowledge_entries = knowledge_db.query_by_agent(identity)
+    from ..spawn import registry
+
+    agent_id = registry.get_agent_id(identity)
+    if not agent_id:
+        typer.echo(f"\nNo agent found for identity: {identity}")
+        return
+
+    knowledge_entries = knowledge_db.query_by_agent(agent_id)
     if knowledge_entries:
         domains = {e.domain for e in knowledge_entries}
         typer.echo(
@@ -55,48 +62,46 @@ def show_wake_summary(identity: str, quiet_output: bool, spawn_count: int):
         else:
             typer.echo(f"🔄 Spawn #{spawn_count}")
 
-        typer.echo()
-
-    summaries = db.get_entries(identity, topic="summary")
-    if summaries:
-        typer.echo("📝 Last session:")
-        typer.echo(f"  {summaries[-1].message}")
-        if len(summaries) > 1:
+        summaries = db.get_memories(identity, topic="summary")
+        if summaries:
+            typer.echo("📝 Last session:")
+            typer.echo(f"  {summaries[-1].message}")
+            if len(summaries) > 1:
+                typer.echo()
+                typer.echo("Previous sessions:")
+                for s in reversed(summaries[-3:-1]):
+                    typer.echo(f"  [{s.timestamp}] {s.message}")
             typer.echo()
-            typer.echo("Previous sessions:")
-            for s in reversed(summaries[-3:-1]):
-                typer.echo(f"  [{s.timestamp}] {s.message}")
-        typer.echo()
 
-    core_entries = db.get_core_entries(identity)
-    if core_entries:
-        typer.echo(wake_prompts.SECTION_CORE)
-        for e in core_entries[:5]:
-            typer.echo(f"  [{e.uuid[-8:]}] {e.message}")
-        typer.echo()
+        core_entries = db.get_core_entries(identity)
+        if core_entries:
+            typer.echo(wake_prompts.SECTION_CORE)
+            for e in core_entries[:5]:
+                typer.echo(f"  [{e.memory_id[-8:]}] {e.message}")
+            typer.echo()
 
-    recent = db.get_recent_entries(identity, days=7, limit=30)
-    non_summary = [e for e in recent if e.topic != "summary" and not e.core][:3]
-    if non_summary:
-        typer.echo(wake_prompts.SECTION_RECENT)
-        for e in non_summary:
-            ts = datetime.fromtimestamp(e.created_at).strftime("%m-%d %H:%M")
-            typer.echo(f"  [{ts}] {e.topic}: {e.message}")
-        typer.echo()
+        recent = db.get_recent_entries(identity, days=7, limit=30)
+        non_summary = [e for e in recent if e.topic != "summary" and not e.core][:3]
+        if non_summary:
+            typer.echo(wake_prompts.SECTION_RECENT)
+            for e in non_summary:
+                ts = datetime.fromtimestamp(e.created_at).strftime("%m-%d %H:%M")
+                typer.echo(f"  [{ts}] {e.topic}: {e.message}")
+            typer.echo()
 
-    sent_msgs = bridge_db.get_sender_history(identity, limit=5)
-    if sent_msgs:
-        typer.echo(wake_prompts.SECTION_SENT)
-        channel_names = {}
-        for msg in sent_msgs:
-            if msg.channel_id not in channel_names:
-                channel_names[msg.channel_id] = bridge_db.get_channel_name(msg.channel_id)
-            channel = channel_names[msg.channel_id]
-            ts = datetime.strptime(msg.created_at, "%Y-%m-%d %H:%M:%S").strftime("%m-%d %H:%M")
-            first_line = msg.content.split("\n")[0]
-            preview = first_line[:50] + "..." if len(first_line) > 50 else first_line
-            typer.echo(f"  [{ts}] #{channel}: {preview}")
-        typer.echo()
+        sent_msgs = bridge_db.get_sender_history(identity, limit=5)
+        if sent_msgs:
+            typer.echo(wake_prompts.SECTION_SENT)
+            channel_names = {}
+            for msg in sent_msgs:
+                if msg.channel_id not in channel_names:
+                    channel_names[msg.channel_id] = bridge_db.get_channel_name(msg.channel_id)
+                channel = channel_names[msg.channel_id]
+                ts = datetime.strptime(msg.created_at, "%Y-%m-%d %H:%M:%S").strftime("%m-%d %H:%M")
+                first_line = msg.content.split("\n")[0]
+                preview = first_line[:50] + "..." if len(first_line) > 50 else first_line
+                typer.echo(f"  [{ts}] #{channel}: {preview}")
+            typer.echo()
 
 
 def _format_duration(seconds: float) -> str:
@@ -118,7 +123,7 @@ def show_smart_memory(identity: str, json_output: bool, quiet_output: bool):
     from dataclasses import asdict
 
     self_desc = spawn_registry.get_self_description(identity)
-    summaries = db.get_entries(identity, topic="summary")
+    summaries = db.get_memories(identity, topic="summary")
     core_entries = db.get_core_entries(identity)
     recent_entries = db.get_recent_entries(identity, days=7, limit=20)
 

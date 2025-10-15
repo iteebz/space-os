@@ -2,9 +2,9 @@ import json
 
 import typer
 
-from ..bridge import config as bridge_config
 from ..knowledge import db as knowledge_db
 from ..lib import db as libdb
+from ..lib import paths
 from ..memory import db as memory_db
 
 
@@ -23,11 +23,11 @@ def search(
     if memory_db.database_path().exists():
         with memory_db.connect() as conn:
             rows = conn.execute(
-                "SELECT agent_id, topic, message FROM memory WHERE message LIKE ? AND archived_at IS NULL",
+                "SELECT agent_id, topic, message FROM memories WHERE message LIKE ? AND archived_at IS NULL",
                 (f"%{keyword}%",),
             ).fetchall()
             results["memory"] = [
-                {"identity": registry.get_agent_name(r[0]) or r[0], "topic": r[1], "message": r[2]}
+                {"identity": registry.get_identity(r[0]) or r[0], "topic": r[1], "message": r[2]}
                 for r in rows
             ]
 
@@ -41,19 +41,20 @@ def search(
                 {
                     "domain": r[0],
                     "content": r[1],
-                    "contributor": registry.get_agent_name(r[2]) or r[2],
+                    "contributor": registry.get_identity(r[2]) or r[2],
                 }
                 for r in rows
             ]
 
-    if bridge_config.DB_PATH.exists():
-        with libdb.connect(bridge_config.DB_PATH) as conn:
+    bridge_db_path = paths.dot_space() / "bridge.db"
+    if bridge_db_path.exists():
+        with libdb.connect(bridge_db_path) as conn:
             rows = conn.execute(
                 "SELECT c.name, m.agent_id, m.content FROM messages m JOIN channels c ON m.channel_id = c.id WHERE m.content LIKE ? AND c.archived_at IS NULL",
                 (f"%{keyword}%",),
             ).fetchall()
             results["bridge"] = [
-                {"channel": r[0], "sender": registry.get_agent_name(r[1]) or r[1], "content": r[2]}
+                {"channel": r[0], "sender": registry.get_identity(r[1]) or r[1], "content": r[2]}
                 for r in rows
             ]
 

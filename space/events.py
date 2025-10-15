@@ -4,7 +4,7 @@ from pathlib import Path
 from .lib import db, paths
 from .lib.uuid7 import uuid7
 
-DB_PATH = paths.space_root() / "events.db"
+DB_PATH = paths.dot_space() / "events.db"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (

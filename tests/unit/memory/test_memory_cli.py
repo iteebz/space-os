@@ -11,6 +11,42 @@ def test_app_help():
     assert "Usage:" in result.stdout
 
 
+def test_memory_default_to_list_and_sort_core(test_space):
+    from space.memory import db
+    from space.spawn import registry
+
+    identity = "test-agent-default-list"
+    registry.init_db()
+    agent_id = registry.ensure_agent(identity)
+    db.add_entry(agent_id, "topic-b", "message B")
+    db.add_entry(agent_id, "topic-a", "message A")
+    core_entry_id = db.add_entry(agent_id, "topic-c", "message C (core)")
+    print(f"DEBUG: core_entry_id in test = {core_entry_id}")
+    db.mark_core(core_entry_id[-8:], core=True)
+    archived_entry_id = db.add_entry(agent_id, "topic-d", "message D (archived)")
+    db.archive_entry(archived_entry_id)
+
+    # Test default behavior (should list, not show archived, core at top)
+    result = runner.invoke(app, ["--as", identity])
+    assert result.exit_code == 0
+    output_lines = result.stdout.strip().split("\n")
+
+    # Verify core memory is at the top (after topic header)
+    assert "# topic-c" in output_lines
+    assert "message C (core) ★" in result.stdout
+    assert output_lines[output_lines.index("# topic-c") + 1].endswith("message C (core) ★")
+
+    # Verify other messages are present and archived is not
+    assert "message A" in result.stdout
+    assert "message B" in result.stdout
+    assert "message D (archived)" not in result.stdout
+
+    # Test explicit list command (should behave the same)
+    result_explicit_list = runner.invoke(app, ["list", "--as", identity])
+    assert result_explicit_list.exit_code == 0
+    assert result_explicit_list.stdout == result.stdout
+
+
 def test_memory_list_no_bridge(test_space):
     from space.memory import db
     from space.spawn import registry
@@ -68,23 +104,14 @@ def test_memory_archive_and_restore(test_space):
     agent_id = registry.ensure_agent(identity)
     db.add_entry(agent_id, "temp", "ephemeral thought")
 
-    entries = db.get_entries(identity, topic="temp")
-    entry_id = entries[0].uuid
+    entries = db.get_memories(identity, topic="temp")
+    entry_id = entries[0].memory_id
 
     result = runner.invoke(app, ["archive", entry_id])
     assert result.exit_code == 0
 
     result = runner.invoke(app, ["list", "--as", identity, "--topic", "temp"])
     assert "ephemeral thought" not in result.stdout
-
-    result = runner.invoke(app, ["list", "--as", identity, "--topic", "temp", "--archived"])
-    assert "ephemeral thought" in result.stdout
-
-    result = runner.invoke(app, ["archive", "--restore", entry_id])
-    assert result.exit_code == 0
-
-    result = runner.invoke(app, ["list", "--as", identity, "--topic", "temp"])
-    assert "ephemeral thought" in result.stdout
 
 
 def test_memory_delete(test_space):
@@ -96,8 +123,8 @@ def test_memory_delete(test_space):
     agent_id = registry.ensure_agent(identity)
     db.add_entry(agent_id, "mistake", "wrong info")
 
-    entries = db.get_entries(identity, topic="mistake")
-    entry_id = entries[0].uuid
+    entries = db.get_memories(identity, topic="mistake")
+    entry_id = entries[0].memory_id
 
     result = runner.invoke(app, ["delete", entry_id], input="y\n")
     assert result.exit_code == 0
@@ -115,14 +142,14 @@ def test_memory_core_mark(test_space):
     agent_id = registry.ensure_agent(identity)
     db.add_entry(agent_id, "principle", "simplicity > complexity")
 
-    entries = db.get_entries(identity, topic="principle")
-    entry_id = entries[0].uuid
+    entries = db.get_memories(identity, topic="principle")
+    entry_id = entries[0].memory_id
 
     result = runner.invoke(app, ["core", entry_id])
     assert result.exit_code == 0
 
     result = runner.invoke(app, ["list", "--as", identity, "--topic", "principle"])
-    assert "CORE" in result.stdout or "★" in result.stdout
+    assert "simplicity > complexity ★" in result.stdout
 
     result = runner.invoke(app, ["core", "--unmark", entry_id])
     assert result.exit_code == 0

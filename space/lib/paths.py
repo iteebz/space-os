@@ -1,24 +1,20 @@
 from pathlib import Path
 
-
-def workspace_root() -> Path:
-    """Project root directory - crawls up to find .space/ or uses cwd."""
-    current = Path.cwd()
-    while current != current.parent:
-        if (current / ".space").exists():
-            return current
-        current = current.parent
-    return Path.cwd()
+from space.lib import config
 
 
 def space_root() -> Path:
-    """Returns .space/ directory - crawls up from pwd, falls back to ~/.space."""
-    current = Path.cwd()
-    while current != current.parent:
-        space_dir = current / ".space"
-        if space_dir.exists():
-            return space_dir
-        current = current.parent
+    """Returns the space root directory, ~/space."""
+    return Path.home() / "space"
+
+
+def dot_space() -> Path:
+    """Returns .space/ directory in workspace root."""
+    return space_root() / ".space"
+
+
+def backup_root() -> Path:
+    """Returns the backup root directory, ~/.space."""
     return Path.home() / ".space"
 
 
@@ -33,11 +29,9 @@ def constitution(filename: str) -> Path:
 
 
 def canon_path() -> Path:
-    """Returns path to human's canonical values, configurable via config.yaml."""
-    from .config import load_config
-
-    config = load_config()
-    configured_path = config.get("canon_path")
+    """Returns path to human's canonical values, ~/space/canon."""
+    cfg = config.load_config()
+    configured_path = cfg.get("canon_path")
     if configured_path:
         return space_root() / configured_path
     return space_root() / "canon"

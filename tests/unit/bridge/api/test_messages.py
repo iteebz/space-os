@@ -4,11 +4,11 @@ from space.bridge import api
 def test_send_message(test_space):
     """Verify that a sent message is stored and retrievable."""
     channel_id = api.create_channel("test-channel")
-    api.send_message(channel_id, "test-sender", "hello world")
+    sender_agent_id = api.send_message(channel_id, "test-sender", "hello world")
     messages = api.fetch_messages(channel_id)
     assert len(messages) == 1
     assert messages[0].content == "hello world"
-    assert messages[0].sender == "test-sender"
+    assert messages[0].agent_id == sender_agent_id
 
 
 def test_recv_updates(test_space):

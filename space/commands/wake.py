@@ -3,8 +3,6 @@
 All wake-related prompts and formatting centralized here.
 """
 
-import sys
-
 import typer
 
 from space.lib import errors

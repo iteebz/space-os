@@ -10,12 +10,12 @@ def spawn_dir() -> Path:
 
 def registry_db() -> Path:
     """Return the registry database path in workspace .space directory."""
-    return paths.space_root() / "spawn.db"
+    return paths.dot_space() / "spawn.db"
 
 
 def bridge_dir() -> Path:
     """Return the bridge configuration directory scoped to the workspace."""
-    return paths.space_root() / "bridge"
+    return paths.dot_space() / "bridge"
 
 
 def bridge_identities_dir() -> Path:
@@ -24,7 +24,7 @@ def bridge_identities_dir() -> Path:
 
 
 def config_file() -> Path:
-    return paths.space_root() / "config.yaml"
+    return paths.dot_space() / "config.yaml"
 
 
 def init_config() -> None:

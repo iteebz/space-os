@@ -1,41 +1,20 @@
 import contextlib
 
-import pytest
-
 from space.bridge.api import channels
 
 
-@pytest.fixture
-def setup_prefix_channels():
-    test_channels = [
-        "protoss-arbiter",
-        "protoss-ascension",
-        "bridge-context",
-        "bridge-meta",
-        "space-feedback",
-        "random-channel",
-    ]
-
-    for name in test_channels:
-        with contextlib.suppress(Exception):
-            channels.delete_channel(name)
-
-    created = []
-    for name in test_channels:
-        cid = channels.create_channel(name)
-        created.append((name, cid))
-
-    yield created
-
-    for name, _ in created:
-        with contextlib.suppress(Exception):
-            channels.delete_channel(name)
-
-
-def test_with_prefix_flag(setup_prefix_channels):
+def test_with_prefix_flag(test_space):
     from unittest.mock import MagicMock
 
     from space.bridge.commands.channels import archive
+
+    # Manually create channels
+    channels.create_channel("protoss-arbiter")
+    channels.create_channel("protoss-ascension")
+    channels.create_channel("bridge-context")
+    channels.create_channel("bridge-meta")
+    channels.create_channel("space-feedback")
+    channels.create_channel("random-channel")
 
     MagicMock()
 
@@ -58,9 +37,26 @@ def test_with_prefix_flag(setup_prefix_channels):
     assert "space-feedback" in active
     assert "random-channel" in active
 
+    # Teardown
+    for name in [
+        "protoss-arbiter",
+        "protoss-ascension",
+        "bridge-context",
+        "bridge-meta",
+        "space-feedback",
+        "random-channel",
+    ]:
+        with contextlib.suppress(Exception):
+            channels.delete_channel(name)
 
-def test_without_prefix_flag(setup_prefix_channels):
+
+def test_without_prefix_flag(test_space):
     from space.bridge.commands.channels import archive
+
+    # Manually create channels
+    channels.create_channel("protoss-arbiter")
+    channels.create_channel("random-channel")
+    channels.create_channel("space-feedback")
 
     archive(
         channels=["random-channel"],
@@ -75,3 +71,8 @@ def test_without_prefix_flag(setup_prefix_channels):
     assert "random-channel" in archived
     assert "protoss-arbiter" not in archived
     assert "space-feedback" not in archived
+
+    # Teardown
+    for name in ["protoss-arbiter", "random-channel", "space-feedback"]:
+        with contextlib.suppress(Exception):
+            channels.delete_channel(name)

@@ -6,8 +6,8 @@ import typer
 
 from ... import events
 from ...spawn import registry
-from ...spawn.registry import get_agent_name
-from .. import api
+from ...spawn.registry import get_identity
+from ..api.channels import export_channel
 
 app = typer.Typer()
 
@@ -26,20 +26,23 @@ def export(
     try:
         if agent_id:
             events.emit("bridge", "export_starting", agent_id, json.dumps({"channel": channel}))
-        data = api.export_channel(channel)
+        data = export_channel(channel)
 
         if json_output:
-            from ..utils import resolve_agent_names
-
-            export_data = resolve_agent_names(data)
-            typer.echo(json.dumps(asdict(export_data), indent=2))
+            export_data_dict = asdict(data)
+            export_data_dict["participants"] = [get_identity(p) or p for p in data.participants]
+            for msg in export_data_dict["messages"]:
+                msg["agent_id"] = get_identity(msg["agent_id"]) or msg["agent_id"]
+            for note in export_data_dict["notes"]:
+                note["agent_id"] = get_identity(note["agent_id"]) or note["agent_id"]
+            typer.echo(json.dumps(export_data_dict, indent=2))
         elif not quiet_output:
             typer.echo(f"# {data.channel_name}")
             typer.echo()
             if data.topic:
                 typer.echo(f"Topic: {data.topic}")
                 typer.echo()
-            participant_names = [get_agent_name(p) or p for p in data.participants]
+            participant_names = [get_identity(p) or p for p in data.participants]
             typer.echo(f"Participants: {', '.join(participant_names)}")
             typer.echo(f"Messages: {data.message_count}")
 
@@ -64,12 +67,12 @@ def export(
                 timestamp = created.strftime("%Y-%m-%d %H:%M:%S")
 
                 if item_type == "msg":
-                    sender_name = get_agent_name(item.sender) or item.sender
+                    sender_name = get_identity(item.agent_id) or item.agent_id
                     typer.echo(f"[{sender_name} | {timestamp}]")
                     typer.echo(item.content)
                     typer.echo()
                 else:
-                    author_name = get_agent_name(item.author) or item.author
+                    author_name = get_identity(item.agent_id) or item.agent_id
                     typer.echo(f"[NOTE: {author_name} | {timestamp}]")
                     typer.echo(item.content)
                     typer.echo()

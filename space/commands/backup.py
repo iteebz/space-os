@@ -5,17 +5,15 @@ from pathlib import Path
 
 import typer
 
-from ..lib.db import workspace_root
+from ..lib import paths
 
 
 def backup(
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+    quiet_output: bool = typer.Option(False, "--quiet", help="Suppress output"),
 ):
-    """Backup workspace .space directory to ~/.space/backups/"""
-    workspace_space = workspace_root() / ".space"
+    """Backup the app data directory (~/space/.space) to ~/.space/backups/"""
+    workspace_space = paths.dot_space()
     if not workspace_space.exists():
         if not quiet_output:
             typer.echo("No .space directory in current workspace")

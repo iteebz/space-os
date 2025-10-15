@@ -2,7 +2,6 @@ from . import paths
 
 
 def load_canon() -> str | None:
-    """Load human's canonical values from ~/.space/.space/canon.md."""
     canon = paths.canon_path()
     if not canon.exists():
         return None

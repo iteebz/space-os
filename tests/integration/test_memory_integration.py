@@ -31,21 +31,21 @@ def test_memory_replace_single(test_space):
     agent_id = registry.ensure_agent(identity)
     db.add_entry(agent_id, "insight", "initial thought")
 
-    entries = db.get_entries(identity, topic="insight")
-    old_id = entries[0].uuid
+    entries = db.get_memories(identity, topic="insight")
+    old_id = entries[0].memory_id
 
     new_uuid = db.replace_entry(
         [old_id], agent_id, "insight", "refined thought", "improved clarity"
     )
     assert new_uuid is not None
 
-    active = db.get_entries(identity, include_archived=False)
+    active = db.get_memories(identity, include_archived=False)
     active_insights = [e for e in active if e.topic == "insight"]
     assert len(active_insights) == 1
     assert active_insights[0].message == "refined thought"
 
-    archived = db.get_entries(identity, include_archived=True)
-    archived_entries = [e for e in archived if e.archived_at is not None]
+    archived_memories = db.get_memories(identity, include_archived=True)
+    archived_entries = [e for e in archived_memories if e.archived_at is not None]
     assert len(archived_entries) == 1
     assert archived_entries[0].message == "initial thought"
 
@@ -61,20 +61,19 @@ def test_replace_merge(test_space):
     db.add_entry(agent_id, "idea", "thought two")
     db.add_entry(agent_id, "idea", "thought three")
 
-    entries = db.get_entries(identity, topic="idea")
-    ids = [e.uuid for e in entries]
+    entries = db.get_memories(identity, topic="idea")
+    ids = [e.memory_id for e in entries]
 
     new_uuid = db.replace_entry(
         ids, agent_id, "idea", "unified insight", "merged redundant thoughts"
     )
     assert new_uuid is not None
-
-    active = db.get_entries(identity, include_archived=False)
-    active_ideas = [e for e in active if e.topic == "idea"]
+    active_memories = db.get_memories(identity, include_archived=False)
+    active_ideas = [e for e in active_memories if e.topic == "idea"]
     assert len(active_ideas) == 1
     assert active_ideas[0].message == "unified insight"
 
-    archived = db.get_entries(identity, include_archived=True)
+    archived = db.get_memories(identity, include_archived=True)
     archived_entries = [e for e in archived if e.archived_at is not None]
     assert len(archived_entries) == 3
 
@@ -88,9 +87,8 @@ def test_memory_chain_query(test_space):
     agent_id = registry.ensure_agent(identity)
     db.add_entry(agent_id, "evolution", "version 1")
 
-    entries = db.get_entries(identity, topic="evolution")
-    v1_id = entries[0].uuid
-
+    memories = db.get_memories(identity, topic="evolution")
+    v1_id = memories[0].memory_id
     v2_id = db.replace_entry([v1_id], agent_id, "evolution", "version 2", "iteration")
 
     chain = db.get_chain(v2_id)

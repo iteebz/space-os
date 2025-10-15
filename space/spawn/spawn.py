@@ -41,16 +41,16 @@ def get_base_identity(role: str) -> str:
 
 
 def inject_identity(
-    base_constitution_content: str, role: str, agent_name: str, model: str | None = None
+    base_constitution_content: str, role: str, identity: str, model: str | None = None
 ) -> str:
     """Injects identity (self-description + model) into the constitution."""
     header = f"# {role.upper()} CONSTITUTION"
-    footer = f"run `space` for orientation (already in PATH).\nrun: `memory --as {agent_name}` to access memories."
+    footer = f"run `space` for orientation (already in PATH).\nrun: `memory --as {identity}` to access memories."
 
     self_desc = (
-        f"Self: You are {agent_name}. Your model is {model}."
+        f"Self: You are {identity}. Your model is {model}."
         if model
-        else f"Self: You are {agent_name}."
+        else f"Self: You are {identity}."
     )
 
     # Inject canon into the base constitution content
@@ -62,7 +62,7 @@ def inject_identity(
 
 def launch_agent(
     role: str,
-    agent_name: str | None = None,
+    identity: str | None = None,
     base_identity: str | None = None,  # CLI client (claude, gemini, codex)
     extra_args: list[str] | None = None,
     model: str | None = None,
@@ -82,8 +82,8 @@ def launch_agent(
 
     cfg = load_config()
 
-    # Use agent_name if provided, otherwise infer from role's base_identity
-    actual_agent_name = agent_name or get_base_identity(role)
+    # Use identity if provided, otherwise infer from role's base_identity
+    actual_identity = identity or get_base_identity(role)
     # Use base_identity if provided, otherwise infer from role's base_identity
     actual_base_identity = base_identity or get_base_identity(role)
     agent_cfg = cfg.get("agents", {}).get(actual_base_identity)
@@ -95,15 +95,15 @@ def launch_agent(
 
     const_path = get_constitution_path(role)
     base_content = const_path.read_text()
-    full_identity = inject_identity(base_content, role, actual_agent_name, actual_model)
+    full_identity = inject_identity(base_content, role, actual_identity, actual_model)
     const_hash = hash_content(full_identity)
     registry.save_constitution(const_hash, full_identity)
 
-    _write_identity_file(actual_base_identity, actual_agent_name, full_identity)
+    _write_identity_file(actual_base_identity, actual_identity, full_identity)
 
     command_tokens = _parse_command(agent_cfg["command"])
     env = _build_launch_env()
-    workspace_root = paths.workspace_root()
+    workspace_root = paths.space_root()
     env["PWD"] = str(workspace_root)
     command_tokens[0] = _resolve_executable(command_tokens[0], env)
 
@@ -113,25 +113,24 @@ def launch_agent(
 
     model_suffix = f" (model: {actual_model})" if actual_model else ""
     click.echo(
-        f"Spawning {actual_agent_name} (base: {actual_base_identity}) as a {role}{model_suffix}..."
+        f"Spawning {actual_identity} (base: {actual_base_identity}) as a {role}{model_suffix}..."
     )
     click.echo(f"Executing: {' '.join(full_command)}")
     subprocess.run(full_command, env=env, check=False, cwd=str(workspace_root))
 
 
-def _write_identity_file(base_identity: str, agent_name: str, content: str) -> None:
+def _write_identity_file(base_identity: str, identity: str, content: str) -> None:
     """Write constitution to the base identity's file (CLAUDE.md, GEMINI.md, etc)."""
     filename_map = {
         "claude": "CLAUDE.md",
         "gemini": "GEMINI.md",
-        "codex": f"CODEX-{agent_name}.md",
-        "chatgpt": "CHATGPT.md",
+        "codex": "AGENTS.md",
     }
     filename = filename_map.get(base_identity)
     if not filename:
         raise ValueError(f"Unknown base_identity: {base_identity}")
 
-    target = paths.workspace_root() / filename
+    target = paths.space_root() / filename
     target.write_text(content)
 
 

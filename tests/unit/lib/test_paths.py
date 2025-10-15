@@ -1,89 +1,31 @@
-import tempfile
 from pathlib import Path
 
 from space.lib import paths
 
 
-def test_workspace_root_finds_dot_space():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        workspace = Path(tmpdir) / "project"
-        workspace.mkdir()
-        (workspace / ".space").mkdir()
-
-        subdir = workspace / "nested" / "deep"
-        subdir.mkdir(parents=True)
-
-        import os
-
-        orig_cwd = os.getcwd()
-        try:
-            os.chdir(subdir)
-            assert paths.workspace_root().resolve() == workspace.resolve()
-        finally:
-            os.chdir(orig_cwd)
+def test_space_root():
+    assert paths.space_root() == Path.home() / "space"
 
 
-def test_workspace_root_fallback_cwd():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        workspace = Path(tmpdir) / "no-dotspace"
-        workspace.mkdir()
-
-        import os
-
-        orig_cwd = os.getcwd()
-        try:
-            os.chdir(workspace)
-            assert paths.workspace_root().resolve() == workspace.resolve()
-        finally:
-            os.chdir(orig_cwd)
+def test_dot_space():
+    assert paths.dot_space() == Path.home() / "space" / ".space"
 
 
-def test_space_root_finds_dot_space():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        workspace = Path(tmpdir) / "project"
-        workspace.mkdir()
-        dotspace = workspace / ".space"
-        dotspace.mkdir()
-
-        subdir = workspace / "nested" / "deep"
-        subdir.mkdir(parents=True)
-
-        import os
-
-        orig_cwd = os.getcwd()
-        try:
-            os.chdir(subdir)
-            assert paths.space_root().resolve() == dotspace.resolve()
-        finally:
-            os.chdir(orig_cwd)
-
-
-def test_space_root_fallback_home():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        workspace = Path(tmpdir) / "no-dotspace"
-        workspace.mkdir()
-
-        import os
-
-        orig_cwd = os.getcwd()
-        try:
-            os.chdir(workspace)
-            assert paths.space_root() == Path.home() / ".space"
-        finally:
-            os.chdir(orig_cwd)
+def test_backup_root():
+    assert paths.backup_root() == Path.home() / ".space"
 
 
 def test_canon_path_from_config(mocker):
+    mock_space_root = Path("/tmp/test_space")
+    mocker.patch("space.lib.paths.space_root", return_value=mock_space_root)
     mocker.patch("space.lib.config.load_config", return_value={"canon_path": "my_canon_dir"})
-    mocker.patch("space.lib.paths.space_root", return_value=Path("/tmp/test_space"))
-    expected_path = Path("/tmp/test_space") / "my_canon_dir"
+    expected_path = mock_space_root / "my_canon_dir"
     assert paths.canon_path() == expected_path
 
 
 def test_canon_path_default(mocker):
+    mock_space_root = Path("/tmp/test_space_root")
+    mocker.patch("space.lib.paths.space_root", return_value=mock_space_root)
     mocker.patch("space.lib.config.load_config", return_value={})
-    mocker.patch(
-        "space.lib.paths.space_root", return_value=Path("/tmp/test_space_root")
-    )  # Mock space_root
-    expected_path = Path("/tmp/test_space_root") / "canon"
+    expected_path = mock_space_root / "canon"
     assert paths.canon_path() == expected_path

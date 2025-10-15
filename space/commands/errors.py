@@ -22,5 +22,5 @@ def errors(
     typer.echo(f"Last {len(errors_only)} errors:\n")
     for event in errors_only:
         event_id, source, event_agent_id, event_type, data, timestamp = event
-        agent_name = registry.get_agent_name(event_agent_id) if event_agent_id else "system"
+        agent_name = registry.get_identity(event_agent_id) if event_agent_id else "system"
         typer.echo(f"[{source}] {agent_name}: {data}")
