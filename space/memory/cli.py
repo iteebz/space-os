@@ -147,6 +147,7 @@ def list_entries_command(
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
+    raw_output: bool = typer.Option(False, "--raw", help="Output raw timestamps instead of humanized."),
 ):
     """List memory entries for an identity and optional topic."""
     identity_lib.constitute_identity(identity)
@@ -172,8 +173,9 @@ def list_entries_command(
                 typer.echo(f"# {e.topic}")
                 current_topic = e.topic
             core_mark = " ★" if e.core else ""
+            timestamp_display = e.timestamp if raw_output else humanize_timestamp(e.timestamp)
             typer.echo(
-                f"[{e.uuid[-8:]}] [{humanize_timestamp(e.timestamp)}] {e.message}{core_mark}"
+                f"[{e.uuid[-8:]}] [{timestamp_display}] {e.message}{core_mark}"
             )
 
         show_context(identity)

@@ -3,7 +3,7 @@ from space.spawn import config
 
 
 def test_init_creates_default_file(tmp_path, monkeypatch):
-    monkeypatch.setattr(libconfig, "workspace_root", lambda: tmp_path)
+    monkeypatch.setattr(libconfig.paths, "space_root", lambda: tmp_path / ".space")
 
     target = tmp_path / ".space" / "config.yaml"
     assert not target.exists()
@@ -15,7 +15,7 @@ def test_init_creates_default_file(tmp_path, monkeypatch):
 
 
 def test_init_no_overwrite(tmp_path, monkeypatch):
-    monkeypatch.setattr(libconfig, "workspace_root", lambda: tmp_path)
+    monkeypatch.setattr(libconfig.paths, "space_root", lambda: tmp_path / ".space")
 
     target = tmp_path / ".space" / "config.yaml"
     target.parent.mkdir(parents=True, exist_ok=True)

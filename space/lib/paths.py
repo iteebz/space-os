@@ -39,5 +39,5 @@ def canon_path() -> Path:
     config = load_config()
     configured_path = config.get("canon_path")
     if configured_path:
-        return workspace_root() / configured_path
+        return space_root() / configured_path
     return space_root() / "canon"

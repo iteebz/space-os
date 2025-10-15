@@ -78,9 +78,6 @@ def test_codex_writes_agents_manifest(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(spawn.shutil, "which", lambda cmd, path=None: cmd)
     monkeypatch.setattr("subprocess.run", lambda *args, **kwargs: None)
 
-    agents_file = tmp_path / "AGENTS.md"
-    agents_file.write_text("ZEALOT CONSTITUTION\n")
-
     # Mock registry access
     monkeypatch.setattr(spawn.registry, "init_db", lambda: None)
     monkeypatch.setattr(spawn.registry, "get_self_description", lambda agent_name: None)
@@ -94,7 +91,8 @@ def test_codex_writes_agents_manifest(tmp_path: Path, monkeypatch):
         model="gpt-5-codex",
     )
 
-    content = agents_file.read_text()
+    codex_file = tmp_path / "CODEX-kitsuragi.md"
+    content = codex_file.read_text()
     assert "# KITSURAGI CONSTITUTION" in content
     assert "Self: You are kitsuragi. Your model is gpt-5-codex." in content
     assert "# LIEUTENANT KIM KITSURAGI" in content

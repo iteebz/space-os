@@ -99,7 +99,7 @@ def launch_agent(
     const_hash = hash_content(full_identity)
     registry.save_constitution(const_hash, full_identity)
 
-    _write_identity_file(actual_base_identity, full_identity)
+    _write_identity_file(actual_base_identity, actual_agent_name, full_identity)
 
     command_tokens = _parse_command(agent_cfg["command"])
     env = _build_launch_env()
@@ -119,12 +119,12 @@ def launch_agent(
     subprocess.run(full_command, env=env, check=False, cwd=str(workspace_root))
 
 
-def _write_identity_file(base_identity: str, content: str) -> None:
+def _write_identity_file(base_identity: str, agent_name: str, content: str) -> None:
     """Write constitution to the base identity's file (CLAUDE.md, GEMINI.md, etc)."""
     filename_map = {
         "claude": "CLAUDE.md",
         "gemini": "GEMINI.md",
-        "codex": "AGENTS.md",
+        "codex": f"CODEX-{agent_name}.md",
         "chatgpt": "CHATGPT.md",
     }
     filename = filename_map.get(base_identity)

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from . import db, paths
+from .display import humanize_timestamp
 
 
 @dataclass
@@ -330,28 +331,7 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
                 if agent_name in identities:
                     identities[agent_name]["last_active"] = str(row[1])
 
-    def humanize_time(ts_str: str) -> str:
-        if not ts_str:
-            return None
-        try:
-            ts = datetime.fromtimestamp(int(ts_str))
-            now = datetime.now()
-            delta = now - ts
 
-            if delta < timedelta(minutes=1):
-                return "just now"
-            if delta < timedelta(hours=1):
-                mins = int(delta.total_seconds() / 60)
-                return f"{mins}m ago"
-            if delta < timedelta(days=1):
-                hours = int(delta.total_seconds() / 3600)
-                return f"{hours}h ago"
-            if delta < timedelta(days=7):
-                days = delta.days
-                return f"{days}d ago"
-            return ts.strftime("%b %d")
-        except (ValueError, TypeError):
-            return None
 
     agents = [
         AgentStats(
@@ -362,7 +342,7 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
             knowledge=data["knowledge"],
             channels=data.get("channels", []),
             last_active=data.get("last_active"),
-            last_active_human=humanize_time(data.get("last_active")),
+            last_active_human=humanize_timestamp(data.get("last_active")) if data.get("last_active") else None,
         )
         for ident, data in identities.items()
     ]
