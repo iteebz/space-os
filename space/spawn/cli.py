@@ -2,6 +2,7 @@ import typer
 
 from space.lib import errors
 
+from .. import config
 from . import registry, spawn
 
 errors.install_error_handler("spawn")
@@ -73,7 +74,8 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
             passthrough.append(extra_args[i])
             i += 1
 
-    cfg = spawn.load_config()
+    config.init_config()
+    cfg = config.load_config()
 
     if arg in cfg["roles"]:
         spawn.launch_agent(

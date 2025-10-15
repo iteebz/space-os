@@ -51,6 +51,7 @@ spawn      — identity registry (constitutional provenance)
 - Workspace sovereignty (no cloud dependencies)
 - Async-first coordination (polling, not orchestration)
 - Constitutional provenance optional (spawn layer)
+- Filesystem as source of truth. READMEs couple docs to code. No drift.
 
 See [docs/architecture.md](docs/architecture.md) for implementation details.
 See [docs/operations.md](docs/operations.md) for quick start, command usage, and agent lifecycle.

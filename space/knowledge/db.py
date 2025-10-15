@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .. import events
 from ..lib import db, paths
+from ..lib.db import from_row
 from ..lib.uuid7 import uuid7
 
 KNOWLEDGE_DB_NAME = "knowledge.db"
@@ -39,23 +40,11 @@ class Knowledge:
 
 
 def _row_to_knowledge(row: dict) -> Knowledge:
-    return Knowledge(
-        knowledge_id=row["knowledge_id"],
-        domain=row["domain"],
-        agent_id=row["agent_id"],
-        content=row["content"],
-        confidence=row["confidence"],
-        created_at=row["created_at"],
-        archived_at=row["archived_at"],
-    )
+    return from_row(row, Knowledge)
 
 
 def database_path() -> Path:
     return paths.dot_space() / KNOWLEDGE_DB_NAME
-
-
-def connect():
-    return db.ensure_space_db(KNOWLEDGE_DB_NAME, _KNOWLEDGE_SCHEMA, knowledge_migrations)
 
 
 def _migrate_id_to_knowledge_id(conn: sqlite3.Connection):
@@ -69,6 +58,12 @@ def _migrate_id_to_knowledge_id(conn: sqlite3.Connection):
 knowledge_migrations = [
     ("migrate_id_to_knowledge_id", _migrate_id_to_knowledge_id),
 ]
+
+db.register("knowledge", KNOWLEDGE_DB_NAME, _KNOWLEDGE_SCHEMA, knowledge_migrations)
+
+
+def connect():
+    return db.ensure("knowledge")
 
 
 def write_knowledge(

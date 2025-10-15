@@ -39,14 +39,16 @@ def get_identity(ctx: typer.Context, identity: str | None = None) -> str | None:
 
 
 def _get_role_and_config(identity: str) -> tuple[str, dict] | None:
-    from ..spawn import registry, spawn
+    from .. import config
+    from ..spawn import registry
 
     role = extract_role(identity)
     if not role:
         return None
 
     registry.init_db()
-    cfg = spawn.load_config()
+    config.init_config()
+    cfg = config.load_config()
     if role not in cfg["roles"]:
         return None
     return role, cfg

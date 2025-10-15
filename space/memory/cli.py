@@ -8,9 +8,8 @@ from space import events, readme
 from space.lib import errors
 from space.spawn import registry
 
-from ..lib import identity as identity_lib
-from . import db, display
-from .display import show_context
+from ..lib import display, identity as identity_lib
+from . import db
 
 errors.install_error_handler("memory")
 
@@ -277,7 +276,7 @@ def list_entries_command(
         typer.echo(display.format_memory_entries(entries, raw_output=raw_output))
 
         if not quiet_output and not json_output:
-            show_context(resolved_identity)
+            display.show_context(resolved_identity)
 
 
 @app.command("archive")

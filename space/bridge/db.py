@@ -4,7 +4,7 @@ import uuid
 from space.models import Channel, Export, Message, Note
 
 from ..lib import db
-from ..lib.db import row_to_dataclass
+from ..lib.db import from_row
 from ..lib.uuid7 import uuid7
 
 _SCHEMA = """
@@ -49,11 +49,6 @@ CREATE INDEX IF NOT EXISTS idx_messages_priority ON messages(priority);
 CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id);
 """
 
-
-def connect():
-    return db.ensure_space_db("bridge.db", _SCHEMA, bridge_migrations)
-
-
 bridge_migrations = [
     (
         "migrate_messages_id_to_text",
@@ -76,6 +71,12 @@ bridge_migrations = [
     ),
 ]
 
+db.register("bridge", "bridge.db", _SCHEMA, bridge_migrations)
+
+
+def connect():
+    return db.ensure("bridge")
+
 
 def create_message(channel_id: str, agent_id: str, content: str, priority: str = "normal") -> str:
     message_id = uuid7()
@@ -88,11 +89,11 @@ def create_message(channel_id: str, agent_id: str, content: str, priority: str =
 
 
 def _row_to_message(row: sqlite3.Row) -> Message:
-    return row_to_dataclass(row, Message)
+    return from_row(row, Message)
 
 
 def _row_to_note(row: sqlite3.Row) -> Note:
-    return row_to_dataclass(row, Note)
+    return from_row(row, Note)
 
 
 def get_new_messages(channel_id: str, agent_id: str) -> list[Message]:
@@ -108,7 +109,7 @@ def get_new_messages(channel_id: str, agent_id: str) -> list[Message]:
             last_seen_id = row["last_seen_id"] if row else None
 
         base_query = """
-            SELECT m.id, m.channel_id, m.agent_id, m.content, m.created_at
+            SELECT m.id AS message_id, m.channel_id, m.agent_id, m.content, m.created_at
             FROM messages m
             JOIN channels c ON m.channel_id = c.id
             WHERE m.channel_id = ? AND c.archived_at IS NULL
@@ -129,7 +130,7 @@ def get_new_messages(channel_id: str, agent_id: str) -> list[Message]:
 def get_all_messages(channel_id: str) -> list[Message]:
     with connect() as conn:
         cursor = conn.execute(
-            "SELECT id, channel_id, agent_id, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
+            "SELECT id AS message_id, channel_id, agent_id, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
             (channel_id,),
         )
         return [_row_to_message(row) for row in cursor.fetchall()]
@@ -148,7 +149,7 @@ def get_alerts(agent_id: str) -> list[Message]:
     with connect() as conn:
         cursor = conn.execute(
             """
-            SELECT m.id, m.channel_id, m.agent_id, m.content, m.created_at
+            SELECT m.id AS message_id, m.channel_id, m.agent_id, m.content, m.created_at
             FROM messages m
             LEFT JOIN bookmarks b ON m.channel_id = b.channel_id AND b.agent_id = ?
             WHERE m.priority = 'alert' AND (b.last_seen_id IS NULL OR m.id > b.last_seen_id)
@@ -163,7 +164,7 @@ def get_sender_history(agent_id: str, limit: int = 5) -> list[Message]:
     with connect() as conn:
         cursor = conn.execute(
             """
-            SELECT m.id, m.channel_id, m.agent_id, m.content, m.created_at
+            SELECT m.id AS message_id, m.channel_id, m.agent_id, m.content, m.created_at
             FROM messages m
             WHERE m.agent_id = ?
             ORDER BY m.created_at DESC

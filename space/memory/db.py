@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .. import events
 from ..lib import db, paths
+from ..lib.db import from_row
 from ..lib.uuid7 import uuid7
 from ..models import Memory
 from ..spawn import registry
@@ -40,10 +41,6 @@ CREATE INDEX IF NOT EXISTS idx_memories_core ON memories(core);
 
 def database_path() -> Path:
     return paths.dot_space() / MEMORY_DB_NAME
-
-
-def connect():
-    return db.ensure_space_db(MEMORY_DB_NAME, _MEMORY_SCHEMA, memory_migrations)
 
 
 def _migrate_memory_table_to_memories(conn: sqlite3.Connection):
@@ -85,6 +82,12 @@ memory_migrations = [
     ("migrate_memory_table_to_memories", _migrate_memory_table_to_memories),
 ]
 
+db.register("memory", MEMORY_DB_NAME, _MEMORY_SCHEMA, memory_migrations)
+
+
+def connect():
+    return db.ensure("memory")
+
 
 def _resolve_memory_id(short_id: str) -> str:
     with connect() as conn:
@@ -117,22 +120,9 @@ def add_entry(agent_id: str, topic: str, message: str, core: bool = False, sourc
 
 
 def _row_to_memory(row: dict) -> Memory:
-    return Memory(
-        memory_id=row["memory_id"],
-        agent_id=row["agent_id"],
-        topic=row["topic"],
-        message=row["message"],
-        timestamp=row["timestamp"],
-        created_at=row["created_at"],
-        archived_at=row["archived_at"],
-        core=bool(row["core"]),
-        source=row["source"],
-        bridge_channel=row["bridge_channel"],
-        code_anchors=row["code_anchors"],
-        synthesis_note=row["synthesis_note"],
-        supersedes=row["supersedes"],
-        superseded_by=row["superseded_by"],
-    )
+    mem = from_row(row, Memory)
+    mem.core = bool(mem.core)
+    return mem
 
 
 def get_memories(

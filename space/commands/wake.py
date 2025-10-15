@@ -141,7 +141,7 @@ def _show_initiation(identity: str, quiet: bool, spawn_count: int):
 def _show_orientation(identity: str, quiet: bool, spawn_count: int):
     """Standard wake: context + coordination state."""
     from ..bridge.api import channels as bridge_channels
-    from ..memory.display import show_wake_summary
+    from ..lib.display import show_wake_summary
 
     show_wake_summary(identity=identity, quiet_output=quiet, spawn_count=spawn_count)
     typer.echo()

@@ -5,17 +5,9 @@ import shutil
 import sys
 from pathlib import Path
 
-import yaml
-
 from .. import config
 from ..lib import paths
 from . import registry
-
-
-def load_config() -> dict:
-    config.init_config()
-    with open(config.config_file()) as f:
-        return yaml.safe_load(f)
 
 
 def hash_content(content: str) -> str:
@@ -27,13 +19,15 @@ def hash_content(content: str) -> str:
 
 
 def get_constitution_path(role: str) -> Path:
-    cfg = load_config()
+    config.init_config()
+    cfg = config.load_config()
     constitution_filename = cfg["roles"][role]["constitution"]
     return paths.constitution(constitution_filename)
 
 
 def get_base_identity(role: str) -> str:
-    cfg = load_config()
+    config.init_config()
+    cfg = config.load_config()
     if role not in cfg["roles"]:
         raise ValueError(f"Unknown role: {role}")
     return cfg["roles"][role]["base_identity"]
@@ -41,7 +35,8 @@ def get_base_identity(role: str) -> str:
 
 def resolve_model_alias(alias: str) -> str:
     """Resolve model alias to full model name."""
-    cfg = load_config()
+    config.init_config()
+    cfg = config.load_config()
     aliases = cfg.get("model_aliases", {})
     return aliases.get(alias, alias)
 
@@ -82,7 +77,8 @@ def launch_agent(
 
     import click
 
-    cfg = load_config()
+    config.init_config()
+    cfg = config.load_config()
 
     # Use identity if provided, otherwise infer from role's base_identity
     actual_identity = identity or get_base_identity(role)

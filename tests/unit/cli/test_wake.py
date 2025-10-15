@@ -109,7 +109,7 @@ def test_wake_prioritizes_space_feedback(test_space):
 
 def test_show_wake_summary_uses_prompt_constants(test_space):
     from space.commands import wake
-    from space.memory.display import show_wake_summary
+    from space.lib.display import show_wake_summary
     from space.spawn import registry
 
     identity = "test-agent"

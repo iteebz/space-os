@@ -5,13 +5,10 @@ import json
 import typer
 
 from space import readme
-from space.lib import errors
+from space.lib import display, errors
 
 from ..lib.paths import canon_path
-from . import (
-    db,  # Add this import
-    display,  # Add this import
-)
+from . import db
 
 errors.install_error_handler("context")
 
