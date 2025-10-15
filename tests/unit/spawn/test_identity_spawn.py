@@ -1,4 +1,3 @@
-from space.lib import paths
 from space.spawn import registry, spawn
 
 
@@ -29,9 +28,10 @@ def test_inject_with_model(test_space, mocker):
 def test_inject_canon(test_space, mocker):
     """Injects canon before constitution."""
     mocker.patch("space.lib.paths.dot_space", return_value=test_space)
-    canon_path = paths.canon_path()
-    canon_path.parent.mkdir(parents=True, exist_ok=True)
-    canon_path.write_text("# CANON\n1. Truth\n2. Speed\n3. Craft")
+    canon_dir = test_space / "canon"
+    canon_dir.mkdir(parents=True, exist_ok=True)
+    (canon_dir / "test_canon.md").write_text("# CANON\n1. Truth\n2. Speed\n3. Craft")
+    mocker.patch("space.lib.paths.canon_path", return_value=canon_dir)
 
     constitution = "# ZEALOT CONSTITUTION\nPurge bullshit."
     result = spawn.inject_identity(constitution, "zealot", "zealot-1")
@@ -52,9 +52,10 @@ def test_inject_assembly_order(test_space, mocker):
     registry.init_db()
     registry.set_self_description("zealot-1", "Skeptical partner")
 
-    canon_path = paths.canon_path()
-    canon_path.parent.mkdir(parents=True, exist_ok=True)
-    canon_path.write_text("# CANON\n1. Truth")
+    canon_dir = test_space / "canon"
+    canon_dir.mkdir(parents=True, exist_ok=True)
+    (canon_dir / "test_canon.md").write_text("# CANON\n1. Truth")
+    mocker.patch("space.lib.paths.canon_path", return_value=canon_dir)
 
     constitution = "# CONSTITUTION\nCore rules."
     result = spawn.inject_identity(constitution, "zealot", "zealot-1", model="claude-sonnet-4-5")

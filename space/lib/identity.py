@@ -38,38 +38,50 @@ def get_identity(ctx: typer.Context, identity: str | None = None) -> str | None:
     return identity or (ctx.obj or {}).get("identity")
 
 
-def constitute_identity(identity: str):
-    """Hash constitution and emit provenance event."""
-    from .. import events
+def _get_role_and_config(identity: str) -> tuple[str, dict] | None:
     from ..spawn import registry, spawn
 
     role = extract_role(identity)
     if not role:
+        return None
+
+    registry.init_db()
+    cfg = spawn.load_config()
+    if role not in cfg["roles"]:
+        return None
+    return role, cfg
+
+
+def _process_constitution(role: str) -> tuple[str, str]:
+    from ..spawn import registry, spawn
+
+    const_path = spawn.get_constitution_path(role)
+    final_constitution_content = const_path.read_text()
+    const_hash = spawn.hash_content(final_constitution_content)
+    registry.save_constitution(const_hash, final_constitution_content)
+    return const_hash, final_constitution_content
+
+
+def constitute_identity(identity: str, event_source: str = "memory"):
+    """Hash constitution and emit provenance event."""
+    from .. import events
+    from ..spawn import registry
+
+    result = _get_role_and_config(identity)
+    if not result:
         return
+    role, cfg = result
 
-    try:
-        registry.init_db()
-        cfg = spawn.load_config()
-        if role not in cfg["roles"]:
-            return
+    const_hash, _ = _process_constitution(role)
 
-        const_path = spawn.get_constitution_path(role)
-        base_constitution = const_path.read_text()
-        model = extract_model_from_identity(identity)
-        full_identity = spawn.inject_identity(base_constitution, role, identity, model)
-        const_hash = spawn.hash_content(full_identity)
-        registry.save_constitution(const_hash, full_identity)
-
-        agent_id = registry.ensure_agent(identity)
-        model = extract_model_from_identity(identity)
-        events.emit(
-            "memory",
-            "constitution_invoked",
-            agent_id,
-            json.dumps({"constitution_hash": const_hash, "role": role, "model": model}),
-        )
-    except (FileNotFoundError, ValueError):
-        pass
+    agent_id = registry.ensure_agent(identity)
+    model = extract_model_from_identity(identity, cfg)
+    events.emit(
+        event_source,
+        "constitution_invoked",
+        agent_id,
+        json.dumps({"constitution_hash": const_hash, "role": role, "model": model}),
+    )
 
 
 def extract_role(identity: str) -> str | None:
@@ -79,22 +91,16 @@ def extract_role(identity: str) -> str | None:
     return identity
 
 
-def extract_model_from_identity(identity: str) -> str | None:
+def extract_model_from_identity(identity: str, cfg: dict) -> str | None:
     """Extract model name from spawn config based on identity."""
-    from ..spawn import spawn
-
     role = extract_role(identity)
     if not role:
         return None
 
-    try:
-        cfg = spawn.load_config()
-        if role in cfg["roles"]:
-            base_identity = cfg["roles"][role].get("base_identity")
-            if base_identity and "agents" in cfg:
-                agent_cfg = cfg["agents"].get(base_identity, {})
-                return agent_cfg.get("model")
-    except (FileNotFoundError, ValueError, KeyError):
-        pass
+    if role in cfg["roles"]:
+        base_identity = cfg["roles"][role].get("base_identity")
+        if base_identity and "agents" in cfg:
+            agent_cfg = cfg["agents"].get(base_identity, {})
+            return agent_cfg.get("model")
 
     return None

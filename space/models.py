@@ -1,6 +1,6 @@
 """Shared data models and types."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -23,15 +23,11 @@ class Channel:
     topic: str | None = None
     created_at: str | None = None
     archived_at: str | None = None
-    participants: list[str] = None
+    participants: list[str] = field(default_factory=list)
     message_count: int = 0
     last_activity: str | None = None
     unread_count: int = 0
     notes_count: int = 0
-
-    def __post_init__(self):
-        if self.participants is None:
-            self.participants = []
 
 
 @dataclass
@@ -80,9 +76,9 @@ class Memory:
     source: str = "manual"
     bridge_channel: str | None = None
     code_anchors: str | None = None
+    synthesis_note: str | None = None
     supersedes: str | None = None
     superseded_by: str | None = None
-    synthesis_note: str | None = None
 
 
 @dataclass

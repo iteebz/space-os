@@ -5,7 +5,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry]
 name = "space-os"
 version = "0.1.0"
-description = "Constitutional cognitive infrastructure"
+description = "Infrastructure primitives enabling autonomous agent coordination with constitutional identity"
 authors = ["Tyson Chan <tyson.chan@proton.me>"]
 readme = "README.md"
 packages = [
@@ -19,7 +19,6 @@ include = [
 [tool.poetry.dependencies]
 python = "^3.12"
 typer = "^0.17.4"
-textual = "^0.61.0"
 pyyaml = "^6.0"
 
 [tool.poetry.scripts]

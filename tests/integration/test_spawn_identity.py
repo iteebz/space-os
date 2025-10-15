@@ -9,7 +9,7 @@ from space.spawn import spawn
 
 @pytest.fixture
 def mock_config_files(tmp_path: Path, monkeypatch):
-    monkeypatch.setattr(paths, "space_root", lambda: tmp_path)
+    monkeypatch.setattr(paths, "space_root", lambda base_path=None: tmp_path)
 
     # Create dummy config.yaml
     config_content = {
@@ -66,7 +66,7 @@ def test_constitution_message(mock_config_files, tmp_path: Path, monkeypatch):
 
 def test_codex_writes_agents_manifest(tmp_path: Path, monkeypatch):
     # Wire workspace to temporary location
-    monkeypatch.setattr(paths, "space_root", lambda: tmp_path)
+    monkeypatch.setattr(paths, "space_root", lambda base_path=None: tmp_path)
 
     config_content = {
         "agents": {"codex": {"command": "codex", "model": "gpt-5-codex"}},

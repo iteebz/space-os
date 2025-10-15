@@ -105,3 +105,40 @@ def test_wake_prioritizes_space_feedback(test_space):
         assert result.exit_code == 0
         assert "#space-feedback (5 unread) ← START HERE" in result.stdout
         assert "#other-channel (10 unread)" in result.stdout  # Ensure other channel is still listed
+
+
+def test_show_wake_summary_uses_prompt_constants(test_space):
+    from space.commands import wake
+    from space.memory.display import show_wake_summary
+    from space.spawn import registry
+
+    identity = "test-agent"
+    registry.ensure_agent(identity)
+    registry.set_self_description(identity, "A test agent for prompt constants.")
+
+    # Mock dependencies for show_wake_summary
+    with (
+        patch("space.events.get_sleep_count", return_value=1),
+        patch("space.events.get_last_sleep_time", return_value=time.time() - 3600),
+        patch("space.memory.db.get_memories", return_value=[]),
+        patch("space.memory.db.get_core_entries", return_value=[]),
+        patch("space.memory.db.get_recent_entries", return_value=[]),
+        patch("space.bridge.db.get_sender_history", return_value=[]),
+        patch("space.bridge.api.channels.inbox_channels", return_value=[]),
+        patch("space.knowledge.db.list_all", return_value=[]),
+    ):
+        # Capture stdout
+        import io
+        from contextlib import redirect_stdout
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            show_wake_summary(identity=identity, quiet_output=False, spawn_count=1)
+        output = f.getvalue()
+
+        # Assert that the output contains the expected constants from wake.py
+        assert wake.IDENTITY_HEADER.format(identity=identity) in output
+        assert (
+            wake.SELF_DESCRIPTION.format(description="A test agent for prompt constants.") in output
+        )
+        assert "Spawn #1" in output  # This is part of SPAWN_STATUS

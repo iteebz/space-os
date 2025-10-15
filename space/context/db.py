@@ -24,7 +24,7 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
         "bridge.message_sending",
         "events.bridge.message_received",
         "events.bridge.message_sending",
-        "events.memory.entry.add",
+        "events.memory.add",
         "events.memory.summary.set",
         "events.memory.summary.replace",
     }
@@ -170,7 +170,7 @@ def collect_current_state(topic: str, identity: str | None, all_agents: bool):
                 for r in rows
             ]
 
-    bridge_db_path = paths.space_root() / "bridge.db"
+    bridge_db_path = paths.dot_space() / "bridge.db"
     if bridge_db_path.exists():
         with libdb.connect(bridge_db_path) as conn:
             query = "SELECT c.name, m.agent_id, m.content FROM messages m JOIN channels c ON m.channel_id = c.id WHERE m.content LIKE ?"

@@ -126,3 +126,25 @@ def test_inbox_channels_all_unreads(test_space):
 
     inbox = api.inbox_channels(agent_id=agent_id)
     assert len(inbox) == 6
+
+
+def test_recv_updates_summary_channel_returns_only_last_message(test_space):
+    from space.bridge import api
+
+    # Create a summary channel
+    channel_id = api.create_channel("summary", topic="test summary topic")
+    agent_id = "test-agent"
+
+    # Send multiple messages to the summary channel
+    api.send_message(channel_id, "sender1", "summary message 1")
+    api.send_message(channel_id, "sender2", "summary message 2")
+    api.send_message(channel_id, "sender3", "summary message 3")
+
+    # Call recv_updates for the summary channel
+    messages, count, _, _ = api.recv_updates(channel_id, agent_id)
+
+    # This assertion should FAIL with the current implementation of recv_updates
+    # because it will return all messages from db.get_new_messages.
+    assert len(messages) == 1
+    assert messages[0].content == "summary message 3"
+    assert count == 1

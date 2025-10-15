@@ -4,6 +4,7 @@ from typing import Annotated
 import typer
 
 from space.spawn import registry
+from space.lib.cli_utils import common_cli_options
 
 from ... import events
 from .. import api, utils
@@ -12,29 +13,30 @@ app = typer.Typer(invoke_without_command=True)
 
 
 @app.callback()
+@common_cli_options
 def channels_root(
     ctx: typer.Context,
     all_channels_flag: bool = typer.Option(False, "--all", help="Include archived channels"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="JSON output"),
-    quiet_output: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
 ):
     """Bridge channel operations (defaults to listing)."""
     if ctx.invoked_subcommand is None:
         list_channels(
-            all_channels_flag=all_channels_flag, json_output=json_output, quiet_output=quiet_output
+            ctx,
+            all_channels_flag=all_channels_flag,
         )
 
 
 @app.command("list")
+@common_cli_options
 def list_channels(
+    ctx: typer.Context,
     identity: str = typer.Option(None, "--as", help="Agent identity"),
     all_channels_flag: bool = typer.Option(False, "--all", help="Include archived channels"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
 ):
     """List channels (active by default, use --all for archived)."""
+    json_output = ctx.obj.get("json_output")
+    quiet_output = ctx.obj.get("quiet_output")
+
     agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
     if agent_id:
         events.emit("bridge", "channels_listing", agent_id, "")
@@ -94,16 +96,17 @@ def list_channels(
 
 
 @app.command()
+@common_cli_options
 def create(
+    ctx: typer.Context,
     channel_name: str = typer.Argument(..., help="The name of the channel to create."),
     topic: Annotated[str, typer.Option(..., help="The initial topic for the channel.")] = None,
     identity: str = typer.Option(None, "--as", help="Agent identity"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
 ):
     """Create a new channel with an optional initial topic."""
+    json_output = ctx.obj.get("json_output")
+    quiet_output = ctx.obj.get("quiet_output")
+
     agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
     try:
         if agent_id:
@@ -141,16 +144,17 @@ def create(
 
 
 @app.command()
+@common_cli_options
 def rename(
+    ctx: typer.Context,
     old_channel: str = typer.Argument(...),
     new_channel: str = typer.Argument(...),
     identity: str = typer.Option(None, "--as", help="Agent identity"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
 ):
     """Rename channel and preserve all coordination data."""
+    json_output = ctx.obj.get("json_output")
+    quiet_output = ctx.obj.get("quiet_output")
+
     agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
     old_channel = old_channel.lstrip("#")
     new_channel = new_channel.lstrip("#")
@@ -192,16 +196,17 @@ def rename(
 
 
 @app.command()
+@common_cli_options
 def archive(
+    ctx: typer.Context,
     channels: Annotated[list[str], typer.Argument(...)],
     identity: str = typer.Option(None, "--as", help="Agent identity"),
     prefix: bool = typer.Option(False, "--prefix", help="Treat arguments as prefixes to match."),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
 ):
     """Archive channels by marking them inactive."""
+    json_output = ctx.obj.get("json_output")
+    quiet_output = ctx.obj.get("quiet_output")
+
     agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
     channel_names = channels
     if prefix:
@@ -253,15 +258,16 @@ def archive(
 
 
 @app.command()
+@common_cli_options
 def delete(
+    ctx: typer.Context,
     channel: str = typer.Argument(...),
     identity: str = typer.Option(None, "--as", help="Agent identity"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
 ):
     """Permanently delete channel and all messages (HUMAN ONLY)."""
+    json_output = ctx.obj.get("json_output")
+    quiet_output = ctx.obj.get("quiet_output")
+
     agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
     try:
         if agent_id:

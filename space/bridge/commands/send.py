@@ -4,6 +4,7 @@ import json
 
 import typer
 
+from space.lib.identity import constitute_identity
 from space.spawn import registry
 
 from ... import events
@@ -23,11 +24,8 @@ def send(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    """Send a message to a channel."""
-    from ..constitute import constitute_identity
-
     if identity != "human":
-        constitute_identity(identity)
+        constitute_identity(identity, event_source="bridge")
 
     if decode_base64:
         try:
@@ -93,9 +91,7 @@ def alert(
     ),
 ):
     """Send high-priority alert to a channel."""
-    from ..constitute import constitute_identity
-
-    constitute_identity(identity)
+    constitute_identity(identity, event_source="bridge")
 
     agent_id = registry.ensure_agent(identity)
 

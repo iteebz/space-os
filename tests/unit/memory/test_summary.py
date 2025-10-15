@@ -38,7 +38,7 @@ def test_summaries_append(test_space, monkeypatch):
     _add_summary("test-agent", "Second session summary", monkeypatch, test_space)
     _add_summary("test-agent", "Third session summary", monkeypatch, test_space)
 
-    summaries = db.get_memories("test-agent", topic="summary")
+    summaries = db.get_memories("test-agent", topic="summary", include_archived=True)
     assert len(summaries) == 3
     assert summaries[0].message == "Third session summary"
     assert summaries[1].message == "Second session summary"
@@ -55,16 +55,17 @@ def test_summaries_empty(test_space):
 
 def test_summary_ordering(test_space, monkeypatch):
     registry.init_db()
-    agent_id = registry.ensure_agent("test-agent")
+    agent_name = "test-agent-summary-ordering"
+    registry.ensure_agent(agent_name)
 
     # Use the CLI helper to add summaries
-    _add_summary(agent_id, "Session 0", monkeypatch, test_space)
-    _add_summary(agent_id, "Session 1", monkeypatch, test_space)
-    _add_summary(agent_id, "Session 2", monkeypatch, test_space)
-    _add_summary(agent_id, "Session 3", monkeypatch, test_space)
-    _add_summary(agent_id, "Session 4", monkeypatch, test_space)
+    _add_summary(agent_name, "Session 0", monkeypatch, test_space)
+    _add_summary(agent_name, "Session 1", monkeypatch, test_space)
+    _add_summary(agent_name, "Session 2", monkeypatch, test_space)
+    _add_summary(agent_name, "Session 3", monkeypatch, test_space)
+    _add_summary(agent_name, "Session 4", monkeypatch, test_space)
 
-    summaries = db.get_memories("test-agent", topic="summary")
+    summaries = db.get_memories(agent_name, topic="summary")
     created_times = [s.created_at for s in summaries]
 
     assert created_times == sorted(created_times, reverse=True)
@@ -101,7 +102,7 @@ def test_replace_existing_summary(test_space, monkeypatch):
             cli.app, ["summary", "--as", "test-agent", "Updated summary message."]
         )
     assert result.exit_code == 0
-    assert "Replaced 1 entry(ies) with" in result.stdout
+    assert "Updated summary (appended to 1 entries) with new ID" in result.stdout
 
     updated_summary = _get_latest_summary("test-agent")
     assert updated_summary is not None
@@ -123,8 +124,10 @@ def test_show_lineage(test_space, monkeypatch):
         m.chdir(test_space)
         result = runner.invoke(cli.app, ["summary", "--as", "test-agent"])
     assert result.exit_code == 0
+    summaries = db.get_memories("test-agent", topic="summary", include_archived=True)
+    chain = db.get_chain(summaries[0].memory_id)
     assert "CURRENT: [summary]" in result.stdout
-    assert "Summary 3." in result.stdout
+    assert chain["start_entry"].message in result.stdout
     assert "SUPERSEDES:" in result.stdout
     assert "Summary 2." in result.stdout
     assert "Summary 1." in result.stdout

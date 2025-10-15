@@ -9,9 +9,7 @@ from ..db import (
 
 def active_channels(agent_id: str = None, limit: int = 5) -> list[Channel]:
     """Get active channels with unreads, limited to most recent."""
-    channels = fetch_channels(agent_id, time_filter="-7 days")
-    if agent_id:
-        channels = [c for c in channels if c.unread_count > 0]
+    channels = fetch_channels(agent_id, time_filter="-7 days", unread_only=True, active_only=True)
     channels.sort(key=lambda t: t.last_activity if t.last_activity else "", reverse=True)
     return channels[:limit]
 
@@ -23,8 +21,7 @@ def all_channels(agent_id: str = None) -> list[Channel]:
 
 def inbox_channels(agent_id: str) -> list[Channel]:
     """Get all channels with unreads."""
-    channels = fetch_channels(agent_id)
-    channels = [c for c in channels if c.unread_count > 0]
+    channels = fetch_channels(agent_id, unread_only=True)
     channels.sort(key=lambda t: t.last_activity if t.last_activity else "", reverse=True)
     return channels
 

@@ -2,35 +2,33 @@ import sqlite3
 import time
 import uuid
 from contextlib import contextmanager
+from datetime import datetime
 
 from .. import events
-from ..lib import paths
+from ..lib import db, paths
 from ..lib.uuid7 import uuid7
 from . import config
+
+_SPAWN_SCHEMA = """
+CREATE TABLE IF NOT EXISTS constitutions (
+    hash TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS agents (
+    id TEXT PRIMARY KEY,
+    name TEXT UNIQUE,
+    self_description TEXT,
+    archived_at INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
 
 
 def init_db():
     config.spawn_dir().mkdir(parents=True, exist_ok=True)
     config.registry_db().parent.mkdir(parents=True, exist_ok=True)
-    with get_db() as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS constitutions (
-                hash TEXT PRIMARY KEY,
-                content TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS agents (
-                id TEXT PRIMARY KEY,
-                name TEXT,
-                self_description TEXT,
-                archived_at INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        _apply_migrations(conn)
-        conn.commit()
+    db.ensure_schema(config.registry_db(), _SPAWN_SCHEMA, spawn_migrations)
 
 
 def save_constitution(constitution_hash: str, content: str):
@@ -92,15 +90,28 @@ def get_identity(agent_id: str) -> str | None:
 
 def ensure_agent(name: str) -> str:
     """Get or create agent, return UUID."""
-    existing_agent_id = get_agent_id(name)
-    if existing_agent_id:
-        return existing_agent_id
+    # Check for active agent first
+    active_agent_id = get_agent_id(name)
+    if active_agent_id:
+        return active_agent_id
+
+    # If no active agent, check for archived agents with the same name
+    archived_agent_ids = get_agent_ids(name, include_archived=True)
+    if archived_agent_ids:
+        # Restore the first archived agent found
+        agent_id = archived_agent_ids[0]
+        restore_agent(
+            name
+        )  # This will restore all agents with that name, but we only care about one for now
+        return agent_id
+
+    # If no agent (active or archived) exists, create a new one
     agent_id = uuid7()
-    now = int(time.time())
+    now_iso = datetime.now().isoformat()
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO agents (id, name, created_at, last_active_at) VALUES (?, ?, ?, ?)",
-            (agent_id, name, now, now),
+            "INSERT INTO agents (id, name, created_at) VALUES (?, ?, ?)",
+            (agent_id, name, now_iso),
         )
         conn.commit()
     events.emit("spawn", "agent.create", agent_id, f"Agent '{name}' created")
@@ -127,52 +138,13 @@ def set_self_description(identity: str, description: str) -> bool:
                 (description, row["id"]),
             )
         else:
-            agent_id = str(uuid.uuid4())
+            agent_id = uuid7()
             conn.execute(
                 "INSERT INTO agents (id, name, self_description) VALUES (?, ?, ?)",
                 (agent_id, identity, description),
             )
         conn.commit()
         return True
-
-
-def _apply_migrations(conn):
-    """Apply incremental schema migrations."""
-    conn.execute("CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY)")
-
-    migrations = [
-        ("migrate_to_identities", _migrate_to_identities),
-        ("drop_registrations", "DROP TABLE IF EXISTS registrations"),
-        ("drop_invocations", "DROP TABLE IF EXISTS invocations"),
-        ("rename_identities_to_agents", _rename_identities_to_agents),
-        ("drop_registry", "DROP TABLE IF EXISTS registry"),
-        (
-            "add_canonical_id",
-            "ALTER TABLE agents ADD COLUMN canonical_id TEXT REFERENCES agents(id)",
-        ),
-        ("add_archived_at", "ALTER TABLE agents ADD COLUMN archived_at INTEGER"),
-        ("add_last_active_at", "ALTER TABLE agents ADD COLUMN last_active_at INTEGER"),
-        ("drop_name_unique", _drop_name_unique_constraint),
-        ("add_name_unique", _add_name_unique_constraint),
-        ("drop_canonical_id", _drop_canonical_id),
-        ("drop_agent_aliases", "DROP TABLE IF EXISTS agent_aliases"),
-    ]
-
-    for name, migration in migrations:
-        applied = conn.execute("SELECT 1 FROM _migrations WHERE name = ?", (name,)).fetchone()
-        if not applied:
-            try:
-                if callable(migration):
-                    migration(conn)
-                else:
-                    conn.execute(migration)
-                conn.execute("INSERT INTO _migrations (name) VALUES (?)", (name,))
-            except sqlite3.OperationalError as e:
-                if (
-                    "duplicate column" not in str(e).lower()
-                    and "no such table" not in str(e).lower()
-                ):
-                    raise RuntimeError(f"Migration '{name}' failed: {e}") from e
 
 
 def rename_agent(old_name: str, new_name: str) -> bool:
@@ -289,8 +261,7 @@ def _drop_canonical_id(conn):
                         name TEXT,
                         self_description TEXT,
                         archived_at INTEGER,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        last_active_at INTEGER
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
     conn.execute(f"""
@@ -319,23 +290,62 @@ def _add_name_unique_constraint(conn):
             name TEXT UNIQUE,
             self_description TEXT,
             archived_at INTEGER,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_active_at INTEGER
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
     conn.execute("""
-        INSERT INTO agents_new (id, name, self_description, archived_at, created_at, last_active_at)
-        SELECT id, name, self_description, archived_at, created_at, last_active_at FROM agents
+        INSERT INTO agents_new (id, name, self_description, archived_at, created_at)
+        SELECT id, name, self_description, archived_at, created_at FROM agents
     """)
 
     conn.execute("DROP TABLE agents")
     conn.execute("ALTER TABLE agents_new RENAME TO agents")
 
 
+def _drop_registrations(conn):
+    conn.execute("DROP TABLE IF EXISTS registrations")
+
+
+# ... (rest of the file)
+
+
+def _drop_invocations(conn):
+    conn.execute("DROP TABLE IF EXISTS invocations")
+
+
+# ... (rest of the file)
+
+
+def _drop_registry(conn):
+    conn.execute("DROP TABLE IF EXISTS registry")
+
+
+# ... (rest of the file)
+
+
+def _drop_agent_aliases(conn):
+    conn.execute("DROP TABLE IF EXISTS agent_aliases")
+
+
+# ... (rest of the file)
+
+spawn_migrations = [
+    ("migrate_to_identities", _migrate_to_identities),
+    ("drop_registrations", _drop_registrations),
+    ("drop_invocations", _drop_invocations),
+    ("rename_identities_to_agents", _rename_identities_to_agents),
+    ("drop_registry", _drop_registry),
+    (
+        "add_canonical_id",
+        "ALTER TABLE agents ADD COLUMN canonical_id TEXT REFERENCES agents(id)",
+    ),
+    ("drop_agent_aliases", _drop_agent_aliases),
+]
+
+
 def archive_agent(name: str) -> bool:
     """Archive an agent. Returns True if archived, False if not found."""
-    import time
 
     agent_id = get_agent_id(name)
     if not agent_id:
@@ -358,6 +368,15 @@ def restore_agent(name: str) -> bool:
             conn.execute("UPDATE agents SET archived_at = NULL WHERE id = ?", (agent_id,))
         conn.commit()
     return True
+
+
+def list_all_agents() -> list[str]:
+    """List all active agents."""
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT name FROM agents WHERE archived_at IS NULL ORDER BY name"
+        ).fetchall()
+        return [row["name"] for row in rows]
 
 
 def _resolve_agent(identifier: str) -> str | None:
@@ -389,8 +408,8 @@ def merge_agents(from_identifier: str, to_identifier: str) -> bool:
     config.registry_db()
     events_db = paths.dot_space() / "events.db"
     memory_db = paths.dot_space() / "memory.db"
-    paths.dot_space() / "knowledge.db"
-    paths.dot_space() / "bridge.db"
+    knowledge_db = paths.dot_space() / "knowledge.db"
+    bridge_db = paths.dot_space() / "bridge.db"
 
     with get_db() as conn:
         conn.execute(
@@ -398,8 +417,6 @@ def merge_agents(from_identifier: str, to_identifier: str) -> bool:
             (to_id, from_id),
         )
         conn.commit()
-
-    import sqlite3
 
     if events_db.exists():
         print(f"Updating events in {events_db}...")
@@ -425,13 +442,13 @@ def merge_agents(from_identifier: str, to_identifier: str) -> bool:
         conn.close()
         print(f"Knowledge updated in {knowledge_db}.")
 
-    # if bridge_db.exists():
-    #     print(f"Updating bridge in {bridge_db}...")
-    #     conn = sqlite3.connect(bridge_db)
-    #     conn.execute("UPDATE messages SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
-    #     conn.commit()
-    #     conn.close()
-    #     print(f"Bridge updated in {bridge_db}.")
+    if bridge_db.exists():
+        print(f"Updating bridge in {bridge_db}...")
+        conn = sqlite3.connect(bridge_db)
+        conn.execute("UPDATE messages SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
+        conn.commit()
+        conn.close()
+        print(f"Bridge updated in {bridge_db}.")
 
     with get_db() as conn:
         conn.execute("DELETE FROM agents WHERE id = ?", (from_id,))

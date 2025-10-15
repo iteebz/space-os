@@ -1,4 +1,3 @@
-from space.lib import paths
 from space.spawn import registry, spawn
 
 
@@ -34,15 +33,16 @@ def test_footer_injection(tmp_path):
     assert result.endswith(expected_footer)
 
 
-def test_canon_injection_order(tmp_path):
+def test_canon_injection_order(mocker, tmp_path):
     """Verifies that canon is injected before the base constitution content."""
     db = tmp_path / "spawn.db"
     registry.config.registry_db = lambda: db
     registry.init_db()
 
-    canon_path = paths.canon_path()
-    canon_path.parent.mkdir(parents=True, exist_ok=True)
-    canon_path.write_text("# CANON\n1. Truth")
+    canon_dir = tmp_path / "canon"
+    canon_dir.mkdir(parents=True, exist_ok=True)
+    (canon_dir / "test_canon.md").write_text("# CANON\n1. Truth")
+    mocker.patch("space.lib.paths.canon_path", return_value=canon_dir)
 
     constitution = "Core rules."
     result = spawn.inject_identity(constitution, "test-role", "test-agent")

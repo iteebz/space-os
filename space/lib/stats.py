@@ -14,6 +14,7 @@ class LeaderboardEntry:
 
 @dataclass
 class AgentStats:
+    agent_id: str
     agent_name: str
     spawns: int
     msgs: int
@@ -74,19 +75,78 @@ class SpaceStats:
     agents: list[AgentStats] | None = None
 
 
+def _get_agent_names_map() -> dict[str, str]:
+    from ..spawn import registry
+
+    with registry.get_db() as reg_conn:
+        return {row[0]: row[1] for row in reg_conn.execute("SELECT id, name FROM agents")}
+
+
+def _get_common_db_stats(
+    db_path: Path,
+    table_name: str,
+    topic_column: str | None = None,
+    leaderboard_column: str | None = None,
+    limit: int | None = None,
+) -> tuple[int, int, int, int | None, list[LeaderboardEntry]]:
+    if not db_path.exists():
+        return 0, 0, 0, None, []
+
+    with db.connect(db_path) as conn:
+        cursor = conn.execute(f"PRAGMA table_info({table_name})")
+        columns = [row["name"] for row in cursor.fetchall()]
+
+        has_archived_at = "archived_at" in columns
+
+        total = conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
+
+        if has_archived_at:
+            active = conn.execute(
+                f"SELECT COUNT(*) FROM {table_name} WHERE archived_at IS NULL"
+            ).fetchone()[0]
+            archived = conn.execute(
+                f"SELECT COUNT(*) FROM {table_name} WHERE archived_at IS NOT NULL"
+            ).fetchone()[0]
+        else:
+            active = total
+            archived = 0
+
+        topics_or_channels = None
+        if topic_column:
+            topics_or_channels = conn.execute(
+                f"SELECT COUNT(DISTINCT {topic_column}) FROM {table_name} WHERE archived_at IS NULL"
+            ).fetchone()[0]
+
+        leaderboard = []
+        if leaderboard_column:
+            query = f"SELECT {leaderboard_column}, COUNT(*) as count FROM {table_name} GROUP BY {leaderboard_column} ORDER BY count DESC"
+            if limit:
+                rows = conn.execute(f"{query} LIMIT ?", (limit,)).fetchall()
+            else:
+                rows = conn.execute(query).fetchall()
+
+            agent_names_map = _get_agent_names_map()
+            leaderboard = [
+                LeaderboardEntry(identity=agent_names_map.get(row[0], row[0]), count=row[1])
+                for row in rows
+            ]
+
+    return total, active, archived, topics_or_channels, leaderboard
+
+
 def bridge_stats(limit: int = None) -> BridgeStats:
     db_path = paths.dot_space() / "bridge.db"
     if not db_path.exists():
         return BridgeStats(available=False)
 
+    total, active, archived, _, message_leaderboard = _get_common_db_stats(
+        db_path,
+        "messages",
+        leaderboard_column="agent_id",
+        limit=limit,
+    )
+
     with db.connect(db_path) as conn:
-        total = conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
-        active = conn.execute(
-            "SELECT COUNT(*) FROM messages m JOIN channels c ON m.channel_id = c.id WHERE c.archived_at IS NULL"
-        ).fetchone()[0]
-        archived = conn.execute(
-            "SELECT COUNT(*) FROM messages m JOIN channels c ON m.channel_id = c.id WHERE c.archived_at IS NOT NULL"
-        ).fetchone()[0]
         channels = conn.execute(
             "SELECT COUNT(DISTINCT channel_id) FROM messages WHERE channel_id IS NOT NULL"
         ).fetchone()[0]
@@ -100,25 +160,6 @@ def bridge_stats(limit: int = None) -> BridgeStats:
             0
         ]
 
-        if limit:
-            rows = conn.execute(
-                "SELECT agent_id, COUNT(*) as count FROM messages GROUP BY agent_id ORDER BY count DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT agent_id, COUNT(*) as count FROM messages GROUP BY agent_id ORDER BY count DESC"
-            ).fetchall()
-
-    from ..spawn import registry
-
-    with registry.get_db() as reg_conn:
-        names = {row[0]: row[1] for row in reg_conn.execute("SELECT id, name FROM agents")}
-
-    leaderboard = [
-        LeaderboardEntry(identity=names.get(row[0], row[0]), count=row[1]) for row in rows
-    ]
-
     return BridgeStats(
         available=True,
         total=total,
@@ -128,7 +169,7 @@ def bridge_stats(limit: int = None) -> BridgeStats:
         active_channels=active_channels,
         archived_channels=archived_channels,
         notes=notes,
-        message_leaderboard=leaderboard,
+        message_leaderboard=message_leaderboard,
     )
 
 
@@ -137,36 +178,14 @@ def memory_stats(limit: int = None) -> MemoryStats:
     if not db_path.exists():
         return MemoryStats(available=False)
 
-    with db.connect(db_path) as conn:
-        total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
-        active = conn.execute("SELECT COUNT(*) FROM memories WHERE archived_at IS NULL").fetchone()[
-            0
-        ]
-        archived = conn.execute(
-            "SELECT COUNT(*) FROM memories WHERE archived_at IS NOT NULL"
-        ).fetchone()[0]
-        topics = conn.execute(
-            "SELECT COUNT(DISTINCT topic) FROM memories WHERE archived_at IS NULL"
-        ).fetchone()[0]
+    total, active, archived, topics, leaderboard = _get_common_db_stats(
+        db_path,
+        "memories",
+        topic_column="topic",
+        leaderboard_column="agent_id",
+        limit=limit,
+    )
 
-        if limit:
-            rows = conn.execute(
-                "SELECT agent_id, COUNT(*) as count FROM memories GROUP BY agent_id ORDER BY count DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT agent_id, COUNT(*) as count FROM memories GROUP BY agent_id ORDER BY count DESC"
-            ).fetchall()
-
-    from ..spawn import registry
-
-    with registry.get_db() as reg_conn:
-        names = {row[0]: row[1] for row in reg_conn.execute("SELECT id, name FROM agents")}
-
-    leaderboard = [
-        LeaderboardEntry(identity=names.get(row[0], row[0]), count=row[1]) for row in rows
-    ]
     return MemoryStats(
         available=True,
         total=total,
@@ -182,36 +201,14 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
     if not db_path.exists():
         return KnowledgeStats(available=False)
 
-    with db.connect(db_path) as conn:
-        total = conn.execute("SELECT COUNT(*) FROM knowledge").fetchone()[0]
-        active = conn.execute(
-            "SELECT COUNT(*) FROM knowledge WHERE archived_at IS NULL"
-        ).fetchone()[0]
-        archived = conn.execute(
-            "SELECT COUNT(*) FROM knowledge WHERE archived_at IS NOT NULL"
-        ).fetchone()[0]
-        topics = conn.execute(
-            "SELECT COUNT(DISTINCT domain) FROM knowledge WHERE domain IS NOT NULL"
-        ).fetchone()[0]
+    total, active, archived, topics, leaderboard = _get_common_db_stats(
+        db_path,
+        "knowledge",
+        topic_column="domain",
+        leaderboard_column="agent_id",
+        limit=limit,
+    )
 
-        if limit:
-            rows = conn.execute(
-                "SELECT agent_id, COUNT(*) as count FROM knowledge GROUP BY agent_id ORDER BY count DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT agent_id, COUNT(*) as count FROM knowledge GROUP BY agent_id ORDER BY count DESC"
-            ).fetchall()
-
-    from ..spawn import registry
-
-    with registry.get_db() as reg_conn:
-        names = {row[0]: row[1] for row in reg_conn.execute("SELECT id, name FROM agents")}
-
-    leaderboard = [
-        LeaderboardEntry(identity=names.get(row[0], row[0]), count=row[1]) for row in rows
-    ]
     return KnowledgeStats(
         available=True,
         total=total,
@@ -222,70 +219,25 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
     )
 
 
-def get_agent_metrics() -> dict[str, dict]:
-    """Get s-b-m-k metrics for all agents by UUID."""
-
-    bridge_db = paths.dot_space() / "bridge.db"
-    mem_db = paths.dot_space() / "memory.db"
-    know_db = paths.dot_space() / "knowledge.db"
-    events_db = paths.dot_space() / "events.db"
-
-    metrics = {}
-
-    if bridge_db.exists():
-        with db.connect(bridge_db) as conn:
-            for row in conn.execute("SELECT agent_id, COUNT(*) FROM messages GROUP BY agent_id"):
-                metrics[row[0]] = {"spawns": 0, "msgs": row[1], "mems": 0, "knowledge": 0}
-
-    if events_db.exists():
-        with db.connect(events_db) as conn:
-            for row in conn.execute(
-                "SELECT agent_id, COUNT(*) FROM events WHERE event_type = 'session_start' GROUP BY agent_id"
-            ):
-                if row[0] in metrics:
-                    metrics[row[0]]["spawns"] = row[1]
-                else:
-                    metrics[row[0]] = {"spawns": row[1], "msgs": 0, "mems": 0, "knowledge": 0}
-
-    if mem_db.exists():
-        with db.connect(mem_db) as conn:
-            for row in conn.execute("SELECT agent_id, COUNT(*) FROM memories GROUP BY agent_id"):
-                if row[0] in metrics:
-                    metrics[row[0]]["mems"] = row[1]
-
-    if know_db.exists():
-        with db.connect(know_db) as conn:
-            for row in conn.execute("SELECT agent_id, COUNT(*) FROM knowledge GROUP BY agent_id"):
-                if row[0] in metrics:
-                    metrics[row[0]]["knowledge"] = row[1]
-
-    return metrics
-
-
 def agent_stats(limit: int = None) -> list[AgentStats] | None:
-    from ..spawn import registry
+    agent_names_map = _get_agent_names_map()
 
     bridge_db = paths.dot_space() / "bridge.db"
     mem_db = paths.dot_space() / "memory.db"
     know_db = paths.dot_space() / "knowledge.db"
-    paths.dot_space() / "spawn.db"
 
     if not bridge_db.exists():
         return None
 
-    with registry.get_db() as reg_conn:
-        names = {row[0]: row[1] for row in reg_conn.execute("SELECT id, name FROM agents")}
-        set(names.keys())
-
     identities = {}
 
     with db.connect(bridge_db) as conn:
-        for row in conn.execute(
+        for agent_uuid, msgs_count in conn.execute(
             "SELECT agent_id, COUNT(*) as msgs FROM messages GROUP BY agent_id"
         ):
-            agent_name = names.get(row[0], row[0])
-            identities[agent_name] = {
-                "msgs": row[1],
+            identities[agent_uuid] = {
+                "agent_name": agent_names_map.get(agent_uuid, agent_uuid),
+                "msgs": msgs_count,
                 "last_active": None,
                 "mems": 0,
                 "knowledge": 0,
@@ -293,48 +245,48 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
                 "channels": [],
             }
 
-        for row in conn.execute(
+        for agent_uuid, channels_str in conn.execute(
             "SELECT agent_id, GROUP_CONCAT(DISTINCT channel_id) FROM messages WHERE channel_id IS NOT NULL GROUP BY agent_id"
         ):
-            agent_name = names.get(row[0], row[0])
-            channels = row[1].split(",") if row[1] else []
-            if agent_name in identities:
-                identities[agent_name]["channels"] = channels
+            channels = channels_str.split(",") if channels_str else []
+            if agent_uuid in identities:
+                identities[agent_uuid]["channels"] = channels
 
     if mem_db.exists():
         with db.connect(mem_db) as conn:
-            for row in conn.execute("SELECT agent_id, COUNT(*) FROM memories GROUP BY agent_id"):
-                agent_name = names.get(row[0], row[0])
-                if agent_name in identities:
-                    identities[agent_name]["mems"] = row[1]
+            for agent_uuid, mems_count in conn.execute(
+                "SELECT agent_id, COUNT(*) FROM memories GROUP BY agent_id"
+            ):
+                if agent_uuid in identities:
+                    identities[agent_uuid]["mems"] = mems_count
 
     if know_db.exists():
         with db.connect(know_db) as conn:
-            for row in conn.execute("SELECT agent_id, COUNT(*) FROM knowledge GROUP BY agent_id"):
-                agent_name = names.get(row[0], row[0])
-                if agent_name in identities:
-                    identities[agent_name]["knowledge"] = row[1]
+            for agent_uuid, knowledge_count in conn.execute(
+                "SELECT agent_id, COUNT(*) FROM knowledge GROUP BY agent_id"
+            ):
+                if agent_uuid in identities:
+                    identities[agent_uuid]["knowledge"] = knowledge_count
 
     events_db = paths.space_root() / "events.db"
     if events_db.exists():
         with db.connect(events_db) as conn:
-            for row in conn.execute(
+            for agent_uuid, spawns_count in conn.execute(
                 "SELECT agent_id, COUNT(*) FROM events WHERE event_type = 'session_start' GROUP BY agent_id"
             ):
-                agent_name = names.get(row[0], row[0])
-                if agent_name in identities:
-                    identities[agent_name]["spawns"] = row[1]
+                if agent_uuid in identities:
+                    identities[agent_uuid]["spawns"] = spawns_count
 
-            for row in conn.execute(
+            for agent_uuid, last_active_timestamp in conn.execute(
                 "SELECT agent_id, MAX(timestamp) FROM events WHERE agent_id IS NOT NULL GROUP BY agent_id"
             ):
-                agent_name = names.get(row[0], row[0])
-                if agent_name in identities:
-                    identities[agent_name]["last_active"] = str(row[1])
+                if agent_uuid in identities:
+                    identities[agent_uuid]["last_active"] = str(last_active_timestamp)
 
     agents = [
         AgentStats(
-            agent_name=ident,
+            agent_id=agent_uuid,
+            agent_name=data["agent_name"],
             spawns=data["spawns"],
             msgs=data["msgs"],
             mems=data["mems"],
@@ -345,7 +297,7 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
             if data.get("last_active")
             else None,
         )
-        for ident, data in identities.items()
+        for agent_uuid, data in identities.items()
     ]
 
     agents.sort(key=lambda a: a.msgs, reverse=True)

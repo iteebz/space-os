@@ -42,11 +42,10 @@ def test_errors_command_displays_logged_errors(tmp_path, monkeypatch):
     space_dir = tmp_path / ".space"
     space_dir.mkdir()
 
-    monkeypatch.setattr(paths, "space_root", lambda: space_dir)
-    monkeypatch.setattr("space.events.DB_PATH", space_dir / "events.db")
-    registry.init_db()
-
+    monkeypatch.setattr(paths, "space_root", lambda base_path=None: space_dir)
+    monkeypatch.setattr(paths, "dot_space", lambda base_path=None: space_dir)
     # Log some errors
+    registry.init_db()
     agent_id = registry.ensure_agent("test-agent")
     events.emit("bridge", "error", agent_id, "test error 1")
     events.emit("memory", "error", agent_id, "test error 2")

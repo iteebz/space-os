@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from .. import events
 from ..lib import db, paths
 from ..lib.uuid7 import uuid7
 
@@ -53,17 +55,10 @@ def database_path() -> Path:
 
 
 def connect():
-    import sqlite3
-
-    db_path = database_path()
-    db.ensure_schema(db_path, _KNOWLEDGE_SCHEMA)
-    with sqlite3.connect(db_path) as conn:
-        conn.row_factory = sqlite3.Row
-        _run_migrations(conn)
-    return db.connect(db_path)
+    return db.ensure_space_db(KNOWLEDGE_DB_NAME, _KNOWLEDGE_SCHEMA, knowledge_migrations)
 
 
-def _run_migrations(conn):
+def _migrate_id_to_knowledge_id(conn: sqlite3.Connection):
     cursor = conn.execute("PRAGMA table_info(knowledge)")
     cols = [row["name"] for row in cursor.fetchall()]
     if "id" in cols and "knowledge_id" not in cols:
@@ -71,11 +66,14 @@ def _run_migrations(conn):
         conn.commit()
 
 
+knowledge_migrations = [
+    ("migrate_id_to_knowledge_id", _migrate_id_to_knowledge_id),
+]
+
+
 def write_knowledge(
     domain: str, agent_id: str, content: str, confidence: float | None = None
 ) -> str:
-    from .. import events
-
     knowledge_id = uuid7()
     with connect() as conn:
         conn.execute(
@@ -126,18 +124,12 @@ def get_by_id(knowledge_id: str) -> Knowledge | None:
 
 
 def archive_entry(knowledge_id: str):
-    import time
-
     now = int(time.time())
     with connect() as conn:
         conn.execute(
             "UPDATE knowledge SET archived_at = ? WHERE knowledge_id = ?",
             (now, knowledge_id),
         )
-        conn.commit()
-    from .. import events
-
-    events.emit("knowledge", "entry.archive", None, f"{knowledge_id[-8:]}")
 
 
 def restore_entry(knowledge_id: str):
@@ -146,73 +138,12 @@ def restore_entry(knowledge_id: str):
             "UPDATE knowledge SET archived_at = NULL WHERE knowledge_id = ?",
             (knowledge_id,),
         )
-        conn.commit()
-    from .. import events
-
-    events.emit("knowledge", "entry.restore", None, f"{knowledge_id[-8:]}")
 
 
 def find_related(
     entry: Knowledge, limit: int = 5, include_archived: bool = False
 ) -> list[tuple[Knowledge, int]]:
-    stopwords = {
-        "the",
-        "a",
-        "an",
-        "and",
-        "or",
-        "but",
-        "in",
-        "on",
-        "at",
-        "to",
-        "for",
-        "of",
-        "with",
-        "is",
-        "are",
-        "was",
-        "were",
-        "be",
-        "been",
-        "being",
-        "have",
-        "has",
-        "had",
-        "do",
-        "does",
-        "did",
-        "will",
-        "would",
-        "should",
-        "could",
-        "may",
-        "might",
-        "must",
-        "can",
-        "this",
-        "that",
-        "these",
-        "those",
-        "i",
-        "you",
-        "he",
-        "she",
-        "it",
-        "we",
-        "they",
-        "as",
-        "by",
-        "from",
-        "not",
-        "all",
-        "each",
-        "every",
-        "some",
-        "any",
-        "no",
-        "none",
-    }
+    from ..lib.text_utils import stopwords
 
     tokens = set(entry.content.lower().split()) | set(entry.domain.lower().split())
     keywords = {t.strip(".,;:!?()[]{}") for t in tokens if len(t) > 3 and t not in stopwords}

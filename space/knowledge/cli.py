@@ -6,7 +6,6 @@ import typer
 from space.lib import errors
 from space.spawn import registry
 
-from ..lib import readme
 from . import db
 
 errors.install_error_handler("knowledge")
@@ -19,11 +18,7 @@ def main_command(
     ctx: typer.Context,
 ):
     if ctx.resilient_parsing or ctx.invoked_subcommand is None:
-        try:
-            protocol_content = readme.load("knowledge")
-            typer.echo(protocol_content)
-        except (FileNotFoundError, ValueError) as e:
-            typer.echo(f"❌ knowledge README not found: {e}")
+        typer.echo("Knowledge CLI - A command-line interface for Knowledge.")
     return
 
 

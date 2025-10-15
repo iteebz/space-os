@@ -92,8 +92,9 @@ def test_memory_chain_query(test_space):
     v2_id = db.replace_entry([v1_id], agent_id, "evolution", "version 2", "iteration")
 
     chain = db.get_chain(v2_id)
-    assert chain["current"] is not None
+    chain = db.get_chain(v2_id)
+    assert chain["start_entry"] is not None
     assert len(chain["predecessors"]) == 1
     assert chain["predecessors"][0].message == "version 1"
-    assert chain["current"].message == "version 2"
-    assert chain["current"].synthesis_note == "iteration"
+    assert chain["start_entry"].message == "version 2"
+    assert chain["start_entry"].synthesis_note == "iteration"

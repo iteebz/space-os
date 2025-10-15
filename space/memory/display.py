@@ -4,11 +4,28 @@ from datetime import datetime
 
 import typer
 
-from ..bridge import db as bridge_db
+from space.bridge import db as bridge_db
+
 from ..commands import wake as wake_prompts
 from ..knowledge import db as knowledge_db
+from ..lib.display import humanize_timestamp
 from ..spawn import registry as spawn_registry
 from . import db
+
+
+def format_memory_entries(entries: list[db.Memory], raw_output: bool = False) -> str:
+    output_lines = []
+    current_topic = None
+    for e in entries:
+        if e.topic != current_topic:
+            if current_topic is not None:
+                output_lines.append("")
+            output_lines.append(f"# {e.topic}")
+            current_topic = e.topic
+        core_mark = " ★" if e.core else ""
+        timestamp_display = e.timestamp if raw_output else humanize_timestamp(e.timestamp)
+        output_lines.append(f"[{e.memory_id[-8:]}] [{timestamp_display}] {e.message}{core_mark}")
+    return "\n".join(output_lines)
 
 
 def show_context(identity: str):

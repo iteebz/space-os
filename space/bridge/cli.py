@@ -5,8 +5,9 @@ import json
 import typer
 
 from space import events
-from space.lib import errors, readme
+from space.lib import errors
 from space.spawn import registry
+from space.lib.cli_utils import common_cli_options
 
 from . import api, utils
 from .commands import (
@@ -34,6 +35,7 @@ app = typer.Typer(invoke_without_command=True, add_help_option=False)
 
 
 @app.callback()
+@common_cli_options
 def main_command(
     ctx: typer.Context,
     help_flag: bool = typer.Option(
@@ -44,18 +46,11 @@ def main_command(
         is_eager=True,
     ),
     agent_id: str = typer.Option(None, "--as", help="Agent identity"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
 ):
     """Bridge: AI Coordination Protocol"""
     if help_flag:
-        try:
-            typer.echo(readme.load("bridge"))
-        except (FileNotFoundError, ValueError) as e:
-            typer.echo(f"❌ bridge README not found: {e}")
-            typer.echo()
+        typer.echo("Bridge CLI - A command-line interface for Bridge.")
+        typer.echo()
         typer.echo(ctx.command.get_help(ctx))
         raise typer.Exit()
 
@@ -64,17 +59,13 @@ def main_command(
             ctx.invoke(
                 recv_cmds.inbox,
                 identity=agent_id,
-                json_output=json_output,
-                quiet_output=quiet_output,
+                json_output=ctx.obj.get("json_output"),
+                quiet_output=ctx.obj.get("quiet_output"),
             )
         else:
-            if not quiet_output:
-                try:
-                    typer.echo(readme.load("bridge"))
-                except (FileNotFoundError, ValueError) as e:
-                    typer.echo(f"❌ bridge README not found: {e}")
-                else:
-                    typer.echo()
+            if not ctx.obj.get("quiet_output"):
+                typer.echo("Bridge CLI - A command-line interface for Bridge.")
+                typer.echo()
 
 
 app.add_typer(channels_app, name="channels")
@@ -91,18 +82,18 @@ app.command("archive")(archive_cmd)
 
 
 @app.command()
+@common_cli_options
 def list(
+    ctx: typer.Context,
     agent_id: str = typer.Option(None, "--as", help="Agent identity"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
 ):
     """List all active channels."""
     if agent_id:
         agent_id = registry.ensure_agent(agent_id)
         events.emit("bridge", "list_active_channels", agent_id, "")
-    _print_active_channels(agent_id, json_output, quiet_output)
+    _print_active_channels(
+        agent_id, ctx.obj.get("json_output"), ctx.obj.get("quiet_output")
+    )
 
 
 def _print_active_channels(agent_id: str, json_output: bool, quiet_output: bool):

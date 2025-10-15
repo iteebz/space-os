@@ -3,6 +3,8 @@ from dataclasses import asdict
 
 import typer
 
+from space.lib.identity import constitute_identity
+
 from ... import events
 from .. import api, utils
 
@@ -18,10 +20,7 @@ def recv(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    """Receive updates from a channel."""
-    from ..constitute import constitute_identity
-
-    constitute_identity(identity)
+    constitute_identity(identity, event_source="bridge")
 
     from space.spawn import registry
 
@@ -91,10 +90,7 @@ def alerts(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    """Show all unread alerts across all channels."""
-    from ..constitute import constitute_identity
-
-    constitute_identity(identity)
+    constitute_identity(identity, event_source="bridge")
 
     from space.spawn import registry
 
@@ -146,9 +142,7 @@ def inbox(
     ),
 ):
     """Show all channels with unreads."""
-    from ..constitute import constitute_identity
-
-    constitute_identity(identity)
+    constitute_identity(identity, event_source="bridge")
 
     from space.spawn import registry
 

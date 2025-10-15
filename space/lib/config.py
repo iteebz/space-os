@@ -1,4 +1,5 @@
 import shutil
+from functools import lru_cache
 from pathlib import Path
 
 import yaml
@@ -15,6 +16,11 @@ def config_file() -> Path:
     return paths.dot_space() / "config.yaml"
 
 
+def clear_cache():
+    load_config.cache_clear()
+
+
+@lru_cache(maxsize=1)
 def load_config() -> dict:
     """Load the config.yaml file, returning its content or an empty dict if not found."""
     path = config_file()

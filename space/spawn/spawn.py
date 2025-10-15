@@ -7,8 +7,6 @@ from pathlib import Path
 
 import yaml
 
-from space.lib import canon
-
 from ..lib import paths
 from . import config, registry
 
@@ -53,11 +51,14 @@ def inject_identity(
         else f"Self: You are {identity}."
     )
 
-    # Inject canon into the base constitution content
-    constitution_with_canon = canon.inject_canon(base_constitution_content)
+    # Construct the final identity by wrapping with header, self_desc, canon, and footer
+    canon_content = ""
+    canon_dir = paths.canon_path()
+    if canon_dir.exists():
+        for item in sorted(canon_dir.glob("**/*.md")):
+            canon_content += item.read_text() + "\n"
 
-    # Construct the final identity by wrapping with header, self_desc, and footer
-    return f"{header}\n{self_desc}\n\n{constitution_with_canon}\n{footer}"
+    return f"{header}\n{self_desc}\n\n{canon_content}{base_constitution_content}\n{footer}"
 
 
 def launch_agent(

@@ -11,8 +11,8 @@ def test_dot_space():
     assert paths.dot_space() == Path.home() / "space" / ".space"
 
 
-def test_backup_root():
-    assert paths.backup_root() == Path.home() / ".space"
+def test_global_root():
+    assert paths.global_root() == Path.home() / ".space"
 
 
 def test_canon_path_from_config(mocker):

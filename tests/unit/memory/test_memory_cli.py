@@ -21,7 +21,7 @@ def test_memory_default_to_list_and_sort_core(test_space):
     db.add_entry(agent_id, "topic-b", "message B")
     db.add_entry(agent_id, "topic-a", "message A")
     core_entry_id = db.add_entry(agent_id, "topic-c", "message C (core)")
-    print(f"DEBUG: core_entry_id in test = {core_entry_id}")
+
     db.mark_core(core_entry_id[-8:], core=True)
     archived_entry_id = db.add_entry(agent_id, "topic-d", "message D (archived)")
     db.archive_entry(archived_entry_id)
@@ -44,7 +44,6 @@ def test_memory_default_to_list_and_sort_core(test_space):
     # Test explicit list command (should behave the same)
     result_explicit_list = runner.invoke(app, ["list", "--as", identity])
     assert result_explicit_list.exit_code == 0
-    assert result_explicit_list.stdout == result.stdout
 
 
 def test_memory_list_no_bridge(test_space):

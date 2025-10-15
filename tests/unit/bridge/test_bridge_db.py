@@ -13,3 +13,27 @@ def test_recv_respects_bookmarks(test_space):
     messages, unread_count, _, _ = coordination_messages.recv_updates(channel_id, "agent-a")
     assert [msg.content for msg in messages] == ["second message"]
     assert unread_count == 1
+
+
+def test_get_new_messages_summary_channel_no_special_handling(test_space):
+    from space.bridge import api, db
+
+    # Create a summary channel
+    channel_id = db.create_channel("summary", topic="test summary topic")
+    agent_id = "test-agent"
+
+    # Send multiple messages to the summary channel
+    api.send_message(channel_id, "sender1", "summary message 1")
+    api.send_message(channel_id, "sender2", "summary message 2")
+    api.send_message(channel_id, "sender3", "summary message 3")
+
+    # This test expects get_new_messages to *not* have special handling for "summary"
+    # and thus return all new messages.
+    messages = db.get_new_messages(channel_id, agent_id)
+
+    # This assertion should FAIL with the current implementation of get_new_messages
+    # because it will only return the last message.
+    assert len(messages) == 3
+    assert messages[0].content == "summary message 1"
+    assert messages[1].content == "summary message 2"
+    assert messages[2].content == "summary message 3"

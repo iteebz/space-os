@@ -1,13 +1,12 @@
 import contextlib
 import sqlite3
-from pathlib import Path
 
 import pytest
 
 from space.knowledge import db as knowledge_db
+from space.lib import config, db
 from space.memory import db as memory_db
 from space.spawn import registry
-from space.spawn.registry import _apply_migrations
 
 _REGISTRY_SCHEMA = """
 CREATE TABLE IF NOT EXISTS constitutions (
@@ -25,6 +24,11 @@ CREATE TABLE IF NOT EXISTS agents (
 """
 
 
+@pytest.fixture(autouse=True)
+def clear_config_cache():
+    config.clear_cache()
+
+
 @pytest.fixture
 def test_space(monkeypatch, tmp_path):
     """Creates an isolated workspace for tests, with bridge and spawn initialized."""
@@ -35,10 +39,8 @@ def test_space(monkeypatch, tmp_path):
 
     from space.lib import db, paths
 
-    monkeypatch.setattr(paths, "space_root", lambda: workspace)
-    monkeypatch.setattr(paths, "dot_space", lambda: workspace / ".space")
-    monkeypatch.setattr(Path, "home", lambda: workspace)
-
+    monkeypatch.setattr(paths, "space_root", lambda base_path=None: workspace)
+    monkeypatch.setattr(paths, "dot_space", lambda base_path=None: workspace / ".space")
     from space import events
 
     events.DB_PATH = workspace / ".space" / "events.db"
@@ -50,19 +52,30 @@ def test_space(monkeypatch, tmp_path):
     ]:
         path.mkdir(parents=True, exist_ok=True)
 
-    # Directly initialize registry DB
-    monkeypatch.setattr(registry.config, "registry_db", lambda: workspace / ".space" / "spawn.db")
-    registry_db_path = registry.config.registry_db()
-    with sqlite3.connect(registry_db_path) as conn:
-        conn.executescript(_REGISTRY_SCHEMA)
-        _apply_migrations(conn)
-        conn.commit()
+        from space.spawn import config, registry
 
-    db.ensure_schema(workspace / ".space" / memory_db.MEMORY_DB_NAME, memory_db._MEMORY_SCHEMA)
-    with sqlite3.connect(workspace / ".space" / memory_db.MEMORY_DB_NAME) as conn:
-        memory_db._run_migrations(conn)
+        registry_db_path = workspace / ".space" / config.registry_db().name
+    db.ensure_schema(registry_db_path, _REGISTRY_SCHEMA, registry.spawn_migrations)
+
+    # Initialize memory DB
     db.ensure_schema(
-        workspace / ".space" / knowledge_db.KNOWLEDGE_DB_NAME, knowledge_db._KNOWLEDGE_SCHEMA
+        workspace / ".space" / memory_db.MEMORY_DB_NAME,
+        memory_db._MEMORY_SCHEMA,
+        memory_db.memory_migrations,
+    )
+
+    # Initialize knowledge DB
+    db.ensure_schema(
+        workspace / ".space" / knowledge_db.KNOWLEDGE_DB_NAME,
+        knowledge_db._KNOWLEDGE_SCHEMA,
+        knowledge_db.knowledge_migrations,
+    )
+
+    # Initialize bridge DB
+    from space.bridge import db as bridge_db
+
+    db.ensure_schema(
+        workspace / ".space" / "bridge.db", bridge_db._SCHEMA, bridge_db.bridge_migrations
     )
 
     yield workspace
@@ -83,10 +96,17 @@ def in_memory_db():
 
     registry.get_db = mock_get_db
 
+    from space.bridge import db as bridge_db
+
     # Initialize schema for both tables on this connection
-    registry.init_db()
+    conn.executescript(_REGISTRY_SCHEMA)
+    db.migrate(conn, registry.spawn_migrations)
     conn.executescript(memory_db._MEMORY_SCHEMA)
+    db.migrate(conn, memory_db.memory_migrations)
     conn.executescript(knowledge_db._KNOWLEDGE_SCHEMA)
+    db.migrate(conn, knowledge_db.knowledge_migrations)
+    conn.executescript(bridge_db._SCHEMA)
+    db.migrate(conn, bridge_db.bridge_migrations)
 
     yield conn
 

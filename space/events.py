@@ -1,8 +1,11 @@
+import sqlite3
 import time
-from pathlib import Path
+from contextlib import contextmanager
 
 from .lib import db, paths
+from .lib.identity import constitute_identity
 from .lib.uuid7 import uuid7
+from .spawn import registry
 
 DB_PATH = paths.dot_space() / "events.db"
 
@@ -24,25 +27,39 @@ CREATE INDEX IF NOT EXISTS idx_id ON events(id);
 """
 
 
-def _migrate_schema(db_path: Path):
-    with db.connect(db_path) as conn:
-        cursor = conn.execute("PRAGMA table_info(events)")
-        columns = {row[1] for row in cursor.fetchall()}
-
-        if "agent_id" not in columns:
-            conn.execute("ALTER TABLE events ADD COLUMN agent_id TEXT")
-            conn.commit()
-
-        if "session_id" not in columns:
-            conn.execute("ALTER TABLE events ADD COLUMN session_id TEXT")
-            conn.commit()
+def _add_column_if_not_exists(
+    conn: sqlite3.Connection, table_name: str, column_name: str, column_type: str
+):
+    cursor = conn.execute(f"PRAGMA table_info({table_name})")
+    columns = {row[1] for row in cursor.fetchall()}
+    if column_name not in columns:
+        conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}")
+        conn.commit()
 
 
+def _migrate_add_agent_id(conn: sqlite3.Connection):
+    _add_column_if_not_exists(conn, "events", "agent_id", "TEXT")
+
+
+def _migrate_add_session_id(conn: sqlite3.Connection):
+    _add_column_if_not_exists(conn, "events", "session_id", "TEXT")
+
+
+events_migrations = [
+    ("add_agent_id_to_events", _migrate_add_agent_id),
+    ("add_session_id_to_events", _migrate_add_session_id),
+]
+
+
+@contextmanager
 def _connect():
     if not DB_PATH.exists():
-        db.ensure_schema(DB_PATH, SCHEMA)
-    _migrate_schema(DB_PATH)
-    return db.connect(DB_PATH)
+        db.ensure_schema(DB_PATH, SCHEMA, events_migrations)
+    conn = db.connect(DB_PATH)
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def emit(
@@ -70,28 +87,23 @@ def query(source: str | None = None, agent_id: str | None = None, limit: int = 1
         return []
 
     with _connect() as conn:
-        if source and agent_id:
-            rows = conn.execute(
-                "SELECT id, source, agent_id, event_type, data, timestamp FROM events WHERE source = ? AND agent_id = ? ORDER BY id DESC LIMIT ?",
-                (source, agent_id, limit),
-            ).fetchall()
-        elif source:
-            rows = conn.execute(
-                "SELECT id, source, agent_id, event_type, data, timestamp FROM events WHERE source = ? ORDER BY id DESC LIMIT ?",
-                (source, limit),
-            ).fetchall()
-        elif agent_id:
-            rows = conn.execute(
-                "SELECT id, source, agent_id, event_type, data, timestamp FROM events WHERE agent_id = ? ORDER BY id DESC LIMIT ?",
-                (agent_id, limit),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT id, source, agent_id, event_type, data, timestamp FROM events ORDER BY id DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
+        query_parts = []
+        params = []
 
-    return rows
+        if source:
+            query_parts.append("source = ?")
+            params.append(source)
+        if agent_id:
+            query_parts.append("agent_id = ?")
+            params.append(agent_id)
+
+        where_clause = "WHERE " + " AND ".join(query_parts) if query_parts else ""
+        params.append(limit)
+
+        return conn.execute(
+            f"SELECT id, source, agent_id, event_type, data, timestamp FROM events {where_clause} ORDER BY id DESC LIMIT ?",
+            tuple(params),
+        ).fetchall()
 
 
 def identify(identity: str, command: str, session_id: str | None = None):
@@ -99,9 +111,6 @@ def identify(identity: str, command: str, session_id: str | None = None):
 
     Creates immutable audit trail linking identity → command.
     """
-    from .lib.identity import constitute_identity
-    from .spawn import registry
-
     constitute_identity(identity)
     agent_id = registry.ensure_agent(identity)
     emit("identity", command, agent_id, "", session_id)
@@ -112,8 +121,16 @@ def start_session(agent_id: str) -> str:
     session_id = uuid7()
 
     with _connect() as conn:
+        # Find any session_start events that do not have a corresponding session_end event
         open_session = conn.execute(
-            "SELECT session_id FROM events WHERE agent_id = ? AND event_type = 'session_start' AND session_id NOT IN (SELECT session_id FROM events WHERE event_type = 'session_end' AND agent_id = ?) ORDER BY timestamp DESC LIMIT 1",
+            """
+            SELECT T1.session_id
+            FROM events AS T1
+            LEFT JOIN events AS T2
+            ON T1.session_id = T2.session_id AND T2.event_type = 'session_end' AND T2.agent_id = ?
+            WHERE T1.agent_id = ? AND T1.event_type = 'session_start' AND T2.session_id IS NULL
+            ORDER BY T1.timestamp DESC LIMIT 1
+            """,
             (agent_id, agent_id),
         ).fetchone()
 

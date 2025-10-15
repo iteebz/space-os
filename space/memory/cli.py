@@ -1,15 +1,15 @@
 import json
+import sys
 from dataclasses import asdict
 
 import typer
 
+from space import events
 from space.lib import errors
 from space.spawn import registry
 
 from ..lib import identity as identity_lib
-from ..lib import readme
-from ..lib.display import humanize_timestamp
-from . import db
+from . import db, display
 from .display import show_context
 
 errors.install_error_handler("memory")
@@ -28,13 +28,18 @@ def main_command(
         return
     if ctx.invoked_subcommand is None:
         if not identity:
-            try:
-                protocol_content = readme.load("memory")
-                typer.echo(protocol_content)
-            except (FileNotFoundError, ValueError) as e:
-                typer.echo(f"❌ memory README not found: {e}")
+            typer.echo("Memory CLI - A command-line interface for Memory.")
         else:
-            ctx.invoke(app.get_command("summary"), identity=identity, include_archived=archived)
+            list_entries_command(
+                ctx,
+                identity=identity_lib.require_identity(ctx, identity),
+                topic=None,
+                include_archived=archived,
+                show_all=False,
+                json_output=False,
+                quiet_output=False,
+                raw_output=False,
+            )
 
 
 @app.command("add")
@@ -70,6 +75,10 @@ def edit_entry_command(
     ),
 ):
     """Edit an existing memory entry."""
+    entry = db.get_by_memory_id(uuid)
+    if not entry:
+        raise typer.BadParameter(f"Entry with UUID '{uuid}' not found.")
+
     try:
         db.edit_entry(uuid, message)
         if json_output:
@@ -77,11 +86,7 @@ def edit_entry_command(
         elif not quiet_output:
             typer.echo(f"Edited entry {uuid}")
     except ValueError as e:
-        from .. import events
-        from ..spawn import registry
-
-        agent_id = registry.get_agent_id(identity)
-        events.emit("memory", "error", agent_id, f"edit failed: {str(e)}")
+        events.emit("memory", "error", entry.agent_id, f"edit failed: {str(e)}")
         if json_output:
             typer.echo(json.dumps({"uuid": uuid, "status": "error", "message": str(e)}))
         else:
@@ -97,6 +102,10 @@ def delete_entry_command(
     ),
 ):
     """Delete a memory entry."""
+    entry = db.get_by_memory_id(uuid)
+    if not entry:
+        raise typer.BadParameter(f"Entry with UUID '{uuid}' not found.")
+
     try:
         db.delete_entry(uuid)
         if json_output:
@@ -104,11 +113,7 @@ def delete_entry_command(
         elif not quiet_output:
             typer.echo(f"Deleted entry {uuid}")
     except ValueError as e:
-        from .. import events
-
-        entry = db.get_by_uuid(uuid)
-        agent_id = entry.agent_id if entry else None
-        events.emit("memory", "error", agent_id, f"edit failed: {str(e)}")
+        events.emit("memory", "error", entry.agent_id, f"delete failed: {str(e)}")
         if json_output:
             typer.echo(json.dumps({"uuid": uuid, "status": "error", "message": str(e)}))
         else:
@@ -125,12 +130,25 @@ def clear_entries_command(
     ),
 ):
     """Clear memory entries for an identity and optional topic."""
-    db.clear_entries(identity, topic)
-    scope = f"topic '{topic}'" if topic else "all topics"
-    if json_output:
-        typer.echo(json.dumps({"identity": identity, "topic": topic, "status": "cleared"}))
-    elif not quiet_output:
-        typer.echo(f"Cleared {scope} for {identity}")
+    resolved_identity = identity_lib.require_identity(None, identity)
+    agent_id = registry.ensure_agent(resolved_identity)
+    try:
+        db.clear_entries(resolved_identity, topic)
+        scope = f"topic '{topic}'" if topic else "all topics"
+        if json_output:
+            typer.echo(json.dumps({"identity": identity, "topic": topic, "status": "cleared"}))
+        elif not quiet_output:
+            typer.echo(f"Cleared {scope} for {identity}")
+    except ValueError as e:
+        events.emit("memory", "error", agent_id, f"clear failed: {str(e)}")
+        if json_output:
+            typer.echo(
+                json.dumps(
+                    {"identity": identity, "topic": topic, "status": "error", "message": str(e)}
+                )
+            )
+        else:
+            raise typer.BadParameter(str(e)) from e
 
 
 @app.command("summary")
@@ -161,7 +179,9 @@ def summary_command(
             if json_output:
                 typer.echo(json.dumps({"new_uuid": new_uuid, "supersedes": [old_entry.memory_id]}))
             elif not quiet_output:
-                typer.echo(f"Replaced {len([old_entry.memory_id])} entry(ies) with {new_uuid[-8:]}")
+                typer.echo(
+                    f"Updated summary (appended to {len(existing_summaries)} entries) with new ID {new_uuid[-8:]}"
+                )
         else:
             entry_id = db.add_entry(agent_id, "summary", message)
             if json_output:
@@ -182,22 +202,22 @@ def summary_command(
                 typer.echo(f"No summary found for {resolved_identity}.")
             return
 
-        current = entries[0]
-        chain = db.get_chain(current.memory_id)
-
         if json_output:
-            typer.echo(json.dumps(chain, indent=2))
+            typer.echo(json.dumps(asdict(entries[0]), indent=2))
         elif not quiet_output:
-            typer.echo(f"CURRENT: [summary] {current.message}")
+            typer.echo(f"CURRENT: [summary] {entries[0].message}")
+
+            chain = db.get_chain(entries[0].memory_id)
             if chain["predecessors"]:
                 typer.echo("SUPERSEDES:")
-                for pred in chain["predecessors"]:
-                    typer.echo(f"  ← [{pred.memory_id[-8:]}] {pred.message}")
+                for p in chain["predecessors"]:
+                    typer.echo(f"  [{p.memory_id[-8:]}] {p.message}")
     return
 
 
 @app.command("list")
 def list_entries_command(
+    ctx: typer.Context,
     identity: str = typer.Option(..., "--as", help="Identity name"),
     topic: str = typer.Option(None, help="Topic name"),
     include_archived: bool = typer.Option(False, "--archived", help="Include archived entries"),
@@ -211,10 +231,27 @@ def list_entries_command(
     ),
 ):
     """List memory entries for an identity and optional topic."""
-    identity_lib.constitute_identity(identity)
+    resolved_identity = identity_lib.require_identity(ctx, identity)
 
-    # Always show all entries by default when an identity is provided
-    entries = db.get_memories(identity, topic, include_archived=include_archived)
+    try:
+        # Always show all entries by default when an identity is provided
+        entries = db.get_memories(resolved_identity, topic, include_archived=include_archived)
+    except ValueError as e:
+        events.emit("memory", "error", None, f"list failed: {str(e)}")
+        if json_output:
+            typer.echo(
+                json.dumps(
+                    {
+                        "identity": resolved_identity,
+                        "topic": topic,
+                        "status": "error",
+                        "message": str(e),
+                    }
+                )
+            )
+        else:
+            raise typer.BadParameter(str(e)) from e
+
     entries.sort(key=lambda e: (not e.core, e.timestamp), reverse=True)
     if not entries:
         scope = f"topic '{topic}'" if topic else "all topics"
@@ -227,18 +264,10 @@ def list_entries_command(
     if json_output:
         typer.echo(json.dumps([asdict(e) for e in entries], indent=2))
     elif not quiet_output:
-        current_topic = None
-        for e in entries:
-            if e.topic != current_topic:
-                if current_topic is not None:
-                    typer.echo()
-                typer.echo(f"# {e.topic}")
-                current_topic = e.topic
-            core_mark = " ★" if e.core else ""
-            timestamp_display = e.timestamp if raw_output else humanize_timestamp(e.timestamp)
-            typer.echo(f"[{e.memory_id[-8:]}] [{timestamp_display}] {e.message}{core_mark}")
+        typer.echo(display.format_memory_entries(entries, raw_output=raw_output))
 
-        show_context(identity)
+        if not quiet_output and not json_output:
+            show_context(resolved_identity)
 
 
 @app.command("archive")
@@ -251,6 +280,10 @@ def archive_entry_command(
     ),
 ):
     """Archive or restore a memory entry."""
+    entry = db.get_by_memory_id(uuid)
+    if not entry:
+        raise typer.BadParameter(f"Entry with UUID '{uuid}' not found.")
+
     try:
         if restore:
             db.restore_entry(uuid)
@@ -264,11 +297,7 @@ def archive_entry_command(
         elif not quiet_output:
             typer.echo(f"{action.capitalize()} entry {uuid}")
     except ValueError as e:
-        from .. import events
-        from ..spawn import registry
-
-        agent_id = registry.get_agent_id(identity)
-        events.emit("memory", "error", agent_id, f"edit failed: {str(e)}")
+        events.emit("memory", "error", entry.agent_id, f"archive/restore failed: {str(e)}")
         if json_output:
             typer.echo(json.dumps({"uuid": uuid, "status": "error", "message": str(e)}))
         else:
@@ -320,6 +349,10 @@ def mark_core_command(
     ),
 ):
     """Mark or unmark entry as core memory."""
+    entry = db.get_by_memory_id(uuid)
+    if not entry:
+        raise typer.BadParameter(f"Entry with UUID '{uuid}' not found.")
+
     try:
         db.mark_core(uuid, core=not unmark)
         action = "unmarked" if unmark else "marked"
@@ -328,9 +361,7 @@ def mark_core_command(
         elif not quiet_output:
             typer.echo(f"{action.capitalize()} {uuid} as core")
     except ValueError as e:
-        from .. import events
-
-        events.emit("memory", "error", None, f"core operation failed: {str(e)}")
+        events.emit("memory", "error", entry.agent_id, f"core operation failed: {str(e)}")
         if json_output:
             typer.echo(json.dumps({"uuid": uuid, "error": str(e)}))
         else:
@@ -349,21 +380,16 @@ def inspect_entry_command(
     ),
 ):
     """Inspect entry and find related nodes via keyword similarity."""
-    from ..spawn import registry
-
     resolved_agent_id = registry.ensure_agent(identity)
 
     try:
         entry = db.get_by_uuid(uuid)
     except ValueError as e:
-        from .. import events
-
         events.emit("memory", "error", resolved_agent_id, f"inspect failed: {str(e)}")
         if json_output:
             typer.echo(json.dumps({"uuid": uuid, "error": str(e)}))
         else:
             raise typer.BadParameter(str(e)) from e
-        return
 
     if not entry:
         if json_output:
@@ -445,82 +471,17 @@ def replace_entry_command(
         typer.echo(f"Replaced {len(old_ids)} entry(ies) with {new_uuid[-8:]}")
 
 
-@app.command("chain")
-def chain_command(
-    uuid: str = typer.Argument(..., help="UUID to show chain for"),
-    identity: str = typer.Option(..., "--as", help="Identity name"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
-):
-    """Show memory evolution chain (predecessors and successor)."""
-    from ..spawn import registry
-
-    resolved_agent_id = registry.ensure_agent(identity)
-
-    chain = db.get_chain(uuid)
-
-    if not chain["current"]:
-        if json_output:
-            typer.echo(json.dumps(None))
-        elif not quiet_output:
-            typer.echo(f"No entry found with UUID '{uuid}'")
-        return
-
-    if chain["current"].agent_id != resolved_agent_id:
-        if json_output:
-            typer.echo(json.dumps({"error": "Entry belongs to different identity"}))
-        elif not quiet_output:
-            typer.echo(
-                f"Entry belongs to {registry.get_identity(chain['current'].agent_id)}, not {identity}"
-            )
-        return
-
-    if json_output:
-        typer.echo(
-            json.dumps(
-                {
-                    "current": asdict(chain["current"]),
-                    "predecessors": [asdict(p) for p in chain["predecessors"]],
-                    "successor": asdict(chain["successor"]) if chain["successor"] else None,
-                }
-            )
-        )
-    elif not quiet_output:
-        if chain["predecessors"]:
-            typer.echo("SUPERSEDES:")
-            for pred in chain["predecessors"]:
-                typer.echo(f"  ← [{pred.memory_id[-8:]}] {pred.message[:60]}...")
-            typer.echo()
-
-        cur = chain["current"]
-        typer.echo(f"CURRENT: [{cur.memory_id[-8:]}] {cur.topic}")
-        typer.echo(f"{cur.message}")
-        if cur.synthesis_note:
-            typer.echo(f"Note: {cur.synthesis_note}")
-        typer.echo()
-
-        if chain["successor"]:
-            succ = chain["successor"]
-            typer.echo("SUPERSEDED BY:")
-            typer.echo(f"  → [{succ.memory_id[-8:]}] {succ.message[:60]}...")
-
-
 def main() -> None:
     """Entry point for poetry script."""
-    import sys
-
-    from .. import events as event_log
 
     try:
         app()
     except SystemExit as e:
         if e.code and e.code != 0:
             cmd = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "(no command)"
-            event_log.emit("cli", "error", data=f"memory {cmd}")
+            events.emit("cli", "error", data=f"memory {cmd}")
         sys.exit(e.code if e.code is not None else 0)
     except BaseException as e:
         cmd = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "(no command)"
-        event_log.emit("cli", "error", data=f"memory {cmd}: {str(e)}")
+        events.emit("cli", "error", data=f"memory {cmd}: {str(e)}")
         sys.exit(1)

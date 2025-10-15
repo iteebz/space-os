@@ -6,7 +6,6 @@ import typer
 
 from space.lib import errors
 
-from ..lib import readme
 from ..lib.paths import canon_path
 from . import (
     db,  # Add this import
@@ -29,17 +28,13 @@ def main_command(
 ):
     """Unified context retrieval: trace evolution + current state + lattice docs."""
     if (ctx.resilient_parsing or ctx.invoked_subcommand is None) and not topic:
-        try:
-            protocol_content = readme.load("context")  # Use readme.load
-            typer.echo(protocol_content)
-        except (FileNotFoundError, ValueError) as e:
-            typer.echo(f"❌ context README not found: {e}")
+        typer.echo("Context CLI - A command-line interface for Context.")
         return
 
     # Original logic for context retrieval
     timeline = db.collect_timeline(topic, identity, all_agents)  # Call from db module
     current_state = db.collect_current_state(topic, identity, all_agents)  # Call from db module
-    lattice_docs = _search_lattice(topic)
+    lattice_docs = {}
     canon_docs = _search_canon(topic)  # New: Search canon documents
 
     if json_output:
@@ -66,27 +61,6 @@ def main_command(
         typer.echo(f"No context found for '{topic}'")
 
 
-def _search_lattice(topic: str):
-    """Search README for relevant sections."""
-    try:
-        content = readme.README.read_text()
-        lines = content.split("\n")
-        matches = {}
-
-        for line in lines:
-            if line.startswith("#") and topic.lower() in line.lower():
-                heading = line.strip()
-                try:
-                    section_content = readme.load_section(heading)
-                    matches[heading] = section_content
-                except ValueError:
-                    pass
-
-        return matches
-    except Exception:
-        return {}
-
-
 def _search_canon(topic: str) -> dict:
     """Search canon documents for relevant sections."""
     matches = {}
@@ -100,10 +74,10 @@ def _search_canon(topic: str) -> dict:
                 content = md_file.read_text()
                 if topic.lower() in content.lower():
                     matches[str(md_file.relative_to(canon_root))] = content
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as e:
+                errors.log_error("context", None, e, "_search_canon file processing")
+    except Exception as e:
+        errors.log_error("context", None, e, "_search_canon directory traversal")
     return matches
 
 

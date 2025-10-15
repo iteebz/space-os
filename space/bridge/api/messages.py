@@ -21,7 +21,13 @@ def send_message(channel_id: str, sender: str, content: str, priority: str = "no
 
 def recv_updates(channel_id: str, agent_id: str) -> tuple[list[Message], int, str, list[str]]:
     """Receive topic updates, returning messages, count, context, and participants."""
+    channel_name = db.get_channel_name(channel_id)
+
     messages = db.get_new_messages(channel_id, agent_id)
+
+    if channel_name == "summary" and messages:
+        messages = [messages[-1]]
+
     unread_count = len(messages)
 
     if messages:
