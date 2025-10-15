@@ -2,7 +2,7 @@ import typer
 
 from space import events, readme
 
-from .bridge.cli import app as bridge_app
+from .bridge.app import app as bridge_app
 from .commands import (
     agent,
     backup,
@@ -16,9 +16,9 @@ from .commands import (
     wake,
 )
 from .commands import events as events_cmd
-from .context.cli import app as context_app
-from .knowledge.cli import app as knowledge_app
-from .memory.cli import app as memory_app
+from .context.app import app as context_app
+from .knowledge.app import app as knowledge_app
+from .memory.app import app as memory_app
 
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False)
 

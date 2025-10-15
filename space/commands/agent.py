@@ -1,7 +1,7 @@
 import typer
 
-from space.spawn import registry
 from space.lib import stats as stats_lib
+from space.spawn import registry
 
 app = typer.Typer(invoke_without_command=True)
 
@@ -19,7 +19,7 @@ def list_agents():
     """List all registered agents."""
 
     registry.init_db()
-    
+
     with registry.get_db() as conn:
         rows = conn.execute(
             "SELECT id, name, self_description FROM agents WHERE archived_at IS NULL ORDER BY name"

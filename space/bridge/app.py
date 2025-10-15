@@ -1,13 +1,10 @@
 """Bridge CLI - Clean command interface."""
 
-import json
-
 import typer
 
-from space import events, readme
-from space.lib import errors
+from space import events
+from space.lib import cli_utils, errors
 from space.spawn import registry
-from space.lib.cli_utils import common_cli_options
 
 from . import api, utils
 from .commands import (
@@ -35,22 +32,18 @@ app = typer.Typer(invoke_without_command=True, add_help_option=False)
 
 
 @app.callback()
-@common_cli_options
 def main_command(
     ctx: typer.Context,
-    help_flag: bool = typer.Option(
-        False,
-        "--help",
-        "-h",
-        help="Show protocol instructions and command overview.",
-        is_eager=True,
-    ),
     agent_id: str = typer.Option(None, "--as", help="Agent identity"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
 ):
     """Bridge: AI Coordination Protocol"""
-    if help_flag:
-        typer.echo(readme.load("bridge"))
-        raise typer.Exit()
+    cli_utils.set_flags(ctx, json_output, quiet_output)
+    if ctx.obj is None:
+        ctx.obj = {}
 
     if ctx.invoked_subcommand is None:
         if agent_id:
@@ -61,9 +54,7 @@ def main_command(
                 quiet_output=ctx.obj.get("quiet_output"),
             )
         else:
-            if not ctx.obj.get("quiet_output"):
-                typer.echo("Bridge CLI - A command-line interface for Bridge.")
-                typer.echo()
+            cli_utils.out_text("Bridge CLI - A command-line interface for Bridge.", ctx.obj)
 
 
 app.add_typer(channels_app, name="channels")
@@ -80,7 +71,6 @@ app.command("archive")(archive_cmd)
 
 
 @app.command()
-@common_cli_options
 def list(
     ctx: typer.Context,
     agent_id: str = typer.Option(None, "--as", help="Agent identity"),
@@ -96,13 +86,13 @@ def _print_active_channels(agent_id: str, json_output: bool, quiet_output: bool)
     """Render active channel list like the original dashboard."""
     try:
         active_channels = api.active_channels(agent_id=agent_id)
-    except Exception as exc:  # pragma: no cover - defensive logging for CLI usage
+    except Exception as exc:
         if agent_id:
             events.emit(
                 "bridge",
                 "error",
                 agent_id,
-                json.dumps({"command": "list", "details": str(exc)}),
+                cli_utils.out_json({"command": "list", "details": str(exc)}),
             )
         if not quiet_output:
             typer.echo(f"⚠️ Unable to load bridge channels: {exc}")
@@ -111,7 +101,7 @@ def _print_active_channels(agent_id: str, json_output: bool, quiet_output: bool)
 
     if not active_channels:
         if json_output:
-            typer.echo(json.dumps([]))
+            typer.echo(cli_utils.out_json([]))
         elif not quiet_output:
             typer.echo("No active bridge channels yet.")
             typer.echo()
@@ -128,7 +118,7 @@ def _print_active_channels(agent_id: str, json_output: bool, quiet_output: bool)
             }
             for c in active_channels
         ]
-        typer.echo(json.dumps(compact, indent=2))
+        typer.echo(cli_utils.out_json(compact))
     elif not quiet_output:
         typer.echo("ACTIVE CHANNELS:")
         for channel in active_channels:

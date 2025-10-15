@@ -2,7 +2,7 @@ import sqlite3
 from collections.abc import Callable
 from dataclasses import fields
 from pathlib import Path
-from typing import Type, TypeVar
+from typing import TypeVar
 
 from . import paths
 
@@ -29,7 +29,9 @@ def ensure_schema(
         conn.commit()
 
 
-def register(name: str, db_file: str, schema: str, migrations: list[tuple[str, str | Callable]] | None = None):
+def register(
+    name: str, db_file: str, schema: str, migrations: list[tuple[str, str | Callable]] | None = None
+):
     _registry[name] = (db_file, schema, migrations)
 
 
@@ -69,11 +71,11 @@ def migrate(conn: sqlite3.Connection, migrations: list[tuple[str, str | Callable
             conn.commit()
 
 
-def from_row(row: sqlite3.Row, dataclass_type: Type[T]) -> T:
+def from_row(row: sqlite3.Row, dataclass_type: type[T]) -> T:
     """
     Converts a sqlite3.Row object to an instance of the given dataclass type.
     Matches row keys to dataclass field names.
     """
     field_names = {f.name for f in fields(dataclass_type)}
-    kwargs = {key: row[key] for key in row.keys() if key in field_names}
+    kwargs = {key: row[key] for key in row if key in field_names}
     return dataclass_type(**kwargs)

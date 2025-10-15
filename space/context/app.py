@@ -1,11 +1,9 @@
-"Unified concept retrieval: evolution + current state + lattice."
-
-import json
+"""Unified concept retrieval: evolution + current state + lattice."""
 
 import typer
 
 from space import readme
-from space.lib import display, errors
+from space.lib import cli_utils, display, errors
 
 from ..lib.paths import canon_path
 from . import db
@@ -21,33 +19,27 @@ def main_command(
     topic: str | None = typer.Argument(None, help="Topic to retrieve context for"),
     identity: str | None = typer.Option(None, "--as", help="Scope to identity (default: all)"),
     all_agents: bool = typer.Option(False, "--all", help="Cross-agent perspective"),
-    help_flag: bool = typer.Option(
-        False,
-        "--help",
-        "-h",
-        help="Show protocol instructions and command overview.",
-        is_eager=True,
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
     ),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format"),
-    quiet_output: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
 ):
     """Unified context retrieval: trace evolution + current state + lattice docs."""
-    if help_flag:
-        typer.echo(readme.load("context"))
-        raise typer.Exit()
+    cli_utils.set_flags(ctx, json_output, quiet_output)
+    if ctx.obj is None:
+        ctx.obj = {}
     if (ctx.resilient_parsing or ctx.invoked_subcommand is None) and not topic:
         typer.echo(readme.load("context"))
         return
 
-    # Original logic for context retrieval
-    timeline = db.collect_timeline(topic, identity, all_agents)  # Call from db module
-    current_state = db.collect_current_state(topic, identity, all_agents)  # Call from db module
+    timeline = db.collect_timeline(topic, identity, all_agents)
+    current_state = db.collect_current_state(topic, identity, all_agents)
     lattice_docs = {}
-    canon_docs = _search_canon(topic)  # New: Search canon documents
+    canon_docs = _search_canon(topic)
 
-    if json_output:
+    if ctx.obj.get("json_output"):
         typer.echo(
-            json.dumps(
+            cli_utils.out_json(
                 {
                     "evolution": timeline,
                     "state": current_state,
@@ -58,15 +50,13 @@ def main_command(
         )
         return
 
-    if quiet_output:
+    if ctx.obj.get("quiet_output"):
         return
 
-    display.display_context(
-        timeline, current_state, lattice_docs, canon_docs
-    )  # Call display function with canon_docs
+    display.display_context(timeline, current_state, lattice_docs, canon_docs)
 
     if not timeline and not any(current_state.values()) and not lattice_docs and not canon_docs:
-        typer.echo(f"No context found for '{topic}'")
+        cli_utils.out_text(f"No context found for '{topic}'", ctx.obj)
 
 
 def _search_canon(topic: str) -> dict:

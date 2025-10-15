@@ -48,10 +48,12 @@ def inject_identity(
     footer_lines = [f"Identity: {identity}"]
     if model:
         footer_lines.append(f"Model: {model}")
-    footer_lines.extend([
-        "Run: `space` to launch (already in PATH)",
-        f"Run: `memory --as {identity}` to access memories",
-    ])
+    footer_lines.extend(
+        [
+            "Run: `space` to launch (already in PATH)",
+            f"Run: `memory --as {identity}` to access memories",
+        ]
+    )
     footer = "\n".join(footer_lines)
 
     return f"{base_constitution_content}\n---\n{footer}"

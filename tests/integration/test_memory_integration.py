@@ -1,6 +1,6 @@
 from typer.testing import CliRunner
 
-from space.memory.cli import app
+from space.memory.app import app
 
 runner = CliRunner()
 

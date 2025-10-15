@@ -9,7 +9,9 @@ from ..lib import paths
 
 def backup(
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(False, "--quiet", "-q", help="Suppress non-essential output."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
 ):
     """Backup the app data directory (~/space/.space) to ~/.space/backups/"""
 

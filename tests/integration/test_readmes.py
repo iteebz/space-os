@@ -1,8 +1,8 @@
 from typer.testing import CliRunner
 
-from space.bridge.cli import app as bridge_app
+from space.bridge.app import app as bridge_app
 from space.cli import app as space_app
-from space.memory.cli import app as memory_app
+from space.memory.app import app as memory_app
 
 runner = CliRunner()
 

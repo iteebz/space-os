@@ -1,14 +1,14 @@
-import json
 import sys
 from dataclasses import asdict
 
 import typer
 
 from space import events, readme
-from space.lib import errors
+from space.lib import cli_utils, errors
 from space.spawn import registry
 
-from ..lib import display, identity as identity_lib
+from ..lib import display
+from ..lib import identity as identity_lib
 from . import db
 
 errors.install_error_handler("memory")
@@ -19,20 +19,17 @@ app = typer.Typer(invoke_without_command=True)
 @app.callback()
 def main_command(
     ctx: typer.Context,
-    help_flag: bool = typer.Option(
-        False,
-        "--help",
-        "-h",
-        help="Show protocol instructions and command overview.",
-        is_eager=True,
-    ),
     identity: str = typer.Option(None, "--as", help="Identity name"),
     archived: bool = typer.Option(False, "--archived", help="Include archived entries"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
 ):
-    if help_flag:
-        typer.echo(readme.load("memory"))
-        raise typer.Exit()
-    ctx.obj = {"identity": identity, "archived": archived}
+    cli_utils.set_flags(ctx, json_output, quiet_output)
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj.update({"identity": identity, "archived": archived})
     if ctx.resilient_parsing:
         return
     if ctx.invoked_subcommand is None:
@@ -45,8 +42,6 @@ def main_command(
                 topic=None,
                 include_archived=archived,
                 show_all=False,
-                json_output=False,
-                quiet_output=False,
                 raw_output=False,
             )
 
@@ -57,31 +52,26 @@ def add_entry_command(
     message: str = typer.Argument(..., help="The memory message"),
     identity: str = typer.Option(None, "--as", help="Identity name"),
     topic: str = typer.Option(..., help="Topic name"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
 ):
     """Add a new memory entry."""
     resolved_identity = identity_lib.require_identity(ctx, identity)
     agent_id = registry.ensure_agent(resolved_identity)
     entry_id = db.add_entry(agent_id, topic, message)
-    if json_output:
+    if ctx.obj.get("json_output"):
         typer.echo(
-            json.dumps({"entry_id": entry_id, "identity": resolved_identity, "topic": topic})
+            cli_utils.out_json(
+                {"entry_id": entry_id, "identity": resolved_identity, "topic": topic}
+            )
         )
-    elif not quiet_output:
-        typer.echo(f"Added memory for {resolved_identity} on topic {topic}")
+    else:
+        cli_utils.out_text(f"Added memory for {resolved_identity} on topic {topic}", ctx.obj)
 
 
 @app.command("edit")
 def edit_entry_command(
+    ctx: typer.Context,
     uuid: str = typer.Argument(..., help="UUID of the entry to edit"),
     message: str = typer.Argument(..., help="The new message content"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
 ):
     """Edit an existing memory entry."""
     entry = db.get_by_memory_id(uuid)
@@ -90,25 +80,22 @@ def edit_entry_command(
 
     try:
         db.edit_entry(uuid, message)
-        if json_output:
-            typer.echo(json.dumps({"uuid": uuid, "status": "edited"}))
-        elif not quiet_output:
-            typer.echo(f"Edited entry {uuid}")
+        if ctx.obj.get("json_output"):
+            typer.echo(cli_utils.out_json({"uuid": uuid, "status": "edited"}))
+        else:
+            cli_utils.out_text(f"Edited entry {uuid}", ctx.obj)
     except ValueError as e:
-        events.emit("memory", "error", entry.agent_id, f"edit failed: {str(e)}")
-        if json_output:
-            typer.echo(json.dumps({"uuid": uuid, "status": "error", "message": str(e)}))
+        cli_utils.emit_error("memory", entry.agent_id, "edit", e)
+        if ctx.obj.get("json_output"):
+            typer.echo(cli_utils.out_json({"uuid": uuid, "status": "error", "message": str(e)}))
         else:
             raise typer.BadParameter(str(e)) from e
 
 
 @app.command("delete")
 def delete_entry_command(
+    ctx: typer.Context,
     uuid: str = typer.Argument(..., help="UUID of the entry to delete"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
 ):
     """Delete a memory entry."""
     entry = db.get_by_memory_id(uuid)
@@ -117,26 +104,23 @@ def delete_entry_command(
 
     try:
         db.delete_entry(uuid)
-        if json_output:
-            typer.echo(json.dumps({"uuid": uuid, "status": "deleted"}))
-        elif not quiet_output:
-            typer.echo(f"Deleted entry {uuid}")
+        if ctx.obj.get("json_output"):
+            typer.echo(cli_utils.out_json({"uuid": uuid, "status": "deleted"}))
+        else:
+            cli_utils.out_text(f"Deleted entry {uuid}", ctx.obj)
     except ValueError as e:
-        events.emit("memory", "error", entry.agent_id, f"delete failed: {str(e)}")
-        if json_output:
-            typer.echo(json.dumps({"uuid": uuid, "status": "error", "message": str(e)}))
+        cli_utils.emit_error("memory", entry.agent_id, "delete", e)
+        if ctx.obj.get("json_output"):
+            typer.echo(cli_utils.out_json({"uuid": uuid, "status": "error", "message": str(e)}))
         else:
             raise typer.BadParameter(str(e)) from e
 
 
 @app.command("clear")
 def clear_entries_command(
+    ctx: typer.Context,
     identity: str = typer.Option(..., "--as", help="Identity name"),
     topic: str = typer.Option(None, help="Topic name"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
 ):
     """Clear memory entries for an identity and optional topic."""
     resolved_identity = identity_lib.require_identity(None, identity)
@@ -144,15 +128,17 @@ def clear_entries_command(
     try:
         db.clear_entries(resolved_identity, topic)
         scope = f"topic '{topic}'" if topic else "all topics"
-        if json_output:
-            typer.echo(json.dumps({"identity": identity, "topic": topic, "status": "cleared"}))
-        elif not quiet_output:
-            typer.echo(f"Cleared {scope} for {identity}")
-    except ValueError as e:
-        events.emit("memory", "error", agent_id, f"clear failed: {str(e)}")
-        if json_output:
+        if ctx.obj.get("json_output"):
             typer.echo(
-                json.dumps(
+                cli_utils.out_json({"identity": identity, "topic": topic, "status": "cleared"})
+            )
+        else:
+            cli_utils.out_text(f"Cleared {scope} for {identity}", ctx.obj)
+    except ValueError as e:
+        cli_utils.emit_error("memory", agent_id, "clear", e)
+        if ctx.obj.get("json_output"):
+            typer.echo(
+                cli_utils.out_json(
                     {"identity": identity, "topic": topic, "status": "error", "message": str(e)}
                 )
             )
@@ -167,10 +153,6 @@ def summary_command(
         None, help="The summary message. If provided, adds/replaces the summary."
     ),
     identity: str = typer.Option(..., "--as", help="Identity name"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
     include_archived: bool = typer.Option(False, "--archived", help="Include archived entries"),
 ):
     """Add, replace, or list summary entries for an identity."""
@@ -178,50 +160,49 @@ def summary_command(
     agent_id = registry.ensure_agent(resolved_identity)
 
     if message:
-        # Add or replace summary
         existing_summaries = db.get_memories(resolved_identity, topic="summary", limit=1)
         if existing_summaries:
             old_entry = existing_summaries[0]
             new_uuid = db.replace_entry(
                 [old_entry.memory_id], agent_id, "summary", message, "CLI summary update"
             )
-            if json_output:
-                typer.echo(json.dumps({"new_uuid": new_uuid, "supersedes": [old_entry.memory_id]}))
-            elif not quiet_output:
+            if ctx.obj.get("json_output"):
                 typer.echo(
-                    f"Updated summary (appended to {len(existing_summaries)} entries) with new ID {new_uuid[-8:]}"
+                    cli_utils.out_json({"new_uuid": new_uuid, "supersedes": [old_entry.memory_id]})
+                )
+            else:
+                cli_utils.out_text(
+                    f"Updated summary (appended to {len(existing_summaries)} entries) with new ID {new_uuid[-8:]}",
+                    ctx.obj,
                 )
         else:
             entry_id = db.add_entry(agent_id, "summary", message)
-            if json_output:
+            if ctx.obj.get("json_output"):
                 typer.echo(
-                    json.dumps(
+                    cli_utils.out_json(
                         {"entry_id": entry_id, "identity": resolved_identity, "topic": "summary"}
                     )
                 )
-            elif not quiet_output:
-                typer.echo(f"Added summary for {resolved_identity}.")
+            else:
+                cli_utils.out_text(f"Added summary for {resolved_identity}.", ctx.obj)
     else:
-        # List summaries
         entries = db.get_memories(resolved_identity, topic="summary", limit=1)
         if not entries:
-            if json_output:
-                typer.echo(json.dumps([]))
-            elif not quiet_output:
-                typer.echo(f"No summary found for {resolved_identity}.")
+            if ctx.obj.get("json_output"):
+                typer.echo(cli_utils.out_json([]))
+            else:
+                cli_utils.out_text(f"No summary found for {resolved_identity}.", ctx.obj)
             return
 
-        if json_output:
-            typer.echo(json.dumps(asdict(entries[0]), indent=2))
-        elif not quiet_output:
-            typer.echo(f"CURRENT: [summary] {entries[0].message}")
-
+        if ctx.obj.get("json_output"):
+            typer.echo(cli_utils.out_json(asdict(entries[0])))
+        else:
+            cli_utils.out_text(f"CURRENT: [summary] {entries[0].message}", ctx.obj)
             chain = db.get_chain(entries[0].memory_id)
             if chain["predecessors"]:
-                typer.echo("SUPERSEDES:")
+                cli_utils.out_text("SUPERSEDES:", ctx.obj)
                 for p in chain["predecessors"]:
-                    typer.echo(f"  [{p.memory_id[-8:]}] {p.message}")
-    return
+                    cli_utils.out_text(f"  [{p.memory_id[-8:]}] {p.message}", ctx.obj)
 
 
 @app.command("list")
@@ -240,16 +221,19 @@ def list_entries_command(
     ),
 ):
     """List memory entries for an identity and optional topic."""
+    if ctx.obj is None:
+        ctx.obj = {}
     resolved_identity = identity_lib.require_identity(ctx, identity)
+    use_json = ctx.obj.get("json_output", json_output)
+    ctx.obj.get("quiet_output", quiet_output)
 
     try:
-        # Always show all entries by default when an identity is provided
         entries = db.get_memories(resolved_identity, topic, include_archived=include_archived)
     except ValueError as e:
-        events.emit("memory", "error", None, f"list failed: {str(e)}")
-        if json_output:
+        cli_utils.emit_error("memory", None, "list", e)
+        if use_json:
             typer.echo(
-                json.dumps(
+                cli_utils.out_json(
                     {
                         "identity": resolved_identity,
                         "topic": topic,
@@ -260,33 +244,29 @@ def list_entries_command(
             )
         else:
             raise typer.BadParameter(str(e)) from e
+        return
 
     entries.sort(key=lambda e: (not e.core, e.timestamp), reverse=True)
     if not entries:
         scope = f"topic '{topic}'" if topic else "all topics"
-        if json_output:
-            typer.echo(json.dumps([]))
-        elif not quiet_output:
-            typer.echo(f"No entries found for {identity} in {scope}")
+        if use_json:
+            typer.echo(cli_utils.out_json([]))
+        else:
+            cli_utils.out_text(f"No entries found for {identity} in {scope}", ctx.obj)
         return
 
-    if json_output:
-        typer.echo(json.dumps([asdict(e) for e in entries], indent=2))
-    elif not quiet_output:
-        typer.echo(display.format_memory_entries(entries, raw_output=raw_output))
-
-        if not quiet_output and not json_output:
-            display.show_context(resolved_identity)
+    if use_json:
+        typer.echo(cli_utils.out_json([asdict(e) for e in entries]))
+    else:
+        cli_utils.out_text(display.format_memory_entries(entries, raw_output=raw_output), ctx.obj)
+        display.show_context(resolved_identity)
 
 
 @app.command("archive")
 def archive_entry_command(
+    ctx: typer.Context,
     uuid: str = typer.Argument(..., help="UUID of the entry to archive"),
     restore: bool = typer.Option(False, "--restore", help="Restore archived entry"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
 ):
     """Archive or restore a memory entry."""
     entry = db.get_by_memory_id(uuid)
@@ -301,61 +281,57 @@ def archive_entry_command(
             db.archive_entry(uuid)
             action = "archived"
 
-        if json_output:
-            typer.echo(json.dumps({"uuid": uuid, "status": action}))
-        elif not quiet_output:
-            typer.echo(f"{action.capitalize()} entry {uuid}")
+        if ctx.obj.get("json_output"):
+            typer.echo(cli_utils.out_json({"uuid": uuid, "status": action}))
+        else:
+            cli_utils.out_text(f"{action.capitalize()} entry {uuid}", ctx.obj)
     except ValueError as e:
-        events.emit("memory", "error", entry.agent_id, f"archive/restore failed: {str(e)}")
-        if json_output:
-            typer.echo(json.dumps({"uuid": uuid, "status": "error", "message": str(e)}))
+        cli_utils.emit_error("memory", entry.agent_id, "archive/restore", e)
+        if ctx.obj.get("json_output"):
+            typer.echo(cli_utils.out_json({"uuid": uuid, "status": "error", "message": str(e)}))
         else:
             raise typer.BadParameter(str(e)) from e
 
 
 @app.command("search")
 def search_entries_command(
+    ctx: typer.Context,
     keyword: str = typer.Argument(..., help="Keyword to search"),
     identity: str = typer.Option(..., "--as", help="Identity name"),
     include_archived: bool = typer.Option(False, "--archived", help="Include archived entries"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
 ):
     """Search memory entries by keyword."""
     entries = db.search_entries(identity, keyword, include_archived=include_archived)
 
     if not entries:
-        if json_output:
-            typer.echo(json.dumps([]))
-        elif not quiet_output:
-            typer.echo(f"No entries found for '{keyword}'")
+        if ctx.obj.get("json_output"):
+            typer.echo(cli_utils.out_json([]))
+        else:
+            cli_utils.out_text(f"No entries found for '{keyword}'", ctx.obj)
         return
 
-    if json_output:
-        typer.echo(json.dumps([asdict(e) for e in entries], indent=2))
-    elif not quiet_output:
-        typer.echo(f"Found {len(entries)} entries for '{keyword}':\n")
+    if ctx.obj.get("json_output"):
+        typer.echo(cli_utils.out_json([asdict(e) for e in entries]))
+    else:
+        cli_utils.out_text(f"Found {len(entries)} entries for '{keyword}':\n", ctx.obj)
         current_topic = None
         for e in entries:
             if e.topic != current_topic:
                 if current_topic is not None:
                     typer.echo()
-                typer.echo(f"# {e.topic}")
+                cli_utils.out_text(f"# {e.topic}", ctx.obj)
                 current_topic = e.topic
             archived_mark = " [ARCHIVED]" if e.archived_at else ""
-            typer.echo(f"[{e.memory_id[-8:]}] [{e.timestamp}] {e.message}{archived_mark}")
+            cli_utils.out_text(
+                f"[{e.memory_id[-8:]}] [{e.timestamp}] {e.message}{archived_mark}", ctx.obj
+            )
 
 
 @app.command("core")
 def mark_core_command(
+    ctx: typer.Context,
     uuid: str = typer.Argument(..., help="UUID of the entry to mark/unmark as core"),
     unmark: bool = typer.Option(False, "--unmark", help="Unmark as core"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
 ):
     """Mark or unmark entry as core memory."""
     entry = db.get_by_memory_id(uuid)
@@ -365,28 +341,25 @@ def mark_core_command(
     try:
         db.mark_core(uuid, core=not unmark)
         action = "unmarked" if unmark else "marked"
-        if json_output:
-            typer.echo(json.dumps({"uuid": uuid, "core": not unmark}))
-        elif not quiet_output:
-            typer.echo(f"{action.capitalize()} {uuid} as core")
+        if ctx.obj.get("json_output"):
+            typer.echo(cli_utils.out_json({"uuid": uuid, "core": not unmark}))
+        else:
+            cli_utils.out_text(f"{action.capitalize()} {uuid} as core", ctx.obj)
     except ValueError as e:
-        events.emit("memory", "error", entry.agent_id, f"core operation failed: {str(e)}")
-        if json_output:
-            typer.echo(json.dumps({"uuid": uuid, "error": str(e)}))
+        cli_utils.emit_error("memory", entry.agent_id, "core", e)
+        if ctx.obj.get("json_output"):
+            typer.echo(cli_utils.out_json({"uuid": uuid, "error": str(e)}))
         else:
             raise typer.BadParameter(str(e)) from e
 
 
 @app.command("inspect")
 def inspect_entry_command(
+    ctx: typer.Context,
     uuid: str = typer.Argument(..., help="UUID of the entry to inspect"),
     identity: str = typer.Option(..., "--as", help="Identity name"),
     limit: int = typer.Option(5, help="Number of related entries to show"),
     include_archived: bool = typer.Option(False, "--archived", help="Include archived in related"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
 ):
     """Inspect entry and find related nodes via keyword similarity."""
     resolved_agent_id = registry.ensure_agent(identity)
@@ -394,68 +367,71 @@ def inspect_entry_command(
     try:
         entry = db.get_by_uuid(uuid)
     except ValueError as e:
-        events.emit("memory", "error", resolved_agent_id, f"inspect failed: {str(e)}")
-        if json_output:
-            typer.echo(json.dumps({"uuid": uuid, "error": str(e)}))
+        cli_utils.emit_error("memory", resolved_agent_id, "inspect", e)
+        if ctx.obj.get("json_output"):
+            typer.echo(cli_utils.out_json({"uuid": uuid, "error": str(e)}))
         else:
             raise typer.BadParameter(str(e)) from e
+        return
 
     if not entry:
-        if json_output:
-            typer.echo(json.dumps(None))
-        elif not quiet_output:
-            typer.echo(f"No entry found with UUID '{uuid}'")
+        if ctx.obj.get("json_output"):
+            typer.echo(cli_utils.out_json(None))
+        else:
+            cli_utils.out_text(f"No entry found with UUID '{uuid}'", ctx.obj)
         return
 
     if entry.agent_id != resolved_agent_id:
-        if json_output:
-            typer.echo(json.dumps({"error": "Entry belongs to different identity"}))
-        elif not quiet_output:
-            typer.echo(f"Entry belongs to {registry.get_identity(entry.agent_id)}, not {identity}")
+        if ctx.obj.get("json_output"):
+            typer.echo(cli_utils.out_json({"error": "Entry belongs to different identity"}))
+        else:
+            cli_utils.out_text(
+                f"Entry belongs to {registry.get_identity(entry.agent_id)}, not {identity}", ctx.obj
+            )
         return
 
     related = db.find_related(entry, limit=limit, include_archived=include_archived)
 
-    if json_output:
+    if ctx.obj.get("json_output"):
         payload = {
             "entry": asdict(entry),
             "related": [{"entry": asdict(r[0]), "overlap": r[1]} for r in related],
         }
-        typer.echo(json.dumps(payload))
-    elif not quiet_output:
+        typer.echo(cli_utils.out_json(payload))
+    else:
         archived_mark = " [ARCHIVED]" if entry.archived_at else ""
         core_mark = " ★" if entry.core else ""
-        typer.echo(
-            f"[{entry.memory_id[-8:]}] {entry.topic} by {registry.get_identity(entry.agent_id)}{archived_mark}{core_mark}"
+        cli_utils.out_text(
+            f"[{entry.memory_id[-8:]}] {entry.topic} by {registry.get_identity(entry.agent_id)}{archived_mark}{core_mark}",
+            ctx.obj,
         )
-        typer.echo(f"Created: {entry.timestamp}\n")
-        typer.echo(f"{entry.message}\n")
+        cli_utils.out_text(f"Created: {entry.timestamp}\n", ctx.obj)
+        cli_utils.out_text(f"{entry.message}\n", ctx.obj)
 
         if related:
-            typer.echo("─" * 60)
-            typer.echo(f"Related nodes ({len(related)}):\n")
+            cli_utils.out_text("─" * 60, ctx.obj)
+            cli_utils.out_text(f"Related nodes ({len(related)}):\n", ctx.obj)
             for rel_entry, overlap in related:
                 archived_mark = " [ARCHIVED]" if rel_entry.archived_at else ""
                 core_mark = " ★" if rel_entry.core else ""
-                typer.echo(
-                    f"[{rel_entry.memory_id[-8:]}] {rel_entry.topic} ({overlap} keywords){archived_mark}{core_mark}"
+                cli_utils.out_text(
+                    f"[{rel_entry.memory_id[-8:]}] {rel_entry.topic} ({overlap} keywords){archived_mark}{core_mark}",
+                    ctx.obj,
                 )
-                typer.echo(
-                    f"  {rel_entry.message[:100]}{'...' if len(rel_entry.message) > 100 else ''}\n"
+                cli_utils.out_text(
+                    f"  {rel_entry.message[:100]}{'...' if len(rel_entry.message) > 100 else ''}\n",
+                    ctx.obj,
                 )
 
 
 @app.command("replace")
 def replace_entry_command(
+    ctx: typer.Context,
     old_id: str = typer.Argument(None, help="Single UUID to replace"),
     message: str = typer.Argument(..., help="New message content"),
     identity: str = typer.Option(..., "--as", help="Identity name"),
     supersedes: str = typer.Option(None, help="Comma-separated UUIDs to replace (for multi-merge)"),
     note: str = typer.Option("", "--note", help="Synthesis note explaining the change"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
 ):
     """Replace memory entry with new version, archiving old and linking both."""
     identity_lib.constitute_identity(identity)
@@ -474,15 +450,14 @@ def replace_entry_command(
 
     new_uuid = db.replace_entry(old_ids, agent_id, old_entry.topic, message, note)
 
-    if json_output:
-        typer.echo(json.dumps({"new_uuid": new_uuid, "supersedes": old_ids}))
-    elif not quiet_output:
-        typer.echo(f"Replaced {len(old_ids)} entry(ies) with {new_uuid[-8:]}")
+    if ctx.obj.get("json_output"):
+        typer.echo(cli_utils.out_json({"new_uuid": new_uuid, "supersedes": old_ids}))
+    else:
+        cli_utils.out_text(f"Replaced {len(old_ids)} entry(ies) with {new_uuid[-8:]}", ctx.obj)
 
 
 def main() -> None:
     """Entry point for poetry script."""
-
     try:
         app()
     except SystemExit as e:

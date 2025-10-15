@@ -7,12 +7,14 @@ import yaml
 
 def get_default_config_path() -> Path:
     from .lib import paths
+
     return paths.package_root() / "config.yaml"
 
 
 def config_file() -> Path:
     """Return config file path in .space/"""
     from .lib import paths
+
     return paths.dot_space() / "config.yaml"
 
 
@@ -24,6 +26,7 @@ def spawn_dir() -> Path:
 def registry_db() -> Path:
     """Return the registry database path in workspace .space directory."""
     from .lib import paths
+
     return paths.dot_space() / "spawn.db"
 
 

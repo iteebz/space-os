@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from space.memory import cli, db
+from space.memory import app, db
 from space.spawn import registry
 
 runner = CliRunner()
@@ -13,7 +13,7 @@ def _add_summary(identity: str, message: str, monkeypatch, cwd: Path):
     """Helper to add/replace a summary via the CLI."""
     with monkeypatch.context() as m:
         m.chdir(cwd)
-        result = runner.invoke(cli.app, ["summary", "--as", identity, message])
+        result = runner.invoke(app.app, ["summary", "--as", identity, message])
     assert result.exit_code == 0
     return result
 
@@ -74,7 +74,7 @@ def test_summary_ordering(test_space, monkeypatch):
 def test_no_summary_exists(test_space, monkeypatch):
     with monkeypatch.context() as m:
         m.chdir(test_space)
-        result = runner.invoke(cli.app, ["summary", "--as", "test-agent"])
+        result = runner.invoke(app.app, ["summary", "--as", "test-agent"])
     assert result.exit_code == 0
     assert "No summary found for test-agent." in result.stdout
 
@@ -82,7 +82,7 @@ def test_no_summary_exists(test_space, monkeypatch):
 def test_add_new_summary(test_space, monkeypatch):
     with monkeypatch.context() as m:
         m.chdir(test_space)
-        result = runner.invoke(cli.app, ["summary", "--as", "test-agent", "First summary message."])
+        result = runner.invoke(app.app, ["summary", "--as", "test-agent", "First summary message."])
     assert result.exit_code == 0
     assert "Added summary for test-agent." in result.stdout
 
@@ -99,7 +99,7 @@ def test_replace_existing_summary(test_space, monkeypatch):
     with monkeypatch.context() as m:
         m.chdir(test_space)
         result = runner.invoke(
-            cli.app, ["summary", "--as", "test-agent", "Updated summary message."]
+            app.app, ["summary", "--as", "test-agent", "Updated summary message."]
         )
     assert result.exit_code == 0
     assert "Updated summary (appended to 1 entries) with new ID" in result.stdout
@@ -122,7 +122,7 @@ def test_show_lineage(test_space, monkeypatch):
 
     with monkeypatch.context() as m:
         m.chdir(test_space)
-        result = runner.invoke(cli.app, ["summary", "--as", "test-agent"])
+        result = runner.invoke(app.app, ["summary", "--as", "test-agent"])
     assert result.exit_code == 0
     summaries = db.get_memories("test-agent", topic="summary", include_archived=True)
     chain = db.get_chain(summaries[0].memory_id)

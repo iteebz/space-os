@@ -18,7 +18,7 @@ def test_context_displays_canon_docs(mocker, tmp_path):
     )
 
     # Mock canon_path to return the temporary canon directory
-    mocker.patch("space.context.cli.canon_path", return_value=canon_dir)
+    mocker.patch("space.context.app.canon_path", return_value=canon_dir)
 
     # Mock Path.rglob to return the mock canon file
     mock_rglob_return = MagicMock()
@@ -48,7 +48,7 @@ def test_context_no_canon_docs_found(mocker, tmp_path):
     canon_dir.mkdir()
 
     # Mock canon_path to return the empty temporary canon directory
-    mocker.patch("space.context.cli.canon_path", return_value=canon_dir)
+    mocker.patch("space.context.app.canon_path", return_value=canon_dir)
 
     # Mock Path.rglob to return an empty iterator
     mock_rglob_return = MagicMock()

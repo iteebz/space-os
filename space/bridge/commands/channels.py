@@ -3,8 +3,8 @@ from typing import Annotated
 
 import typer
 
+from space.lib import cli_utils
 from space.spawn import registry
-from space.lib.cli_utils import common_cli_options
 
 from ... import events
 from .. import api, utils
@@ -13,12 +13,16 @@ app = typer.Typer(invoke_without_command=True)
 
 
 @app.callback()
-@common_cli_options
 def channels_root(
     ctx: typer.Context,
     all_channels_flag: bool = typer.Option(False, "--all", help="Include archived channels"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
 ):
     """Bridge channel operations (defaults to listing)."""
+    cli_utils.set_flags(ctx, json_output, quiet_output)
     if ctx.invoked_subcommand is None:
         list_channels(
             ctx,
@@ -27,7 +31,6 @@ def channels_root(
 
 
 @app.command("list")
-@common_cli_options
 def list_channels(
     ctx: typer.Context,
     identity: str = typer.Option(None, "--as", help="Agent identity"),
@@ -96,7 +99,6 @@ def list_channels(
 
 
 @app.command()
-@common_cli_options
 def create(
     ctx: typer.Context,
     channel_name: str = typer.Argument(..., help="The name of the channel to create."),
@@ -144,7 +146,6 @@ def create(
 
 
 @app.command()
-@common_cli_options
 def rename(
     ctx: typer.Context,
     old_channel: str = typer.Argument(...),
@@ -196,7 +197,6 @@ def rename(
 
 
 @app.command()
-@common_cli_options
 def archive(
     ctx: typer.Context,
     channels: Annotated[list[str], typer.Argument(...)],
@@ -258,7 +258,6 @@ def archive(
 
 
 @app.command()
-@common_cli_options
 def delete(
     ctx: typer.Context,
     channel: str = typer.Argument(...),
