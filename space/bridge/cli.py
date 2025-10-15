@@ -4,7 +4,7 @@ import json
 
 import typer
 
-from space import events
+from space import events, readme
 from space.lib import errors
 from space.spawn import registry
 from space.lib.cli_utils import common_cli_options
@@ -49,9 +49,7 @@ def main_command(
 ):
     """Bridge: AI Coordination Protocol"""
     if help_flag:
-        typer.echo("Bridge CLI - A command-line interface for Bridge.")
-        typer.echo()
-        typer.echo(ctx.command.get_help(ctx))
+        typer.echo(readme.load("bridge"))
         raise typer.Exit()
 
     if ctx.invoked_subcommand is None:

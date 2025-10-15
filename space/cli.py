@@ -1,6 +1,6 @@
 import typer
 
-from space import events
+from space import events, readme
 
 from .bridge.cli import app as bridge_app
 from .commands import (
@@ -48,7 +48,7 @@ def main_command(
     events.emit("cli", "invocation", data=cmd)
 
     if ctx.invoked_subcommand is None:
-        typer.echo("Space CLI - A command-line interface for Space.")
+        typer.echo(readme.root())
 
 
 def main() -> None:

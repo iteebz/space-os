@@ -4,6 +4,7 @@ import json
 
 import typer
 
+from space import readme
 from space.lib import errors
 
 from ..lib.paths import canon_path
@@ -23,12 +24,22 @@ def main_command(
     topic: str | None = typer.Argument(None, help="Topic to retrieve context for"),
     identity: str | None = typer.Option(None, "--as", help="Scope to identity (default: all)"),
     all_agents: bool = typer.Option(False, "--all", help="Cross-agent perspective"),
+    help_flag: bool = typer.Option(
+        False,
+        "--help",
+        "-h",
+        help="Show protocol instructions and command overview.",
+        is_eager=True,
+    ),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format"),
     quiet_output: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
 ):
     """Unified context retrieval: trace evolution + current state + lattice docs."""
+    if help_flag:
+        typer.echo(readme.load("context"))
+        raise typer.Exit()
     if (ctx.resilient_parsing or ctx.invoked_subcommand is None) and not topic:
-        typer.echo("Context CLI - A command-line interface for Context.")
+        typer.echo(readme.load("context"))
         return
 
     # Original logic for context retrieval

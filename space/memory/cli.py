@@ -4,7 +4,7 @@ from dataclasses import asdict
 
 import typer
 
-from space import events
+from space import events, readme
 from space.lib import errors
 from space.spawn import registry
 
@@ -20,15 +20,25 @@ app = typer.Typer(invoke_without_command=True)
 @app.callback()
 def main_command(
     ctx: typer.Context,
+    help_flag: bool = typer.Option(
+        False,
+        "--help",
+        "-h",
+        help="Show protocol instructions and command overview.",
+        is_eager=True,
+    ),
     identity: str = typer.Option(None, "--as", help="Identity name"),
     archived: bool = typer.Option(False, "--archived", help="Include archived entries"),
 ):
+    if help_flag:
+        typer.echo(readme.load("memory"))
+        raise typer.Exit()
     ctx.obj = {"identity": identity, "archived": archived}
     if ctx.resilient_parsing:
         return
     if ctx.invoked_subcommand is None:
         if not identity:
-            typer.echo("Memory CLI - A command-line interface for Memory.")
+            typer.echo(readme.load("memory"))
         else:
             list_entries_command(
                 ctx,

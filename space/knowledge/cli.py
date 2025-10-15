@@ -3,6 +3,7 @@ from dataclasses import asdict
 
 import typer
 
+from space import readme
 from space.lib import errors
 from space.spawn import registry
 
@@ -16,9 +17,19 @@ app = typer.Typer(invoke_without_command=True)
 @app.callback()
 def main_command(
     ctx: typer.Context,
+    help_flag: bool = typer.Option(
+        False,
+        "--help",
+        "-h",
+        help="Show protocol instructions and command overview.",
+        is_eager=True,
+    ),
 ):
+    if help_flag:
+        typer.echo(readme.load("knowledge"))
+        raise typer.Exit()
     if ctx.resilient_parsing or ctx.invoked_subcommand is None:
-        typer.echo("Knowledge CLI - A command-line interface for Knowledge.")
+        typer.echo(readme.load("knowledge"))
     return
 
 
