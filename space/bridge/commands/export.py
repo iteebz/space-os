@@ -85,7 +85,7 @@ def export(
         if agent_id:
             events.emit(
                 "bridge",
-                "error_occurred",
+                "error",
                 agent_id,
                 json.dumps({"command": "export", "details": str(e)}),
             )

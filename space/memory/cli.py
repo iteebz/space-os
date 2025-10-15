@@ -3,6 +3,10 @@ from dataclasses import asdict
 
 import typer
 
+from space.lib import errors
+
+errors.install_error_handler("memory")
+
 from space.spawn import registry
 
 from ..lib import identity as identity_lib

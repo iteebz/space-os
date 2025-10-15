@@ -1,5 +1,9 @@
 import typer
 
+from space.lib import errors
+
+errors.install_error_handler("spawn")
+
 from . import registry, spawn
 
 app = typer.Typer()

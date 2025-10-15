@@ -4,6 +4,10 @@ import json
 
 import typer
 
+from space.lib import errors
+
+errors.install_error_handler("context")
+
 from ..lib import readme
 from ..lib.paths import canon_path
 from . import (

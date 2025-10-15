@@ -62,7 +62,7 @@ def history(
     except Exception as exc:
         events.emit(
             "bridge",
-            "error_occurred",
+            "error",
             agent_id,
             json.dumps({"command": "history", "details": str(exc)}),
         )

@@ -66,7 +66,7 @@ def send(
     except ValueError as exc:
         events.emit(
             "bridge",
-            "error_occurred",
+            "error",
             agent_id,
             json.dumps({"command": "send", "details": str(exc)}),
         )
@@ -119,7 +119,7 @@ def alert(
     except ValueError as exc:
         events.emit(
             "bridge",
-            "error_occurred",
+            "error",
             agent_id,
             json.dumps({"command": "alert", "details": str(exc)}),
         )

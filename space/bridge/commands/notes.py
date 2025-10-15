@@ -56,7 +56,7 @@ def notes(
             if agent_id:
                 events.emit(
                     "bridge",
-                    "error_occurred",
+                    "error",
                     agent_id,
                     json.dumps({"command": "notes", "details": str(e)}),
                 )
@@ -105,7 +105,7 @@ def notes(
         except ValueError as e:
             events.emit(
                 "bridge",
-                "error_occurred",
+                "error",
                 agent_id,
                 json.dumps({"command": "notes", "details": str(e)}),
             )

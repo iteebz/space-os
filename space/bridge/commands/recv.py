@@ -70,7 +70,7 @@ def recv(
     except ValueError as e:
         events.emit(
             "bridge",
-            "error_occurred",
+            "error",
             agent_id,
             json.dumps({"command": "recv", "details": str(e)}),
         )
@@ -126,7 +126,7 @@ def alerts(
     except Exception as exc:
         events.emit(
             "bridge",
-            "error_occurred",
+            "error",
             agent_id,
             json.dumps({"command": "alerts", "details": str(exc)}),
         )
@@ -179,7 +179,7 @@ def inbox(
     except Exception as exc:
         events.emit(
             "bridge",
-            "error_occurred",
+            "error",
             agent_id,
             json.dumps({"command": "inbox", "details": str(exc)}),
         )

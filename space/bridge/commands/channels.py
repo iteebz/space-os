@@ -130,7 +130,7 @@ def create(
         if agent_id:
             events.emit(
                 "bridge",
-                "error_occurred",
+                "error",
                 agent_id,
                 json.dumps({"command": "create", "details": str(e)}),
             )
@@ -232,7 +232,7 @@ def archive(
             if agent_id:
                 events.emit(
                     "bridge",
-                    "error_occurred",
+                    "error",
                     agent_id,
                     json.dumps({"command": "archive", "details": str(e)}),
                 )
@@ -275,7 +275,7 @@ def delete(
         if agent_id:
             events.emit(
                 "bridge",
-                "error_occurred",
+                "error",
                 agent_id,
                 json.dumps({"command": "delete", "details": str(e)}),
             )

@@ -2,6 +2,10 @@
 
 import typer
 
+from space.lib import errors
+
+errors.install_error_handler("sleep")
+
 SUMMARY_PROMPT = """Consolidate session state before death. Quality sleep = prepared spawn.
 
 **Capture:**
@@ -92,3 +96,10 @@ def sleep(
         typer.echo(SUMMARY_PROMPT)
         typer.echo()
         typer.echo(f"**You identified as {identity}.**")
+
+
+def main():
+    """Entry point for standalone sleep command."""
+    app = typer.Typer()
+    app.command()(sleep)
+    app()

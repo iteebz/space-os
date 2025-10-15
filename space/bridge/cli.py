@@ -5,8 +5,10 @@ import json
 import typer
 
 from space import events
-from space.lib import readme
+from space.lib import errors, readme
 from space.spawn import registry
+
+errors.install_error_handler("bridge")
 
 from . import api, utils
 from .commands import (
@@ -111,7 +113,7 @@ def _print_active_channels(agent_id: str, json_output: bool, quiet_output: bool)
         if agent_id:
             events.emit(
                 "bridge",
-                "error_occurred",
+                "error",
                 agent_id,
                 json.dumps({"command": "list", "details": str(exc)}),
             )

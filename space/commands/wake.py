@@ -3,7 +3,13 @@
 All wake-related prompts and formatting centralized here.
 """
 
+import sys
+
 import typer
+
+from space.lib import errors
+
+errors.install_error_handler("wake")
 
 # Prompts and formatting
 IDENTITY_HEADER = "You are {identity}."
@@ -177,3 +183,10 @@ def _show_orientation(identity: str, quiet: bool, spawn_count: int):
     else:
         typer.echo(NO_MESSAGES)
         typer.echo(CONTEXT_NUDGE.format(identity=identity))
+
+
+def main():
+    """Entry point for standalone wake command."""
+    app = typer.Typer()
+    app.command()(wake)
+    app()
