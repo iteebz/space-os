@@ -1,9 +1,9 @@
-from space.lib import config as libconfig
-from space.spawn import config
+from space import config
+from space.lib import paths
 
 
 def test_init_creates_default_file(tmp_path, monkeypatch):
-    monkeypatch.setattr(libconfig.paths, "dot_space", lambda: tmp_path / ".space")
+    monkeypatch.setattr(paths, "dot_space", lambda base_path=None: tmp_path / ".space")
 
     target = tmp_path / ".space" / "config.yaml"
     assert not target.exists()
@@ -15,7 +15,7 @@ def test_init_creates_default_file(tmp_path, monkeypatch):
 
 
 def test_init_no_overwrite(tmp_path, monkeypatch):
-    monkeypatch.setattr(libconfig.paths, "dot_space", lambda: tmp_path / ".space")
+    monkeypatch.setattr(paths, "dot_space", lambda base_path=None: tmp_path / ".space")
 
     target = tmp_path / ".space" / "config.yaml"
     target.parent.mkdir(parents=True, exist_ok=True)

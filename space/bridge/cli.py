@@ -91,9 +91,7 @@ def list(
     if agent_id:
         agent_id = registry.ensure_agent(agent_id)
         events.emit("bridge", "list_active_channels", agent_id, "")
-    _print_active_channels(
-        agent_id, ctx.obj.get("json_output"), ctx.obj.get("quiet_output")
-    )
+    _print_active_channels(agent_id, ctx.obj.get("json_output"), ctx.obj.get("quiet_output"))
 
 
 def _print_active_channels(agent_id: str, json_output: bool, quiet_output: bool):

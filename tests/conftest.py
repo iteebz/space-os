@@ -3,8 +3,9 @@ import sqlite3
 
 import pytest
 
+from space import config
 from space.knowledge import db as knowledge_db
-from space.lib import config, db
+from space.lib import db
 from space.memory import db as memory_db
 from space.spawn import registry
 
@@ -52,9 +53,10 @@ def test_space(monkeypatch, tmp_path):
     ]:
         path.mkdir(parents=True, exist_ok=True)
 
-        from space.spawn import config, registry
+        from space import config as cfg
+        from space.spawn import registry
 
-        registry_db_path = workspace / ".space" / config.registry_db().name
+        registry_db_path = workspace / ".space" / cfg.registry_db().name
     db.ensure_schema(registry_db_path, _REGISTRY_SCHEMA, registry.spawn_migrations)
 
     # Initialize memory DB

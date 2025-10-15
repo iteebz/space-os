@@ -2,17 +2,30 @@ agents:
   gemini:
     command: "gemini"
     model: "gemini-2.5-pro"
-  claude:
+  sonnet:
     command: "claude"
     model: "claude-sonnet-4-5"
+  haiku:
+    command: "claude"
+    model: "claude-haiku-4-5"
   codex:
     command: "codex"
     model: "gpt-5-codex"
 
+model_aliases:
+  sonnet: "claude-sonnet-4-5"
+  haiku: "claude-haiku-4-5"
+  gemini: "gemini-2.5-pro"
+  codex: "gpt-5-codex"
+
 roles:
   zealot:
     constitution: zealot.md
-    base_identity: claude
+    base_identity: sonnet
+  
+  hailot:
+    constitution: zealot.md
+    base_identity: haiku
   
   harbinger:
     constitution: harbinger.md
@@ -32,11 +45,11 @@ roles:
   
   prime:
     constitution: prime.md
-    base_identity: claude
+    base_identity: sonnet
   
   scribe:
     constitution: scribe.md
-    base_identity: claude
+    base_identity: sonnet
 
   crucible:
     constitution: crucible.md
@@ -56,10 +69,10 @@ roles:
 
   test:
     constitution: zealot.md
-    base_identity: claude
+    base_identity: sonnet
 
   default:
     constitution: zealot.md
-    base_identity: claude
+    base_identity: sonnet
 
 canon_path: private/canon

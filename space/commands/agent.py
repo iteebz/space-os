@@ -1,7 +1,8 @@
+import json
+
 import typer
 
 from space.spawn import registry
-from space.lib.cli_utils import common_cli_options
 
 app = typer.Typer(invoke_without_command=True)
 
@@ -14,13 +15,11 @@ def main(
 
 
 @app.command("list")
-@common_cli_options
 def list_agents(
-    ctx: typer.Context,
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(False, "--quiet", "-q", help="Suppress non-essential output."),
 ):
     """List all registered agents."""
-    json_output = ctx.obj.get("json_output")
-    quiet_output = ctx.obj.get("quiet_output")
 
     agents = registry.list_all_agents()
     if json_output:

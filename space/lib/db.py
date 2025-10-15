@@ -62,3 +62,6 @@ def convert_row(row: sqlite3.Row, dataclass_type: Type[T]) -> T:
     field_names = {f.name for f in fields(dataclass_type)}
     kwargs = {key: row[key] for key in row.keys() if key in field_names}
     return dataclass_type(**kwargs)
+
+
+row_to_dataclass = convert_row

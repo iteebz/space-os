@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from space.lib import config
+from space import config
 
 
 def _resolve_path(default_component: str, base_path: Path | None = None) -> Path:

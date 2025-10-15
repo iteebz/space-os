@@ -4,10 +4,9 @@ import uuid
 from contextlib import contextmanager
 from datetime import datetime
 
-from .. import events
+from .. import config, events
 from ..lib import db, paths
 from ..lib.uuid7 import uuid7
-from . import config
 
 _SPAWN_SCHEMA = """
 CREATE TABLE IF NOT EXISTS constitutions (
@@ -164,82 +163,6 @@ def rename_agent(old_name: str, new_name: str) -> bool:
         return True
 
 
-def _migrate_to_identities(conn):
-    """Migrate self descriptions from registrations to identities table."""
-    cursor = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='registrations'"
-    )
-    if not cursor.fetchone():
-        return
-
-    rows = conn.execute(
-        "SELECT DISTINCT identity, self FROM registrations WHERE self IS NOT NULL ORDER BY registered_at DESC"
-    ).fetchall()
-
-    for row in rows:
-        conn.execute(
-            "INSERT OR IGNORE INTO identities (name, self_description) VALUES (?, ?)",
-            (row[0], row[1]),
-        )
-
-
-def _rename_identities_to_agents(conn):
-    """Rename identities table to agents and add UUID primary key."""
-    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='identities'")
-    if not cursor.fetchone():
-        return
-
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS agents (
-            id TEXT PRIMARY KEY,
-            name TEXT UNIQUE NOT NULL,
-            self_description TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    rows = conn.execute("SELECT name, self_description FROM identities").fetchall()
-    for row in rows:
-        agent_id = str(uuid.uuid4())
-        conn.execute(
-            "INSERT OR IGNORE INTO agents (id, name, self_description) VALUES (?, ?, ?)",
-            (agent_id, row[0], row[1]),
-        )
-
-    conn.execute("DROP TABLE IF EXISTS identities")
-
-
-def _drop_name_unique_constraint(conn):
-    """Drop UNIQUE constraint from agents.name to allow shared names."""
-    cursor = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='agents'")
-    row = cursor.fetchone()
-    if not row:
-        return
-
-    schema = row[0]
-    if "UNIQUE" not in schema:
-        return
-
-    conn.execute("""
-        CREATE TABLE agents_new (
-            id TEXT PRIMARY KEY,
-            name TEXT,
-            self_description TEXT,
-            canonical_id TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (canonical_id) REFERENCES agents(id)
-        )
-    """)
-
-    conn.execute("""
-        INSERT INTO agents_new (id, name, self_description, canonical_id, created_at)
-        SELECT id, name, self_description, canonical_id, created_at FROM agents
-    """)
-
-    conn.execute("DROP TABLE agents")
-    conn.execute("ALTER TABLE agents_new RENAME TO agents")
-
-
 def _drop_canonical_id(conn):
     """Remove canonical_id column - shared names replace canonical linking."""
     cursor = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='agents'")
@@ -256,14 +179,14 @@ def _drop_canonical_id(conn):
     col_list = ", ".join(columns)
 
     conn.execute("""
-                    CREATE TABLE agents_new (
-                        id TEXT PRIMARY KEY,
-                        name TEXT,
-                        self_description TEXT,
-                        archived_at INTEGER,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
+        CREATE TABLE agents_new (
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            self_description TEXT,
+            archived_at INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
     conn.execute(f"""
         INSERT INTO agents_new ({col_list})
         SELECT {col_list} FROM agents
@@ -273,74 +196,8 @@ def _drop_canonical_id(conn):
     conn.execute("ALTER TABLE agents_new RENAME TO agents")
 
 
-def _add_name_unique_constraint(conn):
-    """Add UNIQUE constraint to agents.name."""
-    cursor = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='agents'")
-    row = cursor.fetchone()
-    if not row:
-        return
-
-    schema = row[0]
-    if "UNIQUE (name)" in schema:
-        return
-
-    conn.execute("""
-        CREATE TABLE agents_new (
-            id TEXT PRIMARY KEY,
-            name TEXT UNIQUE,
-            self_description TEXT,
-            archived_at INTEGER,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    conn.execute("""
-        INSERT INTO agents_new (id, name, self_description, archived_at, created_at)
-        SELECT id, name, self_description, archived_at, created_at FROM agents
-    """)
-
-    conn.execute("DROP TABLE agents")
-    conn.execute("ALTER TABLE agents_new RENAME TO agents")
-
-
-def _drop_registrations(conn):
-    conn.execute("DROP TABLE IF EXISTS registrations")
-
-
-# ... (rest of the file)
-
-
-def _drop_invocations(conn):
-    conn.execute("DROP TABLE IF EXISTS invocations")
-
-
-# ... (rest of the file)
-
-
-def _drop_registry(conn):
-    conn.execute("DROP TABLE IF EXISTS registry")
-
-
-# ... (rest of the file)
-
-
-def _drop_agent_aliases(conn):
-    conn.execute("DROP TABLE IF EXISTS agent_aliases")
-
-
-# ... (rest of the file)
-
 spawn_migrations = [
-    ("migrate_to_identities", _migrate_to_identities),
-    ("drop_registrations", _drop_registrations),
-    ("drop_invocations", _drop_invocations),
-    ("rename_identities_to_agents", _rename_identities_to_agents),
-    ("drop_registry", _drop_registry),
-    (
-        "add_canonical_id",
-        "ALTER TABLE agents ADD COLUMN canonical_id TEXT REFERENCES agents(id)",
-    ),
-    ("drop_agent_aliases", _drop_agent_aliases),
+    ("drop_canonical_id", _drop_canonical_id),
 ]
 
 
@@ -419,36 +276,28 @@ def merge_agents(from_identifier: str, to_identifier: str) -> bool:
         conn.commit()
 
     if events_db.exists():
-        print(f"Updating events in {events_db}...")
         conn = sqlite3.connect(events_db)
         conn.execute("UPDATE events SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
         conn.commit()
         conn.close()
-        print(f"Events updated in {events_db}.")
 
     if memory_db.exists():
-        print(f"Updating memory in {memory_db}...")
         conn = sqlite3.connect(memory_db)
         conn.execute("UPDATE memories SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
         conn.commit()
         conn.close()
-        print(f"Memory updated in {memory_db}.")
 
     if knowledge_db.exists():
-        print(f"Updating knowledge in {knowledge_db}...")
         conn = sqlite3.connect(knowledge_db)
         conn.execute("UPDATE knowledge SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
         conn.commit()
         conn.close()
-        print(f"Knowledge updated in {knowledge_db}.")
 
     if bridge_db.exists():
-        print(f"Updating bridge in {bridge_db}...")
         conn = sqlite3.connect(bridge_db)
         conn.execute("UPDATE messages SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
         conn.commit()
         conn.close()
-        print(f"Bridge updated in {bridge_db}.")
 
     with get_db() as conn:
         conn.execute("DELETE FROM agents WHERE id = ?", (from_id,))

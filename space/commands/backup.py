@@ -5,16 +5,13 @@ from datetime import datetime
 import typer
 
 from ..lib import paths
-from ..lib.cli_utils import common_cli_options
 
 
-@common_cli_options
 def backup(
-    ctx: typer.Context,
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(False, "--quiet", "-q", help="Suppress non-essential output."),
 ):
     """Backup the app data directory (~/space/.space) to ~/.space/backups/"""
-    json_output = ctx.obj.get("json_output")
-    quiet_output = ctx.obj.get("quiet_output")
 
     workspace_space = paths.dot_space()
     if not workspace_space.exists():

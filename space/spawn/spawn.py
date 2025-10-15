@@ -7,8 +7,9 @@ from pathlib import Path
 
 import yaml
 
+from .. import config
 from ..lib import paths
-from . import config, registry
+from . import registry
 
 
 def load_config() -> dict:
@@ -38,27 +39,27 @@ def get_base_identity(role: str) -> str:
     return cfg["roles"][role]["base_identity"]
 
 
+def resolve_model_alias(alias: str) -> str:
+    """Resolve model alias to full model name."""
+    cfg = load_config()
+    aliases = cfg.get("model_aliases", {})
+    return aliases.get(alias, alias)
+
+
 def inject_identity(
     base_constitution_content: str, role: str, identity: str, model: str | None = None
 ) -> str:
     """Injects identity (self-description + model) into the constitution."""
-    header = f"# {role.upper()} CONSTITUTION"
-    footer = f"run `space` for orientation (already in PATH).\nrun: `memory --as {identity}` to access memories."
+    footer_lines = [f"Identity: {identity}"]
+    if model:
+        footer_lines.append(f"Model: {model}")
+    footer_lines.extend([
+        "Run: `space` to launch (already in PATH)",
+        f"Run: `memory --as {identity}` to access memories",
+    ])
+    footer = "\n".join(footer_lines)
 
-    self_desc = (
-        f"Self: You are {identity}. Your model is {model}."
-        if model
-        else f"Self: You are {identity}."
-    )
-
-    # Construct the final identity by wrapping with header, self_desc, canon, and footer
-    canon_content = ""
-    canon_dir = paths.canon_path()
-    if canon_dir.exists():
-        for item in sorted(canon_dir.glob("**/*.md")):
-            canon_content += item.read_text() + "\n"
-
-    return f"{header}\n{self_desc}\n\n{canon_content}{base_constitution_content}\n{footer}"
+    return f"{base_constitution_content}\n---\n{footer}"
 
 
 def launch_agent(
@@ -112,10 +113,9 @@ def launch_agent(
     model_args = ["--model", actual_model] if actual_model else []
     full_command = command_tokens + model_args + passthrough
 
-    model_suffix = f" (model: {actual_model})" if actual_model else ""
-    click.echo(
-        f"Spawning {actual_identity} (base: {actual_base_identity}) as a {role}{model_suffix}..."
-    )
+    const_filename = cfg["roles"][role]["constitution"]
+    model_suffix = f" --model {actual_model}" if actual_model else ""
+    click.echo(f"Spawning {role} with {const_filename}{model_suffix}")
     click.echo(f"Executing: {' '.join(full_command)}")
     subprocess.run(full_command, env=env, check=False, cwd=str(workspace_root))
 
@@ -123,7 +123,8 @@ def launch_agent(
 def _write_identity_file(base_identity: str, identity: str, content: str) -> None:
     """Write constitution to the base identity's file (CLAUDE.md, GEMINI.md, etc)."""
     filename_map = {
-        "claude": "CLAUDE.md",
+        "sonnet": "CLAUDE.md",
+        "haiku": "CLAUDE.md",
         "gemini": "GEMINI.md",
         "codex": "AGENTS.md",
     }

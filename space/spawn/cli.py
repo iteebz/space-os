@@ -63,6 +63,12 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
         elif extra_args[i] == "--model" and i + 1 < len(extra_args):
             model = extra_args[i + 1]
             i += 2
+        elif extra_args[i] == "--sonnet":
+            model = spawn.resolve_model_alias("sonnet")
+            i += 1
+        elif extra_args[i] == "--haiku":
+            model = spawn.resolve_model_alias("haiku")
+            i += 1
         else:
             passthrough.append(extra_args[i])
             i += 1
