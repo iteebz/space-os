@@ -314,7 +314,9 @@ def backfill_unknown_agents() -> int:
     with db.connect(bridge_db) as bridge_conn:
         bridge_agent_ids = {
             row[0]
-            for row in bridge_conn.execute("SELECT DISTINCT agent_id FROM messages WHERE agent_id IS NOT NULL")
+            for row in bridge_conn.execute(
+                "SELECT DISTINCT agent_id FROM messages WHERE agent_id IS NOT NULL"
+            )
         }
 
     with get_db() as reg_conn:

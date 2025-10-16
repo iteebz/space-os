@@ -21,24 +21,3 @@ def test_second_spawn_increments_count(test_space):
 
     second = runner.invoke(app, ["wake", "--as", agent])
     assert "Spawn #1" in second.stdout or "Spawn" in second.stdout
-
-
-def test_session_auto_closes_on_new_wake(test_space):
-    from space import events
-    from space.spawn import registry
-
-    agent = "session-test-agent"
-
-    runner.invoke(app, ["wake", "--as", agent])
-    agent_id = registry.get_agent_id(agent)
-
-    runner.invoke(app, ["wake", "--as", agent])
-
-    session_events = events.query(source="session", agent_id=agent_id)
-    start_events = [e for e in session_events if e.event_type == "session_start"]
-    end_events = [e for e in session_events if e.event_type == "session_end"]
-
-    assert len(start_events) >= 2
-    assert len(end_events) >= 1
-    auto_closed = [e for e in end_events if e.data == "auto_closed"]
-    assert len(auto_closed) >= 1

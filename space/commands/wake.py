@@ -97,8 +97,7 @@ def wake(
         check = False
 
     if not check:
-        session_id = events.start_session(agent_id)
-        events.identify(identity, "wake", session_id)
+        events.identify(identity, "wake")
 
     if is_first_spawn:
         _show_initiation(identity, quiet, spawn_count)

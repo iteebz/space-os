@@ -20,19 +20,13 @@ def recv(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    constitute_identity(identity, event_source="bridge")
+    constitute_identity(identity)
 
     from space.spawn import registry
 
     agent_id = registry.ensure_agent(identity)
 
     try:
-        events.emit(
-            "bridge",
-            "messages_receiving",
-            agent_id,
-            json.dumps({"channel": channel, "identity": identity}),
-        )
         channel_id = api.resolve_channel_id(channel)
         messages, count, context, participants = api.recv_updates(channel_id, identity)
 
@@ -90,21 +84,14 @@ def alerts(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    constitute_identity(identity, event_source="bridge")
+    constitute_identity(identity)
 
     from space.spawn import registry
 
     agent_id = registry.ensure_agent(identity)
 
     try:
-        events.emit("bridge", "alerts_checking", agent_id, json.dumps({"identity": identity}))
         alert_messages = api.get_alerts(identity)
-        events.emit(
-            "bridge",
-            "alerts_checked",
-            agent_id,
-            json.dumps({"identity": identity, "count": len(alert_messages)}),
-        )
         if not alert_messages:
             if json_output:
                 typer.echo(json.dumps([]))
@@ -142,21 +129,14 @@ def inbox(
     ),
 ):
     """Show all channels with unreads."""
-    constitute_identity(identity, event_source="bridge")
+    constitute_identity(identity)
 
     from space.spawn import registry
 
     agent_id = registry.ensure_agent(identity)
 
     try:
-        events.emit("bridge", "inbox_checking", agent_id, json.dumps({"identity": identity}))
         channels = api.inbox_channels(identity)
-        events.emit(
-            "bridge",
-            "inbox_checked",
-            agent_id,
-            json.dumps({"identity": identity, "count": len(channels)}),
-        )
         if not channels:
             if json_output:
                 typer.echo(json.dumps([]))

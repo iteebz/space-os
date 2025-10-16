@@ -75,7 +75,6 @@ def emit(
     event_type: str,
     agent_id: str | None = None,
     data: str | None = None,
-    session_id: str | None = None,
 ):
     """Emit event to append-only log."""
     event_id = uuid7()
@@ -83,8 +82,8 @@ def emit(
 
     with _connect() as conn:
         conn.execute(
-            "INSERT INTO events (id, source, event_type, data, timestamp, agent_id, session_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (event_id, source, event_type, data, event_timestamp, agent_id, session_id),
+            "INSERT INTO events (id, source, event_type, data, timestamp, agent_id) VALUES (?, ?, ?, ?, ?, ?)",
+            (event_id, source, event_type, data, event_timestamp, agent_id),
         )
         conn.commit()
 
@@ -115,44 +114,14 @@ def query(source: str | None = None, agent_id: str | None = None, limit: int = 1
         return [Event(*row) for row in rows]
 
 
-def identify(identity: str, command: str, session_id: str | None = None):
+def identify(identity: str, command: str):
     """Provenance: track identity invocation.
 
     Creates immutable audit trail linking identity → command.
     """
     constitute_identity(identity)
     agent_id = registry.ensure_agent(identity)
-    emit("identity", command, agent_id, "", session_id)
-
-
-def start_session(agent_id: str) -> str:
-    """Start new session, auto-close any open session for this agent."""
-    session_id = uuid7()
-
-    with _connect() as conn:
-        # Find any session_start events that do not have a corresponding session_end event
-        open_session = conn.execute(
-            """
-            SELECT T1.session_id
-            FROM events AS T1
-            LEFT JOIN events AS T2
-            ON T1.session_id = T2.session_id AND T2.event_type = 'session_end' AND T2.agent_id = ?
-            WHERE T1.agent_id = ? AND T1.event_type = 'session_start' AND T2.session_id IS NULL
-            ORDER BY T1.timestamp DESC LIMIT 1
-            """,
-            (agent_id, agent_id),
-        ).fetchone()
-
-        if open_session:
-            emit("session", "session_end", agent_id, "auto_closed", open_session[0])
-
-    emit("session", "session_start", agent_id, "", session_id)
-    return session_id
-
-
-def end_session(agent_id: str, session_id: str):
-    """End current session."""
-    emit("session", "session_end", agent_id, "", session_id)
+    emit("identity", command, agent_id, "")
 
 
 def get_session_count(agent_id: str) -> int:

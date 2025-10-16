@@ -25,7 +25,7 @@ def send(
     ),
 ):
     if identity != "human":
-        constitute_identity(identity, event_source="bridge")
+        constitute_identity(identity)
 
     if decode_base64:
         try:
@@ -91,7 +91,7 @@ def alert(
     ),
 ):
     """Send high-priority alert to a channel."""
-    constitute_identity(identity, event_source="bridge")
+    constitute_identity(identity)
 
     agent_id = registry.ensure_agent(identity)
 

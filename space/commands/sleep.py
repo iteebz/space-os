@@ -42,8 +42,6 @@ def sleep(
 ):
     """Prepare for death. Hand off context to your next self."""
     from .. import events
-    from ..lib import db as lib_db
-    from ..lib import paths
     from ..memory import db as memory_db
     from ..spawn import registry
 
@@ -53,22 +51,7 @@ def sleep(
             typer.echo(f"No active session for {identity}")
         return
 
-    events_db = paths.dot_space() / "events.db"
-    session_id = None
-
-    if events_db.exists():
-        with lib_db.connect(events_db) as conn:
-            result = conn.execute(
-                "SELECT session_id FROM events WHERE agent_id = ? AND event_type = 'session_start' AND session_id NOT IN (SELECT session_id FROM events WHERE event_type = 'session_end' AND agent_id = ?) ORDER BY timestamp DESC LIMIT 1",
-                (agent_id, agent_id),
-            ).fetchone()
-            if result:
-                session_id = result[0]
-
-    if session_id and not check:
-        events.identify(identity, "sleep", session_id)
-        events.end_session(agent_id, session_id)
-    elif not check:
+    if not check:
         events.identify(identity, "sleep")
 
     memory_count = len(memory_db.get_memories(identity))

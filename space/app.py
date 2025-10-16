@@ -52,6 +52,7 @@ def main_command(
 ):
     rewritten = Aliasing.rewrite(sys.argv[1:])
     invocation = Invocation.from_args(rewritten)
+
     ctx.obj = invocation
 
     cmd = ctx.invoked_subcommand or "(no command)"
@@ -67,14 +68,14 @@ def main() -> None:
     rewritten_argv = Aliasing.rewrite(argv_orig)
     sys.argv = [sys.argv[0]] + rewritten_argv
 
+    invocation = Invocation.from_args(rewritten_argv)
+
     try:
         app()
     except SystemExit as e:
         if e.code and e.code != 0:
-            invocation = Invocation.from_args(rewritten_argv)
             invocation.emit_error(f"CLI command (exit={e.code})")
         raise
     except BaseException as e:
-        invocation = Invocation.from_args(rewritten_argv)
         invocation.emit_error(f"CLI command: {str(e)}")
         raise SystemExit(1) from e

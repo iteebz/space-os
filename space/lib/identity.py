@@ -64,7 +64,7 @@ def _process_constitution(role: str) -> tuple[str, str]:
     return const_hash, final_constitution_content
 
 
-def constitute_identity(identity: str, event_source: str = "memory"):
+def constitute_identity(identity: str):
     """Hash constitution and emit provenance event."""
     from .. import events
     from ..spawn import registry
@@ -79,7 +79,7 @@ def constitute_identity(identity: str, event_source: str = "memory"):
     agent_id = registry.ensure_agent(identity)
     model = extract_model_from_identity(identity, cfg)
     events.emit(
-        event_source,
+        "bridge",
         "constitution_invoked",
         agent_id,
         json.dumps({"constitution_hash": const_hash, "role": role, "model": model}),

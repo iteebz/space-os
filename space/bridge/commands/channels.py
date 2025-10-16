@@ -40,16 +40,12 @@ def list_channels(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
-    if agent_id:
-        events.emit("bridge", "channels_listing", agent_id, "")
+    registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
     all_channels = (
         api.all_channels()
         if all_channels_flag
         else [c for c in api.all_channels() if not c.archived_at]
     )
-    if agent_id:
-        events.emit("bridge", "channels_listed", agent_id, json.dumps({"count": len(all_channels)}))
 
     if not all_channels:
         if json_output:

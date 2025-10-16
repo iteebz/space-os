@@ -45,12 +45,9 @@ def test_emit_event(mock_db_path, mock_connect, in_memory_db):
         "test_type",
         agent_id="test_agent",
         data="test_data",
-        session_id="test_session",
     )
 
-    cursor = in_memory_db.execute(
-        "SELECT source, event_type, agent_id, data, session_id FROM events"
-    )
+    cursor = in_memory_db.execute("SELECT source, event_type, agent_id, data FROM events")
     result = cursor.fetchone()
 
     assert result is not None
@@ -58,4 +55,3 @@ def test_emit_event(mock_db_path, mock_connect, in_memory_db):
     assert result[1] == "test_type"
     assert result[2] == "test_agent"
     assert result[3] == "test_data"
-    assert result[4] == "test_session"

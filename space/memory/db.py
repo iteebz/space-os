@@ -159,7 +159,9 @@ def add_entry(agent_id: str, topic: str, message: str, core: bool = False, sourc
             (memory_id, agent_id, topic, message, ts, now, 1 if core else 0, source),
         )
         conn.commit()
-    events.emit("memory", "add", agent_id, f"{topic}:{message[:50]}" + (" [CORE]" if core else ""))
+    events.emit(
+        "memory", "note_add", agent_id, f"{topic}:{message[:50]}" + (" [CORE]" if core else "")
+    )
     return memory_id
 
 
@@ -220,7 +222,7 @@ def edit_entry(memory_id: str, new_message: str):
             "UPDATE memories SET message = ?, timestamp = ? WHERE memory_id = ? ",
             (new_message, ts, full_id),
         )
-    events.emit("memory", "edit", entry.agent_id, f"{full_id[-8:]}")
+    events.emit("memory", "note_edit", entry.agent_id, f"{full_id[-8:]}")
 
 
 def delete_entry(memory_id: str):
@@ -231,7 +233,7 @@ def delete_entry(memory_id: str):
     with connect() as conn:
         conn.execute("DELETE FROM memories WHERE memory_id = ?", (full_id,))
         conn.commit()
-    events.emit("memory", "delete", entry.agent_id, f"{full_id[-8:]}")
+    events.emit("memory", "note_delete", entry.agent_id, f"{full_id[-8:]}")
 
 
 def clear_entries(identity: str, topic: str | None = None):
@@ -257,7 +259,7 @@ def archive_entry(memory_id: str):
             (now, full_id),
         )
         conn.commit()
-    events.emit("memory", "archive", entry.agent_id, f"{full_id[-8:]}")
+    events.emit("memory", "note_archive", entry.agent_id, f"{full_id[-8:]}")
 
 
 def restore_entry(memory_id: str):
@@ -270,7 +272,7 @@ def restore_entry(memory_id: str):
             "UPDATE memories SET archived_at = NULL WHERE memory_id = ?",
             (full_id,),
         )
-    events.emit("memory", "restore", entry.agent_id, f"{full_id[-8:]}")
+    events.emit("memory", "note_restore", entry.agent_id, f"{full_id[-8:]}")
 
 
 def mark_core(memory_id: str, core: bool = True):
@@ -284,7 +286,7 @@ def mark_core(memory_id: str, core: bool = True):
             (1 if core else 0, full_id),
         )
         conn.commit()
-    events.emit("memory", "core", entry.agent_id, f"{full_id[-8:]} → {core}")
+    events.emit("memory", "note_core", entry.agent_id, f"{full_id[-8:]} → {core}")
 
 
 def get_core_entries(identity: str) -> list[Memory]:
@@ -412,7 +414,7 @@ def replace_entry(
                     (now, new_id, full_old_id),
                 )
 
-    events.emit("memory", "replace", agent_id, f"{len(old_ids)} archived, new: {new_id[-8:]}")
+    events.emit("memory", "note_replace", agent_id, f"{len(old_ids)} archived, new: {new_id[-8:]}")
     return new_id
 
 
