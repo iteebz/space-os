@@ -1,9 +1,11 @@
+import sqlite3
 import time
+from pathlib import Path
 
 import typer
 
 from space import events as events_lib
-from space.lib import stats as stats_lib
+from space.lib import paths, stats as stats_lib
 from space.spawn import registry
 
 app = typer.Typer(invoke_without_command=True)
@@ -130,3 +132,76 @@ def inspect_agent(agent_ref: str):
         typer.echo(f"  [{ts}] {e.event_type}{data_str}")
 
     typer.echo(f"\n{'─' * 60}\n")
+
+
+@app.command("merge")
+def merge_agents(id_from: str, id_to: str):
+    """Merge all data from one agent ID to another."""
+    registry.init_db()
+
+    with registry.get_db() as conn:
+        from_agent = conn.execute(
+            "SELECT id, name FROM agents WHERE archived_at IS NULL AND (id = ? OR name = ?)",
+            (id_from, id_from),
+        ).fetchone()
+        to_agent = conn.execute(
+            "SELECT id, name FROM agents WHERE archived_at IS NULL AND (id = ? OR name = ?)",
+            (id_to, id_to),
+        ).fetchone()
+
+    if not from_agent:
+        typer.echo(f"Error: Source agent '{id_from}' not found")
+        raise typer.Exit(1)
+
+    if not to_agent:
+        typer.echo(f"Error: Target agent '{id_to}' not found")
+        raise typer.Exit(1)
+
+    from_id = from_agent["id"]
+    to_id = to_agent["id"]
+
+    if from_id == to_id:
+        typer.echo("Error: Cannot merge agent with itself")
+        raise typer.Exit(1)
+
+    typer.echo(f"Merging {from_agent['name'] or from_id[:8]} → {to_agent['name'] or to_id[:8]}")
+
+    updated_count = 0
+
+    with registry.get_db() as conn:
+        updated_count += conn.execute(
+            "UPDATE agents SET archived_at = ? WHERE id = ?", (int(time.time()), from_id)
+        ).rowcount
+
+    memory_db_path = paths.dot_space() / "memory.db"
+    if memory_db_path.exists():
+        memory_conn = sqlite3.connect(memory_db_path)
+        updated_count += memory_conn.execute(
+            "UPDATE memories SET agent_id = ? WHERE agent_id = ?", (to_id, from_id)
+        ).rowcount
+        memory_conn.commit()
+        memory_conn.close()
+
+    typer.echo(f"✓ Merged {updated_count} records")
+    events_lib.emit("agents", "merge", to_id, f"merged {from_id}")
+
+
+@app.command("rename")
+def rename_agent(agent_ref: str, new_name: str):
+    """Rename an agent."""
+    result = _resolve_agent_id(agent_ref)
+
+    if not result:
+        typer.echo(f"Error: Agent not found for '{agent_ref}'")
+        raise typer.Exit(1)
+
+    agent_id, _ = result
+
+    registry.init_db()
+
+    with registry.get_db() as conn:
+        conn.execute("UPDATE agents SET name = ? WHERE id = ?", (new_name, agent_id))
+        conn.commit()
+
+    typer.echo(f"✓ Renamed to {new_name}")
+    events_lib.emit("agents", "rename", agent_id, f"renamed to {new_name}")

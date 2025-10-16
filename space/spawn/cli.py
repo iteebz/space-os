@@ -32,7 +32,7 @@ def main_command(ctx: typer.Context):
 
 
 @app.command(name="launch", hidden=True)
-def launch_cmd(agent_id: str, extra: list[str] | None = None):
+def launch_cmd(agent_id: str, extra: list[str] = typer.Argument(None)):
     """Launch an agent (internal fallback)."""
     _spawn_from_registry(agent_id, extra or [])
 
@@ -51,10 +51,12 @@ def main() -> None:
 
 def _spawn_from_registry(arg: str, extra_args: list[str]):
     """Launch agent by role or agent_name."""
+    from . import agents
 
     agent = None
     model = None
     passthrough = []
+    task = None
 
     i = 0
     while i < len(extra_args):
@@ -70,6 +72,9 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
         elif extra_args[i] == "--haiku":
             model = spawn.resolve_model_alias("haiku")
             i += 1
+        elif not task and not extra_args[i].startswith("-"):
+            task = extra_args[i]
+            i += 1
         else:
             passthrough.append(extra_args[i])
             i += 1
@@ -77,26 +82,65 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
     config.init_config()
     cfg = config.load_config()
 
+    identity = arg
     if arg in cfg["roles"]:
-        spawn.launch_agent(
-            arg, identity=arg, base_identity=agent, extra_args=passthrough, model=model
-        )
+        if task:
+            agent_obj = _get_agent(arg, agent, model, cfg)
+            result = agent_obj.run(task)
+            typer.echo(result)
+        else:
+            spawn.launch_agent(
+                arg, identity=arg, base_identity=agent, extra_args=passthrough, model=model
+            )
         return
 
     if "-" in arg:
         inferred_role = arg.split("-", 1)[0]
         if inferred_role in cfg["roles"]:
-            spawn.launch_agent(
-                inferred_role,
-                identity=arg,
-                base_identity=agent,
-                extra_args=passthrough,
-                model=model,
-            )
+            if task:
+                agent_obj = _get_agent(arg, agent, model, cfg)
+                result = agent_obj.run(task)
+                typer.echo(result)
+            else:
+                spawn.launch_agent(
+                    inferred_role,
+                    identity=arg,
+                    base_identity=agent,
+                    extra_args=passthrough,
+                    model=model,
+                )
             return
 
     typer.echo(f"❌ Unknown role or agent: {arg}", err=True)
     raise typer.Exit(1)
+
+
+def _get_agent(identity: str, base_agent: str | None, model: str | None, cfg: dict):
+    """Get agent instance by identity."""
+    from .agents import claude, codex, gemini
+
+    actual_identity = identity
+    if actual_identity not in cfg["roles"]:
+        typer.echo(f"❌ Unknown identity: {actual_identity}", err=True)
+        raise typer.Exit(1)
+
+    role_cfg = cfg["roles"][actual_identity]
+    base_identity = base_agent or role_cfg["base_identity"]
+
+    agent_cfg = cfg.get("agents", {}).get(base_identity)
+    if not agent_cfg:
+        typer.echo(f"❌ Unknown agent: {base_identity}", err=True)
+        raise typer.Exit(1)
+
+    command = agent_cfg.get("command")
+    agent_map = {"claude": claude.Claude, "gemini": gemini.Gemini, "codex": codex.Codex}
+
+    if command not in agent_map:
+        typer.echo(f"❌ Unknown agent command: {command}", err=True)
+        raise typer.Exit(1)
+
+    agent_class = agent_map[command]
+    return agent_class(actual_identity)
 
 
 if __name__ == "__main__":
