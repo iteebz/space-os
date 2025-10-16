@@ -61,14 +61,11 @@ def list_knowledge_command(
             output.out_text("No knowledge entries found.", ctx.obj)
         return
 
-    with registry.get_db() as conn:
-        names = {row[0]: row[1] for row in conn.execute("SELECT id, name FROM agents")}
-
     if ctx.obj.get("json_output"):
         typer.echo(output.out_json([asdict(entry) for entry in entries]))
     else:
         for entry in entries:
-            agent_name = names.get(entry.agent_id, entry.agent_id)
+            agent_name = registry.get_identity(entry.agent_id) or entry.agent_id
             output.out_text(
                 f"[{entry.knowledge_id[-8:]}] [{entry.created_at}] Domain: {entry.domain}, "
                 f"Agent: {agent_name}, Confidence: {entry.confidence or 'N/A'}\n"
@@ -92,14 +89,11 @@ def query_by_domain_command(
             output.out_text(f"No knowledge entries found for domain '{domain}'.", ctx.obj)
         return
 
-    with registry.get_db() as conn:
-        names = {row[0]: row[1] for row in conn.execute("SELECT id, name FROM agents")}
-
     if ctx.obj.get("json_output"):
         typer.echo(output.out_json([asdict(entry) for entry in entries]))
     else:
         for entry in entries:
-            agent_name = names.get(entry.agent_id, entry.agent_id)
+            agent_name = registry.get_identity(entry.agent_id) or entry.agent_id
             output.out_text(
                 f"[{entry.knowledge_id[-8:]}] [{entry.created_at}] Agent: {agent_name}, "
                 f"Confidence: {entry.confidence or 'N/A'}\n"
@@ -157,13 +151,10 @@ def get_knowledge_by_id_command(
             output.out_text(f"No knowledge entry found with ID '{entry_id}'.", ctx.obj)
         return
 
-    with registry.get_db() as conn:
-        names = {row[0]: row[1] for row in conn.execute("SELECT id, name FROM agents")}
-
     if ctx.obj.get("json_output"):
         typer.echo(output.out_json(asdict(entry)))
     else:
-        agent_name = names.get(entry.agent_id, entry.agent_id)
+        agent_name = registry.get_identity(entry.agent_id) or entry.agent_id
         output.out_text(
             f"ID: {entry.knowledge_id}\n"
             f"Created At: {entry.created_at}\n"
@@ -193,9 +184,6 @@ def inspect_knowledge_command(
 
     related = db.find_related(entry, limit=limit, include_archived=include_archived)
 
-    with registry.get_db() as conn:
-        names = {row[0]: row[1] for row in conn.execute("SELECT id, name FROM agents")}
-
     if ctx.obj.get("json_output"):
         payload = {
             "entry": asdict(entry),
@@ -203,7 +191,7 @@ def inspect_knowledge_command(
         }
         typer.echo(output.out_json(payload))
     else:
-        agent_name = names.get(entry.agent_id, entry.agent_id)
+        agent_name = registry.get_identity(entry.agent_id) or entry.agent_id
         archived_mark = " [ARCHIVED]" if entry.archived_at else ""
         output.out_text(
             f"[{entry.knowledge_id[-8:]}] {entry.domain} by {agent_name}{archived_mark}", ctx.obj
@@ -216,7 +204,7 @@ def inspect_knowledge_command(
             output.out_text("─" * 60, ctx.obj)
             output.out_text(f"Related nodes ({len(related)}):\n", ctx.obj)
             for rel_entry, overlap in related:
-                rel_agent_name = names.get(rel_entry.agent_id, rel_entry.agent_id)
+                rel_agent_name = registry.get_identity(rel_entry.agent_id) or rel_entry.agent_id
                 archived_mark = " [ARCHIVED]" if rel_entry.archived_at else ""
                 output.out_text(
                     f"[{rel_entry.knowledge_id[-8:]}] {rel_entry.domain} by {rel_agent_name} ({overlap} keywords){archived_mark}",

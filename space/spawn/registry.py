@@ -2,6 +2,7 @@ import sqlite3
 import time
 from contextlib import contextmanager
 from datetime import datetime
+from functools import lru_cache
 
 from .. import config, events
 from ..lib import db, paths
@@ -79,11 +80,17 @@ def get_agent_id(name: str) -> str | None:
     return ids[0] if ids else None
 
 
+@lru_cache(maxsize=256)
 def get_identity(agent_id: str) -> str | None:
     """Get agent identity by UUID."""
     with get_db() as conn:
         row = conn.execute("SELECT name FROM agents WHERE id = ?", (agent_id,)).fetchone()
         return row["name"] if row else None
+
+
+def clear_identity_cache():
+    """Invalidate agent name cache."""
+    get_identity.cache_clear()
 
 
 def ensure_agent(name: str) -> str:
@@ -112,6 +119,7 @@ def ensure_agent(name: str) -> str:
             (agent_id, name, now_iso),
         )
         conn.commit()
+    clear_identity_cache()
     events.emit("spawn", "agent.create", agent_id, f"Agent '{name}' created")
     return agent_id
 
@@ -159,7 +167,8 @@ def rename_agent(old_name: str, new_name: str) -> bool:
             return False
         conn.execute("UPDATE agents SET name = ? WHERE id = ?", (new_name, old_agent_id))
         conn.commit()
-        return True
+    clear_identity_cache()
+    return True
 
 
 def _drop_canonical_id(conn):

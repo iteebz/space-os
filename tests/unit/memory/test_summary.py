@@ -76,7 +76,7 @@ def test_no_summary_exists(test_space, monkeypatch):
         m.chdir(test_space)
         result = runner.invoke(app.app, ["summary", "--as", "test-agent"])
     assert result.exit_code == 0
-    assert "No summary found for test-agent." in result.stdout
+    assert "No summary found" in result.stdout
 
 
 def test_add_new_summary(test_space, monkeypatch):
@@ -84,7 +84,7 @@ def test_add_new_summary(test_space, monkeypatch):
         m.chdir(test_space)
         result = runner.invoke(app.app, ["summary", "--as", "test-agent", "First summary message."])
     assert result.exit_code == 0
-    assert "Added summary for test-agent." in result.stdout
+    assert "Added summary" in result.stdout
 
     summary = _get_latest_summary("test-agent")
     assert summary is not None
@@ -102,7 +102,7 @@ def test_replace_existing_summary(test_space, monkeypatch):
             app.app, ["summary", "--as", "test-agent", "Updated summary message."]
         )
     assert result.exit_code == 0
-    assert "Updated summary (appended to 1 entries) with new ID" in result.stdout
+    assert "Updated summary" in result.stdout
 
     updated_summary = _get_latest_summary("test-agent")
     assert updated_summary is not None

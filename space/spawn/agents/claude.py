@@ -1,5 +1,4 @@
 import subprocess
-from pathlib import Path
 
 from space import config
 
@@ -31,8 +30,7 @@ class Claude:
         """Run agent. None = interactive, str = one-shot task."""
         if prompt is None:
             return self._interactive()
-        else:
-            return self._task(prompt)
+        return self._task(prompt)
 
     def _interactive(self) -> str:
         """Launch interactive agent session."""

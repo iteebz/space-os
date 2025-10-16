@@ -7,6 +7,37 @@ import typer
 from space.lib.format import format_duration
 
 
+def fmt_entry_header(entry, agent_name: str = None) -> str:
+    mark_archived = " [ARCHIVED]" if entry.archived_at else ""
+    mark_core = " ★" if entry.core else ""
+    name = agent_name or ""
+    if name:
+        name = f" by {name}"
+    return f"[{entry.memory_id[-8:]}] {entry.topic}{name}{mark_archived}{mark_core}"
+
+
+def fmt_entry_msg(msg: str, max_len: int = 100) -> str:
+    if len(msg) > max_len:
+        return msg[:max_len] + "..."
+    return msg
+
+
+def show_memory_entry(entry, ctx_obj, related=None):
+    from space.spawn import registry
+
+    typer.echo(fmt_entry_header(entry, registry.get_identity(entry.agent_id)))
+    typer.echo(f"Created: {entry.timestamp}\n")
+    typer.echo(f"{entry.message}\n")
+
+    if related:
+        typer.echo("─" * 60)
+        typer.echo(f"Related nodes ({len(related)}):\n")
+        for rel_entry, overlap in related:
+            typer.echo(fmt_entry_header(rel_entry))
+            typer.echo(f"  {overlap} keywords")
+            typer.echo(f"  {fmt_entry_msg(rel_entry.message)}\n")
+
+
 def display_context(timeline, current_state, lattice_docs, canon_docs):
     if timeline:
         typer.echo("## EVOLUTION (last 10)\n")

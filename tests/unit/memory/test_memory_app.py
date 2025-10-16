@@ -152,3 +152,48 @@ def test_memory_core_mark(test_space):
 
     result = runner.invoke(app, ["core", "--unmark", entry_id])
     assert result.exit_code == 0
+
+
+def test_memory_list_with_all_flag(test_space):
+    from space.memory import db
+    from space.spawn import registry
+
+    registry.init_db()
+    identity = "test-all-flag"
+    agent_id = registry.ensure_agent(identity)
+
+    db.add_entry(agent_id, "active-1", "active message 1")
+    db.add_entry(agent_id, "active-2", "active message 2")
+    archived_entry_id = db.add_entry(agent_id, "archived", "archived message")
+    db.archive_entry(archived_entry_id)
+
+    result = runner.invoke(app, ["list", "--as", identity])
+    assert result.exit_code == 0
+    assert "active message 1" in result.stdout
+    assert "active message 2" in result.stdout
+    assert "archived message" not in result.stdout
+
+    result = runner.invoke(app, ["list", "--as", identity, "--all"])
+    assert result.exit_code == 0
+    assert "active message 1" in result.stdout
+    assert "active message 2" in result.stdout
+    assert "archived message" in result.stdout
+    assert "[ARCHIVED]" in result.stdout
+
+
+def test_memory_default_with_all_flag(test_space):
+    from space.memory import db
+    from space.spawn import registry
+
+    registry.init_db()
+    identity = "test-default-all"
+    agent_id = registry.ensure_agent(identity)
+
+    db.add_entry(agent_id, "active", "active message")
+    archived_entry_id = db.add_entry(agent_id, "archived", "archived message")
+    db.archive_entry(archived_entry_id)
+
+    result = runner.invoke(app, ["--as", identity, "--all"])
+    assert result.exit_code == 0
+    assert "active message" in result.stdout
+    assert "archived message" in result.stdout

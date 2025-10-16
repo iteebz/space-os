@@ -32,9 +32,11 @@ def main_command(ctx: typer.Context):
 
 
 @app.command(name="launch", hidden=True)
-def launch_cmd(agent_id: str, extra: list[str] = typer.Argument(None)):
+def launch_cmd(agent_id: str, extra: list[str] | None = None):
     """Launch an agent (internal fallback)."""
-    _spawn_from_registry(agent_id, extra or [])
+    if extra is None:
+        extra = []
+    _spawn_from_registry(agent_id, extra)
 
 
 def main() -> None:
@@ -51,7 +53,6 @@ def main() -> None:
 
 def _spawn_from_registry(arg: str, extra_args: list[str]):
     """Launch agent by role or agent_name."""
-    from . import agents
 
     agent = None
     model = None
@@ -82,7 +83,6 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
     config.init_config()
     cfg = config.load_config()
 
-    identity = arg
     if arg in cfg["roles"]:
         if task:
             agent_obj = _get_agent(arg, agent, model, cfg)

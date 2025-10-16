@@ -1,11 +1,11 @@
 import sqlite3
 import time
-from pathlib import Path
 
 import typer
 
 from space import events as events_lib
-from space.lib import paths, stats as stats_lib
+from space.lib import paths
+from space.lib import stats as stats_lib
 from space.spawn import registry
 
 app = typer.Typer(invoke_without_command=True)

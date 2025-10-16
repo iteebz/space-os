@@ -55,6 +55,9 @@ def format_memory_entries(entries: list, raw_output: bool = False) -> str:
             output_lines.append(f"# {e.topic}")
             current_topic = e.topic
         core_mark = " ★" if e.core else ""
+        archived_mark = " [ARCHIVED]" if e.archived_at else ""
         timestamp_display = e.timestamp if raw_output else humanize_timestamp(e.timestamp)
-        output_lines.append(f"[{e.memory_id[-8:]}] [{timestamp_display}] {e.message}{core_mark}")
+        output_lines.append(
+            f"[{e.memory_id[-8:]}] [{timestamp_display}] {e.message}{core_mark}{archived_mark}"
+        )
     return "\n".join(output_lines)

@@ -1,9 +1,10 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from space.spawn.agents.claude import Claude
-from space.spawn.agents.gemini import Gemini
 from space.spawn.agents.codex import Codex
+from space.spawn.agents.gemini import Gemini
 
 
 @pytest.fixture
@@ -140,8 +141,10 @@ def test_codex_task(mock_run):
 
 
 def test_claude_interactive():
-    with patch("space.spawn.agents.claude.config") as cfg, \
-         patch("space.spawn.spawn.launch_agent") as mock_launch:
+    with (
+        patch("space.spawn.agents.claude.config") as cfg,
+        patch("space.spawn.spawn.launch_agent") as mock_launch,
+    ):
         cfg.init_config.return_value = None
         cfg.load_config.return_value = {
             "roles": {

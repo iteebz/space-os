@@ -47,14 +47,8 @@ app.command(name="sleep")(sleep.sleep)
 
 
 @app.callback(invoke_without_command=True)
-def main_command(
-    ctx: typer.Context,
-):
-    rewritten = Aliasing.rewrite(sys.argv[1:])
-    invocation = Invocation.from_args(rewritten)
-
-    ctx.obj = invocation
-
+def main_command(ctx: typer.Context):
+    invocation = ctx.obj
     cmd = ctx.invoked_subcommand or "(no command)"
     invocation.emit_invocation(cmd)
 
@@ -71,7 +65,7 @@ def main() -> None:
     invocation = Invocation.from_args(rewritten_argv)
 
     try:
-        app()
+        app(obj=invocation)
     except SystemExit as e:
         if e.code and e.code != 0:
             invocation.emit_error(f"CLI command (exit={e.code})")

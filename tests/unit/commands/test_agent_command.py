@@ -1,8 +1,8 @@
 from typer.testing import CliRunner
 
 from space.commands.agent import app
-from space.spawn import registry
 from space.memory import db
+from space.spawn import registry
 
 runner = CliRunner()
 
@@ -73,7 +73,5 @@ def test_agent_rename(test_space):
     assert "Renamed" in result.stdout
 
     with registry.get_db() as conn:
-        agent = conn.execute(
-            "SELECT name FROM agents WHERE name = ?", ("new-name",)
-        ).fetchone()
+        agent = conn.execute("SELECT name FROM agents WHERE name = ?", ("new-name",)).fetchone()
     assert agent is not None
