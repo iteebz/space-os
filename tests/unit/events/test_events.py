@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from space import events
+from space.lib import db
 
 
 @pytest.fixture
@@ -13,7 +14,8 @@ def in_memory_db():
     conn = sqlite3.connect(":memory:")
     conn.executescript(events.SCHEMA)
     # Apply migrations
-    for _, migrate_func in events.events_migrations:
+    event_migrations = db._migrations.get("events", [])
+    for _, migrate_func in event_migrations:
         migrate_func(conn)
     yield conn
     # No conn.close() here, pytest will handle cleanup

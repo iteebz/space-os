@@ -48,12 +48,11 @@ overview"""
         lines.append("  name · id · s-b-m-k · active")
 
         sorted_agents = sorted(
-            s.agents, key=lambda a: a.last_active if a.last_active else 0, reverse=True
+            s.agents, key=lambda a: int(a.last_active) if a.last_active else 0, reverse=True
         )
 
-        for a in sorted_agents[:15]:
+        for a in sorted_agents:
             parts = [a.agent_name]
-            parts.append(a.agent_id[:8])
             parts.append(f"{a.spawns}-{a.msgs}-{a.mems}-{a.knowledge}")
             if a.last_active_human:
                 parts.append(a.last_active_human)

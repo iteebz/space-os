@@ -118,12 +118,15 @@ def _backfill_memory_links(conn: sqlite3.Connection):
     conn.commit()
 
 
-memory_migrations = [
-    ("migrate_memory_table_to_memories", _migrate_memory_table_to_memories),
-    ("backfill_memory_links", _backfill_memory_links),
-]
+db.register("memory", MEMORY_DB_NAME, _MEMORY_SCHEMA)
 
-db.register("memory", MEMORY_DB_NAME, _MEMORY_SCHEMA, memory_migrations)
+db.migrations(
+    "memory",
+    [
+        ("migrate_memory_table_to_memories", _migrate_memory_table_to_memories),
+        ("backfill_memory_links", _backfill_memory_links),
+    ],
+)
 
 
 def connect():

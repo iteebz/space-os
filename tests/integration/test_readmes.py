@@ -1,7 +1,7 @@
 from typer.testing import CliRunner
 
+from space.app import app as space_app
 from space.bridge.app import app as bridge_app
-from space.cli import app as space_app
 from space.memory.app import app as memory_app
 
 runner = CliRunner()
@@ -9,7 +9,7 @@ runner = CliRunner()
 
 def test_space():
     result = runner.invoke(space_app)
-    assert "# space-os" in result.stdout
+    assert "Welcome to space-os" in result.stdout
 
 
 def test_bridge():

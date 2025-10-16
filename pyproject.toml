@@ -27,7 +27,7 @@ spawn = "space.spawn.cli:main"
 memory = "space.memory.app:main"
 knowledge = "space.knowledge.app:main"
 context = "space.context.app:main"
-space = "space.cli:main"
+space = "space.app:main"
 wake = "space.commands.wake:main"
 sleep = "space.commands.sleep:main"
 

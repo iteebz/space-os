@@ -2,8 +2,7 @@
 
 import typer
 
-from space import readme
-from space.lib import cli_utils, display, errors
+from space.lib import display, errors, output, readme
 
 from ..lib.paths import canon_path
 from . import db
@@ -25,7 +24,7 @@ def main_command(
     ),
 ):
     """Unified context retrieval: trace evolution + current state + lattice docs."""
-    cli_utils.set_flags(ctx, json_output, quiet_output)
+    output.set_flags(ctx, json_output, quiet_output)
     if ctx.obj is None:
         ctx.obj = {}
     if (ctx.resilient_parsing or ctx.invoked_subcommand is None) and not topic:
@@ -39,7 +38,7 @@ def main_command(
 
     if ctx.obj.get("json_output"):
         typer.echo(
-            cli_utils.out_json(
+            output.out_json(
                 {
                     "evolution": timeline,
                     "state": current_state,
@@ -56,7 +55,7 @@ def main_command(
     display.display_context(timeline, current_state, lattice_docs, canon_docs)
 
     if not timeline and not any(current_state.values()) and not lattice_docs and not canon_docs:
-        cli_utils.out_text(f"No context found for '{topic}'", ctx.obj)
+        output.out_text(f"No context found for '{topic}'", ctx.obj)
 
 
 def _search_canon(topic: str) -> dict:

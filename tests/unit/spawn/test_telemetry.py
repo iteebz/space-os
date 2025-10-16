@@ -1,6 +1,6 @@
 from typer.testing import CliRunner
 
-from space.cli import app
+from space.app import app
 from space.events import query
 
 runner = CliRunner()

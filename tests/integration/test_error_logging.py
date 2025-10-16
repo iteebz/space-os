@@ -5,7 +5,7 @@ import sqlite3
 from typer.testing import CliRunner
 
 from space import events
-from space.cli import app as space_app
+from space.app import app as space_app
 from space.lib import paths
 from space.spawn import registry
 

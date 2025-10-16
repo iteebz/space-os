@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from space.cli import app
+from space.app import app
 
 runner = CliRunner()
 

@@ -40,7 +40,8 @@ def test_bridge_db_migration_converts_messages_id_to_text(in_memory_bridge_db):
     assert cols.get("id") == "INTEGER"
 
     # Run migrations using the new centralized function
-    db.migrate(conn, [bridge_db.bridge_migrations[0]])  # Apply only the second migration
+    bridge_migrations = db._migrations.get("bridge", [])
+    db.migrate(conn, [bridge_migrations[0]])
     # Verify new schema
     cursor = conn.execute("PRAGMA table_info(messages)")
     cols = {row["name"]: row["type"] for row in cursor.fetchall()}

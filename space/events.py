@@ -48,16 +48,21 @@ def _migrate_add_session_id(conn: sqlite3.Connection):
     _add_column_if_not_exists(conn, "events", "session_id", "TEXT")
 
 
-events_migrations = [
-    ("add_agent_id_to_events", _migrate_add_agent_id),
-    ("add_session_id_to_events", _migrate_add_session_id),
-]
+db.register("events", "events.db", SCHEMA)
+
+db.migrations(
+    "events",
+    [
+        ("add_agent_id_to_events", _migrate_add_agent_id),
+        ("add_session_id_to_events", _migrate_add_session_id),
+    ],
+)
 
 
 @contextmanager
 def _connect():
     if not DB_PATH.exists():
-        db.ensure_schema(DB_PATH, SCHEMA, events_migrations)
+        db.ensure_schema(DB_PATH, SCHEMA, db._migrations.get("events"))
     conn = db.connect(DB_PATH)
     try:
         yield conn

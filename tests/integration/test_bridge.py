@@ -8,7 +8,7 @@ runner = CliRunner()
 def test_bridge_shows_readme():
     result = runner.invoke(app)
     assert result.exit_code == 0
-    assert "BRIDGE: AI Coordination Protocol" in result.stdout
+    assert "BRIDGE" in result.stdout
 
 
 def test_bridge_list_channels():

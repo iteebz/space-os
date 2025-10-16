@@ -2,7 +2,7 @@ import sys
 
 import typer
 
-from space import readme
+from space.lib import readme
 from space.lib.invocation import AliasResolver
 
 from .bridge.app import app as bridge_app

@@ -57,9 +57,12 @@ def _migrate_id_to_knowledge_id(conn: sqlite3.Connection):
 
 db.register("knowledge", KNOWLEDGE_DB_NAME, _KNOWLEDGE_SCHEMA)
 
-db.migrations("knowledge", [
-    ("migrate_id_to_knowledge_id", _migrate_id_to_knowledge_id),
-])
+db.migrations(
+    "knowledge",
+    [
+        ("migrate_id_to_knowledge_id", _migrate_id_to_knowledge_id),
+    ],
+)
 
 
 def connect():

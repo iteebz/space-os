@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from . import db, paths
-from .display import humanize_timestamp
+from .format import humanize_timestamp
 
 
 @dataclass
@@ -220,30 +220,19 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
 
 
 def agent_stats(limit: int = None) -> list[AgentStats] | None:
+    from ..spawn import registry
+
+    registry.init_db()
+    with registry.get_db() as reg_conn:
+        agent_ids = {
+            row[0] for row in reg_conn.execute("SELECT id FROM agents WHERE archived_at IS NULL")
+        }
+
     agent_names_map = _get_agent_names_map()
 
     bridge_db = paths.dot_space() / "bridge.db"
     mem_db = paths.dot_space() / "memory.db"
     know_db = paths.dot_space() / "knowledge.db"
-
-    agent_ids = set()
-
-    if bridge_db.exists():
-        with db.connect(bridge_db) as conn:
-            for (agent_id,) in conn.execute("SELECT DISTINCT agent_id FROM messages"):
-                agent_ids.add(agent_id)
-
-    if mem_db.exists():
-        with db.connect(mem_db) as conn:
-            for (agent_id,) in conn.execute("SELECT DISTINCT agent_id FROM memories"):
-                agent_ids.add(agent_id)
-
-    if know_db.exists():
-        with db.connect(know_db) as conn:
-            for (agent_id,) in conn.execute("SELECT DISTINCT agent_id FROM knowledge"):
-                agent_ids.add(agent_id)
-
-    agent_ids.update(agent_names_map.keys())
 
     if not agent_ids:
         return None
@@ -260,26 +249,6 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
         }
         for agent_id in agent_ids
     }
-
-    if not bridge_db.exists():
-        agents = [
-            AgentStats(
-                agent_id=agent_uuid,
-                agent_name=data["agent_name"],
-                spawns=data["spawns"],
-                msgs=data["msgs"],
-                mems=data["mems"],
-                knowledge=data["knowledge"],
-                channels=data.get("channels", []),
-                last_active=data.get("last_active"),
-                last_active_human=humanize_timestamp(data.get("last_active"))
-                if data.get("last_active")
-                else None,
-            )
-            for agent_uuid, data in identities.items()
-        ]
-        agents.sort(key=lambda a: a.msgs, reverse=True)
-        return agents[:limit] if limit else agents
 
     with db.connect(bridge_db) as conn:
         for agent_uuid, msgs_count in conn.execute(
@@ -311,7 +280,7 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
                 if agent_uuid in identities:
                     identities[agent_uuid]["knowledge"] = knowledge_count
 
-    events_db = paths.space_root() / "events.db"
+    events_db = paths.dot_space() / "events.db"
     if events_db.exists():
         with db.connect(events_db) as conn:
             for agent_uuid, spawns_count in conn.execute(

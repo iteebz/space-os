@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
 
-from space.cli import app
+from space.app import app
 from space.models import Channel
 
 runner = CliRunner()

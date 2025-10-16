@@ -51,10 +51,12 @@ CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id);
 
 db.register("bridge", "bridge.db", _SCHEMA)
 
-db.migrations("bridge", [
-    (
-        "migrate_messages_id_to_text",
-        """
+db.migrations(
+    "bridge",
+    [
+        (
+            "migrate_messages_id_to_text",
+            """
         CREATE TABLE messages_new (
             id TEXT PRIMARY KEY,
             channel_id TEXT NOT NULL,
@@ -70,8 +72,9 @@ db.migrations("bridge", [
         CREATE INDEX idx_messages_priority ON messages(priority);
         CREATE INDEX idx_messages_agent ON messages(agent_id);
     """,
-    ),
-])
+        ),
+    ],
+)
 
 
 def connect():

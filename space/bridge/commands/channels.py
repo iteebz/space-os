@@ -3,7 +3,7 @@ from typing import Annotated
 
 import typer
 
-from space.lib import cli_utils
+from space.lib import output
 from space.spawn import registry
 
 from ... import events
@@ -22,7 +22,7 @@ def channels_root(
     ),
 ):
     """Bridge channel operations (defaults to listing)."""
-    cli_utils.set_flags(ctx, json_output, quiet_output)
+    output.set_flags(ctx, json_output, quiet_output)
     if ctx.invoked_subcommand is None:
         list_channels(
             ctx,

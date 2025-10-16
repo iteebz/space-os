@@ -3,7 +3,7 @@
 import typer
 
 from space import events
-from space.lib import cli_utils, errors
+from space.lib import errors, output, readme
 from space.spawn import registry
 
 from . import api, utils
@@ -41,7 +41,7 @@ def main_command(
     ),
 ):
     """Bridge: AI Coordination Protocol"""
-    cli_utils.set_flags(ctx, json_output, quiet_output)
+    output.set_flags(ctx, json_output, quiet_output)
     if ctx.obj is None:
         ctx.obj = {}
 
@@ -54,7 +54,7 @@ def main_command(
                 quiet_output=ctx.obj.get("quiet_output"),
             )
         else:
-            cli_utils.out_text("BRIDGE: AI Coordination Protocol", ctx.obj)
+            _show_readme(ctx.obj)
 
 
 app.add_typer(channels_app, name="channels")
@@ -82,6 +82,15 @@ def list(
     _print_active_channels(agent_id, ctx.obj.get("json_output"), ctx.obj.get("quiet_output"))
 
 
+def _show_readme(ctx_obj: dict):
+    """Display bridge README."""
+    content = readme.load("bridge")
+    if content:
+        typer.echo(content)
+    else:
+        output.out_text("BRIDGE: AI Coordination Protocol", ctx_obj)
+
+
 def _print_active_channels(agent_id: str, json_output: bool, quiet_output: bool):
     """Render active channel list like the original dashboard."""
     try:
@@ -92,7 +101,7 @@ def _print_active_channels(agent_id: str, json_output: bool, quiet_output: bool)
                 "bridge",
                 "error",
                 agent_id,
-                cli_utils.out_json({"command": "list", "details": str(exc)}),
+                output.out_json({"command": "list", "details": str(exc)}),
             )
         if not quiet_output:
             typer.echo(f"⚠️ Unable to load bridge channels: {exc}")
@@ -101,7 +110,7 @@ def _print_active_channels(agent_id: str, json_output: bool, quiet_output: bool)
 
     if not active_channels:
         if json_output:
-            typer.echo(cli_utils.out_json([]))
+            typer.echo(output.out_json([]))
         elif not quiet_output:
             typer.echo("No active bridge channels yet.")
             typer.echo()
@@ -118,7 +127,7 @@ def _print_active_channels(agent_id: str, json_output: bool, quiet_output: bool)
             }
             for c in active_channels
         ]
-        typer.echo(cli_utils.out_json(compact))
+        typer.echo(output.out_json(compact))
     elif not quiet_output:
         typer.echo("ACTIVE CHANNELS:")
         for channel in active_channels:
