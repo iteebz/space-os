@@ -46,8 +46,9 @@ class Claude:
 
     def _task(self, prompt: str) -> str:
         """Execute one-shot task and return output."""
+        allowed_tools = "Bash Edit Read Glob Grep LS Write WebFetch"
         result = subprocess.run(
-            [self.command, "-p", prompt],
+            [self.command, "-p", prompt, "--allowedTools", allowed_tools],
             capture_output=True,
             text=True,
         )

@@ -31,12 +31,14 @@ def main_command(ctx: typer.Context):
     registry.init_db()
 
 
-@app.command(name="launch", hidden=True)
-def launch_cmd(agent_id: str, extra: list[str] | None = None):
+@app.command(
+    name="launch",
+    hidden=True,
+    context_settings={"allow_extra_args": True, "allow_interspersed_args": False},
+)
+def launch_cmd(ctx: typer.Context, agent_id: str):
     """Launch an agent (internal fallback)."""
-    if extra is None:
-        extra = []
-    _spawn_from_registry(agent_id, extra)
+    _spawn_from_registry(agent_id, ctx.args)
 
 
 def main() -> None:
@@ -56,6 +58,7 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
 
     agent = None
     model = None
+    channel = None
     passthrough = []
     task = None
 
@@ -66,6 +69,9 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
             i += 2
         elif extra_args[i] == "--model" and i + 1 < len(extra_args):
             model = extra_args[i + 1]
+            i += 2
+        elif extra_args[i] == "--channel" and i + 1 < len(extra_args):
+            channel = extra_args[i + 1]
             i += 2
         elif extra_args[i] == "--sonnet":
             model = spawn.resolve_model_alias("sonnet")
@@ -88,6 +94,11 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
             agent_obj = _get_agent(arg, agent, model, cfg)
             result = agent_obj.run(task)
             typer.echo(result)
+            con_path = spawn.get_constitution_path(arg)
+            con_hash = spawn.hash_content(con_path.read_text())
+            registry.log_task(
+                arg, result, constitution_hash=con_hash, channel=channel, input_text=task
+            )
         else:
             spawn.launch_agent(
                 arg, identity=arg, base_identity=agent, extra_args=passthrough, model=model
@@ -101,6 +112,11 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
                 agent_obj = _get_agent(arg, agent, model, cfg)
                 result = agent_obj.run(task)
                 typer.echo(result)
+                con_path = spawn.get_constitution_path(inferred_role)
+                con_hash = spawn.hash_content(con_path.read_text())
+                registry.log_task(
+                    arg, result, constitution_hash=con_hash, channel=channel, input_text=task
+                )
             else:
                 spawn.launch_agent(
                     inferred_role,

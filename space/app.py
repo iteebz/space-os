@@ -25,7 +25,7 @@ from .context.app import app as context_app
 from .knowledge.app import app as knowledge_app
 from .memory.app import app as memory_app
 
-app = typer.Typer(invoke_without_command=True, no_args_is_help=False)
+app = typer.Typer(invoke_without_command=True, no_args_is_help=False, add_help_option=False)
 
 app.add_typer(knowledge_app, name="knowledge")
 app.add_typer(memory_app, name="memory")
@@ -47,10 +47,21 @@ app.command(name="sleep")(sleep.sleep)
 
 
 @app.callback(invoke_without_command=True)
-def main_command(ctx: typer.Context):
+def main_command(
+    ctx: typer.Context,
+    help: bool = typer.Option(False, "--help", "-h", help="Show help"),
+):
     invocation = ctx.obj
+    if not invocation:
+        invocation = Invocation.from_args(sys.argv[1:])
+        ctx.obj = invocation
     cmd = ctx.invoked_subcommand or "(no command)"
-    invocation.emit_invocation(cmd)
+    if invocation:
+        invocation.emit_invocation(cmd)
+
+    if help:
+        typer.echo(readme.root())
+        ctx.exit()
 
     if ctx.invoked_subcommand is None:
         typer.echo(readme.root())

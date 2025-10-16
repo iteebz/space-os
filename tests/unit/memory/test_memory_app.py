@@ -8,7 +8,7 @@ runner = CliRunner()
 def test_app_help():
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    assert "Usage:" in result.stdout
+    assert "Working context that survives compaction" in result.stdout
 
 
 def test_memory_default_to_list_and_sort_core(test_space):

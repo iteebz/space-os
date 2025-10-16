@@ -22,11 +22,17 @@ def main_command(
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
+    help: bool = typer.Option(False, "--help", "-h", help="Show help"),
 ):
     """Unified context retrieval: trace evolution + current state + lattice docs."""
     output.set_flags(ctx, json_output, quiet_output)
     if ctx.obj is None:
         ctx.obj = {}
+
+    if help:
+        typer.echo(readme.load("context"))
+        ctx.exit()
+
     if (ctx.resilient_parsing or ctx.invoked_subcommand is None) and not topic:
         typer.echo(readme.load("context"))
         return

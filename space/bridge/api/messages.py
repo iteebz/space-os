@@ -1,9 +1,15 @@
 """Business logic for handling messages."""
 
+import logging
+import subprocess
+import sys
+
 from space.models import Message
 from space.spawn import registry
 
 from .. import db
+
+log = logging.getLogger(__name__)
 
 
 def send_message(channel_id: str, sender: str, content: str, priority: str = "normal") -> str:
@@ -15,6 +21,22 @@ def send_message(channel_id: str, sender: str, content: str, priority: str = "no
         content=content,
         priority=priority,
     )
+
+    # Process @mentions only for non-system messages
+    if sender != "system" and "@" in content:
+        channel_name = db.get_channel_name(channel_id)
+        log.debug(f"Spawning worker for channel={channel_name}, mentions in content")
+        db.create_message(
+            channel_id=channel_id,
+            agent_id="system",
+            content="[system] spawning agent(s)",
+            priority="normal",
+        )
+        subprocess.Popen(
+            [sys.executable, "-m", "space.bridge.worker", channel_id, channel_name, content],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
 
     return agent_id
 

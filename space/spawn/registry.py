@@ -21,6 +21,17 @@ CREATE TABLE IF NOT EXISTS agents (
     archived_at INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS tasks (
+    uuid7 TEXT PRIMARY KEY,
+    identity TEXT NOT NULL,
+    channel TEXT,
+    input TEXT,
+    output TEXT,
+    stderr TEXT,
+    constitution_hash TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP
+);
 """
 
 
@@ -204,8 +215,19 @@ def _drop_canonical_id(conn):
     conn.execute("ALTER TABLE agents_new RENAME TO agents")
 
 
+def _add_task_input_stderr(conn):
+    cursor = conn.execute("PRAGMA table_info(tasks)")
+    cols = {col[1] for col in cursor.fetchall()}
+
+    if "input" not in cols:
+        conn.execute("ALTER TABLE tasks ADD COLUMN input TEXT")
+    if "stderr" not in cols:
+        conn.execute("ALTER TABLE tasks ADD COLUMN stderr TEXT")
+
+
 spawn_migrations = [
     ("drop_canonical_id", _drop_canonical_id),
+    ("add_task_input_stderr", _add_task_input_stderr),
 ]
 
 
@@ -344,3 +366,26 @@ def backfill_unknown_agents() -> int:
         conn.commit()
 
     return len(unknown_ids)
+
+
+def log_task(
+    identity: str,
+    output: str,
+    constitution_hash: str | None = None,
+    channel: str | None = None,
+    input_text: str | None = None,
+    stderr: str | None = None,
+) -> str:
+    """Log task execution. Returns task uuid7."""
+    task_id = uuid7()
+    now_iso = datetime.now().isoformat()
+    with get_db() as conn:
+        conn.execute(
+            """
+            INSERT INTO tasks (uuid7, identity, channel, input, output, stderr, constitution_hash, completed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (task_id, identity, channel, input_text, output, stderr, constitution_hash, now_iso),
+        )
+        conn.commit()
+    return task_id

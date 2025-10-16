@@ -46,11 +46,17 @@ def main_command(
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
+    help: bool = typer.Option(False, "--help", "-h", help="Show help"),
 ):
     output.set_flags(ctx, json_output, quiet_output)
     if ctx.obj is None:
         ctx.obj = {}
     ctx.obj["identity"] = identity
+
+    if help:
+        typer.echo(readme.load("memory"))
+        ctx.exit()
+
     if ctx.resilient_parsing:
         return
     if ctx.invoked_subcommand is None:

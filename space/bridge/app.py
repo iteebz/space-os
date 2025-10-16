@@ -39,11 +39,16 @@ def main_command(
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
+    help: bool = typer.Option(False, "--help", "-h", help="Show help"),
 ):
     """Bridge: AI Coordination Protocol"""
     output.set_flags(ctx, json_output, quiet_output)
     if ctx.obj is None:
         ctx.obj = {}
+
+    if help:
+        _show_readme(ctx.obj)
+        ctx.exit()
 
     if ctx.invoked_subcommand is None:
         if agent_id:
