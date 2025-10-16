@@ -32,4 +32,6 @@ def format_channel_row(channel) -> tuple[str, str]:
     else:
         last_activity = "never"
     meta_str = format_channel_meta(channel)
-    return last_activity, f"{channel.name} - {meta_str}"
+    if meta_str:
+        return last_activity, f"{channel.name} - {meta_str}"
+    return last_activity, channel.name

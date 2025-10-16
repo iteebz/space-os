@@ -4,7 +4,6 @@ import typer
 
 from space import events
 from space.lib import errors, output, readme
-from space.spawn import registry
 
 from . import api, utils
 from .commands import (
@@ -24,6 +23,7 @@ from .commands import (
 )
 from .commands.channels import app as channels_app
 from .commands.channels import archive as archive_cmd
+from .commands.channels import list_channels as channels_list_cmd
 from .commands.monitor import app as monitor_app
 
 errors.install_error_handler("bridge")
@@ -73,13 +73,21 @@ app.command("archive")(archive_cmd)
 @app.command()
 def list(
     ctx: typer.Context,
-    agent_id: str = typer.Option(None, "--as", help="Agent identity"),
+    all_channels_flag: bool = typer.Option(False, "--all", help="Include archived channels"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
+    identity: str = typer.Option(None, "--as", help="Agent identity"),
 ):
-    """List all active channels."""
-    if agent_id:
-        agent_id = registry.ensure_agent(agent_id)
-        events.emit("bridge", "list_active_channels", agent_id, "")
-    _print_active_channels(agent_id, ctx.obj.get("json_output"), ctx.obj.get("quiet_output"))
+    """List channels (alias to `bridge channels list`)."""
+    output.set_flags(ctx, json_output, quiet_output)
+    ctx.invoke(
+        channels_list_cmd,
+        ctx=ctx,
+        identity=identity,
+        all_channels_flag=all_channels_flag,
+    )
 
 
 def _show_readme(ctx_obj: dict):

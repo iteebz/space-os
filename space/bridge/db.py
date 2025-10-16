@@ -34,9 +34,9 @@ CREATE TABLE IF NOT EXISTS channels (
 );
 
 CREATE TABLE IF NOT EXISTS notes (
-    id TEXT PRIMARY KEY,
+    note_id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
-    author TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (channel_id) REFERENCES channels(id)
@@ -122,9 +122,16 @@ def get_new_messages(channel_id: str, agent_id: str) -> list[Message]:
             query = f"{base_query} ORDER BY m.created_at"
             params = (channel_id,)
         else:
-            # Fetch messages with IDs greater than the last_seen_id
-            query = f"{base_query} AND m.id > ? ORDER BY m.created_at"
-            params = (channel_id, last_seen_id)
+            last_seen_row = conn.execute(
+                "SELECT created_at, rowid FROM messages WHERE id = ?",
+                (last_seen_id,)
+            ).fetchone()
+            if last_seen_row:
+                query = f"{base_query} AND (m.created_at > ? OR (m.created_at = ? AND m.rowid > ?)) ORDER BY m.created_at, m.rowid"
+                params = (channel_id, last_seen_row["created_at"], last_seen_row["created_at"], last_seen_row["rowid"])
+            else:
+                query = f"{base_query} ORDER BY m.created_at"
+                params = (channel_id,)
 
         cursor = conn.execute(query, params)
         return [_row_to_message(row) for row in cursor.fetchall()]
@@ -238,7 +245,7 @@ def fetch_channels(
 ) -> list[Channel]:
     with connect() as conn:
         query = """
-            SELECT t.id, t.name, t.topic, t.created_at, t.archived_at,
+            SELECT t.id, t.name, t.context as topic, t.created_at, t.archived_at,
                    COALESCE(msg_counts.total_messages, 0) as total_messages,
                    msg_counts.last_activity,
                    COALESCE(msg_counts.participants, '') as participants,
@@ -315,7 +322,7 @@ def get_export_data(channel_id: str) -> Export:
         messages = [_row_to_message(row) for row in msg_cursor.fetchall()]
 
         note_cursor = conn.execute(
-            "SELECT id, author, content, created_at FROM notes WHERE channel_id = ? ORDER BY created_at ASC",
+            "SELECT note_id, agent_id, content, created_at FROM notes WHERE channel_id = ? ORDER BY created_at ASC",
             (channel_id,),
         )
         notes = [_row_to_note(row) for row in note_cursor.fetchall()]
@@ -370,7 +377,7 @@ def create_note(channel_id: str, agent_id: str, content: str) -> str:
     note_id = uuid7()
     with connect() as conn:
         conn.execute(
-            "INSERT INTO notes (id, channel_id, author, content) VALUES (?, ?, ?, ?)",
+            "INSERT INTO notes (note_id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
             (note_id, channel_id, agent_id, content),
         )
         conn.commit()
@@ -380,15 +387,7 @@ def create_note(channel_id: str, agent_id: str, content: str) -> str:
 def get_notes(channel_id: str) -> list[Note]:
     with connect() as conn:
         cursor = conn.execute(
-            "SELECT id, author, content, created_at FROM notes WHERE channel_id = ? ORDER BY created_at ASC",
+            "SELECT note_id, agent_id, content, created_at FROM notes WHERE channel_id = ? ORDER BY created_at ASC",
             (channel_id,),
         )
-        return [
-            Note(
-                note_id=row["id"],
-                agent_id=row["author"],
-                content=row["content"],
-                created_at=row["created_at"],
-            )
-            for row in cursor.fetchall()
-        ]
+        return [from_row(row, Note) for row in cursor.fetchall()]

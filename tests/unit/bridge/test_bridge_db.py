@@ -37,3 +37,38 @@ def test_get_new_messages_summary_channel_no_special_handling(test_space):
     assert messages[0].content == "summary message 1"
     assert messages[1].content == "summary message 2"
     assert messages[2].content == "summary message 3"
+
+
+def test_get_new_messages_mixed_id_types(test_space):
+    from space.bridge import db
+    import sqlite3
+
+    channel_id = db.create_channel("mixed-ids")
+    agent_id = "test-agent"
+
+    conn = db.connect()
+
+    msg1_uuid = db.create_message(channel_id, "agent1", "uuid message 1")
+    msg2_uuid = db.create_message(channel_id, "agent2", "uuid message 2")
+
+    conn.execute(
+        "INSERT INTO messages (id, channel_id, agent_id, content, priority) VALUES (?, ?, ?, ?, ?)",
+        ("999", channel_id, "agent3", "integer message", "normal")
+    )
+    conn.commit()
+
+    msg3_uuid = db.create_message(channel_id, "agent4", "uuid message 3")
+
+    messages = db.get_new_messages(channel_id, agent_id)
+    assert len(messages) == 4
+    assert messages[0].content == "uuid message 1"
+    assert messages[1].content == "uuid message 2"
+    assert messages[2].content == "integer message"
+    assert messages[3].content == "uuid message 3"
+
+    db.set_bookmark(agent_id, channel_id, messages[1].message_id)
+
+    new_msgs = db.get_new_messages(channel_id, agent_id)
+    assert len(new_msgs) == 2
+    assert new_msgs[0].content == "integer message"
+    assert new_msgs[1].content == "uuid message 3"
