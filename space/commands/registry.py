@@ -14,36 +14,36 @@ def main(ctx: typer.Context):
 @app.command("show")
 def show_registry():
     """Show constitutional registry: constitutional evolution provenance.
-    
+
     The registry tracks all constitutional versions by hash, enabling complete
     provenance of agent personality and instruction changes over time. Each
     constitution is content-addressable via its hash, creating an immutable
     audit trail of constitutional evolution.
     """
     registry.init_db()
-    
+
     with registry.get_db() as conn:
         rows = conn.execute(
             "SELECT hash, content, created_at FROM constitutions ORDER BY created_at DESC"
         ).fetchall()
-        
+
         if not rows:
             typer.echo("Registry empty.")
             return
-        
+
         typer.echo("CONSTITUTIONAL REGISTRY - Provenance of Agent Personality Evolution")
         typer.echo("=" * 80)
         typer.echo()
-        
+
         for row in rows:
             hash_val = row["hash"]
             content = row["content"]
             created = row["created_at"]
-            
-            lines = content.split('\n')
+
+            lines = content.split("\n")
             first_line = lines[0][:60] if lines else "(empty)"
             line_count = len(lines)
-            
+
             typer.echo(f"Hash:     {hash_val}")
             typer.echo(f"Created:  {created}")
             typer.echo(f"Lines:    {line_count}")

@@ -1,12 +1,9 @@
 """Test invocation context system for CLI telemetry and aliases."""
 
-import pytest
 from typer.testing import CliRunner
 
-from space.cli import app
 from space.events import query
 from space.lib.invocation import InvocationContext
-
 
 runner = CliRunner()
 

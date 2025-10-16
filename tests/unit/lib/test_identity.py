@@ -38,7 +38,6 @@ def test_inject_no_self(mocker, tmp_path):
     assert "# SENTINEL CONSTITUTION" in result
     assert "Self: You are sentinel-1." in result
     assert "You are a sentinel." in result
-    assert "# CANON" in result
 
 
 def test_evolution(mocker, tmp_path):
@@ -94,7 +93,6 @@ def test_inject_with_model(mocker, tmp_path):
     assert "# ZEALOT CONSTITUTION" in result
     assert "Self: You are zealot-1. Your model is claude-sonnet-4.5." in result
     assert "You are a zealot." in result
-    assert "# CANON" in result
 
 
 def test_constitute_identity_emits_correct_event_source(mocker, tmp_path):
@@ -102,7 +100,7 @@ def test_constitute_identity_emits_correct_event_source(mocker, tmp_path):
     dot_space = tmp_path / ".space"
     dot_space.mkdir()
     mocker.patch("space.lib.paths.dot_space", return_value=dot_space)
-    mocker.patch("space.spawn.config.config_file", return_value=tmp_path / "config.yaml")
+    mocker.patch("space.config.config_file", return_value=tmp_path / "config.yaml")
 
     # Create a dummy config.yaml
     config_content = {
@@ -122,7 +120,7 @@ def test_constitute_identity_emits_correct_event_source(mocker, tmp_path):
     mocker.patch.object(registry, "init_db")
     mocker.patch.object(registry, "ensure_agent", return_value="test-agent-uuid")
     mocker.patch.object(registry, "save_constitution")
-    mocker.patch.object(spawn, "load_config", return_value=config_content)
+    mocker.patch("space.config.load_config", return_value=config_content)
     mocker.patch.object(
         spawn, "get_constitution_path", return_value=constitutions_dir / "harbinger.md"
     )

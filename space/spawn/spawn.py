@@ -22,6 +22,11 @@ def get_constitution_path(role: str) -> Path:
     config.init_config()
     cfg = config.load_config()
     constitution_filename = cfg["roles"][role]["constitution"]
+
+    prompt_path = paths.canon_path() / "prompts" / constitution_filename
+    if prompt_path.exists():
+        return prompt_path
+
     return paths.constitution(constitution_filename)
 
 
@@ -44,19 +49,31 @@ def resolve_model_alias(alias: str) -> str:
 def inject_identity(
     base_constitution_content: str, role: str, identity: str, model: str | None = None
 ) -> str:
-    """Injects identity (self-description + model) into the constitution."""
-    footer_lines = [f"Identity: {identity}"]
-    if model:
-        footer_lines.append(f"Model: {model}")
-    footer_lines.extend(
-        [
-            "Run: `space` to launch (already in PATH)",
-            f"Run: `memory --as {identity}` to access memories",
-        ]
-    )
-    footer = "\n".join(footer_lines)
+    """Injects identity (self-description + model) into the constitution.
 
-    return f"{base_constitution_content}\n---\n{footer}"
+    Assembly order: header → self → constitution → footer.
+    """
+    parts = []
+
+    role_upper = role.upper()
+    parts.append(f"# {role_upper} CONSTITUTION")
+
+    registry.get_self_description(identity)
+    if model:
+        self_line = f"Self: You are {identity}. Your model is {model}."
+    else:
+        self_line = f"Self: You are {identity}."
+    parts.append(self_line)
+
+    parts.append(base_constitution_content)
+
+    footer_lines = [
+        "run `space` for orientation (already in PATH).",
+        f"run: `memory --as {identity}` to access memories.",
+    ]
+    parts.append("\n".join(footer_lines))
+
+    return "\n".join(parts)
 
 
 def launch_agent(

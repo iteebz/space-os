@@ -54,7 +54,7 @@ def main_command(
                 quiet_output=ctx.obj.get("quiet_output"),
             )
         else:
-            cli_utils.out_text("Bridge CLI - A command-line interface for Bridge.", ctx.obj)
+            cli_utils.out_text("BRIDGE: AI Coordination Protocol", ctx.obj)
 
 
 app.add_typer(channels_app, name="channels")

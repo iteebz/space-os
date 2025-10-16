@@ -34,7 +34,7 @@ def test_footer_injection(tmp_path):
 
 
 def test_canon_injection_order(mocker, tmp_path):
-    """Verifies that canon is injected before the base constitution content."""
+    """Verifies that canon is NOT included in injected identity."""
     db = tmp_path / "spawn.db"
     registry.config.registry_db = lambda: db
     registry.init_db()
@@ -47,11 +47,5 @@ def test_canon_injection_order(mocker, tmp_path):
     constitution = "Core rules."
     result = spawn.inject_identity(constitution, "test-role", "test-agent")
 
-    lines = result.split("\n")
-    header_idx = next(i for i, line in enumerate(lines) if "# TEST-ROLE CONSTITUTION" in line)
-    self_desc_idx = next(i for i, line in enumerate(lines) if "Self: You are test-agent." in line)
-    canon_idx = next(i for i, line in enumerate(lines) if "# CANON" in line)
-    constitution_idx = next(i for i, line in enumerate(lines) if "Core rules." in line)
-    footer_idx = next(i for i, line in enumerate(lines) if "run `space`" in line)
-
-    assert header_idx < self_desc_idx < canon_idx < constitution_idx < footer_idx
+    assert "# CANON" not in result
+    assert "1. Truth" not in result

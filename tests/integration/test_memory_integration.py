@@ -129,7 +129,7 @@ def test_memory_lineage_downward_traversal(test_space):
     agent_id = registry.ensure_agent(identity)
 
     v1_id = db.add_entry(agent_id, "idea", "original")
-    v2_id = db.replace_entry([v1_id], agent_id, "idea", "evolved")
+    db.replace_entry([v1_id], agent_id, "idea", "evolved")
 
     chain = db.get_chain(v1_id)
     assert chain["start_entry"].message == "original"

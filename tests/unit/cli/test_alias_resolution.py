@@ -1,7 +1,5 @@
 """Test alias resolution for unified command routing."""
 
-import pytest
-
 from space.lib.invocation import AliasResolver
 
 

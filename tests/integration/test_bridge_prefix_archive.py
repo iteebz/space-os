@@ -15,7 +15,7 @@ def test_with_prefix_flag(test_space):
     channels.create_channel("space-feedback")
     channels.create_channel("random-channel")
 
-    result = runner.invoke(bridge_app, ["archive", "protoss-", "bridge-", "--prefix", "--quiet"])
+    result = runner.invoke(bridge_app, ["--quiet", "archive", "protoss-", "bridge-", "--prefix"])
     assert result.exit_code == 0
 
     all_channels = channels.all_channels()
@@ -42,7 +42,7 @@ def test_without_prefix_flag(test_space):
     channels.create_channel("random-channel")
     channels.create_channel("space-feedback")
 
-    result = runner.invoke(bridge_app, ["archive", "random-channel", "--quiet"])
+    result = runner.invoke(bridge_app, ["--quiet", "archive", "random-channel"])
     assert result.exit_code == 0
 
     all_channels = channels.all_channels()

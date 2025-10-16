@@ -2,8 +2,8 @@ import sys
 
 import typer
 
-from space import events, readme
-from space.lib.invocation import AliasResolver, InvocationContext
+from space import readme
+from space.lib.invocation import AliasResolver
 
 from .bridge.app import app as bridge_app
 from .commands import (
@@ -64,7 +64,7 @@ def main() -> None:
     argv_orig = sys.argv[1:]
     normalized_argv = AliasResolver.normalize_args(argv_orig)
     sys.argv = [sys.argv[0]] + normalized_argv
-    
+
     try:
         app()
     except SystemExit as e:

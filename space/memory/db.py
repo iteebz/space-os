@@ -93,12 +93,16 @@ def _migrate_memory_table_to_memories(conn: sqlite3.Connection):
 
 
 def _backfill_memory_links(conn: sqlite3.Connection):
-    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='memory_links'")
+    cursor = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='memory_links'"
+    )
     if not cursor.fetchone():
         return
 
     now = int(time.time())
-    rows = conn.execute("SELECT memory_id, supersedes FROM memories WHERE supersedes IS NOT NULL").fetchall()
+    rows = conn.execute(
+        "SELECT memory_id, supersedes FROM memories WHERE supersedes IS NOT NULL"
+    ).fetchall()
     for row in rows:
         memory_id = row[0]
         supersedes_str = row[1]

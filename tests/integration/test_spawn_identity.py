@@ -29,7 +29,7 @@ def mock_config_files(tmp_path: Path, monkeypatch):
     (constitutions_dir / "crucible.md").write_text("**YOU ARE NOW CRUCIBLE.**")
 
     # Mock config_file to point to the dummy config
-    monkeypatch.setattr(spawn.config, "config_file", lambda: str(config_dir / "config.yaml"))
+    monkeypatch.setattr(spawn.config, "config_file", lambda: config_dir / "config.yaml")
     monkeypatch.setattr(spawn.shutil, "which", lambda cmd, path=None: cmd)
     monkeypatch.setattr("subprocess.run", lambda *args, **kwargs: None)
 
@@ -76,7 +76,7 @@ def test_codex_writes_agents_manifest(tmp_path: Path, monkeypatch):
     config_dir.mkdir()
     (config_dir / "config.yaml").write_text(yaml.dump(config_content))
 
-    monkeypatch.setattr(spawn.config, "config_file", lambda: str(config_dir / "config.yaml"))
+    monkeypatch.setattr(spawn.config, "config_file", lambda: config_dir / "config.yaml")
     monkeypatch.setattr(spawn.shutil, "which", lambda cmd, path=None: cmd)
     monkeypatch.setattr("subprocess.run", lambda *args, **kwargs: None)
 
@@ -100,3 +100,47 @@ def test_codex_writes_agents_manifest(tmp_path: Path, monkeypatch):
     assert "# LIEUTENANT KIM KITSURAGI" in content
     assert "run `space` for orientation (already in PATH)." in content
     assert "run: `memory --as kitsuragi` to access memories." in content
+
+
+def test_hailot_prompt_constitution(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(paths, "space_root", lambda base_path=None: tmp_path)
+
+    prompts_dir = tmp_path / "canon" / "prompts"
+    prompts_dir.mkdir(parents=True, exist_ok=True)
+    (prompts_dir / "zealot.md").write_text(
+        "**YOU ARE NOW A ZEALOT.**\n\n## CORE PRINCIPLES\nHelpfulness = Skeptical partner."
+    )
+
+    monkeypatch.setattr(paths, "canon_path", lambda base_path=None: tmp_path / "canon")
+
+    config_content = {
+        "agents": {"haiku": {"command": "claude", "model": "claude-haiku-4-5"}},
+        "roles": {"hailot": {"constitution": "zealot.md", "base_identity": "haiku"}},
+    }
+    config_dir = tmp_path / "space"
+    config_dir.mkdir()
+    (config_dir / "config.yaml").write_text(yaml.dump(config_content))
+
+    monkeypatch.setattr(spawn.config, "config_file", lambda: config_dir / "config.yaml")
+    monkeypatch.setattr(spawn.shutil, "which", lambda cmd, path=None: cmd)
+    monkeypatch.setattr("subprocess.run", lambda *args, **kwargs: None)
+
+    monkeypatch.setattr(spawn.registry, "init_db", lambda: None)
+    monkeypatch.setattr(spawn.registry, "get_self_description", lambda agent_name: None)
+    monkeypatch.setattr(spawn.registry, "save_constitution", lambda const_hash, full_identity: None)
+
+    spawn.launch_agent(
+        role="hailot",
+        identity="hailot",
+        base_identity="haiku",
+        extra_args=[],
+        model="claude-haiku-4-5",
+    )
+
+    claude_file = tmp_path / "CLAUDE.md"
+    content = claude_file.read_text()
+    assert "# HAILOT CONSTITUTION" in content
+    assert "Self: You are hailot. Your model is claude-haiku-4-5." in content
+    assert "**YOU ARE NOW A ZEALOT.**" in content
+    assert "run `space` for orientation (already in PATH)." in content
+    assert "run: `memory --as hailot` to access memories." in content

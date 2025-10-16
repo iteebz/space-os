@@ -77,5 +77,6 @@ def from_row(row: sqlite3.Row, dataclass_type: type[T]) -> T:
     Matches row keys to dataclass field names.
     """
     field_names = {f.name for f in fields(dataclass_type)}
-    kwargs = {key: row[key] for key in row if key in field_names}
+    row_dict = dict(row)
+    kwargs = {key: row_dict[key] for key in field_names if key in row_dict}
     return dataclass_type(**kwargs)

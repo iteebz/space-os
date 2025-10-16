@@ -306,7 +306,7 @@ def get_export_data(channel_id: str) -> Export:
         channel_info = channel_cursor.fetchone()
 
         msg_cursor = conn.execute(
-            "SELECT id, channel_id, agent_id, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
+            "SELECT id AS message_id, channel_id, agent_id, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
             (channel_id,),
         )
         messages = [_row_to_message(row) for row in msg_cursor.fetchall()]

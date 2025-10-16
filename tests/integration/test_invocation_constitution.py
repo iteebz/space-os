@@ -3,7 +3,7 @@
 from typer.testing import CliRunner
 
 from space.cli import app
-from space.lib.invocation import InvocationContext, AliasResolver
+from space.lib.invocation import AliasResolver, InvocationContext
 
 runner = CliRunner()
 

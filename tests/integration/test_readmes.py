@@ -9,14 +9,14 @@ runner = CliRunner()
 
 def test_space():
     result = runner.invoke(space_app)
-    assert "Space CLI - A command-line interface for Space." in result.stdout
+    assert "# space-os" in result.stdout
 
 
 def test_bridge():
     result = runner.invoke(bridge_app)
-    assert "Bridge CLI - A command-line interface for Bridge." in result.stdout
+    assert "BRIDGE" in result.stdout
 
 
 def test_memory():
     result = runner.invoke(memory_app)
-    assert "Memory CLI - A command-line interface for Memory." in result.stdout
+    assert "Working context" in result.stdout

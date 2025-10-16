@@ -7,9 +7,7 @@ from space import events
 
 def set_flags(ctx: typer.Context, json_output: bool = False, quiet_output: bool = False) -> None:
     """Set output flags in context."""
-    if ctx.obj is None:
-        ctx.obj = {}
-    elif not isinstance(ctx.obj, dict):
+    if ctx.obj is None or not isinstance(ctx.obj, dict):
         ctx.obj = {}
     ctx.obj["json_output"] = json_output
     ctx.obj["quiet_output"] = quiet_output

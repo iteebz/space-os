@@ -1,11 +1,9 @@
 """Invocation context: unified telemetry and argument handling across CLI."""
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from space import events
 from space.spawn import registry
-
 
 IDENTITY_POSITIONAL_COMMANDS = {
     "wake",
@@ -18,10 +16,10 @@ class InvocationContext:
     """Tracks invocation metadata for telemetry, identity, and aliases."""
 
     command: str
-    identity: Optional[str] = None
+    identity: str | None = None
     full_args: list[str] = field(default_factory=list)
-    subcommand: Optional[str] = None
-    agent_id: Optional[str] = None
+    subcommand: str | None = None
+    agent_id: str | None = None
 
     @classmethod
     def from_args(cls, argv: list[str]) -> "InvocationContext":
@@ -57,7 +55,7 @@ class InvocationContext:
 
         return ctx
 
-    def emit_invocation(self, cmd_str: Optional[str] = None) -> None:
+    def emit_invocation(self, cmd_str: str | None = None) -> None:
         """Emit invocation event to telemetry."""
         resolved_cmd = cmd_str or self.command
         if self.subcommand:
@@ -100,8 +98,7 @@ class AliasResolver:
         if next_arg.startswith("-"):
             return argv
 
-        rewritten = [command, "--as", next_arg] + argv[2:]
-        return rewritten
+        return [command, "--as", next_arg] + argv[2:]
 
     @staticmethod
     def get_routes(cmd: str) -> list[str]:
