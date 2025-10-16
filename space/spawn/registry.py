@@ -303,3 +303,33 @@ def merge_agents(from_identifier: str, to_identifier: str) -> bool:
         conn.commit()
 
     return True
+
+
+def backfill_unknown_agents() -> int:
+    """Register orphaned agent IDs from bridge into registry. Returns count of new agents."""
+    bridge_db = paths.dot_space() / "bridge.db"
+    if not bridge_db.exists():
+        return 0
+
+    with db.connect(bridge_db) as bridge_conn:
+        bridge_agent_ids = {
+            row[0]
+            for row in bridge_conn.execute("SELECT DISTINCT agent_id FROM messages WHERE agent_id IS NOT NULL")
+        }
+
+    with get_db() as reg_conn:
+        registered_ids = {row[0] for row in reg_conn.execute("SELECT id FROM agents")}
+
+    unknown_ids = bridge_agent_ids - registered_ids
+    now_iso = datetime.now().isoformat()
+
+    with get_db() as conn:
+        for agent_id in unknown_ids:
+            placeholder_name = f"orphaned-{agent_id[:8]}"
+            conn.execute(
+                "INSERT INTO agents (id, name, created_at) VALUES (?, ?, ?)",
+                (agent_id, placeholder_name, now_iso),
+            )
+        conn.commit()
+
+    return len(unknown_ids)

@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS bookmarks (
 
 CREATE TABLE IF NOT EXISTS channels (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
+    name TEXT NOT NULL UNIQUE,
     topic TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     notes TEXT,
@@ -71,6 +71,14 @@ db.migrations(
         CREATE INDEX idx_messages_channel_time ON messages(channel_id, created_at);
         CREATE INDEX idx_messages_priority ON messages(priority);
         CREATE INDEX idx_messages_agent ON messages(agent_id);
+    """,
+        ),
+        (
+            "remove_duplicate_channels",
+            """
+        DELETE FROM channels WHERE id NOT IN (
+            SELECT MIN(id) FROM channels GROUP BY name
+        );
     """,
         ),
     ],
@@ -356,14 +364,9 @@ def archive_channel(channel_id: str):
 
 def delete_channel(channel_id: str):
     with connect() as conn:
-        conn.executescript(
-            """
-            DELETE FROM messages WHERE channel_id = :channel_id;
-            DELETE FROM bookmarks WHERE channel_id = :channel_id;
-            DELETE FROM channels WHERE id = :channel_id;
-            """,
-            {"channel_id": channel_id},
-        )
+        conn.execute("DELETE FROM messages WHERE channel_id = ?", (channel_id,))
+        conn.execute("DELETE FROM bookmarks WHERE channel_id = ?", (channel_id,))
+        conn.execute("DELETE FROM channels WHERE id = ?", (channel_id,))
         conn.commit()
 
 

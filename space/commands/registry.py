@@ -49,3 +49,14 @@ def show_registry():
             typer.echo(f"Lines:    {line_count}")
             typer.echo(f"Preview:  {first_line}")
             typer.echo()
+
+
+@app.command("backfill")
+def backfill():
+    """Backfill orphaned agent IDs from bridge into registry."""
+    registry.init_db()
+    count = registry.backfill_unknown_agents()
+    if count > 0:
+        typer.echo(f"Registered {count} orphaned agent(s)")
+    else:
+        typer.echo("No orphaned agents found")

@@ -21,6 +21,9 @@ def overview():
 overview"""
     ]
 
+    if s.events.available and s.events.total > 0:
+        lines.append(f"  events · {s.events.total} events")
+
     if s.spawn.available and s.spawn.total > 0:
         lines.append(
             f"  spawn · {s.spawn.total} spawns · {s.spawn.agents} agents · {s.spawn.hashes} hashes"

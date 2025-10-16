@@ -67,11 +67,18 @@ class SpawnStats:
 
 
 @dataclass
+class EventsStats:
+    available: bool
+    total: int = 0
+
+
+@dataclass
 class SpaceStats:
     bridge: BridgeStats
     memory: MemoryStats
     knowledge: KnowledgeStats
     spawn: SpawnStats
+    events: EventsStats
     agents: list[AgentStats] | None = None
 
 
@@ -331,11 +338,23 @@ def spawn_stats() -> SpawnStats:
     return SpawnStats(available=True, total=agents, agents=agents, hashes=hashes)
 
 
+def events_stats() -> EventsStats:
+    db_path = paths.dot_space() / "events.db"
+    if not db_path.exists():
+        return EventsStats(available=False)
+
+    with db.connect(db_path) as conn:
+        total = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+
+    return EventsStats(available=True, total=total)
+
+
 def collect(limit: int = None) -> SpaceStats:
     return SpaceStats(
         bridge=bridge_stats(limit=limit),
         memory=memory_stats(limit=limit),
         knowledge=knowledge_stats(limit=limit),
         spawn=spawn_stats(),
+        events=events_stats(),
         agents=agent_stats(limit=limit),
     )
