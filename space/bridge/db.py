@@ -49,7 +49,9 @@ CREATE INDEX IF NOT EXISTS idx_messages_priority ON messages(priority);
 CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id);
 """
 
-bridge_migrations = [
+db.register("bridge", "bridge.db", _SCHEMA)
+
+db.migrations("bridge", [
     (
         "migrate_messages_id_to_text",
         """
@@ -69,9 +71,7 @@ bridge_migrations = [
         CREATE INDEX idx_messages_agent ON messages(agent_id);
     """,
     ),
-]
-
-db.register("bridge", "bridge.db", _SCHEMA, bridge_migrations)
+])
 
 
 def connect():

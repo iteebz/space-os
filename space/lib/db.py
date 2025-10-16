@@ -8,7 +8,8 @@ from . import paths
 
 T = TypeVar("T")
 
-_registry: dict[str, tuple[str, str, list[tuple[str, str | Callable]] | None]] = {}
+_registry: dict[str, tuple[str, str]] = {}
+_migrations: dict[str, list[tuple[str, str | Callable]]] = {}
 
 
 def connect(db_path: Path):
@@ -29,28 +30,22 @@ def ensure_schema(
         conn.commit()
 
 
-def register(
-    name: str, db_file: str, schema: str, migrations: list[tuple[str, str | Callable]] | None = None
-):
-    _registry[name] = (db_file, schema, migrations)
+def register(name: str, db_file: str, schema: str):
+    _registry[name] = (db_file, schema)
+
+
+def migrations(name: str, migs: list[tuple[str, str | Callable]]):
+    _migrations[name] = migs
 
 
 def ensure(name: str):
     if name not in _registry:
         raise ValueError(f"Database '{name}' not registered. Call db.register() first.")
-    db_file, schema, migrations = _registry[name]
+    db_file, schema = _registry[name]
     db_path = paths.dot_space() / db_file
+    migs = _migrations.get(name)
     if not db_path.exists():
-        ensure_schema(db_path, schema, migrations)
-    return connect(db_path)
-
-
-def ensure_space_db(
-    db_name: str, schema: str, migrations: list[tuple[str, str | Callable]] | None = None
-):
-    db_path = paths.dot_space() / db_name
-    if not db_path.exists():
-        ensure_schema(db_path, schema, migrations)
+        ensure_schema(db_path, schema, migs)
     return connect(db_path)
 
 

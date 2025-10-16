@@ -48,21 +48,21 @@ def test_space(monkeypatch, tmp_path):
     db.ensure_schema(
         workspace / ".space" / memory_db.MEMORY_DB_NAME,
         memory_db._MEMORY_SCHEMA,
-        memory_db.memory_migrations,
+        db._migrations.get("memory"),
     )
 
     # Initialize knowledge DB
     db.ensure_schema(
         workspace / ".space" / knowledge_db.KNOWLEDGE_DB_NAME,
         knowledge_db._KNOWLEDGE_SCHEMA,
-        knowledge_db.knowledge_migrations,
+        db._migrations.get("knowledge"),
     )
 
     # Initialize bridge DB
     from space.bridge import db as bridge_db
 
     db.ensure_schema(
-        workspace / ".space" / "bridge.db", bridge_db._SCHEMA, bridge_db.bridge_migrations
+        workspace / ".space" / "bridge.db", bridge_db._SCHEMA, db._migrations.get("bridge")
     )
 
     yield workspace
@@ -89,11 +89,11 @@ def in_memory_db():
     conn.executescript(registry._SPAWN_SCHEMA)
     db.migrate(conn, registry.spawn_migrations)
     conn.executescript(memory_db._MEMORY_SCHEMA)
-    db.migrate(conn, memory_db.memory_migrations)
+    db.migrate(conn, db._migrations.get("memory") or [])
     conn.executescript(knowledge_db._KNOWLEDGE_SCHEMA)
-    db.migrate(conn, knowledge_db.knowledge_migrations)
+    db.migrate(conn, db._migrations.get("knowledge") or [])
     conn.executescript(bridge_db._SCHEMA)
-    db.migrate(conn, bridge_db.bridge_migrations)
+    db.migrate(conn, db._migrations.get("bridge") or [])
 
     yield conn
 
