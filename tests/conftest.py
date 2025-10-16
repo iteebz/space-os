@@ -17,7 +17,6 @@ def clear_config_cache():
 
 @pytest.fixture
 def test_space(monkeypatch, tmp_path):
-    """Creates an isolated workspace for tests, with bridge and spawn initialized."""
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     (workspace / "AGENTS.md").write_text("test workspace")

@@ -6,7 +6,6 @@ runner = CliRunner()
 
 
 def test_first_spawn_initiation(test_space):
-    """First spawn shows initiation flow."""
     result = runner.invoke(app, ["wake", "--as", "new-agent"])
 
     assert result.exit_code == 0
@@ -15,7 +14,6 @@ def test_first_spawn_initiation(test_space):
 
 
 def test_second_spawn_increments_count(test_space):
-    """Second wake for same agent increments spawn counter."""
     agent = "existing-agent"
 
     first = runner.invoke(app, ["wake", "--as", agent])
@@ -26,7 +24,6 @@ def test_second_spawn_increments_count(test_space):
 
 
 def test_session_auto_closes_on_new_wake(test_space):
-    """New wake auto-closes previous session."""
     from space import events
     from space.spawn import registry
 

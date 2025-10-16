@@ -11,7 +11,6 @@ from space.spawn import registry
 
 
 def test_events_error_type_standardized(tmp_path, monkeypatch):
-    """Verify events use 'error' not 'error_occurred'."""
     space_dir = tmp_path / ".space"
     space_dir.mkdir()
 
@@ -38,7 +37,6 @@ def test_events_error_type_standardized(tmp_path, monkeypatch):
 
 
 def test_errors_command_displays_logged_errors(tmp_path, monkeypatch):
-    """space errors command queries and displays errors."""
     space_dir = tmp_path / ".space"
     space_dir.mkdir()
 

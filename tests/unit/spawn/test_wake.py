@@ -10,7 +10,6 @@ runner = CliRunner()
 
 
 def test_wake_new_identity_spawn_count_zero(test_space):
-    """Verify that a new identity has a spawn count of 0."""
     with (
         patch("space.events.identify"),
         patch("space.events.get_sleep_count", return_value=0),
@@ -25,7 +24,6 @@ def test_wake_new_identity_spawn_count_zero(test_space):
 
 
 def test_wake_existing_identity_spawn_count(test_space):
-    """Verify that an existing identity has the correct spawn count."""
     with (
         patch("space.events.identify"),
         patch("space.events.get_sleep_count", return_value=5),
@@ -45,7 +43,6 @@ def test_wake_existing_identity_spawn_count(test_space):
 
 
 def test_command_unread_messages(test_space):
-    """Verify that the 'space wake' command correctly displays unread messages."""
     mock_channel1 = MagicMock(spec=Channel)
     mock_channel1.name = "channel-alpha"
     mock_channel1.unread_count = 2
@@ -78,7 +75,6 @@ def test_command_unread_messages(test_space):
 
 
 def test_wake_prioritizes_space_feedback(test_space):
-    """Verify that #space-feedback is prioritized if it has unread messages."""
     mock_feedback_channel = MagicMock(spec=Channel)
     mock_feedback_channel.name = "space-feedback"
     mock_feedback_channel.unread_count = 5

@@ -7,7 +7,6 @@ runner = CliRunner()
 
 
 def test_cli_invocation(test_space):
-    """Verify all CLI invocations are logged to events."""
     runner.invoke(app, ["wake", "--as", "test-agent"])
 
     events = query(source="cli", limit=1)
@@ -20,7 +19,6 @@ def test_cli_invocation(test_space):
 
 
 def test_cli_no_command(test_space):
-    """Verify no command invocation is logged."""
     runner.invoke(app, [])
 
     events = query(source="cli", limit=1)

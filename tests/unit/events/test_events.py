@@ -40,7 +40,6 @@ def mock_connect(in_memory_db):
 
 
 def test_emit_event(mock_db_path, mock_connect, in_memory_db):
-    """Test that events can be emitted and stored."""
     events.emit(
         "test_source",
         "test_type",

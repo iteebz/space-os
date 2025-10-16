@@ -3,7 +3,6 @@ from space.spawn import registry, spawn
 
 
 def test_hailot_zealot_prompt_lookup(test_space, monkeypatch):
-    """Test that hailot can find zealot.md in prompts/ subdirectory."""
     monkeypatch.setattr(paths, "space_root", lambda base_path=None: test_space)
 
     prompts_dir = test_space / "canon" / "prompts"
@@ -20,7 +19,6 @@ def test_hailot_zealot_prompt_lookup(test_space, monkeypatch):
 
 
 def test_inject_self_description(test_space, mocker):
-    """Includes self-description when present."""
     mocker.patch("space.lib.paths.dot_space", return_value=test_space)
     registry.init_db()
     registry.set_self_description("zealot-1", "Skeptical cothinking partner")
@@ -34,7 +32,6 @@ def test_inject_self_description(test_space, mocker):
 
 
 def test_inject_with_model(test_space, mocker):
-    """Includes model in header when provided."""
     mocker.patch("space.lib.paths.dot_space", return_value=test_space)
     constitution = "# ZEALOT CONSTITUTION"
     result = spawn.inject_identity(constitution, "zealot", "zealot-1", model="claude-sonnet-4-5")
@@ -44,7 +41,6 @@ def test_inject_with_model(test_space, mocker):
 
 
 def test_inject_canon(test_space, mocker):
-    """Canon files not injected into constitution."""
     mocker.patch("space.lib.paths.dot_space", return_value=test_space)
     canon_dir = test_space / "canon"
     canon_dir.mkdir(parents=True, exist_ok=True)
@@ -60,7 +56,6 @@ def test_inject_canon(test_space, mocker):
 
 
 def test_inject_assembly_order(test_space, mocker):
-    """Verifies full assembly: header → self → constitution → footer."""
     mocker.patch("space.lib.paths.dot_space", return_value=test_space)
     registry.init_db()
     registry.set_self_description("zealot-1", "Skeptical partner")

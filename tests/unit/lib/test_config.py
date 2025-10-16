@@ -3,7 +3,6 @@ from space.lib import paths
 
 
 def test_config_loads_default_values(tmp_path, monkeypatch):
-    """Config loads valid structure with defaults."""
     monkeypatch.setattr(paths, "dot_space", lambda base_path=None: tmp_path / ".space")
     target = tmp_path / ".space" / "config.yaml"
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -15,7 +14,6 @@ def test_config_loads_default_values(tmp_path, monkeypatch):
 
 
 def test_config_cache_clears(tmp_path, monkeypatch):
-    """Config cache can be cleared."""
     monkeypatch.setattr(paths, "dot_space", lambda base_path=None: tmp_path / ".space")
     config.clear_cache()
     assert config.clear_cache() is None

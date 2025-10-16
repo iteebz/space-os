@@ -8,29 +8,25 @@ from space.lib.invocation import InvocationContext
 runner = CliRunner()
 
 
-def test_invocation_context_tracks_identity(test_space):
-    """Invocation context captures identity from --as flag."""
+def test_tracks_identity(test_space):
     ctx = InvocationContext.from_args(["wake", "--as", "test-agent"])
     assert ctx.identity == "test-agent"
     assert ctx.command == "wake"
 
 
-def test_invocation_context_parses_command(test_space):
-    """Invocation context extracts command name."""
+def test_parses_command(test_space):
     ctx = InvocationContext.from_args(["memory", "list"])
     assert ctx.command == "memory"
     assert ctx.subcommand == "list"
 
 
-def test_invocation_context_no_identity(test_space):
-    """Invocation context handles missing identity."""
+def test_no_identity(test_space):
     ctx = InvocationContext.from_args(["wake"])
     assert ctx.identity is None
     assert ctx.command == "wake"
 
 
-def test_invocation_context_emits_to_events(test_space):
-    """Invocation context can emit to events system."""
+def test_emits_to_events(test_space):
     ctx = InvocationContext(
         command="wake",
         identity="test-agent",
@@ -45,8 +41,7 @@ def test_invocation_context_emits_to_events(test_space):
     assert event[3] == "invocation"
 
 
-def test_invocation_context_preserves_original_args(test_space):
-    """Invocation context stores original argv for debugging."""
+def test_preserves_original_args(test_space):
     args = ["wake", "--as", "test-agent", "--extra"]
     ctx = InvocationContext.from_args(args)
     assert ctx.full_args == args

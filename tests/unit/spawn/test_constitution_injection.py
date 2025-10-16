@@ -2,7 +2,6 @@ from space.spawn import registry, spawn
 
 
 def test_header_injection(tmp_path):
-    """Verifies that the header is correctly injected."""
     db = tmp_path / "spawn.db"
     registry.config.registry_db = lambda: db
     registry.init_db()
@@ -19,7 +18,6 @@ def test_header_injection(tmp_path):
 
 
 def test_footer_injection(tmp_path):
-    """Verifies that the footer is correctly injected."""
     db = tmp_path / "spawn.db"
     registry.config.registry_db = lambda: db
     registry.init_db()
@@ -34,7 +32,6 @@ def test_footer_injection(tmp_path):
 
 
 def test_canon_injection_order(mocker, tmp_path):
-    """Verifies that canon is NOT included in injected identity."""
     db = tmp_path / "spawn.db"
     registry.config.registry_db = lambda: db
     registry.init_db()
