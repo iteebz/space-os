@@ -3,24 +3,28 @@
 from typer.testing import CliRunner
 
 from space.app import app
-from space.lib.invocation import AliasResolver, InvocationContext
+from space.lib.invocation import Invocation
 
 runner = CliRunner()
 
 
 def test_invocation_context_tracks_identity(test_space):
-    ctx = InvocationContext.from_args(["wake", "--as", "test-agent"])
+    ctx = Invocation.from_args(["wake", "--as", "test-agent"])
     assert ctx.identity == "test-agent"
     assert ctx.command == "wake"
 
 
 def test_alias_resolver_normalizes_wake_identity(test_space):
-    result = AliasResolver.normalize_args(["wake", "my-agent"])
+    from space.lib.aliasing import Aliasing
+
+    result = Aliasing.normalize_args(["wake", "my-agent"])
     assert result == ["wake", "--as", "my-agent"]
 
 
 def test_alias_resolver_preserves_explicit_flag(test_space):
-    result = AliasResolver.normalize_args(["wake", "--as", "my-agent"])
+    from space.lib.aliasing import Aliasing
+
+    result = Aliasing.normalize_args(["wake", "--as", "my-agent"])
     assert result == ["wake", "--as", "my-agent"]
 
 
@@ -46,6 +50,6 @@ def test_invocation_context_emits_with_agent_id(test_space):
     registry.init_db()
     registry.ensure_agent("telemetry-test-agent")
 
-    ctx = InvocationContext.from_args(["wake", "--as", "telemetry-test-agent"])
+    ctx = Invocation.from_args(["wake", "--as", "telemetry-test-agent"])
     assert ctx.agent_id is not None
     assert isinstance(ctx.agent_id, str)

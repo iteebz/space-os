@@ -41,23 +41,22 @@ def test_get_new_messages_summary_channel_no_special_handling(test_space):
 
 def test_get_new_messages_mixed_id_types(test_space):
     from space.bridge import db
-    import sqlite3
 
     channel_id = db.create_channel("mixed-ids")
     agent_id = "test-agent"
 
     conn = db.connect()
 
-    msg1_uuid = db.create_message(channel_id, "agent1", "uuid message 1")
-    msg2_uuid = db.create_message(channel_id, "agent2", "uuid message 2")
+    db.create_message(channel_id, "agent1", "uuid message 1")
+    db.create_message(channel_id, "agent2", "uuid message 2")
 
     conn.execute(
         "INSERT INTO messages (id, channel_id, agent_id, content, priority) VALUES (?, ?, ?, ?, ?)",
-        ("999", channel_id, "agent3", "integer message", "normal")
+        ("999", channel_id, "agent3", "integer message", "normal"),
     )
     conn.commit()
 
-    msg3_uuid = db.create_message(channel_id, "agent4", "uuid message 3")
+    db.create_message(channel_id, "agent4", "uuid message 3")
 
     messages = db.get_new_messages(channel_id, agent_id)
     assert len(messages) == 4

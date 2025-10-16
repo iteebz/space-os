@@ -23,7 +23,7 @@ from .commands import (
 )
 from .commands.channels import app as channels_app
 from .commands.channels import archive as archive_cmd
-from .commands.channels import list_channels as channels_list_cmd
+from .commands.channels import list_channels
 from .commands.monitor import app as monitor_app
 
 errors.install_error_handler("bridge")
@@ -68,26 +68,7 @@ app.command("notes")(notes_cmds.notes)
 app.command("export")(export_cmds.export)
 app.command("history")(history_cmds.history)
 app.command("archive")(archive_cmd)
-
-
-@app.command()
-def list(
-    ctx: typer.Context,
-    all_channels_flag: bool = typer.Option(False, "--all", help="Include archived channels"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
-    identity: str = typer.Option(None, "--as", help="Agent identity"),
-):
-    """List channels (alias to `bridge channels list`)."""
-    output.set_flags(ctx, json_output, quiet_output)
-    ctx.invoke(
-        channels_list_cmd,
-        ctx=ctx,
-        identity=identity,
-        all_channels_flag=all_channels_flag,
-    )
+app.command("list")(list_channels)
 
 
 def _show_readme(ctx_obj: dict):

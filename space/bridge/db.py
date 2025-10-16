@@ -123,12 +123,16 @@ def get_new_messages(channel_id: str, agent_id: str) -> list[Message]:
             params = (channel_id,)
         else:
             last_seen_row = conn.execute(
-                "SELECT created_at, rowid FROM messages WHERE id = ?",
-                (last_seen_id,)
+                "SELECT created_at, rowid FROM messages WHERE id = ?", (last_seen_id,)
             ).fetchone()
             if last_seen_row:
                 query = f"{base_query} AND (m.created_at > ? OR (m.created_at = ? AND m.rowid > ?)) ORDER BY m.created_at, m.rowid"
-                params = (channel_id, last_seen_row["created_at"], last_seen_row["created_at"], last_seen_row["rowid"])
+                params = (
+                    channel_id,
+                    last_seen_row["created_at"],
+                    last_seen_row["created_at"],
+                    last_seen_row["rowid"],
+                )
             else:
                 query = f"{base_query} ORDER BY m.created_at"
                 params = (channel_id,)
@@ -245,7 +249,7 @@ def fetch_channels(
 ) -> list[Channel]:
     with connect() as conn:
         query = """
-            SELECT t.id, t.name, t.context as topic, t.created_at, t.archived_at,
+            SELECT t.id, t.name, t.topic, t.created_at, t.archived_at,
                    COALESCE(msg_counts.total_messages, 0) as total_messages,
                    msg_counts.last_activity,
                    COALESCE(msg_counts.participants, '') as participants,
@@ -253,13 +257,13 @@ def fetch_channels(
                    COALESCE(unread_counts.unread_count, 0) as unread_count
             FROM channels t
             LEFT JOIN (
-                SELECT channel_id, COUNT(id) as total_messages, MAX(created_at) as last_activity,
+                SELECT channel_id, COUNT(*) as total_messages, MAX(created_at) as last_activity,
                        GROUP_CONCAT(DISTINCT agent_id) as participants
                 FROM messages
                 GROUP BY channel_id
             ) as msg_counts ON t.id = msg_counts.channel_id
             LEFT JOIN (
-                SELECT channel_id, COUNT(id) as notes_count
+                SELECT channel_id, COUNT(*) as notes_count
                 FROM notes
                 GROUP BY channel_id
             ) as note_counts ON t.id = note_counts.channel_id

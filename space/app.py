@@ -3,7 +3,8 @@ import sys
 import typer
 
 from space.lib import readme
-from space.lib.invocation import AliasResolver
+from space.lib.aliasing import Aliasing
+from space.lib.invocation import Invocation
 
 from .bridge.app import app as bridge_app
 from .commands import (
@@ -49,7 +50,8 @@ app.command(name="sleep")(sleep.sleep)
 def main_command(
     ctx: typer.Context,
 ):
-    invocation = AliasResolver.resolve(sys.argv[1:])
+    rewritten = Aliasing.rewrite(sys.argv[1:])
+    invocation = Invocation.from_args(rewritten)
     ctx.obj = invocation
 
     cmd = ctx.invoked_subcommand or "(no command)"
@@ -62,17 +64,17 @@ def main_command(
 def main() -> None:
     """Entry point for poetry script."""
     argv_orig = sys.argv[1:]
-    normalized_argv = AliasResolver.normalize_args(argv_orig)
-    sys.argv = [sys.argv[0]] + normalized_argv
+    rewritten_argv = Aliasing.rewrite(argv_orig)
+    sys.argv = [sys.argv[0]] + rewritten_argv
 
     try:
         app()
     except SystemExit as e:
         if e.code and e.code != 0:
-            invocation = AliasResolver.resolve(argv_orig)
+            invocation = Invocation.from_args(rewritten_argv)
             invocation.emit_error(f"CLI command (exit={e.code})")
         raise
     except BaseException as e:
-        invocation = AliasResolver.resolve(argv_orig)
+        invocation = Invocation.from_args(rewritten_argv)
         invocation.emit_error(f"CLI command: {str(e)}")
         raise SystemExit(1) from e
