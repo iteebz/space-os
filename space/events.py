@@ -1,11 +1,14 @@
 import sqlite3
 import time
+from collections import namedtuple
 from contextlib import contextmanager
 
 from .lib import db, paths
 from .lib.identity import constitute_identity
 from .lib.uuid7 import uuid7
 from .spawn import registry
+
+Event = namedtuple("Event", ["id", "source", "agent_id", "event_type", "data", "timestamp"])
 
 DB_PATH = paths.dot_space() / "events.db"
 
@@ -100,10 +103,11 @@ def query(source: str | None = None, agent_id: str | None = None, limit: int = 1
         where_clause = "WHERE " + " AND ".join(query_parts) if query_parts else ""
         params.append(limit)
 
-        return conn.execute(
+        rows = conn.execute(
             f"SELECT id, source, agent_id, event_type, data, timestamp FROM events {where_clause} ORDER BY id DESC LIMIT ?",
             tuple(params),
         ).fetchall()
+        return [Event(*row) for row in rows]
 
 
 def identify(identity: str, command: str, session_id: str | None = None):

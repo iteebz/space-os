@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import contextlib
+import sqlite3
 import time
 from datetime import datetime
 from pathlib import Path
 
 from .. import events
 from ..lib import db, paths
-from ..lib.db import from_row
 from ..lib.uuid7 import uuid7
 from ..models import Memory
 from ..spawn import registry
@@ -31,11 +32,24 @@ CREATE TABLE IF NOT EXISTS memories (
     superseded_by TEXT
 );
 
+CREATE TABLE IF NOT EXISTS memory_links (
+    link_id TEXT PRIMARY KEY,
+    memory_id TEXT NOT NULL,
+    parent_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY(memory_id) REFERENCES memories(memory_id),
+    FOREIGN KEY(parent_id) REFERENCES memories(memory_id),
+    UNIQUE(memory_id, parent_id, kind)
+);
+
 CREATE INDEX IF NOT EXISTS idx_memories_agent_topic ON memories(agent_id, topic);
 CREATE INDEX IF NOT EXISTS idx_memories_agent_created ON memories(agent_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_memories_memory_id ON memories(memory_id);
 CREATE INDEX IF NOT EXISTS idx_memories_archived ON memories(archived_at);
 CREATE INDEX IF NOT EXISTS idx_memories_core ON memories(core);
+CREATE INDEX IF NOT EXISTS idx_links_memory ON memory_links(memory_id);
+CREATE INDEX IF NOT EXISTS idx_links_parent ON memory_links(parent_id);
 """
 
 
@@ -48,7 +62,7 @@ def _migrate_memory_table_to_memories(conn: sqlite3.Connection):
     if cursor.fetchone():
         cursor = conn.execute("PRAGMA table_info(memory)")
         cols = [row["name"] for row in cursor.fetchall()]
-        if "uuid" in cols:  # Check for a column that would indicate the old schema
+        if "uuid" in cols:
             conn.executescript("""
                 CREATE TABLE memories (
                     memory_id TEXT PRIMARY KEY,
@@ -78,8 +92,31 @@ def _migrate_memory_table_to_memories(conn: sqlite3.Connection):
             conn.commit()
 
 
+def _backfill_memory_links(conn: sqlite3.Connection):
+    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='memory_links'")
+    if not cursor.fetchone():
+        return
+
+    now = int(time.time())
+    rows = conn.execute("SELECT memory_id, supersedes FROM memories WHERE supersedes IS NOT NULL").fetchall()
+    for row in rows:
+        memory_id = row[0]
+        supersedes_str = row[1]
+        if supersedes_str:
+            parent_ids = [pid.strip() for pid in supersedes_str.split(",") if pid.strip()]
+            for parent_id in parent_ids:
+                link_id = uuid7()
+                with contextlib.suppress(sqlite3.IntegrityError):
+                    conn.execute(
+                        "INSERT OR IGNORE INTO memory_links (link_id, memory_id, parent_id, kind, created_at) VALUES (?, ?, ?, ?, ?)",
+                        (link_id, memory_id, parent_id, "supersedes", now),
+                    )
+    conn.commit()
+
+
 memory_migrations = [
     ("migrate_memory_table_to_memories", _migrate_memory_table_to_memories),
+    ("backfill_memory_links", _backfill_memory_links),
 ]
 
 db.register("memory", MEMORY_DB_NAME, _MEMORY_SCHEMA, memory_migrations)
@@ -120,9 +157,22 @@ def add_entry(agent_id: str, topic: str, message: str, core: bool = False, sourc
 
 
 def _row_to_memory(row: dict) -> Memory:
-    mem = from_row(row, Memory)
-    mem.core = bool(mem.core)
-    return mem
+    return Memory(
+        memory_id=row["memory_id"],
+        agent_id=row["agent_id"],
+        topic=row["topic"],
+        message=row["message"],
+        timestamp=row["timestamp"],
+        created_at=row["created_at"],
+        archived_at=row["archived_at"],
+        core=bool(row["core"]),
+        source=row["source"],
+        bridge_channel=row["bridge_channel"],
+        code_anchors=row["code_anchors"],
+        synthesis_note=row["synthesis_note"],
+        supersedes=row["supersedes"],
+        superseded_by=row["superseded_by"],
+    )
 
 
 def get_memories(
@@ -345,6 +395,11 @@ def replace_entry(
             )
 
             for full_old_id in full_old_ids:
+                link_id = uuid7()
+                conn.execute(
+                    "INSERT OR IGNORE INTO memory_links (link_id, memory_id, parent_id, kind, created_at) VALUES (?, ?, ?, ?, ?)",
+                    (link_id, new_id, full_old_id, "supersedes", now),
+                )
                 conn.execute(
                     "UPDATE memories SET archived_at = ?, superseded_by = ? WHERE memory_id = ?",
                     (now, new_id, full_old_id),
@@ -356,6 +411,7 @@ def replace_entry(
 
 def get_chain(memory_id: str) -> dict:
     """Get the full lineage (predecessors and successors) for a given memory_id."""
+    full_id = _resolve_memory_id(memory_id)
     predecessors = []
     successors = []
     visited = set()
@@ -364,14 +420,22 @@ def get_chain(memory_id: str) -> dict:
         if current_id in visited:
             return
         visited.add(current_id)
-        entry = get_by_memory_id(current_id)
-        if entry and entry.supersedes:
-            superseded_ids = entry.supersedes.split(",")
-            for sid in superseded_ids:
-                pred_entry = get_by_memory_id(sid)
-                if pred_entry:
-                    predecessors.append(pred_entry)
-                    _traverse_predecessors(sid)
+        with connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT m.memory_id, m.agent_id, m.topic, m.message, m.timestamp,
+                       m.created_at, m.archived_at, m.core, m.source, m.bridge_channel,
+                       m.code_anchors, m.synthesis_note, m.supersedes, m.superseded_by
+                FROM memory_links l
+                JOIN memories m ON l.parent_id = m.memory_id
+                WHERE l.memory_id = ? AND l.kind = 'supersedes'
+                """,
+                (current_id,),
+            ).fetchall()
+            for row in rows:
+                pred_entry = _row_to_memory(row)
+                predecessors.append(pred_entry)
+                _traverse_predecessors(pred_entry.memory_id)
 
     def _traverse_successors(current_id: str):
         if current_id in visited:
@@ -379,23 +443,24 @@ def get_chain(memory_id: str) -> dict:
         visited.add(current_id)
         with connect() as conn:
             rows = conn.execute(
-                "SELECT memory_id, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors, synthesis_note, supersedes, superseded_by FROM memories WHERE supersedes LIKE ?",
-                (f"%{current_id}%",),
+                """
+                SELECT m.memory_id, m.agent_id, m.topic, m.message, m.timestamp,
+                       m.created_at, m.archived_at, m.core, m.source, m.bridge_channel,
+                       m.code_anchors, m.synthesis_note, m.supersedes, m.superseded_by
+                FROM memory_links l
+                JOIN memories m ON l.memory_id = m.memory_id
+                WHERE l.parent_id = ? AND l.kind = 'supersedes'
+                """,
+                (current_id,),
             ).fetchall()
             for row in rows:
                 succ_entry = _row_to_memory(row)
                 successors.append(succ_entry)
                 _traverse_successors(succ_entry.memory_id)
 
-    _traverse_predecessors(memory_id)
+    _traverse_predecessors(full_id)
     visited.clear()
-    _traverse_successors(memory_id)
+    _traverse_successors(full_id)
 
-    # Remove the starting memory_id from predecessors/successors if it was added during traversal
-    start_entry = get_by_memory_id(memory_id)
-    if start_entry in predecessors:
-        predecessors.remove(start_entry)
-    if start_entry in successors:
-        successors.remove(start_entry)
-
+    start_entry = get_by_memory_id(full_id)
     return {"start_entry": start_entry, "predecessors": predecessors, "successors": successors}

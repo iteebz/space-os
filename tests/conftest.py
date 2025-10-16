@@ -9,21 +9,6 @@ from space.lib import db
 from space.memory import db as memory_db
 from space.spawn import registry
 
-_REGISTRY_SCHEMA = """
-CREATE TABLE IF NOT EXISTS constitutions (
-    hash TEXT PRIMARY KEY,
-    content TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE IF NOT EXISTS agents (
-    id TEXT PRIMARY KEY,
-    name TEXT,
-    self_description TEXT,
-    archived_at INTEGER,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-"""
-
 
 @pytest.fixture(autouse=True)
 def clear_config_cache():
@@ -57,7 +42,7 @@ def test_space(monkeypatch, tmp_path):
         from space.spawn import registry
 
         registry_db_path = workspace / ".space" / cfg.registry_db().name
-    db.ensure_schema(registry_db_path, _REGISTRY_SCHEMA, registry.spawn_migrations)
+    db.ensure_schema(registry_db_path, registry._SPAWN_SCHEMA, registry.spawn_migrations)
 
     # Initialize memory DB
     db.ensure_schema(
@@ -101,7 +86,7 @@ def in_memory_db():
     from space.bridge import db as bridge_db
 
     # Initialize schema for both tables on this connection
-    conn.executescript(_REGISTRY_SCHEMA)
+    conn.executescript(registry._SPAWN_SCHEMA)
     db.migrate(conn, registry.spawn_migrations)
     conn.executescript(memory_db._MEMORY_SCHEMA)
     db.migrate(conn, memory_db.memory_migrations)

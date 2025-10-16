@@ -98,3 +98,91 @@ def test_memory_chain_query(test_space):
     assert chain["predecessors"][0].message == "version 1"
     assert chain["start_entry"].message == "version 2"
     assert chain["start_entry"].synthesis_note == "iteration"
+
+
+def test_memory_lineage_upward_traversal(test_space):
+    from space.memory import db
+    from space.spawn import registry
+
+    registry.init_db()
+    identity = "lineage"
+    agent_id = registry.ensure_agent(identity)
+
+    v1_id = db.add_entry(agent_id, "thought", "version 1")
+    v2_id = db.replace_entry([v1_id], agent_id, "thought", "version 2")
+    v3_id = db.replace_entry([v2_id], agent_id, "thought", "version 3")
+
+    chain = db.get_chain(v3_id)
+    assert chain["start_entry"].message == "version 3"
+    assert len(chain["predecessors"]) == 2
+    preds = {p.message for p in chain["predecessors"]}
+    assert "version 1" in preds
+    assert "version 2" in preds
+
+
+def test_memory_lineage_downward_traversal(test_space):
+    from space.memory import db
+    from space.spawn import registry
+
+    registry.init_db()
+    identity = "descend"
+    agent_id = registry.ensure_agent(identity)
+
+    v1_id = db.add_entry(agent_id, "idea", "original")
+    v2_id = db.replace_entry([v1_id], agent_id, "idea", "evolved")
+
+    chain = db.get_chain(v1_id)
+    assert chain["start_entry"].message == "original"
+    assert len(chain["successors"]) == 1
+    assert chain["successors"][0].message == "evolved"
+
+
+def test_memory_lineage_merge_predecessors(test_space):
+    from space.memory import db
+    from space.spawn import registry
+
+    registry.init_db()
+    identity = "merger"
+    agent_id = registry.ensure_agent(identity)
+
+    id_a = db.add_entry(agent_id, "notes", "idea A")
+    id_b = db.add_entry(agent_id, "notes", "idea B")
+    id_c = db.add_entry(agent_id, "notes", "idea C")
+    merged_id = db.replace_entry(
+        [id_a, id_b, id_c], agent_id, "notes", "unified synthesis", "merged three threads"
+    )
+
+    chain = db.get_chain(merged_id)
+    assert chain["start_entry"].message == "unified synthesis"
+    assert len(chain["predecessors"]) == 3
+    pred_msgs = {p.message for p in chain["predecessors"]}
+    assert pred_msgs == {"idea A", "idea B", "idea C"}
+
+    chain_a = db.get_chain(id_a)
+    assert len(chain_a["successors"]) == 1
+    assert chain_a["successors"][0].message == "unified synthesis"
+
+
+def test_memory_lineage_bidirectional_traversal(test_space):
+    from space.memory import db
+    from space.spawn import registry
+
+    registry.init_db()
+    identity = "bidir"
+    agent_id = registry.ensure_agent(identity)
+
+    v1_id = db.add_entry(agent_id, "stream", "gen1")
+    v2_id = db.replace_entry([v1_id], agent_id, "stream", "gen2")
+    v3_id = db.replace_entry([v2_id], agent_id, "stream", "gen3")
+
+    chain_v1 = db.get_chain(v1_id)
+    assert len(chain_v1["predecessors"]) == 0
+    assert len(chain_v1["successors"]) == 2
+
+    chain_v2 = db.get_chain(v2_id)
+    assert len(chain_v2["predecessors"]) == 1
+    assert len(chain_v2["successors"]) == 1
+
+    chain_v3 = db.get_chain(v3_id)
+    assert len(chain_v3["predecessors"]) == 2
+    assert len(chain_v3["successors"]) == 0

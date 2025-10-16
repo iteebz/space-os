@@ -226,24 +226,67 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
     mem_db = paths.dot_space() / "memory.db"
     know_db = paths.dot_space() / "knowledge.db"
 
-    if not bridge_db.exists():
+    agent_ids = set()
+
+    if bridge_db.exists():
+        with db.connect(bridge_db) as conn:
+            for (agent_id,) in conn.execute("SELECT DISTINCT agent_id FROM messages"):
+                agent_ids.add(agent_id)
+
+    if mem_db.exists():
+        with db.connect(mem_db) as conn:
+            for (agent_id,) in conn.execute("SELECT DISTINCT agent_id FROM memories"):
+                agent_ids.add(agent_id)
+
+    if know_db.exists():
+        with db.connect(know_db) as conn:
+            for (agent_id,) in conn.execute("SELECT DISTINCT agent_id FROM knowledge"):
+                agent_ids.add(agent_id)
+
+    agent_ids.update(agent_names_map.keys())
+
+    if not agent_ids:
         return None
 
-    identities = {}
+    identities = {
+        agent_id: {
+            "agent_name": agent_names_map.get(agent_id, agent_id),
+            "msgs": 0,
+            "last_active": None,
+            "mems": 0,
+            "knowledge": 0,
+            "spawns": 0,
+            "channels": [],
+        }
+        for agent_id in agent_ids
+    }
+
+    if not bridge_db.exists():
+        agents = [
+            AgentStats(
+                agent_id=agent_uuid,
+                agent_name=data["agent_name"],
+                spawns=data["spawns"],
+                msgs=data["msgs"],
+                mems=data["mems"],
+                knowledge=data["knowledge"],
+                channels=data.get("channels", []),
+                last_active=data.get("last_active"),
+                last_active_human=humanize_timestamp(data.get("last_active"))
+                if data.get("last_active")
+                else None,
+            )
+            for agent_uuid, data in identities.items()
+        ]
+        agents.sort(key=lambda a: a.msgs, reverse=True)
+        return agents[:limit] if limit else agents
 
     with db.connect(bridge_db) as conn:
         for agent_uuid, msgs_count in conn.execute(
             "SELECT agent_id, COUNT(*) as msgs FROM messages GROUP BY agent_id"
         ):
-            identities[agent_uuid] = {
-                "agent_name": agent_names_map.get(agent_uuid, agent_uuid),
-                "msgs": msgs_count,
-                "last_active": None,
-                "mems": 0,
-                "knowledge": 0,
-                "spawns": 0,
-                "channels": [],
-            }
+            if agent_uuid in identities:
+                identities[agent_uuid]["msgs"] = msgs_count
 
         for agent_uuid, channels_str in conn.execute(
             "SELECT agent_id, GROUP_CONCAT(DISTINCT channel_id) FROM messages WHERE channel_id IS NOT NULL GROUP BY agent_id"
@@ -282,6 +325,9 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
             ):
                 if agent_uuid in identities:
                     identities[agent_uuid]["last_active"] = str(last_active_timestamp)
+
+    if not identities:
+        return None
 
     agents = [
         AgentStats(

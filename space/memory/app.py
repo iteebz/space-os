@@ -259,7 +259,8 @@ def list_entries_command(
         typer.echo(cli_utils.out_json([asdict(e) for e in entries]))
     else:
         cli_utils.out_text(display.format_memory_entries(entries, raw_output=raw_output), ctx.obj)
-        display.show_context(resolved_identity)
+        if not (quiet_output or ctx.obj.get("quiet_output")):
+            display.show_context(resolved_identity)
 
 
 @app.command("archive")
@@ -460,12 +461,12 @@ def main() -> None:
     """Entry point for poetry script."""
     try:
         app()
-    except SystemExit as e:
-        if e.code and e.code != 0:
+    except typer.Exit as e:
+        if e.exit_code and e.exit_code != 0:
             cmd = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "(no command)"
             events.emit("cli", "error", data=f"memory {cmd}")
-        sys.exit(e.code if e.code is not None else 0)
-    except BaseException as e:
+        sys.exit(e.exit_code)
+    except Exception as e:
         cmd = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "(no command)"
         events.emit("cli", "error", data=f"memory {cmd}: {str(e)}")
         sys.exit(1)

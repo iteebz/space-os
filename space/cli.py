@@ -1,6 +1,9 @@
+import sys
+
 import typer
 
 from space import events, readme
+from space.lib.invocation import AliasResolver, InvocationContext
 
 from .bridge.app import app as bridge_app
 from .commands import (
@@ -10,6 +13,7 @@ from .commands import (
     describe,
     errors,
     init,
+    registry,
     search,
     sleep,
     stats,
@@ -27,6 +31,7 @@ app.add_typer(memory_app, name="memory")
 app.add_typer(agent.app, name="agents")
 app.add_typer(context_app, name="context")
 app.add_typer(stats.app, name="stats")
+app.add_typer(registry.app, name="registry")
 app.add_typer(bridge_app, name="bridge")
 
 app.command(name="backup")(backup.backup)
@@ -44,8 +49,11 @@ app.command(name="sleep")(sleep.sleep)
 def main_command(
     ctx: typer.Context,
 ):
+    invocation = AliasResolver.resolve(sys.argv[1:])
+    ctx.obj = invocation
+
     cmd = ctx.invoked_subcommand or "(no command)"
-    events.emit("cli", "invocation", data=cmd)
+    invocation.emit_invocation(cmd)
 
     if ctx.invoked_subcommand is None:
         typer.echo(readme.root())
@@ -53,12 +61,18 @@ def main_command(
 
 def main() -> None:
     """Entry point for poetry script."""
+    argv_orig = sys.argv[1:]
+    normalized_argv = AliasResolver.normalize_args(argv_orig)
+    sys.argv = [sys.argv[0]] + normalized_argv
+    
     try:
         app()
     except SystemExit as e:
         if e.code and e.code != 0:
-            events.emit("cli", "error", data=f"CLI command (exit={e.code})")
+            invocation = AliasResolver.resolve(argv_orig)
+            invocation.emit_error(f"CLI command (exit={e.code})")
         raise
     except BaseException as e:
-        events.emit("cli", "error", data=f"CLI command: {str(e)}")
+        invocation = AliasResolver.resolve(argv_orig)
+        invocation.emit_error(f"CLI command: {str(e)}")
         raise SystemExit(1) from e

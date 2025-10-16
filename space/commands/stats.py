@@ -48,7 +48,7 @@ overview"""
         lines.append("  name · s-b-m-k · active")
 
         sorted_agents = sorted(
-            [a for a in s.agents if a.last_active], key=lambda a: a.last_active, reverse=True
+            s.agents, key=lambda a: a.last_active if a.last_active else 0, reverse=True
         )
 
         for a in sorted_agents[:15]:

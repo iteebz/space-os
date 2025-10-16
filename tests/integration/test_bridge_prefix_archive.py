@@ -1,14 +1,13 @@
-import contextlib
-
 from space.bridge.api import channels
 
 
 def test_with_prefix_flag(test_space):
-    from unittest.mock import MagicMock
+    from typer.testing import CliRunner
 
-    from space.bridge.commands.channels import archive
+    from space.bridge.app import app as bridge_app
 
-    # Manually create channels
+    runner = CliRunner()
+
     channels.create_channel("protoss-arbiter")
     channels.create_channel("protoss-ascension")
     channels.create_channel("bridge-context")
@@ -16,14 +15,8 @@ def test_with_prefix_flag(test_space):
     channels.create_channel("space-feedback")
     channels.create_channel("random-channel")
 
-    MagicMock()
-
-    archive(
-        channels=["protoss-", "bridge-"],
-        prefix=True,
-        json_output=False,
-        quiet_output=True,
-    )
+    result = runner.invoke(bridge_app, ["archive", "protoss-", "bridge-", "--prefix", "--quiet"])
+    assert result.exit_code == 0
 
     all_channels = channels.all_channels()
     archived = [c.name for c in all_channels if c.archived_at]
@@ -37,33 +30,20 @@ def test_with_prefix_flag(test_space):
     assert "space-feedback" in active
     assert "random-channel" in active
 
-    # Teardown
-    for name in [
-        "protoss-arbiter",
-        "protoss-ascension",
-        "bridge-context",
-        "bridge-meta",
-        "space-feedback",
-        "random-channel",
-    ]:
-        with contextlib.suppress(Exception):
-            channels.delete_channel(name)
-
 
 def test_without_prefix_flag(test_space):
-    from space.bridge.commands.channels import archive
+    from typer.testing import CliRunner
 
-    # Manually create channels
+    from space.bridge.app import app as bridge_app
+
+    runner = CliRunner()
+
     channels.create_channel("protoss-arbiter")
     channels.create_channel("random-channel")
     channels.create_channel("space-feedback")
 
-    archive(
-        channels=["random-channel"],
-        prefix=False,
-        json_output=False,
-        quiet_output=True,
-    )
+    result = runner.invoke(bridge_app, ["archive", "random-channel", "--quiet"])
+    assert result.exit_code == 0
 
     all_channels = channels.all_channels()
     archived = [c.name for c in all_channels if c.archived_at]
@@ -71,8 +51,3 @@ def test_without_prefix_flag(test_space):
     assert "random-channel" in archived
     assert "protoss-arbiter" not in archived
     assert "space-feedback" not in archived
-
-    # Teardown
-    for name in ["protoss-arbiter", "random-channel", "space-feedback"]:
-        with contextlib.suppress(Exception):
-            channels.delete_channel(name)
