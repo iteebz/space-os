@@ -45,7 +45,7 @@ overview"""
 
     if s.agents:
         lines.append("\nagents")
-        lines.append("  name · s-b-m-k · active")
+        lines.append("  name · id · s-b-m-k · active")
 
         sorted_agents = sorted(
             s.agents, key=lambda a: a.last_active if a.last_active else 0, reverse=True
@@ -53,6 +53,7 @@ overview"""
 
         for a in sorted_agents[:15]:
             parts = [a.agent_name]
+            parts.append(a.agent_id[:8])
             parts.append(f"{a.spawns}-{a.msgs}-{a.mems}-{a.knowledge}")
             if a.last_active_human:
                 parts.append(a.last_active_human)
