@@ -164,7 +164,6 @@ def set_bookmark(agent_id: str, channel_id: str, last_seen_id: str):
             "INSERT OR REPLACE INTO bookmarks (agent_id, channel_id, last_seen_id) VALUES (?, ?, ?)",
             (agent_id, channel_id, last_seen_id),
         )
-        conn.commit()
 
 
 def get_alerts(agent_id: str) -> list[Message]:
@@ -204,7 +203,6 @@ def create_channel(channel_name: str, topic: str | None = None) -> str:
             "INSERT INTO channels (id, name, topic) VALUES (?, ?, ?)",
             (channel_id, channel_name, topic),
         )
-        conn.commit()
     return channel_id
 
 
@@ -228,7 +226,6 @@ def set_topic(channel_id: str, topic: str):
             "UPDATE channels SET topic = ? WHERE id = ? AND (topic IS NULL OR topic = '')",
             (topic, channel_id),
         )
-        conn.commit()
 
 
 def get_topic(channel_id: str) -> str | None:
@@ -359,7 +356,6 @@ def archive_channel(channel_id: str):
             "UPDATE channels SET archived_at = CURRENT_TIMESTAMP WHERE id = ?",
             (channel_id,),
         )
-        conn.commit()
 
 
 def delete_channel(channel_id: str):
@@ -367,14 +363,12 @@ def delete_channel(channel_id: str):
         conn.execute("DELETE FROM messages WHERE channel_id = ?", (channel_id,))
         conn.execute("DELETE FROM bookmarks WHERE channel_id = ?", (channel_id,))
         conn.execute("DELETE FROM channels WHERE id = ?", (channel_id,))
-        conn.commit()
 
 
 def rename_channel(old_name: str, new_name: str) -> bool:
     with connect() as conn:
         try:
             conn.execute("UPDATE channels SET name = ? WHERE name = ?", (new_name, old_name))
-            conn.commit()
             return True
         except sqlite3.IntegrityError:
             return False
@@ -387,8 +381,7 @@ def create_note(channel_id: str, agent_id: str, content: str) -> str:
             "INSERT INTO notes (note_id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
             (note_id, channel_id, agent_id, content),
         )
-        conn.commit()
-        return note_id
+    return note_id
 
 
 def get_notes(channel_id: str) -> list[Note]:

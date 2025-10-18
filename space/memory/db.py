@@ -115,7 +115,6 @@ def _backfill_memory_links(conn: sqlite3.Connection):
                         "INSERT OR IGNORE INTO memory_links (link_id, memory_id, parent_id, kind, created_at) VALUES (?, ?, ?, ?, ?)",
                         (link_id, memory_id, parent_id, "supersedes", now),
                     )
-    conn.commit()
 
 
 db.register("memory", MEMORY_DB_NAME, _MEMORY_SCHEMA)
@@ -158,7 +157,6 @@ def add_entry(agent_id: str, topic: str, message: str, core: bool = False, sourc
             "INSERT INTO memories (memory_id, agent_id, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (memory_id, agent_id, topic, message, ts, now, 1 if core else 0, source),
         )
-        conn.commit()
     events.emit(
         "memory", "note_add", agent_id, f"{topic}:{message[:50]}" + (" [CORE]" if core else "")
     )
@@ -232,7 +230,6 @@ def delete_entry(memory_id: str):
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
     with connect() as conn:
         conn.execute("DELETE FROM memories WHERE memory_id = ?", (full_id,))
-        conn.commit()
     events.emit("memory", "note_delete", entry.agent_id, f"{full_id[-8:]}")
 
 
@@ -258,7 +255,6 @@ def archive_entry(memory_id: str):
             "UPDATE memories SET archived_at = ? WHERE memory_id = ?",
             (now, full_id),
         )
-        conn.commit()
     events.emit("memory", "note_archive", entry.agent_id, f"{full_id[-8:]}")
 
 
@@ -285,7 +281,6 @@ def mark_core(memory_id: str, core: bool = True):
             "UPDATE memories SET core = ? WHERE memory_id = ?",
             (1 if core else 0, full_id),
         )
-        conn.commit()
     events.emit("memory", "note_core", entry.agent_id, f"{full_id[-8:]} → {core}")
 
 

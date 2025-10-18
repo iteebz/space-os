@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -52,7 +53,6 @@ def _migrate_id_to_knowledge_id(conn: sqlite3.Connection):
     cols = [row["name"] for row in cursor.fetchall()]
     if "id" in cols and "knowledge_id" not in cols:
         conn.execute("ALTER TABLE knowledge RENAME COLUMN id TO knowledge_id")
-        conn.commit()
 
 
 db.register("knowledge", KNOWLEDGE_DB_NAME, _KNOWLEDGE_SCHEMA)
@@ -78,7 +78,6 @@ def write_knowledge(
             "INSERT INTO knowledge (knowledge_id, domain, agent_id, content, confidence) VALUES (?, ?, ?, ?, ?)",
             (knowledge_id, domain, agent_id, content, confidence),
         )
-        conn.commit()
     events.emit("knowledge", "entry.write", agent_id, f"{domain}:{content[:50]}")
     return knowledge_id
 
