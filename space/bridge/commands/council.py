@@ -2,9 +2,13 @@
 
 import asyncio
 import sys
+from collections import deque
 from datetime import datetime
 
 import typer
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.patch_stdout import patch_stdout
 
 from space.spawn import registry
 
@@ -19,7 +23,8 @@ class Council:
         self.running = True
         self._lock = asyncio.Lock()
         self.sent_msg_ids = set()
-        self.input_buffer = ""
+        self.message_queue = deque(maxlen=100)
+        self.session = PromptSession(history=InMemoryHistory())
 
     async def stream_messages(self):
         """Stream new messages from channel."""
@@ -47,11 +52,12 @@ class Council:
                 await asyncio.sleep(1)
 
     async def read_input(self):
-        """Read user input asynchronously."""
+        """Read user input asynchronously with prompt_toolkit."""
         loop = asyncio.get_event_loop()
         while self.running:
             try:
-                msg = await loop.run_in_executor(None, input, "→ ")
+                with patch_stdout():
+                    msg = await loop.run_in_executor(None, self.session.prompt, "→ ")
                 msg = msg.strip()
                 if msg:
                     api.messages.send_message(self.channel_id, "human", msg)
@@ -64,7 +70,7 @@ class Council:
                 self._print_error(f"Input error: {e}")
 
     def _print_message(self, msg):
-        """Print a message with identity + timestamp."""
+        """Print a message with identity + timestamp (safe with prompt_toolkit)."""
         identity = registry.get_identity(msg.agent_id) or msg.agent_id
         ts = datetime.fromisoformat(msg.created_at).strftime("%H:%M:%S")
         prefix = "←" if identity != "human" else "→"

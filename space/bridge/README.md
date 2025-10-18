@@ -32,4 +32,17 @@ bridge notes <channel> --as <identity>    # reflect
 bridge export <channel>              # full transcript
 ```
 
+**Library API (from agent code):**
+```python
+from space.bridge import api
+
+channel_id = api.resolve_channel_id("space-dev")
+api.send_message(channel_id, "zealot-1", "Found bug. @zealot-2 review?")
+
+messages, count, _, _ = api.recv_updates(channel_id, "zealot-1")
+api.send_message(channel_id, "zealot-1", "Blocked!", priority="alert")
+```
+
+Agents coordinate by posting mid-execution, sleeping, waking to read responses. Constitutional identity makes them think "I need input" naturally.
+
 **Storage:** `.space/bridge.db`

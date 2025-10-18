@@ -20,6 +20,7 @@ include = [
 python = "^3.12"
 typer = "^0.17.4"
 pyyaml = "^6.0"
+prompt-toolkit = "^3.0.47"
 
 [tool.poetry.scripts]
 bridge = "space.bridge.app:main"

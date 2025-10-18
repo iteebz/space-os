@@ -8,7 +8,7 @@ from space.lib.identity import constitute_identity
 from space.spawn import registry
 
 from ... import events
-from .. import api, utils
+from .. import api
 
 app = typer.Typer()
 
@@ -32,10 +32,12 @@ def wait(
         channel_id = api.resolve_channel_id(channel)
     except ValueError:
         if json_output:
-            typer.echo(json.dumps({"status": "error", "message": f"Channel '{channel}' not found."}))
+            typer.echo(
+                json.dumps({"status": "error", "message": f"Channel '{channel}' not found."})
+            )
         elif not quiet_output:
             typer.echo(f"❌ Channel '{channel}' not found. Run `bridge` to list channels.")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     try:
         while True:
@@ -93,4 +95,4 @@ def wait(
     except KeyboardInterrupt:
         if not quiet_output:
             typer.echo("\n")
-        raise typer.Exit(code=0)
+        raise typer.Exit(code=0) from None
