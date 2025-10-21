@@ -3,15 +3,19 @@ from pathlib import Path
 from space.lib import paths
 
 
-def test_space_root():
+def test_space_root(monkeypatch):
+    monkeypatch.delenv("SPACE_ROOT", raising=False)
     assert paths.space_root() == Path.home() / "space"
 
 
-def test_dot_space():
+def test_dot_space(monkeypatch):
+    monkeypatch.delenv("SPACE_ROOT", raising=False)
+    monkeypatch.delenv("SPACE_DOT_SPACE", raising=False)
     assert paths.dot_space() == Path.home() / "space" / ".space"
 
 
-def test_global_root():
+def test_global_root(monkeypatch):
+    monkeypatch.delenv("SPACE_GLOBAL_ROOT", raising=False)
     assert paths.global_root() == Path.home() / ".space"
 
 

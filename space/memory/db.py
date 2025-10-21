@@ -59,37 +59,39 @@ def database_path() -> Path:
 
 def _migrate_memory_table_to_memories(conn: sqlite3.Connection):
     cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='memory'")
-    if cursor.fetchone():
-        cursor = conn.execute("PRAGMA table_info(memory)")
-        cols = [row["name"] for row in cursor.fetchall()]
-        if "uuid" in cols:
-            conn.executescript("""
-                CREATE TABLE memories (
-                    memory_id TEXT PRIMARY KEY,
-                    agent_id TEXT NOT NULL,
-                    topic TEXT NOT NULL,
-                    message TEXT NOT NULL,
-                    timestamp TEXT NOT NULL,
-                    created_at INTEGER NOT NULL,
-                    archived_at INTEGER,
-                    core INTEGER DEFAULT 0,
-                    source TEXT NOT NULL DEFAULT 'manual',
-                    bridge_channel TEXT,
-                    code_anchors TEXT,
-                    synthesis_note TEXT,
-                    supersedes TEXT,
-                    superseded_by TEXT
-                );
-                INSERT INTO memories SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors, synthesis_note FROM memory;
-                DROP TABLE memory;
-                ALTER TABLE memories_new RENAME TO memories;
-                CREATE INDEX idx_memories_agent_topic ON memories(agent_id, topic);
-                CREATE INDEX idx_memories_agent_created ON memories(agent_id, created_at);
-                CREATE INDEX idx_memories_memory_id ON memories(memory_id);
-                CREATE INDEX idx_memories_archived ON memories(archived_at);
-                CREATE INDEX idx_memories_core ON memories(core);
-            """)
-            conn.commit()
+    if not cursor.fetchone():
+        return
+    cursor = conn.execute("PRAGMA table_info(memory)")
+    cols = [row["name"] for row in cursor.fetchall()]
+    if "uuid" not in cols:
+        return
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS memories (
+            memory_id TEXT PRIMARY KEY,
+            agent_id TEXT NOT NULL,
+            topic TEXT NOT NULL,
+            message TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            archived_at INTEGER,
+            core INTEGER DEFAULT 0,
+            source TEXT NOT NULL DEFAULT 'manual',
+            bridge_channel TEXT,
+            code_anchors TEXT,
+            synthesis_note TEXT,
+            supersedes TEXT,
+            superseded_by TEXT
+        );
+        INSERT OR IGNORE INTO memories (memory_id, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors, synthesis_note)
+            SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors, synthesis_note FROM memory;
+        DROP TABLE memory;
+        CREATE INDEX IF NOT EXISTS idx_memories_agent_topic ON memories(agent_id, topic);
+        CREATE INDEX IF NOT EXISTS idx_memories_agent_created ON memories(agent_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_memories_memory_id ON memories(memory_id);
+        CREATE INDEX IF NOT EXISTS idx_memories_archived ON memories(archived_at);
+        CREATE INDEX IF NOT EXISTS idx_memories_core ON memories(core);
+    """)
+    conn.commit()
 
 
 def _backfill_memory_links(conn: sqlite3.Connection):

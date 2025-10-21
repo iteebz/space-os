@@ -1,27 +1,37 @@
+import os
 from pathlib import Path
 
 from space import config
 
 
-def _resolve_path(default_component: str, base_path: Path | None = None) -> Path:
-    if base_path:
-        return base_path / default_component
-    return Path.home() / default_component
-
-
 def space_root(base_path: Path | None = None) -> Path:
     """Returns the space root directory, ~/space or base_path/space."""
-    return _resolve_path("space", base_path)
+    if base_path:
+        return base_path / "space"
+
+    workspace_root = Path.home() / "space"
+    override = os.environ.get("SPACE_ROOT")
+    return Path(override).expanduser() if override else workspace_root
 
 
 def dot_space(base_path: Path | None = None) -> Path:
     """Returns .space/ directory in workspace root."""
-    return space_root(base_path) / ".space"
+    if base_path:
+        return base_path / ".space"
+
+    if "SPACE_DOT_SPACE" in os.environ:
+        return Path(os.environ["SPACE_DOT_SPACE"]).expanduser()
+    return space_root() / ".space"
 
 
 def global_root(base_path: Path | None = None) -> Path:
     """Returns the global root directory, ~/.space."""
-    return _resolve_path(".space", base_path)
+    if base_path:
+        return base_path / ".space"
+
+    if "SPACE_GLOBAL_ROOT" in os.environ:
+        return Path(os.environ["SPACE_GLOBAL_ROOT"]).expanduser()
+    return Path.home() / ".space"
 
 
 def package_root() -> Path:

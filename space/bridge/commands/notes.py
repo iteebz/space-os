@@ -45,14 +45,19 @@ def notes(
                 return
 
             if json_output:
-                typer.echo(json.dumps(notes))
+                typer.echo(
+                    json.dumps(
+                        [note.__dict__ if hasattr(note, "__dict__") else note for note in notes]
+                    )
+                )
             elif not quiet_output:
                 typer.echo(f"Notes for {channel}:")
                 for note in notes:
-                    timestamp = utils.format_local_time(note["created_at"])
-                    typer.echo(
-                        f"[{timestamp}] {registry.get_identity(note.agent_id)}: {note.content}"
-                    )
+                    note_dict = note.__dict__ if hasattr(note, "__dict__") else note
+                    timestamp = utils.format_local_time(note_dict["created_at"])
+                    agent_id = note_dict.get("agent_id")
+                    identity_str = registry.get_identity(agent_id) if agent_id else "unknown"
+                    typer.echo(f"[{timestamp}] {identity_str}: {note_dict['content']}")
                     typer.echo()
         except ValueError as e:
             if agent_id:

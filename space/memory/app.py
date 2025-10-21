@@ -103,10 +103,6 @@ def edit_entry_command(
         raise typer.BadParameter(str(e)) from e
 
 
-
-
-
-
 @app.command("summary")
 def summary_command(
     ctx: typer.Context,

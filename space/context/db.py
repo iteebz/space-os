@@ -10,8 +10,11 @@ from ..spawn import registry
 
 def _query_with_identity(base_query: str, params: list, identity: str | None, all_agents: bool):
     if identity and not all_agents:
+        agent_id = registry.get_agent_id(identity)
+        if not agent_id:
+            raise ValueError(f"Agent '{identity}' not found")
         base_query += " AND agent_id = ?"
-        params.append(identity)
+        params.append(agent_id)
     return base_query, params
 
 

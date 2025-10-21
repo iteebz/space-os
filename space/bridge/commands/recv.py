@@ -88,6 +88,8 @@ def alerts(
 
     from space.spawn import registry
 
+    from .. import db
+
     agent_id = registry.ensure_agent(identity)
 
     try:
@@ -106,6 +108,9 @@ def alerts(
             for msg in alert_messages:
                 typer.echo(f"\n[{registry.get_identity(msg.agent_id)} | {msg.channel_id}]")
                 typer.echo(msg.content)
+
+        for msg in alert_messages:
+            db.set_bookmark(agent_id, msg.channel_id, msg.message_id)
     except Exception as exc:
         events.emit(
             "bridge",

@@ -46,15 +46,22 @@ def ensure(name: str):
     migs = _migrations.get(name)
     if not db_path.exists():
         ensure_schema(db_path, schema, migs)
+    else:
+        with connect(db_path) as conn:
+            if migs:
+                migrate(conn, migs)
     return connect(db_path)
 
 
 def migrate(conn: sqlite3.Connection, migrations: list[tuple[str, str | Callable]]):
     conn.execute("CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY)")
+    conn.commit()
 
     for name, migration in migrations:
         applied = conn.execute("SELECT 1 FROM _migrations WHERE name = ?", (name,)).fetchone()
-        if not applied:
+        if applied:
+            continue
+        try:
             if callable(migration):
                 migration(conn)
             else:
@@ -62,8 +69,11 @@ def migrate(conn: sqlite3.Connection, migrations: list[tuple[str, str | Callable
                     conn.executescript(migration)
                 else:
                     conn.execute(migration)
-            conn.execute("INSERT INTO _migrations (name) VALUES (?)", (name,))
+            conn.execute("INSERT OR IGNORE INTO _migrations (name) VALUES (?)", (name,))
             conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
 
 
 def from_row(row: sqlite3.Row, dataclass_type: type[T]) -> T:

@@ -13,14 +13,14 @@ Infer the actual task from bridge context. If ambiguous, ask for clarification."
 
 def extract_mention_task(identity: str, content: str) -> str:
     """Extract task following @identity mention. Returns task or empty string."""
-    pattern = rf"@{identity}\s+(.*?)(?=@|\Z)"
+    pattern = rf"@{re.escape(identity)}\s+(.*?)(?=@|\Z)"
     match = re.search(pattern, content, re.DOTALL)
     return match.group(1).strip() if match else ""
 
 
 def parse_mentions(content: str) -> list[str]:
     """Extract @identity mentions from content. Returns list of identities."""
-    pattern = r"@(\w+)"
+    pattern = r"@([\w-]+)"
     matches = re.findall(pattern, content)
     return list(set(matches))
 
