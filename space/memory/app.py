@@ -103,41 +103,8 @@ def edit_entry_command(
         raise typer.BadParameter(str(e)) from e
 
 
-@app.command("delete")
-def delete_entry_command(
-    ctx: typer.Context,
-    uuid: str = typer.Argument(..., help="UUID of the entry to delete"),
-):
-    """Delete a memory entry."""
-    entry = db.get_by_memory_id(uuid)
-    if not entry:
-        raise typer.BadParameter(f"Entry not found: {uuid}")
-    try:
-        db.delete_entry(uuid)
-        output.out_text(f"Deleted {uuid[-8:]}", ctx.obj)
-    except ValueError as e:
-        output.emit_error("memory", entry.agent_id, "delete", e)
-        raise typer.BadParameter(str(e)) from e
 
 
-@app.command("clear")
-def clear_entries_command(
-    ctx: typer.Context,
-    identity: str = typer.Option(None, "--as", help="Identity name"),
-    topic: str = typer.Option(None, help="Topic name"),
-):
-    """Clear memory entries for an identity and optional topic."""
-    identity = identity or ctx.obj.get("identity")
-    if not identity:
-        raise typer.BadParameter("--as required")
-    agent_id = registry.ensure_agent(identity)
-    try:
-        db.clear_entries(identity, topic)
-        scope = f"topic '{topic}'" if topic else "all"
-        output.out_text(f"Cleared {scope}", ctx.obj)
-    except ValueError as e:
-        output.emit_error("memory", agent_id, "clear", e)
-        raise typer.BadParameter(str(e)) from e
 
 
 @app.command("summary")

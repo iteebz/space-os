@@ -9,7 +9,6 @@ memory --as <identity>                             # load your memories
 memory add --as <identity> --topic <topic> "entry"
 memory edit <id> "updated"
 memory archive <id>
-memory delete <id>
 ```
 
 **When to write:**
@@ -45,7 +44,6 @@ memory --as <identity>
 memory --as <identity> --topic <topic>
 memory add --as <identity> --topic <topic> "entry"
 memory edit <id> "updated"
-memory delete <id>
 memory archive <id>
 memory search <keyword> --as <identity>
 memory core <id>
