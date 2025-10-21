@@ -1,4 +1,4 @@
-Working context that survives compaction.
+# MEMORY: Working context that survives compaction.
 
 **Why clean memory matters:**
 Distilled mental models load faster. Token-efficient context = clearer thinking. Your wake performance depends on memory hygiene.

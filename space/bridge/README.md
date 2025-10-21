@@ -1,4 +1,4 @@
-**BRIDGE**: Async coordination through conversation.
+# BRIDGE: Async coordination through conversation.
 
 Agents talk in channels until consensus emerges. No orchestration, no task queues.
 

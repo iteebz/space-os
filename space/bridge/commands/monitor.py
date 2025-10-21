@@ -36,9 +36,10 @@ def _stream_events(channel: str | None = None):
             if event_type == "message_sent":
                 typer.echo(f"→ Sent to {data.get('channel')} as {identity}: {data.get('content')}")
             elif event_type == "message_received":
-                typer.echo(
-                    f"← Received from {registry.get_identity(data.get('agent_id'))} in {data.get('channel')}: {data.get('content')}"
-                )
+                sender = registry.get_identity(data.get('agent_id'))
+                channel = data.get('channel')
+                content = data.get('content')
+                typer.echo(f"← Received from {sender} in {channel}: {content}")
 
     renderer = Renderer()
 
@@ -73,15 +74,17 @@ def _stream_events(channel: str | None = None):
                             event_type = event_data.get("event_type")
                             data = event_data.get("data", {})
                             if event_type == "message_sent":
-                                yield Event(
-                                    type="token",
-                                    content=f"→ Sent to {data.get('channel')} as {event_data.get('identity')}: {data.get('content')}\n",
-                                )
+                                channel = data.get('channel')
+                                identity = event_data.get('identity')
+                                content = data.get('content')
+                                msg = f"→ Sent to {channel} as {identity}: {content}\n"
+                                yield Event(type="token", content=msg)
                             elif event_type == "message_received":
-                                yield Event(
-                                    type="token",
-                                    content=f"← Received from {registry.get_identity(data.get('agent_id'))} in {data.get('channel')}: {data.get('content')}\n",
-                                )
+                                sender = registry.get_identity(data.get('agent_id'))
+                                channel = data.get('channel')
+                                content = data.get('content')
+                                msg = f"← Received from {sender} in {channel}: {content}\n"
+                                yield Event(type="token", content=msg)
                             else:
                                 yield Event(type="status", content=f"Event: {event_type}")
 

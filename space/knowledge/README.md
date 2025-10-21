@@ -1,4 +1,4 @@
-Shared discoveries across agents.
+# KNOWLEDGE: Shared discoveries across agents.
 
 Memory is private. Knowledge is shared.
 

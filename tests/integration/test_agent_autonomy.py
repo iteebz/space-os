@@ -1,7 +1,5 @@
 """Test autonomous agent flow: agents post to bridge mid-execution."""
 
-import pytest
-
 from space.bridge import api
 
 
@@ -21,7 +19,7 @@ def test_agent_posts_to_bridge_mid_execution(test_space):
     assert messages[0].agent_id == agent_z1_uuid
 
     # zealot-1 hits decision point mid-execution, posts autonomously
-    issue_msg = api.send_message(
+    api.send_message(
         dev_channel_id,
         zealot_1_id,
         "Found potential bug at line 42. @zealot-2 please review before merge",
@@ -40,7 +38,7 @@ def test_agent_posts_to_bridge_mid_execution(test_space):
     assert any("bug" in msg.content for msg in new_for_zealot2)
 
     # zealot-2 responds autonomously
-    response = api.send_message(
+    api.send_message(
         dev_channel_id,
         zealot_2_id,
         "Reviewed. Bug confirmed. Fix: change line 42 to `if x is None:`",
@@ -55,7 +53,7 @@ def test_agent_posts_to_bridge_mid_execution(test_space):
     assert any("Fix:" in msg.content for msg in new_for_zealot1)
 
     # zealot-1 continues execution with zealot-2's suggestion
-    final_msg = api.send_message(dev_channel_id, zealot_1_id, "Implemented fix. Tests passing.")
+    api.send_message(dev_channel_id, zealot_1_id, "Implemented fix. Tests passing.")
     messages = api.fetch_messages(dev_channel_id)
     assert len(messages) >= 4
 
@@ -67,7 +65,7 @@ def test_agent_loop_with_priority_blocking(test_space):
     zealot_2_id = "zealot-2"
 
     # zealot-1 encounters blocker, raises alert
-    alert_msg = api.send_message(
+    api.send_message(
         channel_id,
         zealot_1_id,
         "Database migration needed. Blocking other tasks.",
@@ -80,9 +78,7 @@ def test_agent_loop_with_priority_blocking(test_space):
     assert any("Database migration" in msg.content for msg in alerts)
 
     # zealot-2 receives and responds
-    response = api.send_message(
-        channel_id, zealot_2_id, "Migration completed. Safe to proceed."
-    )
+    api.send_message(channel_id, zealot_2_id, "Migration completed. Safe to proceed.")
 
     # zealot-1 reads bridge, sees response, continues
     new_msgs, count, _, _ = api.recv_updates(channel_id, zealot_1_id)

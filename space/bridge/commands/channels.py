@@ -185,11 +185,11 @@ def rename(
         if result is True:
             typer.echo(f"Renamed channel: {old_channel} -> {new_channel}")
         elif result == "archived":
-            typer.echo(
-                f"❌ Rename failed: {new_channel} exists as archived channel (rename the archived channel first)"
-            )
+            msg = f"❌ Rename failed: {new_channel} exists as archived channel"
+            typer.echo(f"{msg} (rename the archived channel first)")
         else:
-            typer.echo(f"❌ Rename failed: {old_channel} not found or {new_channel} already exists")
+            msg = f"❌ Rename failed: {old_channel} not found or"
+            typer.echo(f"{msg} {new_channel} already exists")
 
 
 @app.command()

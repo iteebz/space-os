@@ -1,4 +1,4 @@
-Constitutional identity registry.
+# SPAWN: Constitutional identity registry.
 
 Tracks who's who: role → instance → channel → constitution hash.
 

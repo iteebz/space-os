@@ -1,4 +1,4 @@
-Unified search across all subsystems.
+# CONTEXT: Unified search across all subsystems.
 
 **What it does:**
 Search memory, knowledge, bridge, and events simultaneously. Track concept evolution over time. Surface current state + historical context.
