@@ -210,7 +210,15 @@ def get_channel_id(channel_name: str) -> str | None:
     with connect() as conn:
         cursor = conn.execute("SELECT id FROM channels WHERE name = ?", (channel_name,))
         result = cursor.fetchone()
-    return result["id"] if result else None
+        if result:
+            return result["id"]
+
+        if len(channel_name) == 8:
+            cursor = conn.execute("SELECT id FROM channels WHERE id LIKE ?", (f"%{channel_name}",))
+            result = cursor.fetchone()
+            if result:
+                return result["id"]
+    return None
 
 
 def get_channel_name(channel_id: str) -> str | None:
@@ -276,7 +284,7 @@ def fetch_channels(
                 SELECT m.channel_id, COUNT(m.id) as unread_count
                 FROM messages m
                 LEFT JOIN bookmarks b ON m.channel_id = b.channel_id AND b.agent_id = ?
-                WHERE m.id > COALESCE(b.last_seen_id, 0)
+                WHERE b.last_seen_id IS NULL OR m.id > b.last_seen_id
                 GROUP BY m.channel_id
             ) as unread_counts ON t.id = unread_counts.channel_id
             WHERE 1 = 1

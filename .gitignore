@@ -14,4 +14,4 @@ build/
 poetry.lock
 bin/
 *.db
-.coverage
+.coverage*

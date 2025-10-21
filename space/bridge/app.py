@@ -28,7 +28,6 @@ from .commands.channels import app as channels_app
 from .commands.channels import archive as archive_cmd
 from .commands.channels import list_channels
 from .commands.council import council
-from .commands.monitor import app as monitor_app
 
 errors.install_error_handler("bridge")
 
@@ -67,7 +66,6 @@ def main_command(
 
 
 app.add_typer(channels_app, name="channels")
-app.add_typer(monitor_app, name="monitor")
 app.command("send")(send_cmds.send)
 app.command("alert")(send_cmds.alert)
 app.command("recv")(recv_cmds.recv)
