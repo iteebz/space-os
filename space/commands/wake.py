@@ -88,9 +88,9 @@ def wake(
     events.identify(identity, "wake")
 
     # Auto-sync session logs on wake
-    from ..sessions import sync
+    from ..lib import sessions
 
-    sync(identity=identity)
+    sessions.sync(identity=identity)
 
     spawn_count = events.get_sleep_count(agent_id)
     wakes_this_spawn = events.get_wakes_since_last_sleep(agent_id)

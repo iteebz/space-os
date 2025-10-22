@@ -51,3 +51,10 @@ def canon_path(base_path: Path | None = None) -> Path:
     if configured_path:
         return space_root(base_path) / configured_path
     return space_root(base_path) / "canon"
+
+
+def sessions_db() -> Path:
+    """Returns path to unified session index, ~/.space/sessions.db."""
+    if "SPACE_SESSIONS_DB" in os.environ:
+        return Path(os.environ["SPACE_SESSIONS_DB"]).expanduser()
+    return global_root() / "sessions.db"

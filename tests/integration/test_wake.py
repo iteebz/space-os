@@ -16,7 +16,7 @@ def test_wake_new_identity_spawn_count_zero(test_space):
         patch("space.events.get_wake_count", return_value=1),
         patch("space.events.get_last_sleep_time", return_value=time.time()),  # Mock with float
         patch("space.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
-        patch("space.sessions.sync"),
+        patch("space.lib.sessions.sync"),
     ):
         result = runner.invoke(app, ["wake", "--as", "new-agent"])
         assert result.exit_code == 0
@@ -35,7 +35,7 @@ def test_wake_existing_identity_spawn_count(test_space):
         patch("space.bridge.api.channels.inbox_channels", return_value=[]),
         patch("space.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
         patch("space.memory.db.get_memories", return_value=[]),  # Mock memory dependency
-        patch("space.sessions.sync"),
+        patch("space.lib.sessions.sync"),
     ):
         result = runner.invoke(app, ["wake", "--as", "existing-agent"])
         assert result.exit_code == 0
@@ -68,7 +68,7 @@ def test_command_unread_messages(test_space):
         ),
         patch("space.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
         patch("space.memory.db.get_memories", return_value=[]),  # Mock memory dependency
-        patch("space.sessions.sync"),
+        patch("space.lib.sessions.sync"),
     ):
         result = runner.invoke(app, ["wake", "--as", "test-agent"])
         assert result.exit_code == 0
@@ -102,7 +102,7 @@ def test_wake_prioritizes_space_feedback(test_space):
             return_value=[mock_other_channel, mock_feedback_channel],
         ),
         patch("space.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
-        patch("space.sessions.sync"),
+        patch("space.lib.sessions.sync"),
     ):
         result = runner.invoke(app, ["wake", "--as", "test-agent"])
         assert result.exit_code == 0

@@ -31,7 +31,7 @@ def test_alias_resolver_preserves_explicit_flag(test_space):
 
 
 def test_wake_explicit_flag_invocation(test_space):
-    with patch("space.sessions.sync"):
+    with patch("space.lib.sessions.sync"):
         result = runner.invoke(app, ["wake", "--as", "explicit-agent"])
         assert result.exit_code == 0
         assert "explicit-agent" in result.stdout or "Spawn" in result.stdout

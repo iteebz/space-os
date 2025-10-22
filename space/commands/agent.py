@@ -60,9 +60,7 @@ def list_agents(show_all: bool = typer.Option(False, "--all", help="Show archive
 
     registry.init_db()
     with registry.get_db() as conn:
-        {
-            row["id"]: row["name"] for row in conn.execute("SELECT id, name FROM agents")
-        }
+        {row["id"]: row["name"] for row in conn.execute("SELECT id, name FROM agents")}
 
     typer.echo(f"{'NAME':<20} {'ID':<10} {'E-S-B-M-K':<20} {'SELF'}")
     typer.echo("-" * 100)
