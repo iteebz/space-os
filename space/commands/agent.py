@@ -161,15 +161,33 @@ def merge_agents(id_from: str, id_to: str):
         ).rowcount
         conn.commit()
 
-    memory_db_path = paths.dot_space() / "memory.db"
-    if memory_db_path.exists():
-        with sqlite3.connect(memory_db_path) as memory_conn:
-            updated_count += memory_conn.execute(
-                "UPDATE memories SET agent_id = ? WHERE agent_id = ?", (to_agent_id, from_agent_id)
-            ).rowcount
-            memory_conn.commit()
+    dbs = {
+        "events.db": [("events",)],
+        "memory.db": [("memories",)],
+        "knowledge.db": [("knowledge",)],
+        "bridge.db": [("notes",), ("bookmarks",), ("messages",)],
+    }
 
-    typer.echo(f"✓ Merged {updated_count} records")
+    counts = {}
+    for db_name, tables in dbs.items():
+        db_path = paths.dot_space() / db_name
+        if db_path.exists():
+            with sqlite3.connect(db_path) as conn:
+                for (table,) in tables:
+                    count = conn.execute(
+                        f"UPDATE {table} SET agent_id = ? WHERE agent_id = ?",
+                        (to_agent_id, from_agent_id),
+                    ).rowcount
+                    if count > 0:
+                        counts[table] = count
+                conn.commit()
+
+    total = sum(counts.values())
+    if counts:
+        breakdown = ", ".join(f"{table}:{count}" for table, count in sorted(counts.items()))
+        typer.echo(f"✓ Merged {total} records ({breakdown})")
+    else:
+        typer.echo("✓ Merged (no data to migrate)")
     events_lib.emit("agents", "merge", to_agent_id, f"merged {from_agent_id}")
 
 
