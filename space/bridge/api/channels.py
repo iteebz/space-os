@@ -21,7 +21,7 @@ def all_channels(agent_id: str = None) -> list[Channel]:
 
 def inbox_channels(agent_id: str) -> list[Channel]:
     """Get all channels with unreads."""
-    channels = fetch_channels(agent_id, unread_only=True)
+    channels = fetch_channels(agent_id, unread_only=True, active_only=True)
     channels.sort(key=lambda t: t.last_activity if t.last_activity else "", reverse=True)
     return channels
 

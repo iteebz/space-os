@@ -55,15 +55,14 @@ def inject_identity(
     """
     parts = []
 
-    role_upper = role.upper()
-    parts.append(f"# {role_upper} CONSTITUTION")
-
     registry.get_self_description(identity)
     if model:
-        self_line = f"Self: You are {identity}. Your model is {model}."
+        parts.append(f"You are {identity} ({role}) powered by {model}")
     else:
-        self_line = f"Self: You are {identity}."
-    parts.append(self_line)
+        parts.append(f"You are {identity} ({role})")
+    
+    parts.append("")
+    parts.append(f"{role.upper()} CONSTITUTION:")
 
     parts.append(base_constitution_content)
 
@@ -74,6 +73,23 @@ def inject_identity(
     parts.append("\n".join(footer_lines))
 
     return "\n".join(parts)
+
+
+def _run_wake_sequence(identity: str) -> str | None:
+    """Run wake and memory load sequence for identity. Returns wake output for agent context."""
+    import io
+    from contextlib import redirect_stdout
+
+    from ..commands import wake
+    from . import registry
+
+    registry.init_db()
+
+    output = io.StringIO()
+    with redirect_stdout(output):
+        wake.wake(identity=identity, quiet=False)
+
+    return output.getvalue() if output.getvalue() else None
 
 
 def launch_agent(
@@ -126,13 +142,35 @@ def launch_agent(
 
     passthrough = extra_args or []
     model_args = ["--model", actual_model] if actual_model else []
+
+    role_cfg = cfg["roles"][role]
+    wake_output = None
+    if role_cfg.get("wake_on_spawn"):
+        click.echo(f"Waking {actual_identity}...\n")
+        wake_output = _run_wake_sequence(actual_identity)
+
+    if wake_output:
+        if "gemini" in command_tokens[0]:
+            passthrough = ["-i", wake_output] + passthrough
+        elif "codex" in command_tokens[0]:
+            passthrough = [wake_output] + passthrough
+
     full_command = command_tokens + model_args + passthrough
 
     const_filename = cfg["roles"][role]["constitution"]
     model_suffix = f" --model {actual_model}" if actual_model else ""
     click.echo(f"Spawning {role} with {const_filename}{model_suffix}")
     click.echo(f"Executing: {' '.join(full_command)}")
-    subprocess.run(full_command, env=env, check=False, cwd=str(workspace_root))
+
+    if wake_output and "claude" in command_tokens[0]:
+        proc = subprocess.Popen(
+            full_command, env=env, cwd=str(workspace_root), stdin=subprocess.PIPE, text=True
+        )
+        proc.stdin.write(wake_output + "\n")
+        proc.stdin.close()
+        proc.wait()
+    else:
+        subprocess.run(full_command, env=env, check=False, cwd=str(workspace_root))
 
 
 def _write_identity_file(base_identity: str, identity: str, content: str) -> None:

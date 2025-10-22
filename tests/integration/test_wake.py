@@ -13,6 +13,7 @@ def test_wake_new_identity_spawn_count_zero(test_space):
     with (
         patch("space.events.identify"),
         patch("space.events.get_sleep_count", return_value=0),
+        patch("space.events.get_wake_count", return_value=1),
         patch("space.events.get_last_sleep_time", return_value=time.time()),  # Mock with float
         patch("space.bridge.api.channels.inbox_channels", return_value=[]),
         patch("space.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
@@ -27,6 +28,7 @@ def test_wake_existing_identity_spawn_count(test_space):
     with (
         patch("space.events.identify"),
         patch("space.events.get_sleep_count", return_value=5),
+        patch("space.events.get_wake_count", return_value=7),
         patch(
             "space.events.get_last_sleep_time", return_value=time.time() - 3600 * 24 * 2
         ),  # Mock with float (2 days ago)
@@ -56,6 +58,7 @@ def test_command_unread_messages(test_space):
     with (
         patch("space.events.identify"),
         patch("space.events.get_sleep_count", return_value=1),
+        patch("space.events.get_wake_count", return_value=3),
         patch(
             "space.events.get_last_sleep_time", return_value=time.time() - 3600 * 24
         ),  # Mock with float (1 day ago)
@@ -88,6 +91,7 @@ def test_wake_prioritizes_space_feedback(test_space):
     with (
         patch("space.events.identify"),
         patch("space.events.get_sleep_count", return_value=1),
+        patch("space.events.get_wake_count", return_value=2),
         patch(
             "space.events.get_last_sleep_time", return_value=time.time() - 3600 * 24
         ),  # Mock with float (1 day ago)
@@ -114,7 +118,6 @@ def test_show_wake_summary_uses_prompt_constants(test_space):
 
     # Mock dependencies for show_wake_summary
     with (
-        patch("space.events.get_sleep_count", return_value=1),
         patch("space.events.get_last_sleep_time", return_value=time.time() - 3600),
         patch("space.memory.db.get_memories", return_value=[]),
         patch("space.memory.db.get_core_entries", return_value=[]),
@@ -129,7 +132,7 @@ def test_show_wake_summary_uses_prompt_constants(test_space):
 
         f = io.StringIO()
         with redirect_stdout(f):
-            show_wake_summary(identity=identity, quiet_output=False, spawn_count=1)
+            show_wake_summary(identity=identity, quiet_output=False, spawn_count=1, wake_count=3)
         output = f.getvalue()
 
         # Assert that the output contains the expected constants from wake.py

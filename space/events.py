@@ -144,6 +144,16 @@ def get_sleep_count(agent_id: str) -> int:
         return result[0] if result else 0
 
 
+def get_wake_count(agent_id: str) -> int:
+    """Count wake events for an agent."""
+    with _connect() as conn:
+        result = conn.execute(
+            "SELECT COUNT(*) FROM events WHERE agent_id = ? AND event_type = 'wake'",
+            (agent_id,),
+        ).fetchone()
+        return result[0] if result else 0
+
+
 def get_last_sleep_time(agent_id: str) -> int | None:
     """Get timestamp of last sleep event for an agent."""
     with _connect() as conn:
@@ -152,3 +162,17 @@ def get_last_sleep_time(agent_id: str) -> int | None:
             (agent_id,),
         ).fetchone()
         return result[0] if result else None
+
+
+def get_wakes_since_last_sleep(agent_id: str) -> int:
+    """Count wake events since last sleep (in current spawn)."""
+    with _connect() as conn:
+        result = conn.execute(
+            """SELECT COUNT(*) FROM events 
+               WHERE agent_id = ? AND event_type = 'wake'
+               AND timestamp > COALESCE(
+                   (SELECT MAX(timestamp) FROM events 
+                    WHERE agent_id = ? AND event_type = 'sleep'), 0)""",
+            (agent_id, agent_id),
+        ).fetchone()
+        return result[0] if result else 0

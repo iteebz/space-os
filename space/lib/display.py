@@ -110,7 +110,7 @@ def show_context(identity: str):
     typer.echo("\n" + "─" * 60)
 
 
-def show_wake_summary(identity: str, quiet_output: bool, spawn_count: int):
+def show_wake_summary(identity: str, quiet_output: bool, spawn_count: int, wakes_this_spawn: int = 0):
     from space.bridge import db as bridge_db
     from space.commands import wake as wake_prompts
     from space.memory import db as memory_db
@@ -135,10 +135,12 @@ def show_wake_summary(identity: str, quiet_output: bool, spawn_count: int):
         if last_sleep_timestamp:
             last_sleep_duration = format_duration(time.time() - last_sleep_timestamp)
             typer.echo(
-                wake_prompts.SPAWN_STATUS.format(count=spawn_count, duration=last_sleep_duration)
+                wake_prompts.SPAWN_STATUS.format(
+                    spawn=spawn_count, wakes=wakes_this_spawn, duration=last_sleep_duration
+                )
             )
         else:
-            typer.echo(f"🔄 Spawn #{spawn_count}")
+            typer.echo(f"🔄 Spawn #{spawn_count} • Woke {wakes_this_spawn} times this spawn")
 
         summaries = memory_db.get_memories(identity, topic="summary")
         if summaries:

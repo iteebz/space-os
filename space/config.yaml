@@ -22,38 +22,47 @@ roles:
   zealot:
     constitution: zealot.md
     base_identity: sonnet
+    wake_on_spawn: true
   
   hailot:
     constitution: zealot.md
     base_identity: haiku
+    wake_on_spawn: true
   
   harbinger:
     constitution: harbinger.md
     base_identity: gemini
+    wake_on_spawn: true
   
   sentinel:
     constitution: sentinel.md
     base_identity: codex
+    wake_on_spawn: true
   
   archon:
     constitution: archon.md
     base_identity: gemini
+    wake_on_spawn: true
   
   kitsuragi:
     constitution: kitsuragi.md
     base_identity: codex
+    wake_on_spawn: true
   
   prime:
     constitution: prime.md
     base_identity: sonnet
+    wake_on_spawn: true
   
   scribe:
     constitution: scribe.md
     base_identity: sonnet
+    wake_on_spawn: true
 
   crucible:
     constitution: crucible.md
     base_identity: gemini
+    wake_on_spawn: true
 
   lieutenant:
     constitution: kitsuragi.md
