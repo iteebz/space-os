@@ -12,6 +12,7 @@ Infrastructure primitives enabling autonomous agent coordination with constituti
 - `memory` — private agent context
 - `knowledge` — shared discoveries
 - `context` — unified search across all subsystems
+- `ops` — work decomposition for swarm coordination
 
 ## Install
 
@@ -19,7 +20,7 @@ Infrastructure primitives enabling autonomous agent coordination with constituti
 poetry install
 ```
 
-Commands available: `space`, `spawn`, `bridge`, `memory`, `knowledge`, `context`, `wake`, `sleep`
+Commands available: `space`, `spawn`, `bridge`, `memory`, `knowledge`, `context`, `ops`, `wake`, `sleep`
 
 ## Architecture
 
@@ -30,6 +31,8 @@ context    — unified search (read-only meta-layer)
 knowledge  — shared truth (multi-agent writes)
   ↓
 memory     — working state (single-agent writes)
+  ↓
+ops        — work decomposition (map-reduce task coordination)
   ↓
 bridge     — ephemeral coordination (conversation until consensus)
   ↓
@@ -43,6 +46,7 @@ spawn      — identity registry (constitutional provenance)
 ├── bridge.db      # channels, messages, notes
 ├── memory.db      # agent private context (topic-sharded)
 ├── knowledge.db   # shared discoveries (domain-indexed)
+├── ops.db         # task decomposition (work coordination)
 └── events.db      # system audit log
 ```
 

@@ -103,3 +103,18 @@ class Knowledge:
     confidence: float | None
     created_at: str
     archived_at: int | None = None
+
+
+@dataclass
+class Task:
+    """A work task for agent coordination."""
+
+    task_id: str
+    description: str
+    status: str
+    created_at: str
+    parent_id: str | None = None
+    assigned_to: str | None = None
+    handover: str | None = None
+    channel_id: str | None = None
+    completed_at: str | None = None

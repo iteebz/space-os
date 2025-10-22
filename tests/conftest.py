@@ -6,6 +6,7 @@ import pytest
 from space import config, db
 from space.knowledge import db as knowledge_db
 from space.memory import db as memory_db
+from space.ops import db as ops_db
 from space.spawn import registry
 
 
@@ -55,6 +56,8 @@ def test_space(monkeypatch, tmp_path):
 
     db.ensure_schema(workspace / ".space" / "bridge.db", bridge_db._SCHEMA)
 
+    db.ensure_schema(workspace / ".space" / "ops.db", ops_db._SCHEMA)
+
     yield workspace
 
 
@@ -80,6 +83,7 @@ def in_memory_db():
     conn.executescript(memory_db._MEMORY_SCHEMA)
     conn.executescript(knowledge_db._KNOWLEDGE_SCHEMA)
     conn.executescript(bridge_db._SCHEMA)
+    conn.executescript(ops_db._SCHEMA)
 
     yield conn
 
