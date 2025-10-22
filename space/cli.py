@@ -3,7 +3,7 @@
 
 import argparse
 
-from sessions import (
+from space.lib.sessions import (
     get_entry,
     get_surrounding_context,
     list_entries,

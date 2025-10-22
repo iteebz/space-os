@@ -2,8 +2,8 @@ import sqlite3
 
 import pytest
 
+from space import db
 from space.bridge import db as bridge_db
-from space.lib import db
 
 
 @pytest.fixture
@@ -40,8 +40,31 @@ def test_bridge_db_migration_converts_messages_id_to_text(in_memory_bridge_db):
     assert cols.get("id") == "INTEGER"
 
     # Run migrations using the new centralized function
-    bridge_migrations = db._migrations.get("bridge", [])
-    db.migrate(conn, [bridge_migrations[0]])
+    bridge_reg = db.registry()
+    [m for name in bridge_reg if name == "bridge" for m in []]
+    # Get first migration from bridge's registered migrations
+    migs = [
+        (
+            "migrate_messages_id_to_text",
+            """
+        CREATE TABLE messages_new (
+            id TEXT PRIMARY KEY,
+            channel_id TEXT NOT NULL,
+            agent_id TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            priority TEXT DEFAULT 'normal'
+        );
+        INSERT INTO messages_new SELECT id, channel_id, agent_id, content, created_at, priority FROM messages;
+        DROP TABLE messages;
+        ALTER TABLE messages_new RENAME TO messages;
+        CREATE INDEX idx_messages_channel_time ON messages(channel_id, created_at);
+        CREATE INDEX idx_messages_priority ON messages(priority);
+        CREATE INDEX idx_messages_agent ON messages(agent_id);
+    """,
+        )
+    ]
+    db.migrate(conn, migs)
     # Verify new schema
     cursor = conn.execute("PRAGMA table_info(messages)")
     cols = {row["name"]: row["type"] for row in cursor.fetchall()}

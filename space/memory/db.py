@@ -6,8 +6,11 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from space import db
+from space.db import from_row
+
 from .. import events
-from ..lib import db, paths
+from ..lib import paths
 from ..lib.uuid7 import uuid7
 from ..models import Memory
 from ..spawn import registry
@@ -121,7 +124,7 @@ def _backfill_memory_links(conn: sqlite3.Connection):
 
 db.register("memory", MEMORY_DB_NAME, _MEMORY_SCHEMA)
 
-db.migrations(
+db.add_migrations(
     "memory",
     [
         ("migrate_memory_table_to_memories", _migrate_memory_table_to_memories),
@@ -165,23 +168,10 @@ def add_entry(agent_id: str, topic: str, message: str, core: bool = False, sourc
     return memory_id
 
 
-def _row_to_memory(row: dict) -> Memory:
-    return Memory(
-        memory_id=row["memory_id"],
-        agent_id=row["agent_id"],
-        topic=row["topic"],
-        message=row["message"],
-        timestamp=row["timestamp"],
-        created_at=row["created_at"],
-        archived_at=row["archived_at"],
-        core=bool(row["core"]),
-        source=row["source"],
-        bridge_channel=row["bridge_channel"],
-        code_anchors=row["code_anchors"],
-        synthesis_note=row["synthesis_note"],
-        supersedes=row["supersedes"],
-        superseded_by=row["superseded_by"],
-    )
+def _row_to_memory(row: sqlite3.Row) -> Memory:
+    data = dict(row)
+    data["core"] = bool(data["core"])
+    return from_row(data, Memory)
 
 
 def get_memories(

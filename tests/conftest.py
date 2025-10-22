@@ -3,9 +3,8 @@ import sqlite3
 
 import pytest
 
-from space import config
+from space import config, db
 from space.knowledge import db as knowledge_db
-from space.lib import db
 from space.memory import db as memory_db
 from space.spawn import registry
 
@@ -22,7 +21,7 @@ def test_space(monkeypatch, tmp_path):
     (workspace / "AGENTS.md").write_text("test workspace")
     (workspace / ".space").mkdir()
 
-    from space.lib import db, paths
+    from space.lib import paths
 
     monkeypatch.setattr(paths, "space_root", lambda base_path=None: workspace)
     monkeypatch.setattr(paths, "dot_space", lambda base_path=None: workspace / ".space")
@@ -37,32 +36,24 @@ def test_space(monkeypatch, tmp_path):
     ]:
         path.mkdir(parents=True, exist_ok=True)
 
-        from space import config as cfg
-        from space.spawn import registry
+    from space import config as cfg
+    from space.bridge import db as bridge_db
+    from space.spawn import registry
 
-        registry_db_path = workspace / ".space" / cfg.registry_db().name
+    registry_db_path = workspace / ".space" / cfg.registry_db().name
     db.ensure_schema(registry_db_path, registry._SPAWN_SCHEMA, registry.spawn_migrations)
 
-    # Initialize memory DB
     db.ensure_schema(
         workspace / ".space" / memory_db.MEMORY_DB_NAME,
         memory_db._MEMORY_SCHEMA,
-        db._migrations.get("memory"),
     )
 
-    # Initialize knowledge DB
     db.ensure_schema(
         workspace / ".space" / knowledge_db.KNOWLEDGE_DB_NAME,
         knowledge_db._KNOWLEDGE_SCHEMA,
-        db._migrations.get("knowledge"),
     )
 
-    # Initialize bridge DB
-    from space.bridge import db as bridge_db
-
-    db.ensure_schema(
-        workspace / ".space" / "bridge.db", bridge_db._SCHEMA, db._migrations.get("bridge")
-    )
+    db.ensure_schema(workspace / ".space" / "bridge.db", bridge_db._SCHEMA)
 
     yield workspace
 
@@ -84,15 +75,11 @@ def in_memory_db():
 
     from space.bridge import db as bridge_db
 
-    # Initialize schema for both tables on this connection
     conn.executescript(registry._SPAWN_SCHEMA)
     db.migrate(conn, registry.spawn_migrations)
     conn.executescript(memory_db._MEMORY_SCHEMA)
-    db.migrate(conn, db._migrations.get("memory") or [])
     conn.executescript(knowledge_db._KNOWLEDGE_SCHEMA)
-    db.migrate(conn, db._migrations.get("knowledge") or [])
     conn.executescript(bridge_db._SCHEMA)
-    db.migrate(conn, db._migrations.get("bridge") or [])
 
     yield conn
 

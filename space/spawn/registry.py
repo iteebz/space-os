@@ -4,8 +4,8 @@ from contextlib import contextmanager
 from datetime import datetime
 from functools import lru_cache
 
-from .. import config, events
-from ..lib import db, paths
+from .. import config, db, events
+from ..lib import paths
 from ..lib.uuid7 import uuid7
 
 _SPAWN_SCHEMA = """

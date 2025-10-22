@@ -1,18 +1,17 @@
+"""SQLite storage backend implementation."""
+
 import sqlite3
 from collections.abc import Callable
-from dataclasses import fields
 from pathlib import Path
-from typing import TypeVar
 
-from . import paths
-
-T = TypeVar("T")
+from space.lib import paths
 
 _registry: dict[str, tuple[str, str]] = {}
 _migrations: dict[str, list[tuple[str, str | Callable]]] = {}
 
 
-def connect(db_path: Path):
+def connect(db_path: Path) -> sqlite3.Connection:
+    """Open connection to SQLite database."""
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.isolation_level = None
@@ -20,25 +19,34 @@ def connect(db_path: Path):
 
 
 def ensure_schema(
-    db_path: Path, schema: str, migrations: list[tuple[str, str | Callable]] | None = None
-):
+    db_path: Path,
+    schema: str,
+    migs: list[tuple[str, str | Callable]] | None = None,
+) -> None:
+    """Ensure schema exists and apply migrations."""
     with connect(db_path) as conn:
         conn.execute("PRAGMA journal_mode=WAL")
         conn.executescript(schema)
-        if migrations:
-            migrate(conn, migrations)
+        if migs:
+            migrate(conn, migs)
         conn.commit()
 
 
-def register(name: str, db_file: str, schema: str):
+def register(name: str, db_file: str, schema: str) -> None:
+    """Register database in global registry."""
     _registry[name] = (db_file, schema)
 
 
-def migrations(name: str, migs: list[tuple[str, str | Callable]]):
+def add_migrations(name: str, migs: list[tuple[str, str | Callable]]) -> None:
+    """Register migrations for database."""
     _migrations[name] = migs
 
 
-def ensure(name: str):
+def ensure(name: str) -> sqlite3.Connection:
+    """Ensure registered database exists and return connection.
+
+    Raises ValueError if database not registered.
+    """
     if name not in _registry:
         raise ValueError(f"Database '{name}' not registered. Call db.register() first.")
     db_file, schema = _registry[name]
@@ -53,11 +61,12 @@ def ensure(name: str):
     return connect(db_path)
 
 
-def migrate(conn: sqlite3.Connection, migrations: list[tuple[str, str | Callable]]):
+def migrate(conn: sqlite3.Connection, migs: list[tuple[str, str | Callable]]) -> None:
+    """Apply migrations to connection."""
     conn.execute("CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY)")
     conn.commit()
 
-    for name, migration in migrations:
+    for name, migration in migs:
         applied = conn.execute("SELECT 1 FROM _migrations WHERE name = ?", (name,)).fetchone()
         if applied:
             continue
@@ -76,12 +85,12 @@ def migrate(conn: sqlite3.Connection, migrations: list[tuple[str, str | Callable
             raise
 
 
-def from_row(row: sqlite3.Row, dataclass_type: type[T]) -> T:
-    """
-    Converts a sqlite3.Row object to an instance of the given dataclass type.
-    Matches row keys to dataclass field names.
-    """
-    field_names = {f.name for f in fields(dataclass_type)}
-    row_dict = dict(row)
-    kwargs = {key: row_dict[key] for key in field_names if key in row_dict}
-    return dataclass_type(**kwargs)
+def registry() -> dict[str, tuple[str, str]]:
+    """Return registry of all registered databases."""
+    return _registry.copy()
+
+
+def _reset_for_testing() -> None:
+    """Reset registry and migrations state (test-only)."""
+    _registry.clear()
+    _migrations.clear()

@@ -5,9 +5,11 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from space import db
+from space.db import from_row
+
 from .. import events
-from ..lib import db, paths
-from ..lib.db import from_row
+from ..lib import paths
 from ..lib.uuid7 import uuid7
 
 KNOWLEDGE_DB_NAME = "knowledge.db"
@@ -57,7 +59,7 @@ def _migrate_id_to_knowledge_id(conn: sqlite3.Connection):
 
 db.register("knowledge", KNOWLEDGE_DB_NAME, _KNOWLEDGE_SCHEMA)
 
-db.migrations(
+db.add_migrations(
     "knowledge",
     [
         ("migrate_id_to_knowledge_id", _migrate_id_to_knowledge_id),

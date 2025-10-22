@@ -1,9 +1,10 @@
 import sqlite3
 import time
 from collections import namedtuple
-from contextlib import contextmanager
 
-from .lib import db, paths
+from space import db
+
+from .lib import paths
 from .lib.identity import constitute_identity
 from .lib.uuid7 import uuid7
 from .spawn import registry
@@ -40,6 +41,10 @@ def _add_column_if_not_exists(
         conn.commit()
 
 
+def connect():
+    return db.ensure("events")
+
+
 def _migrate_add_agent_id(conn: sqlite3.Connection):
     _add_column_if_not_exists(conn, "events", "agent_id", "TEXT")
 
@@ -50,24 +55,13 @@ def _migrate_add_session_id(conn: sqlite3.Connection):
 
 db.register("events", "events.db", SCHEMA)
 
-db.migrations(
+db.add_migrations(
     "events",
     [
         ("add_agent_id_to_events", _migrate_add_agent_id),
         ("add_session_id_to_events", _migrate_add_session_id),
     ],
 )
-
-
-@contextmanager
-def _connect():
-    if not DB_PATH.exists():
-        db.ensure_schema(DB_PATH, SCHEMA, db._migrations.get("events"))
-    conn = db.connect(DB_PATH)
-    try:
-        yield conn
-    finally:
-        conn.close()
 
 
 def emit(
@@ -80,12 +74,11 @@ def emit(
     event_id = uuid7()
     event_timestamp = int(time.time())
 
-    with _connect() as conn:
+    with connect() as conn:
         conn.execute(
             "INSERT INTO events (id, source, event_type, data, timestamp, agent_id) VALUES (?, ?, ?, ?, ?, ?)",
             (event_id, source, event_type, data, event_timestamp, agent_id),
         )
-        conn.commit()
 
 
 def query(source: str | None = None, agent_id: str | None = None, limit: int = 100):
@@ -93,7 +86,7 @@ def query(source: str | None = None, agent_id: str | None = None, limit: int = 1
     if not DB_PATH.exists():
         return []
 
-    with _connect() as conn:
+    with connect() as conn:
         query_parts = []
         params = []
 
@@ -126,7 +119,7 @@ def identify(identity: str, command: str):
 
 def get_session_count(agent_id: str) -> int:
     """Count completed sessions (session_start events)."""
-    with _connect() as conn:
+    with connect() as conn:
         result = conn.execute(
             "SELECT COUNT(*) FROM events WHERE agent_id = ? AND event_type = 'session_start'",
             (agent_id,),
@@ -136,7 +129,7 @@ def get_session_count(agent_id: str) -> int:
 
 def get_sleep_count(agent_id: str) -> int:
     """Count sleep events for an agent."""
-    with _connect() as conn:
+    with connect() as conn:
         result = conn.execute(
             "SELECT COUNT(*) FROM events WHERE agent_id = ? AND event_type = 'sleep'",
             (agent_id,),
@@ -146,7 +139,7 @@ def get_sleep_count(agent_id: str) -> int:
 
 def get_wake_count(agent_id: str) -> int:
     """Count wake events for an agent."""
-    with _connect() as conn:
+    with connect() as conn:
         result = conn.execute(
             "SELECT COUNT(*) FROM events WHERE agent_id = ? AND event_type = 'wake'",
             (agent_id,),
@@ -156,7 +149,7 @@ def get_wake_count(agent_id: str) -> int:
 
 def get_last_sleep_time(agent_id: str) -> int | None:
     """Get timestamp of last sleep event for an agent."""
-    with _connect() as conn:
+    with connect() as conn:
         result = conn.execute(
             "SELECT timestamp FROM events WHERE agent_id = ? AND event_type = 'sleep' ORDER BY timestamp DESC LIMIT 1",
             (agent_id,),
@@ -166,7 +159,7 @@ def get_last_sleep_time(agent_id: str) -> int | None:
 
 def get_wakes_since_last_sleep(agent_id: str) -> int:
     """Count wake events since last sleep (in current spawn)."""
-    with _connect() as conn:
+    with connect() as conn:
         result = conn.execute(
             """SELECT COUNT(*) FROM events
                WHERE agent_id = ? AND event_type = 'wake'

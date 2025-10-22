@@ -2,57 +2,47 @@ import hashlib
 import sqlite3
 from typing import Any
 
-from space.lib import agents, paths
+from space import db
+from space.lib import agents
 from space.lib.models import Message
+
+_SESSIONS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cli TEXT NOT NULL,
+    model TEXT,
+    session_id TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    identity TEXT,
+    role TEXT NOT NULL,
+    text TEXT NOT NULL,
+    raw_hash TEXT UNIQUE,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(cli, session_id, timestamp)
+);
+
+CREATE INDEX IF NOT EXISTS idx_identity ON entries(identity);
+CREATE INDEX IF NOT EXISTS idx_cli_session ON entries(cli, session_id);
+CREATE INDEX IF NOT EXISTS idx_timestamp ON entries(timestamp);
+"""
+
+db.register("sessions", "sessions.db", _SESSIONS_SCHEMA)
+db.add_migrations("sessions", [])
 
 
 def init_db():
-    db_path = paths.sessions_db()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS entries (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cli TEXT NOT NULL,
-            model TEXT,
-            session_id TEXT NOT NULL,
-            timestamp TEXT NOT NULL,
-            identity TEXT,
-            role TEXT NOT NULL,
-            text TEXT NOT NULL,
-            raw_hash TEXT UNIQUE,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(cli, session_id, timestamp)
-        )
-    """)
-
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_identity ON entries(identity)
-    """)
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_cli_session ON entries(cli, session_id)
-    """)
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_timestamp ON entries(timestamp)
-    """)
-
-    conn.commit()
-    conn.close()
+    db.ensure("sessions").close()
 
 
 def _insert_msgs(cli: str, msgs: list[Message]) -> int:
-    db_path = paths.sessions_db()
     synced = 0
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
+    conn = db.ensure("sessions")
     for msg in msgs:
         raw_hash = hashlib.sha256(
             f"{cli}{msg.session_id}{msg.timestamp}{msg.text}".encode()
         ).hexdigest()
         try:
-            cursor.execute(
+            conn.execute(
                 """
                 INSERT OR IGNORE INTO entries
                 (cli, model, session_id, timestamp, identity, role, text, raw_hash)
@@ -72,7 +62,6 @@ def _insert_msgs(cli: str, msgs: list[Message]) -> int:
             synced += 1
         except sqlite3.IntegrityError:
             pass
-    conn.commit()
     conn.close()
     return synced
 
@@ -87,11 +76,8 @@ def sync(identity: str | None = None) -> dict[str, int]:
     }
 
     if identity:
-        db_path = paths.sessions_db()
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute("UPDATE entries SET identity = ? WHERE identity IS NULL", (identity,))
-        conn.commit()
+        conn = db.ensure("sessions")
+        conn.execute("UPDATE entries SET identity = ? WHERE identity IS NULL", (identity,))
         conn.close()
 
     return results
@@ -99,8 +85,7 @@ def sync(identity: str | None = None) -> dict[str, int]:
 
 def search(query: str, identity: str | None = None, limit: int = 10) -> list[dict[str, Any]]:
     init_db()
-    db_path = paths.sessions_db()
-    conn = sqlite3.connect(db_path)
+    conn = db.ensure("sessions")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -127,8 +112,7 @@ def search(query: str, identity: str | None = None, limit: int = 10) -> list[dic
 
 def list_entries(identity: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
     init_db()
-    db_path = paths.sessions_db()
-    conn = sqlite3.connect(db_path)
+    conn = db.ensure("sessions")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -161,8 +145,7 @@ def list_entries(identity: str | None = None, limit: int = 20) -> list[dict[str,
 
 def get_entry(entry_id: int) -> dict[str, Any] | None:
     init_db()
-    db_path = paths.sessions_db()
-    conn = sqlite3.connect(db_path)
+    conn = db.ensure("sessions")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -179,8 +162,7 @@ def get_surrounding_context(entry_id: int, context_size: int = 5) -> list[dict[s
         return []
 
     init_db()
-    db_path = paths.sessions_db()
-    conn = sqlite3.connect(db_path)
+    conn = db.ensure("sessions")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -205,8 +187,7 @@ def sample(
     count: int = 5, identity: str | None = None, cli: str | None = None
 ) -> list[dict[str, Any]]:
     init_db()
-    db_path = paths.sessions_db()
-    conn = sqlite3.connect(db_path)
+    conn = db.ensure("sessions")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 

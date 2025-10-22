@@ -1,10 +1,10 @@
 import sqlite3
 import uuid
 
+from space import db
+from space.db import from_row
 from space.models import Channel, Export, Message, Note
 
-from ..lib import db
-from ..lib.db import from_row
 from ..lib.uuid7 import uuid7
 
 _SCHEMA = """
@@ -51,7 +51,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id);
 
 db.register("bridge", "bridge.db", _SCHEMA)
 
-db.migrations(
+db.add_migrations(
     "bridge",
     [
         (

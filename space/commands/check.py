@@ -3,7 +3,9 @@ from datetime import datetime
 
 import typer
 
-from ..lib import db, paths
+from space import db
+
+from ..lib import paths
 from ..spawn import registry
 
 

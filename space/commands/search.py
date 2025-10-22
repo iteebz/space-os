@@ -2,8 +2,9 @@ import json
 
 import typer
 
+from space import db
+
 from ..knowledge import db as knowledge_db
-from ..lib import db as libdb
 from ..lib import paths
 from ..memory import db as memory_db
 
@@ -48,7 +49,7 @@ def search(
 
     bridge_db_path = paths.dot_space() / "bridge.db"
     if bridge_db_path.exists():
-        with libdb.connect(bridge_db_path) as conn:
+        with db.connect(bridge_db_path) as conn:
             rows = conn.execute(
                 "SELECT c.name, m.agent_id, m.content FROM messages m JOIN channels c ON m.channel_id = c.id WHERE m.content LIKE ? AND c.archived_at IS NULL",
                 (f"%{keyword}%",),

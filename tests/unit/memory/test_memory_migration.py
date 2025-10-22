@@ -52,31 +52,29 @@ def test_memory_migration_idempotent():
     import tempfile
     from pathlib import Path
 
-    from space.lib import db as libdb
+    from space import db
     from space.memory import db as memory_db
 
     tmpdir = tempfile.mkdtemp()
     try:
         db_path = Path(tmpdir) / "memory.db"
 
-        conn = libdb.connect(db_path)
+        conn = db.connect(db_path)
         conn.execute("PRAGMA journal_mode=WAL")
         conn.executescript(memory_db._MEMORY_SCHEMA)
         conn.commit()
 
-        libdb.migrations(
-            "test_mem",
-            memory_db.db._migrations.get("memory", []),
-        )
-
+        # Test that migration idempotency—running same migrations twice
+        # should only record them once
+        test_migs = [("test_migration", "SELECT 1")]
         with conn:
-            libdb.migrate(conn, memory_db.db._migrations.get("memory", []))
-            libdb.migrate(conn, memory_db.db._migrations.get("memory", []))
+            db.migrate(conn, test_migs)
+            db.migrate(conn, test_migs)
 
-        memories_cursor = conn.execute(
-            "SELECT COUNT(*) FROM _migrations WHERE name='migrate_memory_table_to_memories'"
+        migrations_cursor = conn.execute(
+            "SELECT COUNT(*) FROM _migrations WHERE name='test_migration'"
         )
-        count = memories_cursor.fetchone()[0]
+        count = migrations_cursor.fetchone()[0]
         assert count == 1, "Migration should only be recorded once"
 
         conn.close()

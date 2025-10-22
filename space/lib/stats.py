@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import db, paths
+from space import db
+
+from . import paths
 from .format import humanize_timestamp
 
 

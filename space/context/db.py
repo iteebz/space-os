@@ -1,8 +1,9 @@
 from datetime import datetime
 
+from space import db
+
 from ..events import DB_PATH
 from ..knowledge import db as knowledge_db
-from ..lib import db as libdb
 from ..lib import paths
 from ..memory import db as memory_db
 from ..spawn import registry
@@ -33,7 +34,7 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
     }
 
     if DB_PATH.exists():
-        with libdb.connect(DB_PATH) as conn:
+        with db.connect(DB_PATH) as conn:
             query = "SELECT id, source, agent_id, event_type, data, timestamp FROM events WHERE data LIKE ?"
             params = [f"%{topic}%"]
             query, params = _query_with_identity(query, params, identity, all_agents)
@@ -109,7 +110,7 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
                 )
     bridge_db_path = paths.dot_space() / "bridge.db"
     if bridge_db_path.exists():
-        with libdb.connect(bridge_db_path) as conn:
+        with db.connect(bridge_db_path) as conn:
             query = "SELECT c.name, m.agent_id, m.content, m.created_at FROM messages m JOIN channels c ON m.channel_id = c.id WHERE (m.content LIKE ? OR c.name LIKE ?)"
             params = [f"%{topic}%", f"%{topic}%"]
             query, params = _query_with_identity(query, params, identity, all_agents)
@@ -175,7 +176,7 @@ def collect_current_state(topic: str, identity: str | None, all_agents: bool):
 
     bridge_db_path = paths.dot_space() / "bridge.db"
     if bridge_db_path.exists():
-        with libdb.connect(bridge_db_path) as conn:
+        with db.connect(bridge_db_path) as conn:
             query = "SELECT c.name, m.agent_id, m.content FROM messages m JOIN channels c ON m.channel_id = c.id WHERE m.content LIKE ?"
             params = [
                 f"%{topic}%",

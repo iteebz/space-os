@@ -1,24 +1,20 @@
 import sqlite3
-from contextlib import contextmanager
 from unittest.mock import patch
 
 import pytest
 
 from space import events
-from space.lib import db
 
 
 @pytest.fixture
 def in_memory_db():
     """Fixture for an in-memory SQLite database."""
     conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.isolation_level = None
     conn.executescript(events.SCHEMA)
-    # Apply migrations
-    event_migrations = db._migrations.get("events", [])
-    for _, migrate_func in event_migrations:
-        migrate_func(conn)
     yield conn
-    # No conn.close() here, pytest will handle cleanup
+    conn.close()
 
 
 @pytest.fixture
@@ -30,16 +26,14 @@ def mock_db_path(tmp_path):
 
 
 @pytest.fixture
-def mock_connect(in_memory_db):
-    @contextmanager
-    def _mock_connect():
-        yield in_memory_db
-
-    with patch("space.events._connect", new=_mock_connect):
-        yield
+def mock_ensure(in_memory_db):
+    """Mock db.ensure to return in-memory database."""
+    with patch("space.db.ensure") as mock:
+        mock.return_value = in_memory_db
+        yield mock
 
 
-def test_emit_event(mock_db_path, mock_connect, in_memory_db):
+def test_emit_event(mock_db_path, mock_ensure, in_memory_db):
     events.emit(
         "test_source",
         "test_type",
@@ -55,3 +49,20 @@ def test_emit_event(mock_db_path, mock_connect, in_memory_db):
     assert result[1] == "test_type"
     assert result[2] == "test_agent"
     assert result[3] == "test_data"
+
+
+def test_query_events(mock_db_path, mock_ensure, in_memory_db):
+    in_memory_db.execute(
+        "INSERT INTO events (id, source, event_type, data, timestamp, agent_id) VALUES (?, ?, ?, ?, ?, ?)",
+        ("1", "test_src", "test_type", "data1", 1000, "agent1"),
+    )
+    in_memory_db.execute(
+        "INSERT INTO events (id, source, event_type, data, timestamp, agent_id) VALUES (?, ?, ?, ?, ?, ?)",
+        ("2", "other_src", "other_type", "data2", 2000, "agent2"),
+    )
+
+    with patch("space.events.DB_PATH", mock_db_path):
+        mock_db_path.touch()
+        results = events.query(source="test_src")
+        assert len(results) == 1
+        assert results[0].source == "test_src"
