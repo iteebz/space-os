@@ -110,7 +110,9 @@ def show_context(identity: str):
     typer.echo("\n" + "─" * 60)
 
 
-def show_wake_summary(identity: str, quiet_output: bool, spawn_count: int, wakes_this_spawn: int = 0):
+def show_wake_summary(
+    identity: str, quiet_output: bool, spawn_count: int, wakes_this_spawn: int = 0
+):
     from space.bridge import db as bridge_db
     from space.commands import wake as wake_prompts
     from space.memory import db as memory_db

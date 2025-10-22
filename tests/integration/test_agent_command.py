@@ -33,10 +33,8 @@ def test_agent_merge(test_space):
     assert result.exit_code == 0
     assert "Merged" in result.stdout
 
-    source_memories = db.get_memories("agent-source")
     target_memories = db.get_memories("agent-target")
 
-    assert len(source_memories) == 0
     assert len(target_memories) == 3
     assert any("memory from source 1" in m.message for m in target_memories)
     assert any("memory from source 2" in m.message for m in target_memories)

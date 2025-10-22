@@ -55,22 +55,20 @@ def inject_identity(
     """
     parts = []
 
-    registry.get_self_description(identity)
-    if model:
-        parts.append(f"You are {identity} ({role}) powered by {model}")
-    else:
-        parts.append(f"You are {identity} ({role})")
-    
+    parts.append(f"# {role.upper()} CONSTITUTION")
     parts.append("")
-    parts.append(f"{role.upper()} CONSTITUTION:")
 
+    if model:
+        parts.append(f"Self: You are {identity}. Your model is {model}.")
+    else:
+        parts.append(f"Self: You are {identity}.")
+
+    parts.append("")
     parts.append(base_constitution_content)
 
-    footer_lines = [
-        "run `space` for orientation (already in PATH).",
-        f"run: `memory --as {identity}` to access memories.",
-    ]
-    parts.append("\n".join(footer_lines))
+    parts.append("")
+    parts.append("run `space` for orientation (already in PATH).")
+    parts.append(f"run: `memory --as {identity}` to access memories.")
 
     return "\n".join(parts)
 

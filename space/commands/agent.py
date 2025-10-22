@@ -11,12 +11,13 @@ from space.spawn import registry
 app = typer.Typer(invoke_without_command=True)
 
 
-def _resolve_agent_id(fuzzy_match: str) -> tuple[str, str] | None:
+def _resolve_agent_id(fuzzy_match: str, include_archived: bool = False) -> tuple[str, str] | None:
     """Resolve agent ID from partial UUID or identity name. Returns (agent_id, display_name)."""
     registry.init_db()
 
     with registry.get_db() as conn:
-        rows = conn.execute("SELECT id, name FROM agents WHERE archived_at IS NULL").fetchall()
+        where_clause = "" if include_archived else "WHERE archived_at IS NULL"
+        rows = conn.execute(f"SELECT id, name FROM agents {where_clause}").fetchall()
 
     candidates = []
     for row in rows:
@@ -41,53 +42,48 @@ def _resolve_agent_id(fuzzy_match: str) -> tuple[str, str] | None:
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
+    show_all: bool = typer.Option(False, "--all", help="Show archived agents"),
 ):
     if ctx.invoked_subcommand is None:
-        list_agents()
+        list_agents(show_all=show_all)
 
 
 @app.command("list")
-def list_agents():
-    """List all registered agents."""
+def list_agents(show_all: bool = typer.Option(False, "--all", help="Show archived agents")):
+    """List all agents (registered and orphaned across universe)."""
+
+    stats = stats_lib.agent_stats(include_archived=show_all) or []
+
+    if not stats:
+        typer.echo("No agents found.")
+        return
 
     registry.init_db()
-
     with registry.get_db() as conn:
-        rows = conn.execute(
-            "SELECT id, name, self_description FROM agents WHERE archived_at IS NULL ORDER BY name"
-        ).fetchall()
+        {
+            row["id"]: row["name"] for row in conn.execute("SELECT id, name FROM agents")
+        }
 
-        if not rows:
-            typer.echo("No agents registered.")
-            return
+    typer.echo(f"{'NAME':<20} {'ID':<10} {'E-S-B-M-K':<20} {'SELF'}")
+    typer.echo("-" * 100)
 
-        stats = stats_lib.agent_stats() or []
-        stats_by_id = {s.agent_id: s for s in stats}
+    for s in sorted(stats, key=lambda a: a.agent_name):
+        name = s.agent_name
+        agent_id = s.agent_id
+        short_id = agent_id[:8]
 
-        typer.echo(f"{'NAME':<20} {'ID':<10} {'S-B-M-K':<15} {'SELF'}")
-        typer.echo("-" * 90)
+        if len(name) == 36 and name.count("-") == 4:
+            resolved = registry.get_identity(name)
+            if resolved:
+                name = resolved
 
-        for row in rows:
-            name = row["name"] or "(unnamed)"
-            agent_id = row["id"]
-            short_id = agent_id[:8]
+        desc = "-"
+        esbmk = f"{s.events}-{s.spawns}-{s.msgs}-{s.mems}-{s.knowledge}"
 
-            if len(name) == 36 and name.count("-") == 4:
-                resolved = registry.get_identity(name)
-                if resolved:
-                    name = resolved
+        typer.echo(f"{name:<20} {short_id:<10} {esbmk:<20} {desc}")
 
-            desc = row["self_description"] or "-"
-            s = stats_by_id.get(agent_id)
-            if s:
-                sbmk = f"{s.spawns}-{s.msgs}-{s.mems}-{s.knowledge}"
-            else:
-                sbmk = "0-0-0-0"
-
-            typer.echo(f"{name:<20} {short_id:<10} {sbmk:<15} {desc}")
-
-        typer.echo()
-        typer.echo(f"Total: {len(rows)}")
+    typer.echo()
+    typer.echo(f"Total: {len(stats)}")
 
 
 @app.command("inspect")
@@ -137,53 +133,44 @@ def inspect_agent(agent_ref: str):
 @app.command("merge")
 def merge_agents(id_from: str, id_to: str):
     """Merge all data from one agent ID to another."""
-    registry.init_db()
+    from_result = _resolve_agent_id(id_from)
+    to_result = _resolve_agent_id(id_to)
 
-    with registry.get_db() as conn:
-        from_agent = conn.execute(
-            "SELECT id, name FROM agents WHERE archived_at IS NULL AND (id = ? OR name = ?)",
-            (id_from, id_from),
-        ).fetchone()
-        to_agent = conn.execute(
-            "SELECT id, name FROM agents WHERE archived_at IS NULL AND (id = ? OR name = ?)",
-            (id_to, id_to),
-        ).fetchone()
-
-    if not from_agent:
+    if not from_result:
         typer.echo(f"Error: Source agent '{id_from}' not found")
         raise typer.Exit(1)
 
-    if not to_agent:
+    if not to_result:
         typer.echo(f"Error: Target agent '{id_to}' not found")
         raise typer.Exit(1)
 
-    from_id = from_agent["id"]
-    to_id = to_agent["id"]
+    from_agent_id, from_display = from_result
+    to_agent_id, to_display = to_result
 
-    if from_id == to_id:
+    if from_agent_id == to_agent_id:
         typer.echo("Error: Cannot merge agent with itself")
         raise typer.Exit(1)
 
-    typer.echo(f"Merging {from_agent['name'] or from_id[:8]} → {to_agent['name'] or to_id[:8]}")
+    typer.echo(f"Merging {from_display} → {to_display}")
 
     updated_count = 0
 
     with registry.get_db() as conn:
         updated_count += conn.execute(
-            "UPDATE agents SET archived_at = ? WHERE id = ?", (int(time.time()), from_id)
+            "UPDATE agents SET archived_at = ? WHERE id = ?", (int(time.time()), from_agent_id)
         ).rowcount
+        conn.commit()
 
     memory_db_path = paths.dot_space() / "memory.db"
     if memory_db_path.exists():
-        memory_conn = sqlite3.connect(memory_db_path)
-        updated_count += memory_conn.execute(
-            "UPDATE memories SET agent_id = ? WHERE agent_id = ?", (to_id, from_id)
-        ).rowcount
-        memory_conn.commit()
-        memory_conn.close()
+        with sqlite3.connect(memory_db_path) as memory_conn:
+            updated_count += memory_conn.execute(
+                "UPDATE memories SET agent_id = ? WHERE agent_id = ?", (to_agent_id, from_agent_id)
+            ).rowcount
+            memory_conn.commit()
 
     typer.echo(f"✓ Merged {updated_count} records")
-    events_lib.emit("agents", "merge", to_id, f"merged {from_id}")
+    events_lib.emit("agents", "merge", to_agent_id, f"merged {from_agent_id}")
 
 
 @app.command("rename")
@@ -205,3 +192,53 @@ def rename_agent(agent_ref: str, new_name: str):
 
     typer.echo(f"✓ Renamed to {new_name}")
     events_lib.emit("agents", "rename", agent_id, f"renamed to {new_name}")
+
+
+@app.command("delete")
+def delete_agent(
+    agent_ref: str, force: bool = typer.Option(False, "--force", help="Skip confirmation")
+):
+    """Hard delete an agent and all related data. Use with caution - backups required."""
+    result = _resolve_agent_id(agent_ref)
+
+    if not result:
+        typer.echo(f"Error: Agent not found for '{agent_ref}'")
+        raise typer.Exit(1)
+
+    agent_id, display_name = result
+
+    if not force:
+        typer.echo(f"⚠️  About to permanently delete: {display_name}")
+        typer.echo("This will remove all data from:")
+        typer.echo("  - agents table")
+        typer.echo("  - memories table")
+        typer.echo("  - events table")
+        typer.echo("Ensure backups exist before proceeding.")
+        if not typer.confirm("Continue?"):
+            typer.echo("Cancelled.")
+            return
+
+    deleted_count = 0
+
+    with registry.get_db() as conn:
+        deleted_count += conn.execute("DELETE FROM agents WHERE id = ?", (agent_id,)).rowcount
+        conn.commit()
+
+    memory_db_path = paths.dot_space() / "memory.db"
+    if memory_db_path.exists():
+        with sqlite3.connect(memory_db_path) as memory_conn:
+            deleted_count += memory_conn.execute(
+                "DELETE FROM memories WHERE agent_id = ?", (agent_id,)
+            ).rowcount
+            memory_conn.commit()
+
+    events_db_path = paths.dot_space() / "events.db"
+    if events_db_path.exists():
+        with sqlite3.connect(events_db_path) as events_conn:
+            deleted_count += events_conn.execute(
+                "DELETE FROM events WHERE agent_id = ?", (agent_id,)
+            ).rowcount
+            events_conn.commit()
+
+    typer.echo(f"✓ Deleted {display_name} ({deleted_count} records)")
+    events_lib.emit("agents", "delete", agent_id, "permanently deleted")

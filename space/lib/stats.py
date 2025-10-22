@@ -16,6 +16,7 @@ class LeaderboardEntry:
 class AgentStats:
     agent_id: str
     agent_name: str
+    events: int
     spawns: int
     msgs: int
     mems: int
@@ -87,6 +88,36 @@ def _get_agent_names_map() -> dict[str, str]:
 
     with registry.get_db() as reg_conn:
         return {row[0]: row[1] for row in reg_conn.execute("SELECT id, name FROM agents")}
+
+
+def _discover_all_agent_ids(registered_ids: set[str], include_archived: bool = False) -> set[str]:
+    """Discover all unique agent_ids across all activity tables and registry."""
+    from ..spawn import registry
+
+    all_agent_ids = set(registered_ids)
+
+    if include_archived:
+        registry.init_db()
+        with registry.get_db() as reg_conn:
+            for row in reg_conn.execute("SELECT id FROM agents WHERE archived_at IS NOT NULL"):
+                all_agent_ids.add(row[0])
+
+    dbs = [
+        (paths.dot_space() / "bridge.db", "messages"),
+        (paths.dot_space() / "memory.db", "memories"),
+        (paths.dot_space() / "knowledge.db", "knowledge"),
+        (paths.dot_space() / "events.db", "events"),
+    ]
+
+    for db_path, table in dbs:
+        if db_path.exists():
+            with db.connect(db_path) as conn:
+                for row in conn.execute(
+                    f"SELECT DISTINCT agent_id FROM {table} WHERE agent_id IS NOT NULL"
+                ):
+                    all_agent_ids.add(row[0])
+
+    return all_agent_ids
 
 
 def _get_common_db_stats(
@@ -226,27 +257,28 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
     )
 
 
-def agent_stats(limit: int = None) -> list[AgentStats] | None:
+def agent_stats(limit: int = None, include_archived: bool = False) -> list[AgentStats] | None:
     from ..spawn import registry
 
     registry.init_db()
     with registry.get_db() as reg_conn:
-        agent_ids = {
-            row[0] for row in reg_conn.execute("SELECT id FROM agents WHERE archived_at IS NULL")
-        }
+        where_clause = "" if include_archived else "WHERE archived_at IS NULL"
+        agent_ids = {row[0] for row in reg_conn.execute(f"SELECT id FROM agents {where_clause}")}
+
+    agent_ids_from_all_tables = _discover_all_agent_ids(
+        agent_ids, include_archived=include_archived
+    )
+
+    if not agent_ids_from_all_tables:
+        return None
 
     agent_names_map = _get_agent_names_map()
-
-    bridge_db = paths.dot_space() / "bridge.db"
-    mem_db = paths.dot_space() / "memory.db"
-    know_db = paths.dot_space() / "knowledge.db"
-
-    if not agent_ids:
-        return None
+    dot_space = paths.dot_space()
 
     identities = {
         agent_id: {
             "agent_name": agent_names_map.get(agent_id, agent_id),
+            "events": 0,
             "msgs": 0,
             "last_active": None,
             "mems": 0,
@@ -254,61 +286,69 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
             "spawns": 0,
             "channels": [],
         }
-        for agent_id in agent_ids
+        for agent_id in agent_ids_from_all_tables
     }
 
-    with db.connect(bridge_db) as conn:
-        for agent_uuid, msgs_count in conn.execute(
-            "SELECT agent_id, COUNT(*) as msgs FROM messages GROUP BY agent_id"
-        ):
-            if agent_uuid in identities:
-                identities[agent_uuid]["msgs"] = msgs_count
+    queries = [
+        (
+            dot_space / "bridge.db",
+            [
+                ("SELECT agent_id, COUNT(*) FROM messages GROUP BY agent_id", "msgs"),
+                (
+                    "SELECT agent_id, GROUP_CONCAT(DISTINCT channel_id) FROM messages WHERE channel_id IS NOT NULL GROUP BY agent_id",
+                    "channels",
+                ),
+            ],
+        ),
+        (
+            dot_space / "memory.db",
+            [
+                ("SELECT agent_id, COUNT(*) FROM memories GROUP BY agent_id", "mems"),
+            ],
+        ),
+        (
+            dot_space / "knowledge.db",
+            [
+                ("SELECT agent_id, COUNT(*) FROM knowledge GROUP BY agent_id", "knowledge"),
+            ],
+        ),
+        (
+            dot_space / "events.db",
+            [
+                ("SELECT agent_id, COUNT(*) FROM events GROUP BY agent_id", "events"),
+                (
+                    "SELECT agent_id, COUNT(*) FROM events WHERE event_type = 'session_start' GROUP BY agent_id",
+                    "spawns",
+                ),
+                (
+                    "SELECT agent_id, MAX(timestamp) FROM events WHERE agent_id IS NOT NULL GROUP BY agent_id",
+                    "last_active",
+                ),
+            ],
+        ),
+    ]
 
-        for agent_uuid, channels_str in conn.execute(
-            "SELECT agent_id, GROUP_CONCAT(DISTINCT channel_id) FROM messages WHERE channel_id IS NOT NULL GROUP BY agent_id"
-        ):
-            channels = channels_str.split(",") if channels_str else []
-            if agent_uuid in identities:
-                identities[agent_uuid]["channels"] = channels
-
-    if mem_db.exists():
-        with db.connect(mem_db) as conn:
-            for agent_uuid, mems_count in conn.execute(
-                "SELECT agent_id, COUNT(*) FROM memories GROUP BY agent_id"
-            ):
-                if agent_uuid in identities:
-                    identities[agent_uuid]["mems"] = mems_count
-
-    if know_db.exists():
-        with db.connect(know_db) as conn:
-            for agent_uuid, knowledge_count in conn.execute(
-                "SELECT agent_id, COUNT(*) FROM knowledge GROUP BY agent_id"
-            ):
-                if agent_uuid in identities:
-                    identities[agent_uuid]["knowledge"] = knowledge_count
-
-    events_db = paths.dot_space() / "events.db"
-    if events_db.exists():
-        with db.connect(events_db) as conn:
-            for agent_uuid, spawns_count in conn.execute(
-                "SELECT agent_id, COUNT(*) FROM events WHERE event_type = 'session_start' GROUP BY agent_id"
-            ):
-                if agent_uuid in identities:
-                    identities[agent_uuid]["spawns"] = spawns_count
-
-            for agent_uuid, last_active_timestamp in conn.execute(
-                "SELECT agent_id, MAX(timestamp) FROM events WHERE agent_id IS NOT NULL GROUP BY agent_id"
-            ):
-                if agent_uuid in identities:
-                    identities[agent_uuid]["last_active"] = str(last_active_timestamp)
-
-    if not identities:
-        return None
+    for db_path, query_list in queries:
+        if not db_path.exists():
+            continue
+        with db.connect(db_path) as conn:
+            for sql, field in query_list:
+                for row in conn.execute(sql):
+                    agent_id = row[0]
+                    if agent_id not in identities:
+                        continue
+                    if field == "channels":
+                        identities[agent_id][field] = row[1].split(",") if row[1] else []
+                    elif field == "last_active":
+                        identities[agent_id][field] = str(row[1])
+                    else:
+                        identities[agent_id][field] = row[1]
 
     agents = [
         AgentStats(
-            agent_id=agent_uuid,
+            agent_id=agent_id,
             agent_name=data["agent_name"],
+            events=data["events"],
             spawns=data["spawns"],
             msgs=data["msgs"],
             mems=data["mems"],
@@ -319,10 +359,10 @@ def agent_stats(limit: int = None) -> list[AgentStats] | None:
             if data.get("last_active")
             else None,
         )
-        for agent_uuid, data in identities.items()
+        for agent_id, data in identities.items()
     ]
 
-    agents.sort(key=lambda a: a.msgs, reverse=True)
+    agents.sort(key=lambda a: a.last_active or "0", reverse=True)
     return agents[:limit] if limit else agents
 
 
@@ -349,12 +389,12 @@ def events_stats() -> EventsStats:
     return EventsStats(available=True, total=total)
 
 
-def collect(limit: int = None) -> SpaceStats:
+def collect(limit: int = None, agent_limit: int = None) -> SpaceStats:
     return SpaceStats(
         bridge=bridge_stats(limit=limit),
         memory=memory_stats(limit=limit),
         knowledge=knowledge_stats(limit=limit),
         spawn=spawn_stats(),
         events=events_stats(),
-        agents=agent_stats(limit=limit),
+        agents=agent_stats(limit=agent_limit),
     )

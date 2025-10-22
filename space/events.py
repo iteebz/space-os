@@ -168,10 +168,10 @@ def get_wakes_since_last_sleep(agent_id: str) -> int:
     """Count wake events since last sleep (in current spawn)."""
     with _connect() as conn:
         result = conn.execute(
-            """SELECT COUNT(*) FROM events 
+            """SELECT COUNT(*) FROM events
                WHERE agent_id = ? AND event_type = 'wake'
                AND timestamp > COALESCE(
-                   (SELECT MAX(timestamp) FROM events 
+                   (SELECT MAX(timestamp) FROM events
                     WHERE agent_id = ? AND event_type = 'sleep'), 0)""",
             (agent_id, agent_id),
         ).fetchone()

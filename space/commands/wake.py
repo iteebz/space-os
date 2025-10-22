@@ -87,6 +87,11 @@ def wake(
     agent_id = registry.ensure_agent(identity)
     events.identify(identity, "wake")
 
+    # Auto-sync session logs on wake
+    from ..sessions import sync
+
+    sync(identity=identity)
+
     spawn_count = events.get_sleep_count(agent_id)
     wakes_this_spawn = events.get_wakes_since_last_sleep(agent_id)
 
@@ -99,7 +104,10 @@ def _show_orientation(identity: str, quiet: bool, spawn_count: int, wakes_this_s
     from ..lib.display import show_wake_summary
 
     show_wake_summary(
-        identity=identity, quiet_output=quiet, spawn_count=spawn_count, wakes_this_spawn=wakes_this_spawn
+        identity=identity,
+        quiet_output=quiet,
+        spawn_count=spawn_count,
+        wakes_this_spawn=wakes_this_spawn,
     )
 
     if not quiet:
