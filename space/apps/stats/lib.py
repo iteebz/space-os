@@ -1,93 +1,25 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 
 from space.os import db
+from space.os.lib import format as fmt
+from space.os.lib import paths
 
-from . import paths
-from .format import humanize_timestamp
-
-
-@dataclass
-class LeaderboardEntry:
-    identity: str
-    count: int
-
-
-@dataclass
-class AgentStats:
-    agent_id: str
-    agent_name: str
-    events: int
-    spawns: int
-    msgs: int
-    mems: int
-    knowledge: int
-    channels: list[str]
-    last_active: str | None
-    last_active_human: str | None = None
-
-
-@dataclass
-class BridgeStats:
-    available: bool
-    total: int = 0
-    active: int = 0
-    archived: int = 0
-    channels: int = 0
-    active_channels: int = 0
-    archived_channels: int = 0
-    notes: int = 0
-    message_leaderboard: list[LeaderboardEntry] | None = None
-
-
-@dataclass
-class MemoryStats:
-    available: bool
-    total: int = 0
-    active: int = 0
-    archived: int = 0
-    topics: int = 0
-    leaderboard: list[LeaderboardEntry] | None = None
-
-
-@dataclass
-class KnowledgeStats:
-    available: bool
-    total: int = 0
-    active: int = 0
-    archived: int = 0
-    topics: int = 0
-    leaderboard: list[LeaderboardEntry] | None = None
-
-
-@dataclass
-class SpawnStats:
-    available: bool
-    total: int = 0
-    agents: int = 0
-    hashes: int = 0
-
-
-@dataclass
-class EventsStats:
-    available: bool
-    total: int = 0
-
-
-@dataclass
-class SpaceStats:
-    bridge: BridgeStats
-    memory: MemoryStats
-    knowledge: KnowledgeStats
-    spawn: SpawnStats
-    events: EventsStats
-    agents: list[AgentStats] | None = None
+from .models import (
+    AgentStats,
+    BridgeStats,
+    EventsStats,
+    KnowledgeStats,
+    LeaderboardEntry,
+    MemoryStats,
+    SpaceStats,
+    SpawnStats,
+)
 
 
 def _get_agent_names_map() -> dict[str, str]:
-    from ..spawn import db as spawn_db
+    from space.os.spawn import db as spawn_db
 
     with spawn_db.connect() as reg_conn:
         return {row[0]: row[1] for row in reg_conn.execute("SELECT agent_id, name FROM agents")}
@@ -95,7 +27,7 @@ def _get_agent_names_map() -> dict[str, str]:
 
 def _discover_all_agent_ids(registered_ids: set[str], include_archived: bool = False) -> set[str]:
     """Discover all unique agent_ids across all activity tables and spawn_db."""
-    from ..spawn import db as spawn_db
+    from space.os.spawn import db as spawn_db
 
     all_agent_ids = set(registered_ids)
 
@@ -280,7 +212,7 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
 
 
 def agent_stats(limit: int = None, include_archived: bool = False) -> list[AgentStats] | None:
-    from ..spawn import db as spawn_db
+    from space.os.spawn import db as spawn_db
 
     with spawn_db.connect() as reg_conn:
         where_clause = "" if include_archived else "WHERE archived_at IS NULL"
@@ -387,7 +319,7 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
             knowledge=data["knowledge"],
             channels=data.get("channels", []),
             last_active=data.get("last_active"),
-            last_active_human=humanize_timestamp(data.get("last_active"))
+            last_active_human=fmt.humanize_timestamp(data.get("last_active"))
             if data.get("last_active")
             else None,
         )

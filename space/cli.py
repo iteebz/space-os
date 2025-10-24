@@ -4,19 +4,15 @@ import typer
 
 from space.apps.context.app import app as context_app
 from space.apps.council.app import council
+from space.apps.stats.app import app as stats_app
 from space.commands import (
-    agent,
     backup,
     chats,
     check,
-    describe,
     errors,
     health,
     init,
-    registry,
-    search,
     sleep,
-    stats,
     wake,
 )
 from space.commands import events as events_cmd
@@ -26,27 +22,27 @@ from space.os.lib import readme
 from space.os.lib.aliasing import Aliasing
 from space.os.lib.invocation import Invocation
 from space.os.memory.app import app as memory_app
+from space.os.spawn.commands.agents import app as agents_app
+from space.os.spawn.commands.registry import app as registry_app
 
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False, add_help_option=False)
 
 app.add_typer(knowledge_app, name="knowledge")
 app.add_typer(memory_app, name="memory")
-app.add_typer(agent.app, name="agents")
+app.add_typer(agents_app, name="agents")
 app.add_typer(context_app, name="context")
-app.add_typer(stats.app, name="stats")
-app.add_typer(registry.app, name="registry")
+app.add_typer(stats_app, name="stats")
+app.add_typer(registry_app, name="registry")
 app.add_typer(bridge_app, name="bridge")
 app.add_typer(chats.app, name="chats")
 
 app.command(name="backup")(backup.backup)
 app.command(name="check")(check.check)
 app.command(name="council")(council)
-app.command(name="describe")(describe.describe)
 app.command(name="errors")(errors.errors)
 app.command(name="events")(events_cmd.show_events)
 app.command(name="health")(health.health)
 app.command(name="init")(init.init)
-app.command(name="search")(search.search)
 app.command(name="wake")(wake.wake)
 app.command(name="sleep")(sleep.sleep)
 

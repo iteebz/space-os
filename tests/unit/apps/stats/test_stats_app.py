@@ -2,8 +2,8 @@
 
 import time
 
+from space.apps import stats as stats_lib
 from space.os.lib import paths
-from space.os.lib import stats as stats_lib
 
 
 def test_discovers_registered_agents(test_space):
