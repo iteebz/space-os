@@ -1,11 +1,15 @@
+import logging
 import sqlite3
 from datetime import datetime
 
 import typer
 
 from space.os import db
+from space.os.db import safeguards
 from space.os.lib import paths
 from space.os.spawn import db as spawn_db
+
+logger = logging.getLogger(__name__)
 
 
 def check(
@@ -153,6 +157,55 @@ def check(
             typer.echo("Core memories:")
             for topic, msg in core_memories:
                 typer.echo(f"  [{topic}] {msg}")
+
+        db_stats = _check_database_health()
+        if db_stats and any(v == 0 for v in db_stats.values() if v is not None):
+            typer.echo("\n⚠️  Database health check:")
+            for db_name, count in db_stats.items():
+                if count is not None:
+                    status = "✓" if count > 0 else "✗ EMPTY"
+                    typer.echo(f"  {db_name}: {count} rows {status}")
+
     except Exception as e:
         typer.echo(f"An unexpected error occurred: {e}", err=True)
         raise typer.Exit(1) from e
+
+
+def _check_database_health() -> dict:
+    """Check all databases for data presence and report anomalies."""
+    dot_space = paths.dot_space()
+    databases = {
+        "memory.db": dot_space / "memory.db",
+        "knowledge.db": dot_space / "knowledge.db",
+        "events.db": dot_space / "events.db",
+        "bridge.db": dot_space / "bridge.db",
+    }
+
+    health = {}
+    for name, path in databases.items():
+        if not path.exists():
+            health[name] = None
+            continue
+
+        try:
+            conn = sqlite3.connect(path)
+            cursor = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name != '_migrations'"
+            )
+            tables = [row[0] for row in cursor.fetchall()]
+
+            total = sum(
+                conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                for table in tables
+            )
+            health[name] = total
+            conn.close()
+
+            if total == 0 and len(tables) > 0:
+                logger.warning(f"Database {name}: has schema but zero rows")
+
+        except sqlite3.DatabaseError as e:
+            logger.error(f"Database {name}: corrupted - {e}")
+            health[name] = None
+
+    return health

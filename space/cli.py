@@ -6,6 +6,7 @@ from space.apps.context.app import app as context_app
 from space.apps.council.app import council
 from space.apps.stats.app import app as stats_app
 from space.commands import (
+    archive,
     backup,
     check,
     health,
@@ -35,6 +36,7 @@ app.add_typer(registry_app, name="registry")
 app.add_typer(bridge_app, name="bridge")
 app.add_typer(chats.app, name="chats")
 
+app.command(name="archive")(archive.archive)
 app.command(name="backup")(backup.backup)
 app.command(name="check")(check.check)
 app.command(name="council")(council)

@@ -1,10 +1,46 @@
 import json
+import logging
+import os
 import shutil
+import sqlite3
 from datetime import datetime
+from pathlib import Path
 
 import typer
 
 from space.os.lib import paths
+
+logger = logging.getLogger(__name__)
+
+
+def _checkpoint_dbs(db_path: Path) -> None:
+    """Checkpoint databases to merge WAL into main file."""
+    for db_file in sorted(db_path.glob("*.db")):
+        try:
+            conn = sqlite3.connect(db_file, timeout=5.0)
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            conn.close()
+        except sqlite3.DatabaseError:
+            pass
+
+
+def _replay_and_clean(backup_path: Path) -> None:
+    """Replay WAL files and remove them from backup."""
+    for db_file in backup_path.glob("*.db"):
+        try:
+            conn = sqlite3.connect(db_file)
+            conn.execute("PRAGMA journal_mode=DELETE")
+            conn.execute("PRAGMA wal_checkpoint(RESTART)")
+            conn.close()
+        except sqlite3.DatabaseError:
+            pass
+    
+    for item in backup_path.iterdir():
+        if item.name.endswith(('-wal', '-shm')):
+            try:
+                os.remove(item)
+            except OSError:
+                pass
 
 
 def backup(
@@ -13,23 +49,76 @@ def backup(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    """Backup the app data directory (~/space/.space) to ~/.space/backups/"""
+    """Backup ~/space/.space to ~/.space/backups/"""
 
-    workspace_space = paths.dot_space()
-    if not workspace_space.exists():
+    src = paths.dot_space()
+    if not src.exists():
         if not quiet_output:
-            typer.echo("No .space directory in current workspace")
+            typer.echo("No .space directory found")
         raise typer.Exit(code=1)
 
-    global_root = paths.global_root()
-    backup_root_dir = global_root / "backups"
+    backup_root_dir = paths.global_root() / "backups"
     backup_root_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_path = backup_root_dir / timestamp
 
-    shutil.copytree(workspace_space, backup_path)
+    _checkpoint_dbs(src)
+    shutil.copytree(src, backup_path, dirs_exist_ok=True, ignore=shutil.ignore_patterns('backups'))
+    _replay_and_clean(backup_path)
+
+    backup_stats = _get_backup_stats(backup_path)
+
     if json_output:
-        typer.echo(json.dumps({"backup_path": str(backup_path)}))
+        typer.echo(json.dumps({
+            "backup_path": str(backup_path),
+            "stats": backup_stats,
+        }))
     elif not quiet_output:
-        typer.echo(f"Backed up to {backup_path}")
+        typer.echo(f"✓ Backed up to {backup_path}")
+        _show_backup_stats(backup_stats)
+
+
+def _get_backup_stats(backup_path: Path) -> dict:
+    """Get row counts for all databases in backup."""
+    stats = {}
+    for db_file in backup_path.glob("*.db"):
+        if db_file.name == "cogency.db":
+            continue
+        try:
+            conn = sqlite3.connect(db_file)
+            cursor = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name != '_migrations'"
+            )
+            tables = [row[0] for row in cursor.fetchall()]
+
+            total = sum(
+                conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                for table in tables
+            ) if tables else 0
+
+            stats[db_file.name] = {
+                "tables": len(tables),
+                "rows": total,
+            }
+            conn.close()
+        except sqlite3.DatabaseError:
+            stats[db_file.name] = {"error": "corrupted"}
+
+    return stats
+
+
+def _show_backup_stats(backup_stats: dict) -> None:
+    """Display backup statistics."""
+    typer.echo("\nBackup stats:")
+    typer.echo("  Database               Tables  Rows")
+    typer.echo("  " + "─" * 40)
+
+    for db_name in sorted(backup_stats.keys()):
+        stats = backup_stats[db_name]
+        if "error" in stats:
+            typer.echo(f"  {db_name:22} error")
+        else:
+            tables = stats.get("tables", "?")
+            rows = stats.get("rows", "?")
+            typer.echo(f"  {db_name:22} {tables:6}  {rows}")

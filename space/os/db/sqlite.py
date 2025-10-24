@@ -1,10 +1,14 @@
 """SQLite storage backend implementation."""
 
+import logging
 import sqlite3
 from collections.abc import Callable
 from pathlib import Path
 
 from space.os.lib import paths
+from . import safeguards
+
+logger = logging.getLogger(__name__)
 
 _registry: dict[str, tuple[str, str]] = {}
 _migrations: dict[str, list[tuple[str, str | Callable]]] = {}
@@ -74,7 +78,7 @@ def ensure(name: str) -> sqlite3.Connection:
 
 
 def migrate(conn: sqlite3.Connection, migs: list[tuple[str, str | Callable]]) -> None:
-    """Apply migrations to connection."""
+    """Apply migrations to connection with data loss safeguards."""
     conn.execute("CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY)")
     conn.commit()
 
@@ -83,6 +87,12 @@ def migrate(conn: sqlite3.Connection, migs: list[tuple[str, str | Callable]]) ->
         if applied:
             continue
         try:
+            cursor = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name != '_migrations' AND name != 'sqlite_sequence'"
+            )
+            tables_before = [row[0] for row in cursor.fetchall()]
+            guard = {t: safeguards.MigrationSafeguard(conn, t) for t in tables_before}
+
             if callable(migration):
                 migration(conn)
             else:
@@ -90,10 +100,20 @@ def migrate(conn: sqlite3.Connection, migs: list[tuple[str, str | Callable]]) ->
                     conn.executescript(migration)
                 else:
                     conn.execute(migration)
+
+            for table, sg in guard.items():
+                try:
+                    sg.after(allow_loss=0)
+                except ValueError as e:
+                    logger.error(f"Migration '{name}' data loss detected: {e}")
+                    raise
+
             conn.execute("INSERT OR IGNORE INTO _migrations (name) VALUES (?)", (name,))
             conn.commit()
-        except Exception:
+            logger.info(f"Migration '{name}' applied successfully")
+        except Exception as e:
             conn.rollback()
+            logger.error(f"Migration '{name}' failed: {e}")
             raise
 
 
