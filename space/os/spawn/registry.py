@@ -21,6 +21,23 @@ CREATE TABLE IF NOT EXISTS agents (
     archived_at INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS tasks (
+    id TEXT PRIMARY KEY,
+    identity TEXT NOT NULL,
+    channel_id TEXT,
+    input TEXT NOT NULL,
+    output TEXT,
+    stderr TEXT,
+    status TEXT DEFAULT 'pending',
+    pid INTEGER,
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (identity) REFERENCES agents(name)
+);
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+CREATE INDEX IF NOT EXISTS idx_tasks_identity ON tasks(identity);
+CREATE INDEX IF NOT EXISTS idx_tasks_channel ON tasks(channel_id);
 """
 
 
@@ -204,8 +221,18 @@ def _drop_canonical_id(conn):
     conn.execute("ALTER TABLE agents_new RENAME TO agents")
 
 
+def _add_pid_to_tasks(conn):
+    """Add pid column to tasks table for process tracking."""
+    cursor = conn.execute("PRAGMA table_info(tasks)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if "pid" in columns:
+        return
+    conn.execute("ALTER TABLE tasks ADD COLUMN pid INTEGER")
+
+
 spawn_migrations = [
     ("drop_canonical_id", _drop_canonical_id),
+    ("add_pid_to_tasks", _add_pid_to_tasks),
 ]
 
 
@@ -344,3 +371,115 @@ def backfill_unknown_agents() -> int:
         conn.commit()
 
     return len(unknown_ids)
+
+
+def create_task(identity: str, input: str, channel_id: str | None = None) -> str:
+    """Create task record. Returns task_id."""
+    task_id = uuid7()
+    now_iso = datetime.now().isoformat()
+    with get_db() as conn:
+        conn.execute(
+            """
+            INSERT INTO tasks (id, identity, channel_id, input, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (task_id, identity, channel_id, input, "pending", now_iso),
+        )
+        conn.commit()
+    events.emit("spawn", "task.create", task_id, f"Task created for {identity}")
+    return task_id
+
+
+def get_task(task_id: str) -> dict | None:
+    """Get task by ID."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM tasks WHERE id = ?",
+            (task_id,),
+        ).fetchone()
+        if not row:
+            return None
+        task = dict(row)
+        if task["started_at"] and task["completed_at"]:
+            from datetime import datetime as dt
+            start = dt.fromisoformat(task["started_at"])
+            end = dt.fromisoformat(task["completed_at"])
+            task["duration"] = (end - start).total_seconds()
+        else:
+            task["duration"] = None
+        return task
+
+
+def update_task(
+    task_id: str,
+    status: str | None = None,
+    output: str | None = None,
+    stderr: str | None = None,
+    pid: int | None = None,
+    started_at: bool = False,
+    completed_at: bool = False,
+):
+    """Update task fields."""
+    now_iso = datetime.now().isoformat()
+    updates = []
+    params = []
+
+    if status is not None:
+        updates.append("status = ?")
+        params.append(status)
+    if output is not None:
+        updates.append("output = ?")
+        params.append(output)
+    if stderr is not None:
+        updates.append("stderr = ?")
+        params.append(stderr)
+    if pid is not None:
+        updates.append("pid = ?")
+        params.append(pid)
+    if started_at:
+        updates.append("started_at = ?")
+        params.append(now_iso)
+    if completed_at:
+        updates.append("completed_at = ?")
+        params.append(now_iso)
+
+    if not updates:
+        return
+
+    params.append(task_id)
+    query = f"UPDATE tasks SET {', '.join(updates)} WHERE id = ?"
+
+    with get_db() as conn:
+        conn.execute(query, params)
+        conn.commit()
+
+
+def list_tasks(status: str | None = None, identity: str | None = None) -> list[dict]:
+    """List tasks with optional filters."""
+    from datetime import datetime as dt
+    
+    query = "SELECT * FROM tasks WHERE 1 = 1"
+    params = []
+
+    if status is not None:
+        query += " AND status = ?"
+        params.append(status)
+    if identity is not None:
+        query += " AND identity = ?"
+        params.append(identity)
+
+    query += " ORDER BY created_at DESC"
+
+    with get_db() as conn:
+        rows = conn.execute(query, params).fetchall()
+        tasks = []
+        for row in rows:
+            task = dict(row)
+            if task["started_at"] and task["completed_at"]:
+                start = dt.fromisoformat(task["started_at"])
+                end = dt.fromisoformat(task["completed_at"])
+                task["duration"] = (end - start).total_seconds()
+            else:
+                task["duration"] = None
+            tasks.append(task)
+        return tasks

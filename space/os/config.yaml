@@ -23,65 +23,81 @@ roles:
     constitution: zealot.md
     base_identity: sonnet
     wake_on_spawn: true
+    task_timeout: 120
   
   hailot:
     constitution: zealot.md
     base_identity: haiku
     wake_on_spawn: true
+    task_timeout: 120
   
   harbinger:
     constitution: harbinger.md
     base_identity: gemini
     wake_on_spawn: true
+    task_timeout: 120
   
   sentinel:
     constitution: sentinel.md
     base_identity: codex
     wake_on_spawn: true
+    task_timeout: 120
   
   archon:
     constitution: archon.md
     base_identity: gemini
     wake_on_spawn: true
+    task_timeout: 120
   
   kitsuragi:
     constitution: kitsuragi.md
     base_identity: codex
     wake_on_spawn: true
+    task_timeout: 120
   
   prime:
     constitution: prime.md
     base_identity: sonnet
     wake_on_spawn: true
+    task_timeout: 120
   
   scribe:
     constitution: scribe.md
     base_identity: sonnet
     wake_on_spawn: true
+    task_timeout: 120
 
   crucible:
     constitution: crucible.md
     base_identity: gemini
     wake_on_spawn: true
+    task_timeout: 120
 
   lieutenant:
     constitution: kitsuragi.md
     base_identity: chatgpt
+    task_timeout: 120
 
   gemilot:
     constitution: zealot.md
     base_identity: gemini
+    task_timeout: 120
 
   codelot:
     constitution: zealot.md
     base_identity: codex
+    task_timeout: 120
 
   test:
     constitution: zealot.md
     base_identity: sonnet
+    task_timeout: 120
 
   default:
     constitution: zealot.md
     base_identity: sonnet
+    task_timeout: 120
+
+task_timeout_default: 120
 
 canon_path: private/canon

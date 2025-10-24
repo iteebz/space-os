@@ -4,10 +4,46 @@ from space.os.lib import errors
 
 from .. import config
 from . import registry, spawn
+from .commands import tasks as tasks_module
 
 errors.install_error_handler("spawn")
 
 app = typer.Typer()
+
+
+@app.command(name="tasks")
+def tasks_cmd(
+    status: str | None = typer.Option(None, help="Filter by status (pending|running|completed|failed|timeout)"),
+    identity: str | None = typer.Option(None, help="Filter by agent identity"),
+):
+    """List spawn tasks."""
+    registry.init_db()
+    tasks_module.tasks_cmd(status=status, identity=identity)
+
+
+@app.command(name="logs")
+def logs_cmd(task_id: str):
+    """Show full task details."""
+    registry.init_db()
+    tasks_module.logs_cmd(task_id)
+
+
+@app.command(name="wait")
+def wait_cmd(
+    task_id: str,
+    timeout: float = typer.Option(300.0, help="Wait timeout in seconds"),
+):
+    """Block until task completes."""
+    registry.init_db()
+    exit_code = tasks_module.wait_cmd(task_id, timeout=timeout)
+    raise typer.Exit(exit_code)
+
+
+@app.command(name="kill")
+def kill_cmd(task_id: str):
+    """Kill a running task."""
+    registry.init_db()
+    tasks_module.kill_cmd(task_id)
 
 
 @app.command(name="rename")

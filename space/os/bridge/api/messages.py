@@ -26,10 +26,11 @@ def send_message(channel_id: str, sender: str, content: str, priority: str = "no
     if sender != "system" and "@" in content:
         channel_name = db.get_channel_name(channel_id)
         log.debug(f"Spawning worker for channel={channel_name}, mentions in content")
+        space_agent_id = registry.ensure_agent("space")
         db.create_message(
             channel_id=channel_id,
-            agent_id="system",
-            content="[space] spawning agent(s)",
+            agent_id=space_agent_id,
+            content="spawning agent(s)",
             priority="normal",
         )
         subprocess.Popen(

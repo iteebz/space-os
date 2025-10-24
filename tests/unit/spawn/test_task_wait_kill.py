@@ -1,0 +1,121 @@
+"""Test spawn wait and kill commands."""
+
+import time
+
+from space.os.spawn import registry
+
+
+def test_wait_blocks_until_completion(in_memory_db):
+    """spawn wait <id> blocks until task completes."""
+    from space.os.spawn.commands.tasks import wait_cmd
+
+    registry.ensure_agent("hailot")
+    task_id = registry.create_task(identity="hailot", input="test")
+
+    registry.update_task(task_id, status="running", started_at=True)
+    time.sleep(0.01)
+    registry.update_task(task_id, status="completed", output="done", completed_at=True)
+
+    exit_code = wait_cmd(task_id)
+    assert exit_code == 0
+
+
+def test_wait_returns_task_status_as_exit_code(in_memory_db):
+    """spawn wait returns 0 for completed, non-zero for failed."""
+    from space.os.spawn.commands.tasks import wait_cmd
+
+    registry.ensure_agent("hailot")
+    task_id = registry.create_task(identity="hailot", input="test")
+    registry.update_task(task_id, status="failed", completed_at=True)
+
+    exit_code = wait_cmd(task_id)
+    assert exit_code != 0
+
+
+def test_wait_timeout(in_memory_db):
+    """spawn wait <id> --timeout raises error if exceeded."""
+    import typer
+
+    from space.os.spawn.commands.tasks import wait_cmd
+
+    registry.ensure_agent("hailot")
+    task_id = registry.create_task(identity="hailot", input="slow task")
+    registry.update_task(task_id, status="running", started_at=True)
+
+    try:
+        wait_cmd(task_id, timeout=0.01)
+        raise AssertionError("Should timeout")
+    except typer.Exit as e:
+        assert e.exit_code == 124
+
+
+def test_wait_pending_task_waits(in_memory_db):
+    """spawn wait on pending task waits for it to start and complete."""
+    from space.os.spawn.commands.tasks import wait_cmd
+
+    registry.ensure_agent("hailot")
+    task_id = registry.create_task(identity="hailot", input="test")
+
+    registry.update_task(task_id, status="running", started_at=True)
+    registry.update_task(task_id, status="completed", output="result", completed_at=True)
+
+    exit_code = wait_cmd(task_id)
+    assert exit_code == 0
+
+    task = registry.get_task(task_id)
+    assert task["output"] == "result"
+
+
+def test_kill_running_task(in_memory_db):
+    """spawn kill <id> marks task as killed."""
+    from space.os.spawn.commands.tasks import kill_cmd
+
+    registry.ensure_agent("hailot")
+    task_id = registry.create_task(identity="hailot", input="long task")
+    registry.update_task(task_id, status="running", started_at=True, pid=12345)
+
+    kill_cmd(task_id)
+
+    task = registry.get_task(task_id)
+    assert task["status"] == "failed"
+    assert "killed" in task["stderr"].lower()
+
+
+def test_kill_nonexistent_task(in_memory_db, capsys):
+    """spawn kill <invalid-id> shows error."""
+    import typer
+
+    from space.os.spawn.commands.tasks import kill_cmd
+
+    try:
+        kill_cmd("nonexistent-id")
+        raise AssertionError("Should raise Exit")
+    except typer.Exit as e:
+        assert e.exit_code == 1
+        captured = capsys.readouterr()
+        assert "not found" in captured.err.lower()
+
+
+def test_kill_completed_task_no_op(in_memory_db):
+    """spawn kill on completed task is no-op."""
+    from space.os.spawn.commands.tasks import kill_cmd
+
+    registry.ensure_agent("hailot")
+    task_id = registry.create_task(identity="hailot", input="test")
+    registry.update_task(task_id, status="completed", output="done", completed_at=True)
+
+    kill_cmd(task_id)
+
+    task = registry.get_task(task_id)
+    assert task["status"] == "completed"
+
+
+def test_task_pid_tracking(in_memory_db):
+    """Tasks can track process ID for kill signal."""
+    registry.ensure_agent("hailot")
+    task_id = registry.create_task(identity="hailot", input="test")
+
+    registry.update_task(task_id, status="running", started_at=True, pid=54321)
+
+    task = registry.get_task(task_id)
+    assert task["pid"] == 54321

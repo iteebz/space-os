@@ -78,7 +78,7 @@ def _run_wake_sequence(identity: str) -> str | None:
     import io
     from contextlib import redirect_stdout
 
-    from ..commands import wake
+    from ...commands import wake
     from . import registry
 
     registry.init_db()

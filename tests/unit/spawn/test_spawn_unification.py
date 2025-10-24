@@ -1,8 +1,8 @@
-"""TDD tests for spawn unification (architectural fix).
+"""TDD tests for spawn task ownership (architectural fix).
 
 Tests validate:
-1. Spawn stays pure (identity + constitutions only, no tasks)
-2. Tasks tracked in bridge.db (bridge owns lifecycle)
+1. Spawn owns task lifecycle (identity + constitutions + tasks)
+2. Bridge uses spawn task API (coordinator, not task owner)
 3. Context injection via --context flag
 4. Full export for bridge spawns
 5. Unified agent interface across Claude/Gemini/Codex
@@ -13,19 +13,21 @@ from space.os.bridge import db as bridge_db
 from space.os.spawn import registry, spawn
 
 
-class TestSpawnPurityAfterRefactor:
-    """Spawn registry must own ONLY identity + constitutions."""
+class TestSpawnTaskOwnership:
+    """Spawn owns task table (not bridge)."""
 
-    def test_registry_has_no_tasks_table(self, test_space):
-        """Spawn registry schema must not include tasks table."""
+    def test_registry_has_tasks_table(self, test_space):
+        """Spawn registry schema must include tasks table."""
+        registry.init_db()
         with registry.get_db() as conn:
             cursor = conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='tasks'"
             )
-            assert cursor.fetchone() is None, "tasks table should not exist in spawn.db"
+            assert cursor.fetchone() is not None, "tasks table must exist in spawn.db"
 
-    def test_registry_has_agents_and_constitutions(self, test_space):
-        """Spawn registry must have agents and constitutions tables."""
+    def test_registry_has_agents_constitutions_tasks(self, test_space):
+        """Spawn registry must have agents, constitutions, and tasks tables."""
+        registry.init_db()
         with registry.get_db() as conn:
             tables = set()
             cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
@@ -33,87 +35,54 @@ class TestSpawnPurityAfterRefactor:
                 tables.add(row[0])
             assert "agents" in tables
             assert "constitutions" in tables
+            assert "tasks" in tables
 
-    def test_log_task_function_removed(self, test_space):
-        """log_task() function must be removed from registry."""
-        assert not hasattr(registry, "log_task"), (
-            "registry.log_task() should be removed (tasks belong in bridge, not spawn)"
-        )
+    def test_spawn_task_functions_exist(self, test_space):
+        """registry must have task management functions."""
+        assert hasattr(registry, "create_task")
+        assert hasattr(registry, "get_task")
+        assert hasattr(registry, "update_task")
+        assert hasattr(registry, "list_tasks")
 
 
-class TestBridgeTaskTracking:
-    """Bridge owns task lifecycle (pending → running → completed/failed/timeout)."""
+class TestSpawnTaskSchema:
+    """Spawn tasks table has correct schema."""
 
-    def test_bridge_tasks_table_exists(self, test_space):
-        """Bridge.db must have tasks table."""
-        conn = bridge_db.connect()
-        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tasks'")
-        assert cursor.fetchone() is not None, "tasks table must exist in bridge.db"
-        conn.close()
+    def test_spawn_tasks_table_schema(self, test_space):
+        """Spawn tasks table must have required columns."""
+        registry.init_db()
+        with registry.get_db() as conn:
+            cursor = conn.execute("PRAGMA table_info(tasks)")
+            columns = {col[1] for col in cursor.fetchall()}
 
-    def test_bridge_tasks_table_schema(self, test_space):
-        """Bridge tasks table must have correct schema."""
-        conn = bridge_db.connect()
-        cursor = conn.execute("PRAGMA table_info(tasks)")
-        columns = {col[1] for col in cursor.fetchall()}
-
-        required = {
-            "uuid7",
-            "channel_id",
-            "identity",
-            "status",
-            "input",
-            "output",
-            "stderr",
-            "started_at",
-            "completed_at",
-            "created_at",
-        }
-        assert required.issubset(columns), f"Missing columns: {required - columns}"
-        conn.close()
-
-    def test_create_task_pending_status(self, test_space):
-        """Tasks start with pending status."""
-        channel_id = bridge_api.create_channel("task-channel")
-
-        conn = bridge_db.connect()
-        task_id = "test-task-uuid7"
-        now = "2025-10-24T12:00:00"
-
-        conn.execute(
-            """
-            INSERT INTO tasks (uuid7, channel_id, identity, status, input, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (task_id, channel_id, "hailot", "pending", "test input", now),
-        )
-        conn.commit()
-
-        row = conn.execute("SELECT status FROM tasks WHERE uuid7 = ?", (task_id,)).fetchone()
-        assert row[0] == "pending"
-        conn.close()
+            required = {
+                "id",
+                "identity",
+                "channel_id",
+                "input",
+                "output",
+                "stderr",
+                "status",
+                "started_at",
+                "completed_at",
+                "created_at",
+            }
+            assert required.issubset(columns), f"Missing columns: {required - columns}"
 
     def test_task_lifecycle_states(self, test_space):
         """Tasks must support all lifecycle states."""
-        channel_id = bridge_api.create_channel("lifecycle-channel")
-        conn = bridge_db.connect()
+        registry.init_db()
+        registry.ensure_agent("test-agent")
 
         states = ["pending", "running", "completed", "failed", "timeout"]
         for state in states:
-            task_id = f"task-{state}"
-            conn.execute(
-                """
-                INSERT INTO tasks (uuid7, channel_id, identity, status, created_at)
-                VALUES (?, ?, ?, ?, datetime('now'))
-                """,
-                (task_id, channel_id, "hailot", state),
-            )
+            task_id = registry.create_task(identity="test-agent", input=f"task-{state}")
+            registry.update_task(task_id, status=state)
 
-        conn.commit()
-        cursor = conn.execute("SELECT status FROM tasks ORDER BY status")
-        found_states = [row[0] for row in cursor.fetchall()]
-        assert found_states == sorted(states)
-        conn.close()
+        for state in states:
+            tasks = registry.list_tasks(status=state)
+            assert len(tasks) == 1
+            assert tasks[0]["status"] == state
 
 
 class TestContextInjection:
@@ -136,7 +105,6 @@ class TestContextInjection:
         from space.os.spawn.app import _spawn_from_registry
 
         source = inspect.getsource(_spawn_from_registry)
-        # Verify context is combined with task
         assert "context + " in source or "context +" in source, (
             "context must be concatenated with task prompt"
         )
@@ -152,7 +120,6 @@ class TestFullExportForBridgeSpawns:
         from space.os.bridge import parser
 
         source = inspect.getsource(parser.spawn_from_mention)
-        # Should NOT have the 10-message limit logic
         assert "len(messages) > 10" not in source, "Should not limit to 10 messages"
         assert "messages[-10:]" not in source, "Should not slice to last 10 messages"
 
@@ -167,7 +134,6 @@ class TestUnifiedAgentInterface:
         for agent_class in [claude.Claude, gemini.Gemini, codex.Codex]:
             assert hasattr(agent_class, "run"), f"{agent_class.__name__} missing run() method"
 
-            # Verify method signature
             import inspect
 
             sig = inspect.signature(agent_class.run)
@@ -192,8 +158,18 @@ class TestUnifiedAgentInterface:
             )
 
 
-class TestWorkerTaskTracking:
-    """Bridge worker must create and update task records."""
+class TestWorkerUsesSpawnTaskAPI:
+    """Bridge worker creates spawn tasks via spawn.registry API."""
+
+    def test_worker_uses_spawn_registry(self, test_space):
+        """Worker must use spawn.registry for task management."""
+        import inspect
+
+        from space.os.bridge import worker
+
+        source = inspect.getsource(worker.main)
+        assert "registry.create_task" in source, "Worker must call registry.create_task"
+        assert "registry.update_task" in source, "Worker must call registry.update_task"
 
     def test_worker_creates_task_before_spawn(self, test_space):
         """Worker must create task record BEFORE spawning agent."""
@@ -202,72 +178,47 @@ class TestWorkerTaskTracking:
         from space.os.bridge import worker
 
         source = inspect.getsource(worker.main)
-        # Should call _create_task before subprocess.run
-        create_idx = source.find("_create_task")
+        create_idx = source.find("registry.create_task")
         run_idx = source.find("subprocess.run")
 
         assert create_idx != -1 and run_idx != -1, (
-            "Worker must have both _create_task and subprocess.run"
+            "Worker must have both create_task and subprocess.run"
         )
         assert create_idx < run_idx, "Task must be created BEFORE subprocess.run"
 
-    def test_worker_tracks_started_and_completed_times(self, test_space):
-        """Worker must update started_at and completed_at timestamps."""
+    def test_worker_tracks_lifecycle_states(self, test_space):
+        """Worker must track task lifecycle via registry."""
         import inspect
 
         from space.os.bridge import worker
 
-        source = inspect.getsource(worker._update_task_completion)
-        assert "started_at" in source or "_update_task_status" in inspect.getsource(worker.main), (
-            "Worker must track started_at time"
-        )
-        assert "completed_at" in source, "Worker must track completed_at time"
+        source = inspect.getsource(worker.main)
+        assert "running" in source, "Worker must set status=running"
+        assert "completed" in source or "failed" in source, "Worker must set completion status"
+        assert "completed_at=True" in source, "Worker must track completed_at"
 
 
-class TestBridgeTaskCommands:
-    """bridge tasks list/logs/wait must exist."""
+class TestSpawnTaskCommands:
+    """spawn tasks, logs commands must exist."""
 
-    def test_tasks_commands_module_exists(self, test_space):
-        """bridge/commands/tasks.py must exist."""
-        from space.os.bridge.commands import tasks
+    def test_spawn_tasks_command_exists(self, test_space):
+        """spawn tasks command must exist."""
+        from space.os.spawn import app
 
-        assert hasattr(tasks, "app"), "tasks.py must have typer app"
+        assert hasattr(app, "tasks_cmd"), "spawn app must have tasks_cmd"
 
-    def test_tasks_list_command(self, test_space):
-        """bridge tasks list command must exist."""
-        import inspect
+    def test_spawn_logs_command_exists(self, test_space):
+        """spawn logs command must exist."""
+        from space.os.spawn import app
 
-        from space.os.bridge.commands import tasks
+        assert hasattr(app, "logs_cmd"), "spawn app must have logs_cmd"
 
-        source = inspect.getsource(tasks)
-        assert "@app.command()" in source, "tasks must have @app.command() decorators"
-        assert "def list(" in source, "tasks must have list() command"
+    def test_tasks_module_has_functions(self, test_space):
+        """spawn/commands/tasks.py must have task functions."""
+        from space.os.spawn.commands import tasks
 
-    def test_tasks_logs_command(self, test_space):
-        """bridge tasks logs command must exist."""
-        from space.os.bridge.commands import tasks
-
-        assert hasattr(tasks, "logs"), "tasks module must have logs function"
-
-    def test_tasks_wait_command(self, test_space):
-        """bridge tasks wait command must exist."""
-        from space.os.bridge.commands import tasks
-
-        assert hasattr(tasks, "wait"), "tasks module must have wait function"
-
-    def test_tasks_wired_to_bridge_app(self, test_space):
-        """bridge app must register tasks command group."""
-        import inspect
-
-        from space.os.bridge import app as bridge_app
-
-        source = inspect.getsource(bridge_app)
-        assert "tasks_cmds" in source or "tasks as tasks_cmds" in source, (
-            "bridge/app.py must import tasks commands"
-        )
-        assert "add_typer" in source and "tasks" in source, (
-            "bridge/app.py must wire tasks command group"
-        )
+        assert hasattr(tasks, "tasks_cmd"), "tasks module must have tasks_cmd()"
+        assert hasattr(tasks, "logs_cmd"), "tasks module must have logs_cmd()"
 
 
 class TestNoRegressions:
@@ -275,7 +226,7 @@ class TestNoRegressions:
 
     def test_constitution_storage_unchanged(self, test_space):
         """Constitution storage (content-addressable by hash) must work."""
-
+        registry.init_db()
         content = "Test constitution content"
         content_hash = spawn.hash_content(content)
 
@@ -286,6 +237,7 @@ class TestNoRegressions:
 
     def test_agent_identity_creation_unchanged(self, test_space):
         """Agent identity creation/lookup must work."""
+        registry.init_db()
         agent_id = registry.ensure_agent("test-agent")
         retrieved_id = registry.get_agent_id("test-agent")
 
@@ -293,6 +245,7 @@ class TestNoRegressions:
 
     def test_bridge_channels_unchanged(self, test_space):
         """Bridge channel creation/message sending must work."""
+        bridge_db.connect()
         channel_id = bridge_api.create_channel("test-channel")
         bridge_api.send_message(channel_id, "agent-a", "test message")
 

@@ -5,7 +5,7 @@ from space.os import config, events
 
 AGENT_PROMPT_TEMPLATE = """{context}
 
-[TASK INSTRUCTIONS]
+[SPACE INSTRUCTIONS]
 {task}
 
 Infer the actual task from bridge context. If ambiguous, ask for clarification."""

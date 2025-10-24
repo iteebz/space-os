@@ -3,14 +3,24 @@
 import logging
 import subprocess
 import sys
-from datetime import datetime
 
-from space.os.bridge import db, parser
+from space.os import config
+from space.os.bridge import parser
 from space.os.bridge.api import messages as api_messages
-from space.os.lib.uuid7 import uuid7
+from space.os.spawn import registry
 
 logging.basicConfig(level=logging.DEBUG, format="[worker] %(message)s")
 log = logging.getLogger(__name__)
+
+
+def _get_task_timeout(identity: str, default: int = 120) -> int:
+    """Get task timeout for identity from config, fallback to default."""
+    try:
+        cfg = config.load_config()
+        role_cfg = cfg.get("roles", {}).get(identity, {})
+        return role_cfg.get("task_timeout", default)
+    except Exception:
+        return default
 
 
 def main():
@@ -29,22 +39,26 @@ def main():
         log.info("No mentions, skipping")
         return
 
+    registry.init_db()
+    config.init_config()
     results = []
     for identity in mentions:
         log.info(f"Spawning {identity}")
         prompt = parser.spawn_from_mention(identity, channel_name, content)
         if prompt:
             log.info(f"Got prompt, running spawn {identity}")
-            task_id = uuid7()
+            timeout = _get_task_timeout(identity)
             try:
-                _create_task(channel_id, task_id, identity, prompt, "pending")
-                _update_task_status(task_id, "running", started_at=True)
+                task_id = registry.create_task(
+                    identity=identity, input=prompt, channel_id=channel_id
+                )
+                registry.update_task(task_id, status="running", started_at=True)
 
                 result = subprocess.run(
                     ["spawn", identity, prompt, "--channel", channel_name],
                     capture_output=True,
                     text=True,
-                    timeout=30,
+                    timeout=timeout,
                     stdin=subprocess.DEVNULL,
                 )
 
@@ -53,16 +67,25 @@ def main():
                 )
 
                 if result.returncode == 0 and result.stdout.strip():
-                    _update_task_completion(task_id, "completed", result.stdout.strip(), None)
+                    registry.update_task(
+                        task_id, status="completed", output=result.stdout.strip(), completed_at=True
+                    )
                     results.append((identity, result.stdout.strip()))
                 else:
-                    _update_task_completion(task_id, "failed", None, result.stderr)
+                    registry.update_task(
+                        task_id, status="failed", stderr=result.stderr, completed_at=True
+                    )
                     log.error(f"Spawn failed: {result.stderr}")
             except subprocess.TimeoutExpired:
-                _update_task_completion(task_id, "timeout", None, "Spawn timeout")
+                registry.update_task(
+                    task_id,
+                    status="timeout",
+                    stderr=f"Spawn timeout ({timeout}s)",
+                    completed_at=True,
+                )
                 log.error(f"Spawn timeout for {identity}")
             except Exception as e:
-                _update_task_completion(task_id, "failed", None, str(e))
+                registry.update_task(task_id, status="failed", stderr=str(e), completed_at=True)
                 log.error(f"Spawn error: {e}")
         else:
             log.warning(f"No prompt for {identity}")
@@ -72,51 +95,6 @@ def main():
             api_messages.send_message(channel_id, identity, output)
     elif mentions:
         log.warning(f"No results from spawning {len(mentions)} agent(s)")
-
-
-def _create_task(channel_id: str, task_id: str, identity: str, input_text: str, status: str):
-    """Create task record."""
-    conn = db.get_db()
-    now_iso = datetime.now().isoformat()
-    conn.execute(
-        """
-        INSERT INTO tasks (uuid7, channel_id, identity, status, input, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (task_id, channel_id, identity, status, input_text, now_iso),
-    )
-    conn.commit()
-    conn.close()
-
-
-def _update_task_status(task_id: str, status: str, started_at: bool = False):
-    """Update task status."""
-    conn = db.get_db()
-    if started_at:
-        now_iso = datetime.now().isoformat()
-        conn.execute(
-            "UPDATE tasks SET status = ?, started_at = ? WHERE uuid7 = ?",
-            (status, now_iso, task_id),
-        )
-    else:
-        conn.execute("UPDATE tasks SET status = ? WHERE uuid7 = ?", (status, task_id))
-    conn.commit()
-    conn.close()
-
-
-def _update_task_completion(task_id: str, status: str, output: str | None, stderr: str | None):
-    """Update task on completion."""
-    conn = db.get_db()
-    now_iso = datetime.now().isoformat()
-    conn.execute(
-        """
-        UPDATE tasks SET status = ?, output = ?, stderr = ?, completed_at = ?
-        WHERE uuid7 = ?
-        """,
-        (status, output, stderr, now_iso, task_id),
-    )
-    conn.commit()
-    conn.close()
 
 
 if __name__ == "__main__":

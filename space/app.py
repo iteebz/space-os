@@ -16,6 +16,7 @@ from space.commands import (
     wake,
 )
 from space.commands import events as events_cmd
+from space.apps.council.app import council
 from space.os.bridge.app import app as bridge_app
 from space.os.context.app import app as context_app
 from space.os.knowledge.app import app as knowledge_app
@@ -36,6 +37,7 @@ app.add_typer(bridge_app, name="bridge")
 
 app.command(name="backup")(backup.backup)
 app.command(name="check")(check.check)
+app.command(name="council")(council)
 app.command(name="describe")(describe.describe)
 app.command(name="errors")(errors.errors)
 app.command(name="events")(events_cmd.show_events)
