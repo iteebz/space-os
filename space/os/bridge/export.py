@@ -4,14 +4,12 @@ from datetime import datetime
 
 import typer
 
-from ... import events
-from ...spawn import db as spawn_db
-from ..api.channels import export_channel
+from space.os import events
+from space.os.spawn import db as spawn_db
 
-app = typer.Typer()
+from . import api
 
 
-@app.command()
 def export(
     channel: str = typer.Argument(...),
     identity: str = typer.Option(None, "--as", help="Agent identity"),
@@ -25,7 +23,7 @@ def export(
     try:
         if agent_id:
             events.emit("bridge", "export_starting", agent_id, json.dumps({"channel": channel}))
-        data = export_channel(channel)
+        data = api.export_channel(channel)
 
         if json_output:
             export_data_dict = asdict(data)

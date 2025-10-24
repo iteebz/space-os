@@ -3,13 +3,9 @@ import contextlib
 import pytest
 
 from space.os import config, db
-from space.os.bridge import db as bridge_db
 from space.os.bridge import migrations as bridge_migrations
-from space.os.knowledge import db as knowledge_db
 from space.os.knowledge import migrations as knowledge_migrations
-from space.os.memory import db as memory_db
 from space.os.memory import migrations as memory_migrations
-from space.os.spawn import db as spawn_db
 from space.os.spawn import migrations as spawn_migrations
 
 
@@ -46,34 +42,35 @@ def test_space(monkeypatch, tmp_path):
     ]:
         path.mkdir(parents=True, exist_ok=True)
 
+    from space.os import bridge, knowledge, memory, spawn
     from space.os import config as cfg
 
     registry_db_path = workspace / ".space" / cfg.registry_db().name
     db.ensure_schema(
         registry_db_path,
-        spawn_db.SCHEMA,
+        spawn.db.schema(),
         spawn_migrations.MIGRATIONS,
     )
 
     db.ensure_schema(
-        workspace / ".space" / memory_db.MEMORY_DB_NAME,
-        memory_db.SCHEMA,
+        workspace / ".space" / "memory.db",
+        memory.db.schema(),
         memory_migrations.MIGRATIONS,
     )
 
     db.ensure_schema(
-        workspace / ".space" / knowledge_db.KNOWLEDGE_DB_NAME,
-        knowledge_db.SCHEMA,
+        workspace / ".space" / "knowledge.db",
+        knowledge.db.schema(),
         knowledge_migrations.MIGRATIONS,
     )
 
     db.ensure_schema(
         workspace / ".space" / "bridge.db",
-        bridge_db.SCHEMA,
+        bridge.db.schema(),
         bridge_migrations.MIGRATIONS,
     )
 
-    spawn_db.clear_identity_cache()
+    spawn.db.clear_identity_cache()
 
     yield workspace
 

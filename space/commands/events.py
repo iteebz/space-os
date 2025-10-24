@@ -9,6 +9,7 @@ from space.os import events
 def show_events(
     source: str = typer.Option(None, help="Filter by source (bridge, memory, spawn)"),
     identity: str = typer.Option(None, help="Filter by identity"),
+    errors: bool = typer.Option(False, "--errors", help="Show only error events"),
     limit: int = typer.Option(50, help="Number of events to show"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
     quiet_output: bool = typer.Option(
@@ -19,7 +20,11 @@ def show_events(
     from space.os.spawn import db as spawn_db
 
     agent_id = spawn_db.get_agent_id(identity) if identity else None
-    rows = events.query(source=source, agent_id=agent_id, limit=limit)
+    rows = events.query(source=source, agent_id=agent_id, limit=1000 if errors else limit)
+
+    if errors:
+        rows = [e for e in rows if e[3] == "error"][:limit]
+
     if not rows:
         if not quiet_output:
             typer.echo("No events found")
@@ -28,8 +33,6 @@ def show_events(
         return
 
     if json_output:
-        from space.os.spawn import db as spawn_db
-
         json_rows = []
         for uuid, src, aid, event_type, data, created_at in rows:
             json_rows.append(
@@ -44,8 +47,6 @@ def show_events(
             )
         typer.echo(json.dumps(json_rows))
     elif not quiet_output:
-        from space.os.spawn import db as spawn_db
-
         for uuid, src, aid, event_type, data, created_at in rows:
             ts = datetime.fromtimestamp(created_at).strftime("%Y-%m-%d %H:%M:%S")
             ident_str = f" [{spawn_db.get_identity(aid) or aid}]" if aid else ""

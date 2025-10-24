@@ -53,10 +53,10 @@ def _recent_critical():
     """Get most recent critical knowledge entry (24h)."""
     from datetime import datetime, timedelta
 
-    from space.os.knowledge import db as knowledge_db
+    from space.os import knowledge
 
     critical_domains = {"decision", "architecture", "operations", "consensus"}
-    entries = knowledge_db.list_all(include_archived=False)
+    entries = knowledge.db.list_all(include_archived=False)
 
     cutoff = datetime.now() - timedelta(hours=24)
     recent = [
@@ -81,14 +81,13 @@ def wake(
 ):
     """Load your context. Resume where you left off."""
     typer.echo(f"Waking up {identity}")
-    from space.os import events
-    from space.os.spawn import db as spawn_db
+    from space.os import events, spawn
 
-    agent_id = spawn_db.ensure_agent(identity)
+    agent_id = spawn.db.ensure_agent(identity)
     events.identify(identity, "wake")
 
     # Auto-sync chat logs on wake
-    from space.os.lib import chats
+    from space.os import chats
 
     chats.sync(identity=identity)
 

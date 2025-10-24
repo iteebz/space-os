@@ -201,11 +201,11 @@ def test_spawn_logs_command_exists(test_space):
 
 
 def test_tasks_module_has_functions(test_space):
-    """spawn/commands/tasks.py must have task functions."""
-    from space.os.spawn.commands import tasks
+    """spawn/tasks.py must have task functions."""
+    from space.os.spawn import tasks
 
-    assert hasattr(tasks, "tasks_cmd"), "tasks module must have tasks_cmd()"
-    assert hasattr(tasks, "logs_cmd"), "tasks module must have logs_cmd()"
+    assert hasattr(tasks, "tasks"), "tasks module must have tasks()"
+    assert hasattr(tasks, "logs"), "tasks module must have logs()"
 
 
 def test_constitution_storage_unchanged(test_space):

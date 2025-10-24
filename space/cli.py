@@ -7,15 +7,14 @@ from space.apps.council.app import council
 from space.apps.stats.app import app as stats_app
 from space.commands import (
     backup,
-    chats,
     check,
-    errors,
     health,
     init,
     sleep,
     wake,
 )
 from space.commands import events as events_cmd
+from space.os import chats
 from space.os.bridge.app import app as bridge_app
 from space.os.knowledge.app import app as knowledge_app
 from space.os.lib import readme
@@ -39,7 +38,6 @@ app.add_typer(chats.app, name="chats")
 app.command(name="backup")(backup.backup)
 app.command(name="check")(check.check)
 app.command(name="council")(council)
-app.command(name="errors")(errors.errors)
 app.command(name="events")(events_cmd.show_events)
 app.command(name="health")(health.health)
 app.command(name="init")(init.init)

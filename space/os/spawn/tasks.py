@@ -1,5 +1,3 @@
-"""Spawn task management commands: tasks, logs, wait, kill."""
-
 import contextlib
 import os
 import signal
@@ -7,10 +5,10 @@ import time
 
 import typer
 
-from .. import db
+from . import db
 
 
-def tasks_cmd(status: str | None = None, identity: str | None = None, show_all: bool = False):
+def tasks(status: str | None = None, identity: str | None = None, show_all: bool = False):
     """List tasks, optionally filtered by status and/or identity."""
     if not show_all and status is None:
         status = "pending|running"
@@ -18,11 +16,11 @@ def tasks_cmd(status: str | None = None, identity: str | None = None, show_all: 
     if status and "|" in status:
         statuses = status.split("|")
         all_tasks = db.list_tasks(status=None, identity=identity)
-        tasks = [t for t in all_tasks if t.status in statuses]
+        tasks_list = [t for t in all_tasks if t.status in statuses]
     else:
-        tasks = db.list_tasks(status=status, identity=identity)
+        tasks_list = db.list_tasks(status=status, identity=identity)
 
-    if not tasks:
+    if not tasks_list:
         typer.echo("No tasks.")
         return
 
@@ -30,7 +28,7 @@ def tasks_cmd(status: str | None = None, identity: str | None = None, show_all: 
     typer.echo("-" * 70)
 
     durations = []
-    for task in tasks:
+    for task in tasks_list:
         task_id = task.task_id[:8]
         ident = (db.get_identity(task.agent_id) or "unknown")[:11]
         stat = task.status
@@ -48,7 +46,7 @@ def tasks_cmd(status: str | None = None, identity: str | None = None, show_all: 
         typer.echo(f"Avg: {avg_dur:.1f}s | Min: {min_dur:.1f}s | Max: {max_dur:.1f}s")
 
 
-def logs_cmd(task_id: str):
+def logs(task_id: str):
     """Show full task details: input, output, stderr, timestamps, duration."""
     task = db.get_task(task_id)
     if not task:
@@ -84,7 +82,7 @@ def logs_cmd(task_id: str):
     typer.echo()
 
 
-def wait_cmd(task_id: str, timeout: float = 300.0) -> int:
+def wait(task_id: str, timeout: float = 300.0) -> int:
     """Block until task completes. Return exit code: 0=success, 1=failed, 124=timeout."""
     task = db.get_task(task_id)
     if not task:
@@ -108,7 +106,7 @@ def wait_cmd(task_id: str, timeout: float = 300.0) -> int:
         time.sleep(0.1)
 
 
-def kill_cmd(task_id: str):
+def kill(task_id: str):
     """Kill a running task."""
     task = db.get_task(task_id)
     if not task:
@@ -125,3 +123,16 @@ def kill_cmd(task_id: str):
 
     db.update_task(task_id, status="failed", stderr="Killed by user", completed_at=True)
     typer.echo(f"✓ Task {task_id[:8]} killed")
+
+
+def rename(old_name: str, new_name: str):
+    """Rename an agent."""
+    try:
+        if db.rename_agent(old_name, new_name):
+            typer.echo(f"✓ Renamed {old_name} → {new_name}")
+        else:
+            typer.echo(f"❌ Agent not found: {old_name}. Run `spawn` to list agents.", err=True)
+            raise typer.Exit(1)
+    except ValueError as e:
+        typer.echo(f"❌ {e}", err=True)
+        raise typer.Exit(1) from e

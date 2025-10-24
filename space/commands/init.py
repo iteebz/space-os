@@ -1,6 +1,6 @@
 import typer
 
-from space.os import bridge, db, knowledge, memory
+from space.os import db
 from space.os.lib import paths
 from space.os.spawn import db as spawn_db
 

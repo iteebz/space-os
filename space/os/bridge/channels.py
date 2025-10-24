@@ -3,11 +3,11 @@ from typing import Annotated
 
 import typer
 
+from space.os import events
 from space.os.lib import output
 from space.os.spawn import db as spawn_db
 
-from ... import events
-from .. import api, utils
+from . import api, utils
 
 app = typer.Typer(invoke_without_command=True)
 
@@ -212,8 +212,6 @@ def archive(
         for pattern in channels:
             matched.extend([name for name in active if name.startswith(pattern)])
         channel_names = list(set(matched))
-
-    print(f"Channel names to archive: {channel_names}")
 
     results = []
     for channel_name in channel_names:

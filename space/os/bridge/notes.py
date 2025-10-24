@@ -2,15 +2,12 @@ import json
 
 import typer
 
+from space.os import events
 from space.os.spawn import db as spawn_db
 
-from ... import events
-from .. import api, utils
-
-app = typer.Typer()
+from . import api, utils
 
 
-@app.command()
 def notes(
     channel: str = typer.Argument(...),
     content: str | None = typer.Argument(None),
@@ -29,15 +26,15 @@ def notes(
             if agent_id:
                 events.emit("bridge", "notes_viewing", agent_id, json.dumps({"channel": channel}))
             channel_id = api.resolve_channel_id(channel)
-            notes = api.get_notes(channel_id)
+            notes_list = api.get_notes(channel_id)
             if agent_id:
                 events.emit(
                     "bridge",
                     "notes_viewed",
                     agent_id,
-                    json.dumps({"channel": channel, "count": len(notes)}),
+                    json.dumps({"channel": channel, "count": len(notes_list)}),
                 )
-            if not notes:
+            if not notes_list:
                 if json_output:
                     typer.echo(json.dumps([]))
                 elif not quiet_output:
@@ -47,16 +44,21 @@ def notes(
             if json_output:
                 typer.echo(
                     json.dumps(
-                        [note.__dict__ if hasattr(note, "__dict__") else note for note in notes]
+                        [
+                            note.__dict__ if hasattr(note, "__dict__") else note
+                            for note in notes_list
+                        ]
                     )
                 )
             elif not quiet_output:
                 typer.echo(f"Notes for {channel}:")
-                for note in notes:
+                for note in notes_list:
                     note_dict = note.__dict__ if hasattr(note, "__dict__") else note
                     timestamp = utils.format_local_time(note_dict["created_at"])
-                    agent_id = note_dict.get("agent_id")
-                    identity_str = spawn_db.get_identity(agent_id) if agent_id else "unknown"
+                    agent_id_note = note_dict.get("agent_id")
+                    identity_str = (
+                        spawn_db.get_identity(agent_id_note) if agent_id_note else "unknown"
+                    )
                     typer.echo(f"[{timestamp}] {identity_str}: {note_dict['content']}")
                     typer.echo()
         except ValueError as e:

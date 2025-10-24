@@ -5,10 +5,9 @@ import typer
 from space.os import db
 from space.os import events as events_lib
 from space.os.lib import paths
-from space.os.lib import stats as stats_lib
 from space.os.spawn import db as spawn_db
 
-app = typer.Typer(invoke_without_command=True)
+app = typer.Typer()
 
 
 def _resolve_agent_id(fuzzy_match: str, include_archived: bool = False) -> tuple[str, str] | None:
@@ -37,96 +36,8 @@ def _resolve_agent_id(fuzzy_match: str, include_archived: bool = False) -> tuple
     return None
 
 
-@app.callback(invoke_without_command=True)
-def main(
-    ctx: typer.Context,
-    show_all: bool = typer.Option(False, "--all", help="Show archived agents"),
-):
-    if ctx.invoked_subcommand is None:
-        list_agents(show_all=show_all)
-
-
-@app.command("list")
-def list_agents(show_all: bool = typer.Option(False, "--all", help="Show archived agents")):
-    """List all agents (registered and orphaned across universe)."""
-
-    stats = stats_lib.agent_stats(include_archived=show_all) or []
-
-    if not stats:
-        typer.echo("No agents found.")
-        return
-
-    with spawn_db.connect() as conn:
-        {row["agent_id"]: row["name"] for row in conn.execute("SELECT agent_id, name FROM agents")}
-
-    typer.echo(f"{'NAME':<20} {'ID':<10} {'E-S-B-M-K':<20} {'SELF'}")
-    typer.echo("-" * 100)
-
-    for s in sorted(stats, key=lambda a: a.agent_name):
-        name = s.agent_name
-        agent_id = s.agent_id
-        short_id = agent_id[:8]
-
-        if len(name) == 36 and name.count("-") == 4:
-            resolved = spawn_db.get_identity(name)
-            if resolved:
-                name = resolved
-
-        desc = "-"
-        esbmk = f"{s.events}-{s.spawns}-{s.msgs}-{s.mems}-{s.knowledge}"
-
-        typer.echo(f"{name:<20} {short_id:<10} {esbmk:<20} {desc}")
-
-    typer.echo()
-    typer.echo(f"Total: {len(stats)}")
-
-
-@app.command("inspect")
-def inspect_agent(agent_ref: str):
-    """Inspect agent activity and state."""
-    result = _resolve_agent_id(agent_ref)
-
-    if not result:
-        typer.echo(f"Error: Agent not found for '{agent_ref}'")
-        raise typer.Exit(1)
-
-    agent_id, display_name = result
-    short_id = agent_id[:8]
-
-    typer.echo(f"\n{'─' * 60}")
-    typer.echo(f"Agent: {display_name} ({short_id})")
-    typer.echo(f"{'─' * 60}\n")
-
-    evts = events_lib.query(agent_id=agent_id, limit=50)
-
-    if not evts:
-        typer.echo("No activity recorded.")
-        typer.echo()
-        return
-
-    event_types = {}
-    for e in evts:
-        et = e.event_type
-        if et not in event_types:
-            event_types[et] = 0
-        event_types[et] += 1
-
-    typer.echo("Activity summary:")
-    for et, count in sorted(event_types.items(), key=lambda x: -x[1]):
-        typer.echo(f"  {et}: {count}")
-    typer.echo()
-
-    typer.echo("Recent activity (last 10):")
-    for e in reversed(evts[:10]):
-        ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(e.timestamp))
-        data_str = f" ({e.data[:50]})" if e.data else ""
-        typer.echo(f"  [{ts}] {e.event_type}{data_str}")
-
-    typer.echo(f"\n{'─' * 60}\n")
-
-
-@app.command("merge")
-def merge_agents(id_from: str, id_to: str):
+@app.command()
+def merge(id_from: str, id_to: str):
     """Merge all data from one agent ID to another."""
     from_result = _resolve_agent_id(id_from)
     to_result = _resolve_agent_id(id_to)

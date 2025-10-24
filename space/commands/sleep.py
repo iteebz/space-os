@@ -41,11 +41,9 @@ def sleep(
     check: bool = typer.Option(False, "--check", help="Preview sleep without persisting changes."),
 ):
     """Prepare for death. Hand off context to your next self."""
-    from space.os import events
-    from space.os.memory import db as memory_db
-    from space.os.spawn import db as spawn_db
+    from space.os import events, memory, spawn
 
-    agent_id = spawn_db.get_agent_id(identity)
+    agent_id = spawn.db.get_agent_id(identity)
     if not agent_id:
         if not quiet:
             typer.echo(f"No active session for {identity}")
@@ -54,7 +52,7 @@ def sleep(
     if not check:
         events.identify(identity, "sleep")
 
-    memory_count = len(memory_db.get_memories(identity))
+    memory_count = len(memory.db.get_memories(identity))
 
     if not quiet:
         typer.echo(f"💀 Sleeping {identity}")
@@ -63,7 +61,7 @@ def sleep(
         typer.echo(f"🧠 {memory_count} memories persisted")
 
         # Retrieve and display last session summary
-        summaries = memory_db.get_memories(identity, topic="summary", limit=1)
+        summaries = memory.db.get_memories(identity, topic="summary", limit=1)
         typer.echo()
         typer.echo("Your last summary:")
         if summaries:

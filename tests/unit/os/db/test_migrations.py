@@ -2,15 +2,14 @@ import sqlite3
 
 import pytest
 
-from space.os import db
-from space.os.bridge import db as bridge_db
+from space.os import bridge, db
 
 
 @pytest.fixture
 def in_memory_bridge_db():
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
-    conn.executescript(bridge_db.SCHEMA)
+    conn.executescript(bridge.db.schema())
     conn.commit()
     yield conn
     conn.close()

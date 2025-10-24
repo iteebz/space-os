@@ -12,9 +12,10 @@ from ..lib import paths
 from ..models import Knowledge
 from . import migrations
 
-KNOWLEDGE_DB_NAME = "knowledge.db"
 
-SCHEMA = """
+def schema() -> str:
+    """Knowledge database schema."""
+    return """
 CREATE TABLE IF NOT EXISTS knowledge (
     knowledge_id TEXT PRIMARY KEY,
     domain TEXT NOT NULL,
@@ -36,10 +37,10 @@ def _row_to_knowledge(row: dict) -> Knowledge:
 
 
 def path() -> Path:
-    return paths.dot_space() / KNOWLEDGE_DB_NAME
+    return paths.dot_space() / "knowledge.db"
 
 
-db.register("knowledge", KNOWLEDGE_DB_NAME, SCHEMA)
+db.register("knowledge", "knowledge.db", schema())
 db.add_migrations("knowledge", migrations.MIGRATIONS)
 
 

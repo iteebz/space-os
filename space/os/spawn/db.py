@@ -12,7 +12,10 @@ from .. import events
 from ..lib import paths
 from . import migrations
 
-SCHEMA = """
+
+def schema() -> str:
+    """Spawn database schema."""
+    return """
 CREATE TABLE IF NOT EXISTS constitutions (
     hash TEXT PRIMARY KEY,
     content TEXT NOT NULL,
@@ -44,7 +47,8 @@ CREATE INDEX IF NOT EXISTS idx_tasks_agent ON tasks(agent_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_channel ON tasks(channel_id);
 """
 
-db.register("spawn", "spawn.db", SCHEMA)
+
+db.register("spawn", "spawn.db", schema())
 db.add_migrations("spawn", migrations.MIGRATIONS)
 
 

@@ -8,6 +8,7 @@ from space.os.lib import paths
 
 _registry: dict[str, tuple[str, str]] = {}
 _migrations: dict[str, list[tuple[str, str | Callable]]] = {}
+_global_dbs: set[str] = set()
 
 
 def connect(db_path: Path) -> sqlite3.Connection:
@@ -32,9 +33,18 @@ def ensure_schema(
         conn.commit()
 
 
-def register(name: str, db_file: str, schema: str) -> None:
-    """Register database in global registry."""
+def register(name: str, db_file: str, schema: str, use_global_root: bool = False) -> None:
+    """Register database in global registry.
+
+    Args:
+        name: Database identifier
+        db_file: Filename for database
+        schema: SQL schema definition
+        use_global_root: If True, use ~/.space/ instead of ~/space/.space/
+    """
     _registry[name] = (db_file, schema)
+    if use_global_root:
+        _global_dbs.add(name)
 
 
 def add_migrations(name: str, migs: list[tuple[str, str | Callable]]) -> None:
@@ -50,7 +60,8 @@ def ensure(name: str) -> sqlite3.Connection:
     if name not in _registry:
         raise ValueError(f"Database '{name}' not registered. Call db.register() first.")
     db_file, schema = _registry[name]
-    db_path = paths.dot_space() / db_file
+    root = paths.global_root() if name in _global_dbs else paths.dot_space()
+    db_path = root / db_file
     db_path.parent.mkdir(parents=True, exist_ok=True)
     migs = _migrations.get(name)
     if not db_path.exists():
@@ -95,3 +106,4 @@ def _reset_for_testing() -> None:
     """Reset registry and migrations state (test-only)."""
     _registry.clear()
     _migrations.clear()
+    _global_dbs.clear()

@@ -10,7 +10,10 @@ from space.os.models import Channel, Export, Message, Note
 
 from . import migrations
 
-SCHEMA = """
+
+def schema() -> str:
+    """Bridge database schema."""
+    return """
 CREATE TABLE IF NOT EXISTS messages (
     message_id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
@@ -53,7 +56,8 @@ CREATE INDEX IF NOT EXISTS idx_messages_priority ON messages(priority);
 CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id);
 """
 
-db.register("bridge", "bridge.db", SCHEMA)
+
+db.register("bridge", "bridge.db", schema())
 db.add_migrations("bridge", migrations.MIGRATIONS)
 
 

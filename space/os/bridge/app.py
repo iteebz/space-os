@@ -5,31 +5,10 @@ import typer
 from space.os import events
 from space.os.lib import errors, output, readme
 
-from . import api, utils
-from .commands import (
-    export as export_cmds,
-)
-from .commands import (
-    history as history_cmds,
-)
-from .commands import (
-    notes as notes_cmds,
-)
-from .commands import (
-    recv as recv_cmds,
-)
-from .commands import (
-    send as send_cmds,
-)
-from .commands import (
-    tasks as tasks_cmds,
-)
-from .commands import (
-    wait as wait_cmds,
-)
-from .commands.channels import app as channels_app
-from .commands.channels import archive as archive_cmd
-from .commands.channels import list_channels
+from . import api, export, messages, notes, utils
+from .channels import app as channels_app
+from .channels import archive as archive_cmd
+from .channels import list_channels
 
 errors.install_error_handler("bridge")
 
@@ -58,7 +37,7 @@ def main_command(
     if ctx.invoked_subcommand is None:
         if agent_id:
             ctx.invoke(
-                recv_cmds.inbox,
+                messages.inbox,
                 identity=agent_id,
                 json_output=ctx.obj.get("json_output"),
                 quiet_output=ctx.obj.get("quiet_output"),
@@ -68,16 +47,14 @@ def main_command(
 
 
 app.add_typer(channels_app, name="channels")
-app.add_typer(tasks_cmds.app, name="tasks")
-app.command("send")(send_cmds.send)
-app.command("alert")(send_cmds.alert)
-app.command("recv")(recv_cmds.recv)
-app.command("wait")(wait_cmds.wait)
-app.command("inbox")(recv_cmds.inbox)
-app.command("alerts")(recv_cmds.alerts)
-app.command("notes")(notes_cmds.notes)
-app.command("export")(export_cmds.export)
-app.command("history")(history_cmds.history)
+app.command("send")(messages.send)
+app.command("alert")(messages.alert)
+app.command("recv")(messages.recv)
+app.command("wait")(messages.wait)
+app.command("inbox")(messages.inbox)
+app.command("alerts")(messages.alerts)
+app.command("notes")(notes.notes)
+app.command("export")(export.export)
 app.command("archive")(archive_cmd)
 app.command("list")(list_channels)
 

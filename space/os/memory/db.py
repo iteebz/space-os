@@ -8,6 +8,7 @@ from pathlib import Path
 
 from space.os import db
 from space.os.db import from_row
+from space.os.lib.ids import resolve_id
 from space.os.lib.uuid7 import uuid7
 
 from .. import events
@@ -16,9 +17,10 @@ from ..models import Memory
 from ..spawn import db as spawn_db
 from . import migrations
 
-MEMORY_DB_NAME = "memory.db"
 
-SCHEMA = """
+def schema() -> str:
+    """Memory database schema."""
+    return """
 CREATE TABLE IF NOT EXISTS memories (
     memory_id TEXT PRIMARY KEY,
     agent_id TEXT NOT NULL,
@@ -56,28 +58,15 @@ CREATE INDEX IF NOT EXISTS idx_links_memory ON memory_links(memory_id);
 CREATE INDEX IF NOT EXISTS idx_links_parent ON memory_links(parent_id);
 """
 
-db.register("memory", MEMORY_DB_NAME, SCHEMA)
+
+db.register("memory", "memory.db", schema())
 db.add_migrations("memory", migrations.MIGRATIONS)
 
 
 def path() -> Path:
-    return paths.dot_space() / MEMORY_DB_NAME
+    return paths.dot_space() / "memory.db"
 
 
-def _resolve_memory_id(short_id: str) -> str:
-    with db.ensure("memory") as conn:
-        rows = conn.execute(
-            "SELECT memory_id FROM memories WHERE memory_id LIKE ?", (f"%{short_id}",)
-        ).fetchall()
-
-    if not rows:
-        raise ValueError(f"No entry found with ID ending in '{short_id}'")
-
-    if len(rows) > 1:
-        ambiguous_ids = [row[0] for row in rows]
-        raise ValueError(f"Ambiguous ID: '{short_id}' matches multiple entries: {ambiguous_ids}")
-
-    return rows[0][0]
 
 
 def add_entry(agent_id: str, topic: str, message: str, core: bool = False, source: str = "manual"):
@@ -129,7 +118,7 @@ def get_memories(
 
 
 def edit_entry(memory_id: str, new_message: str):
-    full_id = _resolve_memory_id(memory_id)
+    full_id = resolve_id("memory", "memory_id", memory_id)
     entry = get_by_memory_id(full_id)
     if not entry:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
@@ -143,7 +132,7 @@ def edit_entry(memory_id: str, new_message: str):
 
 
 def delete_entry(memory_id: str):
-    full_id = _resolve_memory_id(memory_id)
+    full_id = resolve_id("memory", "memory_id", memory_id)
     entry = get_by_memory_id(full_id)
     if not entry:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
@@ -164,7 +153,7 @@ def clear_entries(identity: str, topic: str | None = None):
 
 
 def archive_entry(memory_id: str):
-    full_id = _resolve_memory_id(memory_id)
+    full_id = resolve_id("memory", "memory_id", memory_id)
     entry = get_by_memory_id(full_id)
     if not entry:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
@@ -178,7 +167,7 @@ def archive_entry(memory_id: str):
 
 
 def restore_entry(memory_id: str):
-    full_id = _resolve_memory_id(memory_id)
+    full_id = resolve_id("memory", "memory_id", memory_id)
     entry = get_by_memory_id(full_id)
     if not entry:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
@@ -191,7 +180,7 @@ def restore_entry(memory_id: str):
 
 
 def mark_core(memory_id: str, core: bool = True):
-    full_id = _resolve_memory_id(memory_id)
+    full_id = resolve_id("memory", "memory_id", memory_id)
     entry = get_by_memory_id(full_id)
     if not entry:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
@@ -279,7 +268,7 @@ def find_related(
 
 
 def get_by_memory_id(memory_id: str) -> Memory | None:
-    full_id = _resolve_memory_id(memory_id)
+    full_id = resolve_id("memory", "memory_id", memory_id)
     with db.ensure("memory") as conn:
         row = conn.execute(
             "SELECT memory_id, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors, synthesis_note, supersedes, superseded_by FROM memories WHERE memory_id = ?",
@@ -294,7 +283,7 @@ def get_by_memory_id(memory_id: str) -> Memory | None:
 def replace_entry(
     old_ids: list[str], agent_id: str, topic: str, message: str, note: str = "", core: bool = False
 ) -> str:
-    full_old_ids = [_resolve_memory_id(old_id) for old_id in old_ids]
+    full_old_ids = [resolve_id("memory", "memory_id", old_id) for old_id in old_ids]
     new_id = uuid7()
     now = int(time.time())
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -334,7 +323,7 @@ def replace_entry(
 
 def get_chain(memory_id: str) -> dict:
     """Get the full lineage (predecessors and successors) for a given memory_id."""
-    full_id = _resolve_memory_id(memory_id)
+    full_id = resolve_id("memory", "memory_id", memory_id)
     predecessors = []
     successors = []
     visited = set()

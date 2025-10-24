@@ -3,64 +3,25 @@ import typer
 from space.os.lib import errors
 
 from .. import config
-from . import db, spawn
-from .commands import tasks as tasks_module
+from . import spawn, tasks
+from .commands.agents import app as agents_app
+from .commands.registry import app as registry_app
 
 errors.install_error_handler("spawn")
 
 app = typer.Typer()
+app.add_typer(agents_app, name="agents")
+app.add_typer(registry_app, name="registry")
 
-
-@app.command(name="tasks")
-def tasks_cmd(
-    status: str | None = typer.Option(
-        None, help="Filter by status (pending|running|completed|failed|timeout)"
-    ),
-    identity: str | None = typer.Option(None, help="Filter by agent identity"),
-    all: bool = typer.Option(False, "--all", help="Show all tasks (default: active only)"),
-):
-    """List spawn tasks."""
-    tasks_module.tasks_cmd(status=status, identity=identity, show_all=all)
-
-
-@app.command(name="logs")
-def logs_cmd(task_id: str):
-    """Show full task details."""
-    tasks_module.logs_cmd(task_id)
-
-
-@app.command(name="wait")
-def wait_cmd(
-    task_id: str,
-    timeout: float = typer.Option(300.0, help="Wait timeout in seconds"),
-):
-    """Block until task completes."""
-    exit_code = tasks_module.wait_cmd(task_id, timeout=timeout)
-    raise typer.Exit(exit_code)
-
-
-@app.command(name="kill")
-def kill_cmd(task_id: str):
-    """Kill a running task."""
-    tasks_module.kill_cmd(task_id)
-
-
-@app.command(name="rename")
-def rename_cmd(old_name: str, new_name: str):
-    """Rename an agent."""
-    try:
-        if db.rename_agent(old_name, new_name):
-            typer.echo(f"✓ Renamed {old_name} → {new_name}")
-        else:
-            typer.echo(f"❌ Agent not found: {old_name}. Run `spawn` to list agents.", err=True)
-            raise typer.Exit(1)
-    except ValueError as e:
-        typer.echo(f"❌ {e}", err=True)
-        raise typer.Exit(1) from e
+app.command(name="tasks")(tasks.tasks)
+app.command(name="logs")(tasks.logs)
+app.command(name="wait")(tasks.wait)
+app.command(name="kill")(tasks.kill)
+app.command(name="rename")(tasks.rename)
 
 
 @app.callback()
-def main_command(ctx: typer.Context):
+def cb(ctx: typer.Context):
     """Constitutional agent registry"""
     pass
 
@@ -70,7 +31,7 @@ def main_command(ctx: typer.Context):
     hidden=True,
     context_settings={"allow_extra_args": True, "allow_interspersed_args": False},
 )
-def launch_cmd(ctx: typer.Context, agent_id: str):
+def launch(ctx: typer.Context, agent_id: str):
     """Launch an agent (internal fallback)."""
     _spawn_from_registry(agent_id, ctx.args)
 
@@ -186,6 +147,12 @@ def _get_agent(identity: str, base_agent: str | None, model: str | None, cfg: di
 
     agent_class = agent_map[command]
     return agent_class(actual_identity)
+
+
+tasks_cmd = tasks.tasks
+logs_cmd = tasks.logs
+wait_cmd = tasks.wait
+kill_cmd = tasks.kill
 
 
 if __name__ == "__main__":

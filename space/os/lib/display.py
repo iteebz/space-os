@@ -23,9 +23,9 @@ def fmt_entry_msg(msg: str, max_len: int = 100) -> str:
 
 
 def show_memory_entry(entry, ctx_obj, related=None):
-    from space.os.spawn import db as spawn_db
+    from space.os import spawn
 
-    typer.echo(fmt_entry_header(entry, spawn_db.get_identity(entry.agent_id)))
+    typer.echo(fmt_entry_header(entry, spawn.db.get_identity(entry.agent_id)))
     typer.echo(f"Created: {entry.timestamp}\n")
     typer.echo(f"{entry.message}\n")
 
@@ -86,17 +86,16 @@ def display_context(timeline, current_state, lattice_docs, canon_docs):
 
 
 def show_context(identity: str):
-    from space.os.knowledge import db as knowledge_db
-    from space.os.spawn import db as spawn_db
+    from space.os import knowledge, spawn
 
     typer.echo("\n" + "─" * 60)
 
-    agent_id = spawn_db.get_agent_id(identity)
+    agent_id = spawn.db.get_agent_id(identity)
     if not agent_id:
         typer.echo(f"\nNo agent found for identity: {identity}")
         return
 
-    knowledge_entries = knowledge_db.query_by_agent(agent_id)
+    knowledge_entries = knowledge.db.query_by_agent(agent_id)
     if knowledge_entries:
         domains = {e.domain for e in knowledge_entries}
         typer.echo(
@@ -114,22 +113,18 @@ def show_wake_summary(
     identity: str, quiet_output: bool, spawn_count: int, wakes_this_spawn: int = 0
 ):
     from space.commands import wake as wake_prompts
-    from space.os.bridge import db as bridge_db
-    from space.os.memory import db as memory_db
-    from space.os.spawn import db as spawn_db
+    from space.os import bridge, events, memory, spawn
 
     if quiet_output:
         return
 
-    self_desc = spawn_db.get_self_description(identity)
+    self_desc = spawn.db.get_self_description(identity)
     typer.echo(wake_prompts.IDENTITY_HEADER.format(identity=identity))
     if self_desc:
         typer.echo(wake_prompts.SELF_DESCRIPTION.format(description=self_desc))
     typer.echo()
 
-    from space.os import events
-
-    agent_id = spawn_db.get_agent_id(identity)
+    agent_id = spawn.db.get_agent_id(identity)
 
     if agent_id:
         last_sleep_timestamp = events.get_last_sleep_time(agent_id)
@@ -144,7 +139,7 @@ def show_wake_summary(
         else:
             typer.echo(f"🔄 Spawn #{spawn_count} • Woke {wakes_this_spawn} times this spawn")
 
-        summaries = memory_db.get_memories(identity, topic="summary")
+        summaries = memory.db.get_memories(identity, topic="summary")
         if summaries:
             typer.echo("📝 Last session:")
             typer.echo(f"  {summaries[-1].message}")
@@ -155,14 +150,14 @@ def show_wake_summary(
                     typer.echo(f"  [{s.timestamp}] {s.message}")
             typer.echo()
 
-        core_entries = memory_db.get_core_entries(identity)
+        core_entries = memory.db.get_core_entries(identity)
         if core_entries:
             typer.echo(wake_prompts.SECTION_CORE)
             for e in core_entries[:5]:
                 typer.echo(f"  [{e.memory_id[-8:]}] {e.message}")
             typer.echo()
 
-        recent = memory_db.get_recent_entries(identity, days=7, limit=30)
+        recent = memory.db.get_recent_entries(identity, days=7, limit=30)
         non_summary = [e for e in recent if e.topic != "summary" and not e.core][:3]
         if non_summary:
             typer.echo(wake_prompts.SECTION_RECENT)
@@ -171,13 +166,13 @@ def show_wake_summary(
                 typer.echo(f"  [{ts}] {e.topic}: {e.message}")
             typer.echo()
 
-        sent_msgs = bridge_db.get_sender_history(identity, limit=5)
+        sent_msgs = bridge.db.get_sender_history(identity, limit=5)
         if sent_msgs:
             typer.echo(wake_prompts.SECTION_SENT)
             channel_names = {}
             for msg in sent_msgs:
                 if msg.channel_id not in channel_names:
-                    channel_names[msg.channel_id] = bridge_db.get_channel_name(msg.channel_id)
+                    channel_names[msg.channel_id] = bridge.db.get_channel_name(msg.channel_id)
                 channel = channel_names[msg.channel_id]
                 ts = datetime.strptime(msg.created_at, "%Y-%m-%d %H:%M:%S").strftime("%m-%d %H:%M")
                 first_line = msg.content.split("\n")[0]
@@ -189,13 +184,12 @@ def show_wake_summary(
 def show_smart_memory(identity: str, json_output: bool, quiet_output: bool):
     from dataclasses import asdict
 
-    from space.os.memory import db as memory_db
-    from space.os.spawn import db as spawn_db
+    from space.os import memory, spawn
 
-    self_desc = spawn_db.get_self_description(identity)
-    summaries = memory_db.get_memories(identity, topic="summary")
-    core_entries = memory_db.get_core_entries(identity)
-    recent_entries = memory_db.get_recent_entries(identity, days=7, limit=20)
+    self_desc = spawn.db.get_self_description(identity)
+    summaries = memory.db.get_memories(identity, topic="summary")
+    core_entries = memory.db.get_core_entries(identity)
+    recent_entries = memory.db.get_recent_entries(identity, days=7, limit=20)
 
     if json_output:
         payload = {
