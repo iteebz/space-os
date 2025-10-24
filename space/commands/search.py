@@ -48,9 +48,9 @@ def search(
 
     bridge_db_path = paths.dot_space() / "bridge.db"
     if bridge_db_path.exists():
-        with db.connect(bridge_db_path) as conn:
+        with db.ensure("bridge") as conn:
             rows = conn.execute(
-                "SELECT c.name, m.agent_id, m.content FROM messages m JOIN channels c ON m.channel_id = c.id WHERE m.content LIKE ? AND c.archived_at IS NULL",
+                "SELECT c.name, m.agent_id, m.content FROM messages m JOIN channels c ON m.channel_id = c.channel_id WHERE m.content LIKE ? AND c.archived_at IS NULL",
                 (f"%{keyword}%",),
             ).fetchall()
             results["bridge"] = [

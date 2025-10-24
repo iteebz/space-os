@@ -18,7 +18,7 @@ def tasks_cmd(status: str | None = None, identity: str | None = None, show_all: 
     if status and "|" in status:
         statuses = status.split("|")
         all_tasks = db.list_tasks(status=None, identity=identity)
-        tasks = [t for t in all_tasks if t["status"] in statuses]
+        tasks = [t for t in all_tasks if t.status in statuses]
     else:
         tasks = db.list_tasks(status=status, identity=identity)
 
@@ -31,14 +31,14 @@ def tasks_cmd(status: str | None = None, identity: str | None = None, show_all: 
 
     durations = []
     for task in tasks:
-        task_id = task["id"][:8]
-        ident = task["identity"][:11]
-        stat = task["status"]
-        dur = f"{task['duration']:.1f}s" if task["duration"] else "-"
-        created = task["created_at"][:19] if task["created_at"] else "-"
+        task_id = task.task_id[:8]
+        ident = (db.get_identity(task.agent_id) or "unknown")[:11]
+        stat = task.status
+        dur = f"{task.duration:.1f}s" if task.duration else "-"
+        created = task.created_at[:19] if task.created_at else "-"
         typer.echo(f"{task_id:<8} {ident:<12} {stat:<12} {dur:<10} {created:<20}")
-        if task["duration"]:
-            durations.append(task["duration"])
+        if task.duration:
+            durations.append(task.duration)
 
     if durations:
         typer.echo("-" * 70)
@@ -55,31 +55,31 @@ def logs_cmd(task_id: str):
         typer.echo(f"❌ Task not found: {task_id}", err=True)
         raise typer.Exit(1)
 
-    typer.echo(f"\n📋 Task: {task['id']}")
-    typer.echo(f"Identity: {task['identity']}")
-    typer.echo(f"Status: {task['status']}")
+    typer.echo(f"\n📋 Task: {task.task_id}")
+    typer.echo(f"Identity: {task.agent_id}")
+    typer.echo(f"Status: {task.status}")
 
-    if task["channel_id"]:
-        typer.echo(f"Channel: {task['channel_id']}")
+    if task.channel_id:
+        typer.echo(f"Channel: {task.channel_id}")
 
-    typer.echo(f"Created: {task['created_at']}")
-    if task["started_at"]:
-        typer.echo(f"Started: {task['started_at']}")
-    if task["completed_at"]:
-        typer.echo(f"Completed: {task['completed_at']}")
-    if task["duration"] is not None:
-        typer.echo(f"Duration: {task['duration']:.2f}s")
+    typer.echo(f"Created: {task.created_at}")
+    if task.started_at:
+        typer.echo(f"Started: {task.started_at}")
+    if task.completed_at:
+        typer.echo(f"Completed: {task.completed_at}")
+    if task.duration is not None:
+        typer.echo(f"Duration: {task.duration:.2f}s")
 
     typer.echo("\n--- Input ---")
-    typer.echo(task["input"])
+    typer.echo(task.input)
 
-    if task["output"]:
+    if task.output:
         typer.echo("\n--- Output ---")
-        typer.echo(task["output"])
+        typer.echo(task.output)
 
-    if task["stderr"]:
+    if task.stderr:
         typer.echo("\n--- Stderr ---")
-        typer.echo(task["stderr"])
+        typer.echo(task.stderr)
 
     typer.echo()
 
@@ -94,8 +94,8 @@ def wait_cmd(task_id: str, timeout: float = 300.0) -> int:
     start = time.time()
     while True:
         task = db.get_task(task_id)
-        if task["status"] in ("completed", "failed", "timeout"):
-            if task["status"] == "completed":
+        if task.status in ("completed", "failed", "timeout"):
+            if task.status == "completed":
                 return 0
             return 1
 
@@ -115,13 +115,13 @@ def kill_cmd(task_id: str):
         typer.echo(f"❌ Task not found: {task_id}", err=True)
         raise typer.Exit(1)
 
-    if task["status"] in ("completed", "failed", "timeout"):
-        typer.echo(f"⚠️ Task already {task['status']}, nothing to kill")
+    if task.status in ("completed", "failed", "timeout"):
+        typer.echo(f"⚠️ Task already {task.status}, nothing to kill")
         return
 
-    if task["pid"]:
+    if task.pid:
         with contextlib.suppress(OSError, ProcessLookupError):
-            os.kill(task["pid"], signal.SIGTERM)
+            os.kill(task.pid, signal.SIGTERM)
 
     db.update_task(task_id, status="failed", stderr="Killed by user", completed_at=True)
     typer.echo(f"✓ Task {task_id[:8]} killed")

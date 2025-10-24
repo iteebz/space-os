@@ -5,7 +5,7 @@ import time
 from space.os.spawn import db as spawn_db
 
 
-def test_tasks_list_empty(in_memory_db, capsys):
+def test_tasks_list_empty(test_space, capsys):
     """spawn tasks with no tasks shows empty."""
     from space.os.spawn.commands.tasks import tasks_cmd
 
@@ -14,7 +14,7 @@ def test_tasks_list_empty(in_memory_db, capsys):
     assert "No tasks" in captured.out or len(captured.out) == 0
 
 
-def test_tasks_list_shows_running(in_memory_db, capsys):
+def test_tasks_list_shows_running(test_space, capsys):
     """spawn tasks lists running tasks with status, identity, duration."""
     from space.os.spawn.commands.tasks import tasks_cmd
 
@@ -28,7 +28,7 @@ def test_tasks_list_shows_running(in_memory_db, capsys):
     assert "running" in captured.out
 
 
-def test_tasks_list_filter_by_status(in_memory_db, capsys):
+def test_tasks_list_filter_by_status(test_space, capsys):
     """spawn tasks --status pending shows only pending."""
     from space.os.spawn.commands.tasks import tasks_cmd
 
@@ -43,7 +43,7 @@ def test_tasks_list_filter_by_status(in_memory_db, capsys):
     assert "task 1" not in captured.out or t1[:8] not in captured.out
 
 
-def test_tasks_list_filter_by_identity(in_memory_db, capsys):
+def test_tasks_list_filter_by_identity(test_space, capsys):
     """spawn tasks --identity hailot shows only hailot tasks."""
     from space.os.spawn.commands.tasks import tasks_cmd
 
@@ -58,7 +58,7 @@ def test_tasks_list_filter_by_identity(in_memory_db, capsys):
     assert "zealot" not in captured.out or t2[:8] not in captured.out
 
 
-def test_logs_shows_full_task_detail(in_memory_db, capsys):
+def test_logs_shows_full_task_detail(test_space, capsys):
     """spawn logs <id> shows input, output, stderr, timestamps, duration."""
     from space.os.spawn.commands.tasks import logs_cmd
 
@@ -75,7 +75,7 @@ def test_logs_shows_full_task_detail(in_memory_db, capsys):
     assert "completed" in captured.out
 
 
-def test_logs_shows_failed_task_stderr(in_memory_db, capsys):
+def test_logs_shows_failed_task_stderr(test_space, capsys):
     """spawn logs shows stderr for failed tasks."""
     from space.os.spawn.commands.tasks import logs_cmd
 
@@ -89,7 +89,7 @@ def test_logs_shows_failed_task_stderr(in_memory_db, capsys):
     assert "error: not found" in captured.out
 
 
-def test_logs_task_not_found(in_memory_db, capsys):
+def test_logs_task_not_found(test_space, capsys):
     """spawn logs <invalid-id> shows error."""
     import typer
 

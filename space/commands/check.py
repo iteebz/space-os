@@ -15,8 +15,6 @@ def check(
 ):
     """Show agent dashboard: summary, memories, stats."""
     try:
-        pass
-
         agent_id = spawn_db.get_agent_id(agent)
         if not agent_id:
             typer.echo(f"Agent {agent} not found")
@@ -24,7 +22,7 @@ def check(
 
         with spawn_db.connect() as conn:
             row = conn.execute(
-                "SELECT name, self_description FROM agents WHERE id = ?", (agent_id,)
+                "SELECT name, self_description FROM agents WHERE agent_id = ?", (agent_id,)
             ).fetchone()
             name = row["name"]
             self_desc = row["self_description"]
@@ -43,11 +41,16 @@ def check(
         last_event = None
         spawn_count = 0
 
+        registry_map = {"events.db": "events", "memory.db": "memory", "knowledge.db": "knowledge", "bridge.db": "bridge"}
+
         def safe_fetch(db_path, query, params=(), default=None, fetch="one"):
             if not db_path.exists():
                 return default
             try:
-                with db.connect(db_path) as conn:
+                registry_name = registry_map.get(db_path.name)
+                if not registry_name:
+                    return default
+                with db.ensure(registry_name) as conn:
                     cursor = conn.execute(query, params)
                     if fetch == "all":
                         rows = cursor.fetchall()

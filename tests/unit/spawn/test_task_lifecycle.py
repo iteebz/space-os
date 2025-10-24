@@ -3,22 +3,22 @@
 from space.os.spawn import db as spawn_db
 
 
-def test_task_pending_to_running(in_memory_db):
+def test_task_pending_to_running(test_space):
     """Task transitions from pending → running with started_at timestamp."""
     spawn_db.ensure_agent("hailot")
     task_id = spawn_db.create_task(identity="hailot", input="list repos")
 
     task = spawn_db.get_task(task_id)
-    assert task["status"] == "pending"
-    assert task["started_at"] is None
+    assert task.status == "pending"
+    assert task.started_at is None
 
     spawn_db.update_task(task_id, status="running", started_at=True)
     task = spawn_db.get_task(task_id)
-    assert task["status"] == "running"
-    assert task["started_at"] is not None
+    assert task.status == "running"
+    assert task.started_at is not None
 
 
-def test_task_running_to_completed(in_memory_db):
+def test_task_running_to_completed(test_space):
     """Task transitions from running → completed with output and duration."""
     spawn_db.ensure_agent("hailot")
     task_id = spawn_db.create_task(identity="hailot", input="list repos")
@@ -28,14 +28,14 @@ def test_task_running_to_completed(in_memory_db):
     spawn_db.update_task(task_id, status="completed", output=output, completed_at=True)
 
     task = spawn_db.get_task(task_id)
-    assert task["status"] == "completed"
-    assert task["output"] == output
-    assert task["completed_at"] is not None
-    assert task["duration"] is not None
-    assert task["duration"] >= 0
+    assert task.status == "completed"
+    assert task.output == output
+    assert task.completed_at is not None
+    assert task.duration is not None
+    assert task.duration >= 0
 
 
-def test_task_running_to_failed(in_memory_db):
+def test_task_running_to_failed(test_space):
     """Task transitions from running → failed with stderr."""
     spawn_db.ensure_agent("hailot")
     task_id = spawn_db.create_task(identity="hailot", input="invalid command")
@@ -45,25 +45,25 @@ def test_task_running_to_failed(in_memory_db):
     spawn_db.update_task(task_id, status="failed", stderr=stderr, completed_at=True)
 
     task = spawn_db.get_task(task_id)
-    assert task["status"] == "failed"
-    assert task["stderr"] == stderr
-    assert task["output"] is None
-    assert task["completed_at"] is not None
+    assert task.status == "failed"
+    assert task.stderr == stderr
+    assert task.output is None
+    assert task.completed_at is not None
 
 
-def test_task_pending_to_timeout(in_memory_db):
+def test_task_pending_to_timeout(test_space):
     """Task can timeout without starting."""
     spawn_db.ensure_agent("hailot")
     task_id = spawn_db.create_task(identity="hailot", input="slow task")
 
     spawn_db.update_task(task_id, status="timeout", completed_at=True)
     task = spawn_db.get_task(task_id)
-    assert task["status"] == "timeout"
-    assert task["started_at"] is None
-    assert task["completed_at"] is not None
+    assert task.status == "timeout"
+    assert task.started_at is None
+    assert task.completed_at is not None
 
 
-def test_task_lifecycle_with_channel(in_memory_db):
+def test_task_lifecycle_with_channel(test_space):
     """Task tracks channel_id for bridge integration."""
     spawn_db.ensure_agent("hailot")
     channel_id = "ch-spawn-test-123"
@@ -74,17 +74,17 @@ def test_task_lifecycle_with_channel(in_memory_db):
     )
 
     task = spawn_db.get_task(task_id)
-    assert task["channel_id"] == channel_id
+    assert task.channel_id == channel_id
 
     spawn_db.update_task(task_id, status="running", started_at=True)
     spawn_db.update_task(task_id, status="completed", output="done", completed_at=True)
 
     task = spawn_db.get_task(task_id)
-    assert task["channel_id"] == channel_id
-    assert task["status"] == "completed"
+    assert task.channel_id == channel_id
+    assert task.status == "completed"
 
 
-def test_multiple_tasks_per_identity(in_memory_db):
+def test_multiple_tasks_per_identity(test_space):
     """Can track multiple concurrent tasks per agent."""
     spawn_db.ensure_agent("hailot")
 
@@ -100,14 +100,14 @@ def test_multiple_tasks_per_identity(in_memory_db):
 
     running = spawn_db.list_tasks(status="running", identity="hailot")
     assert len(running) == 2
-    assert {t["id"] for t in running} == {t1, t2}
+    assert {t.task_id for t in running} == {t1, t2}
 
     pending = spawn_db.list_tasks(status="pending", identity="hailot")
     assert len(pending) == 1
-    assert pending[0]["id"] == t3
+    assert pending[0].task_id == t3
 
 
-def test_task_output_capture(in_memory_db):
+def test_task_output_capture(test_space):
     """Tasks capture both stdout and stderr."""
     spawn_db.ensure_agent("hailot")
     task_id = spawn_db.create_task(identity="hailot", input="run with mixed output")
@@ -122,5 +122,5 @@ def test_task_output_capture(in_memory_db):
     )
 
     task = spawn_db.get_task(task_id)
-    assert task["output"] == "stdout content"
-    assert task["stderr"] == "stderr content"
+    assert task.output == "stdout content"
+    assert task.stderr == "stderr content"

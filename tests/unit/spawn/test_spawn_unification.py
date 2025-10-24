@@ -51,8 +51,8 @@ def test_spawn_tasks_table_schema(test_space):
         columns = {col[1] for col in cursor.fetchall()}
 
         required = {
-            "id",
-            "identity",
+            "task_id",
+            "agent_id",
             "channel_id",
             "input",
             "output",
@@ -78,7 +78,7 @@ def test_task_lifecycle_states(test_space):
     for state in states:
         tasks = spawn_db.list_tasks(status=state)
         assert len(tasks) == 1
-        assert tasks[0]["status"] == state
+        assert tasks[0].status == state
 
 
 def test_spawn_app_accepts_context_flag(test_space):

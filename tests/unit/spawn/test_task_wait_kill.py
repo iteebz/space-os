@@ -5,7 +5,7 @@ import time
 from space.os.spawn import db as spawn_db
 
 
-def test_wait_blocks_until_completion(in_memory_db):
+def test_wait_blocks_until_completion(test_space):
     """spawn wait <id> blocks until task completes."""
     from space.os.spawn.commands.tasks import wait_cmd
 
@@ -20,7 +20,7 @@ def test_wait_blocks_until_completion(in_memory_db):
     assert exit_code == 0
 
 
-def test_wait_returns_task_status_as_exit_code(in_memory_db):
+def test_wait_returns_task_status_as_exit_code(test_space):
     """spawn wait returns 0 for completed, non-zero for failed."""
     from space.os.spawn.commands.tasks import wait_cmd
 
@@ -32,7 +32,7 @@ def test_wait_returns_task_status_as_exit_code(in_memory_db):
     assert exit_code != 0
 
 
-def test_wait_timeout(in_memory_db):
+def test_wait_timeout(test_space):
     """spawn wait <id> --timeout raises error if exceeded."""
     import typer
 
@@ -49,7 +49,7 @@ def test_wait_timeout(in_memory_db):
         assert e.exit_code == 124
 
 
-def test_wait_pending_task_waits(in_memory_db):
+def test_wait_pending_task_waits(test_space):
     """spawn wait on pending task waits for it to start and complete."""
     from space.os.spawn.commands.tasks import wait_cmd
 
@@ -63,10 +63,10 @@ def test_wait_pending_task_waits(in_memory_db):
     assert exit_code == 0
 
     task = spawn_db.get_task(task_id)
-    assert task["output"] == "result"
+    assert task.output == "result"
 
 
-def test_kill_running_task(in_memory_db):
+def test_kill_running_task(test_space):
     """spawn kill <id> marks task as killed."""
     from space.os.spawn.commands.tasks import kill_cmd
 
@@ -77,11 +77,11 @@ def test_kill_running_task(in_memory_db):
     kill_cmd(task_id)
 
     task = spawn_db.get_task(task_id)
-    assert task["status"] == "failed"
-    assert "killed" in task["stderr"].lower()
+    assert task.status == "failed"
+    assert "killed" in task.stderr.lower()
 
 
-def test_kill_nonexistent_task(in_memory_db, capsys):
+def test_kill_nonexistent_task(test_space, capsys):
     """spawn kill <invalid-id> shows error."""
     import typer
 
@@ -96,7 +96,7 @@ def test_kill_nonexistent_task(in_memory_db, capsys):
         assert "not found" in captured.err.lower()
 
 
-def test_kill_completed_task_no_op(in_memory_db):
+def test_kill_completed_task_no_op(test_space):
     """spawn kill on completed task is no-op."""
     from space.os.spawn.commands.tasks import kill_cmd
 
@@ -107,10 +107,10 @@ def test_kill_completed_task_no_op(in_memory_db):
     kill_cmd(task_id)
 
     task = spawn_db.get_task(task_id)
-    assert task["status"] == "completed"
+    assert task.status == "completed"
 
 
-def test_task_pid_tracking(in_memory_db):
+def test_task_pid_tracking(test_space):
     """Tasks can track process ID for kill signal."""
     spawn_db.ensure_agent("hailot")
     task_id = spawn_db.create_task(identity="hailot", input="test")
@@ -118,4 +118,4 @@ def test_task_pid_tracking(in_memory_db):
     spawn_db.update_task(task_id, status="running", started_at=True, pid=54321)
 
     task = spawn_db.get_task(task_id)
-    assert task["pid"] == 54321
+    assert task.pid == 54321

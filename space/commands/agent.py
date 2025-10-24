@@ -1,8 +1,8 @@
-import sqlite3
 import time
 
 import typer
 
+from space.os import db
 from space.os import events as events_lib
 from space.os.lib import paths
 from space.os.lib import stats as stats_lib
@@ -13,15 +13,13 @@ app = typer.Typer(invoke_without_command=True)
 
 def _resolve_agent_id(fuzzy_match: str, include_archived: bool = False) -> tuple[str, str] | None:
     """Resolve agent ID from partial UUID or identity name. Returns (agent_id, display_name)."""
-    pass
-
     with spawn_db.connect() as conn:
         where_clause = "" if include_archived else "WHERE archived_at IS NULL"
-        rows = conn.execute(f"SELECT id, name FROM agents {where_clause}").fetchall()
+        rows = conn.execute(f"SELECT agent_id, name FROM agents {where_clause}").fetchall()
 
     candidates = []
     for row in rows:
-        agent_id = row["id"]
+        agent_id = row["agent_id"]
         name = row["name"]
 
         if agent_id.startswith(fuzzy_match) or name and name.lower() == fuzzy_match.lower():
@@ -58,9 +56,8 @@ def list_agents(show_all: bool = typer.Option(False, "--all", help="Show archive
         typer.echo("No agents found.")
         return
 
-    pass
     with spawn_db.connect() as conn:
-        {row["id"]: row["name"] for row in conn.execute("SELECT id, name FROM agents")}
+        {row["agent_id"]: row["name"] for row in conn.execute("SELECT agent_id, name FROM agents")}
 
     typer.echo(f"{'NAME':<20} {'ID':<10} {'E-S-B-M-K':<20} {'SELF'}")
     typer.echo("-" * 100)
@@ -155,9 +152,8 @@ def merge_agents(id_from: str, id_to: str):
 
     with spawn_db.connect() as conn:
         updated_count += conn.execute(
-            "UPDATE agents SET archived_at = ? WHERE id = ?", (int(time.time()), from_agent_id)
+            "UPDATE agents SET archived_at = ? WHERE agent_id = ?", (int(time.time()), from_agent_id)
         ).rowcount
-        conn.commit()
 
     dbs = {
         "events.db": [("events",)],
@@ -167,18 +163,20 @@ def merge_agents(id_from: str, id_to: str):
     }
 
     counts = {}
+    db_names_map = {"events.db": "events", "memory.db": "memory", "knowledge.db": "knowledge", "bridge.db": "bridge"}
     for db_name, tables in dbs.items():
         db_path = paths.dot_space() / db_name
         if db_path.exists():
-            with sqlite3.connect(db_path) as conn:
-                for (table,) in tables:
-                    count = conn.execute(
-                        f"UPDATE {table} SET agent_id = ? WHERE agent_id = ?",
-                        (to_agent_id, from_agent_id),
-                    ).rowcount
-                    if count > 0:
-                        counts[table] = count
-                conn.commit()
+            registry_name = db_names_map.get(db_name)
+            if registry_name:
+                with db.ensure(registry_name) as conn:
+                    for (table,) in tables:
+                        count = conn.execute(
+                            f"UPDATE {table} SET agent_id = ? WHERE agent_id = ?",
+                            (to_agent_id, from_agent_id),
+                        ).rowcount
+                        if count > 0:
+                            counts[table] = count
 
     total = sum(counts.values())
     if counts:
@@ -200,11 +198,8 @@ def rename_agent(agent_ref: str, new_name: str):
 
     agent_id, _ = result
 
-    pass
-
     with spawn_db.connect() as conn:
-        conn.execute("UPDATE agents SET name = ? WHERE id = ?", (new_name, agent_id))
-        conn.commit()
+        conn.execute("UPDATE agents SET name = ? WHERE agent_id = ?", (new_name, agent_id))
 
     typer.echo(f"✓ Renamed to {new_name}")
     events_lib.emit("agents", "rename", agent_id, f"renamed to {new_name}")
@@ -237,24 +232,21 @@ def delete_agent(
     deleted_count = 0
 
     with spawn_db.connect() as conn:
-        deleted_count += conn.execute("DELETE FROM agents WHERE id = ?", (agent_id,)).rowcount
-        conn.commit()
+        deleted_count += conn.execute("DELETE FROM agents WHERE agent_id = ?", (agent_id,)).rowcount
 
     memory_db_path = paths.dot_space() / "memory.db"
     if memory_db_path.exists():
-        with sqlite3.connect(memory_db_path) as memory_conn:
+        with db.ensure("memory") as memory_conn:
             deleted_count += memory_conn.execute(
                 "DELETE FROM memories WHERE agent_id = ?", (agent_id,)
             ).rowcount
-            memory_conn.commit()
 
     events_db_path = paths.dot_space() / "events.db"
     if events_db_path.exists():
-        with sqlite3.connect(events_db_path) as events_conn:
+        with db.ensure("events") as events_conn:
             deleted_count += events_conn.execute(
                 "DELETE FROM events WHERE agent_id = ?", (agent_id,)
             ).rowcount
-            events_conn.commit()
 
     typer.echo(f"✓ Deleted {display_name} ({deleted_count} records)")
     events_lib.emit("agents", "delete", agent_id, "permanently deleted")

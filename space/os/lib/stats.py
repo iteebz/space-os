@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from space.os import db
 
@@ -89,7 +90,7 @@ def _get_agent_names_map() -> dict[str, str]:
     from ..spawn import db as spawn_db
 
     with spawn_db.connect() as reg_conn:
-        return {row[0]: row[1] for row in reg_conn.execute("SELECT id, name FROM agents")}
+        return {row[0]: row[1] for row in reg_conn.execute("SELECT agent_id, name FROM agents")}
 
 
 def _discover_all_agent_ids(registered_ids: set[str], include_archived: bool = False) -> set[str]:
@@ -99,9 +100,8 @@ def _discover_all_agent_ids(registered_ids: set[str], include_archived: bool = F
     all_agent_ids = set(registered_ids)
 
     if include_archived:
-        pass
         with spawn_db.connect() as reg_conn:
-            for row in reg_conn.execute("SELECT id FROM agents WHERE archived_at IS NOT NULL"):
+            for row in reg_conn.execute("SELECT agent_id FROM agents WHERE archived_at IS NOT NULL"):
                 all_agent_ids.add(row[0])
 
     dbs = [
@@ -111,13 +111,16 @@ def _discover_all_agent_ids(registered_ids: set[str], include_archived: bool = F
         (paths.dot_space() / "events.db", "events"),
     ]
 
+    registry_map = {"bridge.db": "bridge", "memory.db": "memory", "knowledge.db": "knowledge", "events.db": "events"}
     for db_path, table in dbs:
         if db_path.exists():
-            with db.connect(db_path) as conn:
-                for row in conn.execute(
-                    f"SELECT DISTINCT agent_id FROM {table} WHERE agent_id IS NOT NULL"
-                ):
-                    all_agent_ids.add(row[0])
+            registry_name = registry_map.get(db_path.name)
+            if registry_name:
+                with db.ensure(registry_name) as conn:
+                    for row in conn.execute(
+                        f"SELECT DISTINCT agent_id FROM {table} WHERE agent_id IS NOT NULL"
+                    ):
+                        all_agent_ids.add(row[0])
 
     return all_agent_ids
 
@@ -132,7 +135,12 @@ def _get_common_db_stats(
     if not db_path.exists():
         return 0, 0, 0, None, []
 
-    with db.connect(db_path) as conn:
+    registry_map = {"bridge.db": "bridge", "memory.db": "memory", "knowledge.db": "knowledge", "events.db": "events"}
+    registry_name = registry_map.get(db_path.name)
+    if not registry_name:
+        return 0, 0, 0, None, []
+
+    with db.ensure(registry_name) as conn:
         cursor = conn.execute(f"PRAGMA table_info({table_name})")
         columns = [row["name"] for row in cursor.fetchall()]
 
@@ -186,15 +194,15 @@ def bridge_stats(limit: int = None) -> BridgeStats:
         limit=limit,
     )
 
-    with db.connect(db_path) as conn:
+    with db.ensure("bridge") as conn:
         channels = conn.execute(
             "SELECT COUNT(DISTINCT channel_id) FROM messages WHERE channel_id IS NOT NULL"
         ).fetchone()[0]
         active_channels = conn.execute(
-            "SELECT COUNT(DISTINCT id) FROM channels WHERE archived_at IS NULL"
+            "SELECT COUNT(DISTINCT channel_id) FROM channels WHERE archived_at IS NULL"
         ).fetchone()[0]
         archived_channels = conn.execute(
-            "SELECT COUNT(DISTINCT id) FROM channels WHERE archived_at IS NOT NULL"
+            "SELECT COUNT(DISTINCT channel_id) FROM channels WHERE archived_at IS NOT NULL"
         ).fetchone()[0]
         notes = conn.execute("SELECT COUNT(*) FROM notes WHERE channel_id IS NOT NULL").fetchone()[
             0
@@ -262,10 +270,9 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
 def agent_stats(limit: int = None, include_archived: bool = False) -> list[AgentStats] | None:
     from ..spawn import db as spawn_db
 
-    pass
     with spawn_db.connect() as reg_conn:
         where_clause = "" if include_archived else "WHERE archived_at IS NULL"
-        agent_ids = {row[0] for row in reg_conn.execute(f"SELECT id FROM agents {where_clause}")}
+        agent_ids = {row[0] for row in reg_conn.execute(f"SELECT agent_id FROM agents {where_clause}")}
 
     agent_ids_from_all_tables = _discover_all_agent_ids(
         agent_ids, include_archived=include_archived
@@ -330,10 +337,14 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
         ),
     ]
 
+    registry_map = {"bridge.db": "bridge", "memory.db": "memory", "knowledge.db": "knowledge", "events.db": "events"}
     for db_path, query_list in queries:
         if not db_path.exists():
             continue
-        with db.connect(db_path) as conn:
+        registry_name = registry_map.get(db_path.name)
+        if not registry_name:
+            continue
+        with db.ensure(registry_name) as conn:
             for sql, field in query_list:
                 for row in conn.execute(sql):
                     agent_id = row[0]
@@ -373,7 +384,7 @@ def spawn_stats() -> SpawnStats:
     if not db_path.exists():
         return SpawnStats(available=False)
 
-    with db.connect(db_path) as conn:
+    with db.ensure("spawn") as conn:
         agents = conn.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
         hashes = conn.execute("SELECT COUNT(*) FROM constitutions").fetchone()[0]
 
@@ -385,7 +396,7 @@ def events_stats() -> EventsStats:
     if not db_path.exists():
         return EventsStats(available=False)
 
-    with db.connect(db_path) as conn:
+    with db.ensure("events") as conn:
         total = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
 
     return EventsStats(available=True, total=total)

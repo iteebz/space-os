@@ -1,14 +1,18 @@
 import sqlite3
 import uuid
+from pathlib import Path
 
 from space.os import db
 from space.os.db import from_row
+from space.os.lib import paths
 from space.os.lib.uuid7 import uuid7
 from space.os.models import Channel, Export, Message, Note
 
-_SCHEMA = """
+from . import migrations
+
+SCHEMA = """
 CREATE TABLE IF NOT EXISTS messages (
-    id TEXT PRIMARY KEY,
+    message_id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
     agent_id TEXT NOT NULL,
     content TEXT NOT NULL,
@@ -24,7 +28,7 @@ CREATE TABLE IF NOT EXISTS bookmarks (
 );
 
 CREATE TABLE IF NOT EXISTS channels (
-    id TEXT PRIMARY KEY,
+    channel_id TEXT PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     topic TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -39,21 +43,7 @@ CREATE TABLE IF NOT EXISTS notes (
     agent_id TEXT NOT NULL,
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (channel_id) REFERENCES channels(id)
-);
-
-CREATE TABLE IF NOT EXISTS tasks (
-    uuid7 TEXT PRIMARY KEY,
-    channel_id TEXT NOT NULL,
-    identity TEXT NOT NULL,
-    status TEXT DEFAULT 'pending',
-    input TEXT,
-    output TEXT,
-    stderr TEXT,
-    started_at TIMESTAMP,
-    completed_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (channel_id) REFERENCES channels(id)
+    FOREIGN KEY (channel_id) REFERENCES channels(channel_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_channel_time ON messages(channel_id, created_at);
@@ -61,56 +51,25 @@ CREATE INDEX IF NOT EXISTS idx_bookmarks ON bookmarks(agent_id, channel_id);
 CREATE INDEX IF NOT EXISTS idx_notes ON notes(channel_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_messages_priority ON messages(priority);
 CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
-CREATE INDEX IF NOT EXISTS idx_tasks_identity ON tasks(identity);
-CREATE INDEX IF NOT EXISTS idx_tasks_channel ON tasks(channel_id);
 """
 
-db.register("bridge", "bridge.db", _SCHEMA)
+db.register("bridge", "bridge.db", SCHEMA)
+db.add_migrations("bridge", migrations.MIGRATIONS)
 
-db.add_migrations(
-    "bridge",
-    [
-        (
-            "migrate_messages_id_to_text",
-            """
-        CREATE TABLE messages_new (
-            id TEXT PRIMARY KEY,
-            channel_id TEXT NOT NULL,
-            agent_id TEXT NOT NULL,
-            content TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            priority TEXT DEFAULT 'normal'
-        );
-        INSERT INTO messages_new SELECT id, channel_id, agent_id, content, created_at, priority FROM messages;
-        DROP TABLE messages;
-        ALTER TABLE messages_new RENAME TO messages;
-        CREATE INDEX idx_messages_channel_time ON messages(channel_id, created_at);
-        CREATE INDEX idx_messages_priority ON messages(priority);
-        CREATE INDEX idx_messages_agent ON messages(agent_id);
-    """,
-        ),
-        (
-            "remove_duplicate_channels",
-            """
-        DELETE FROM channels WHERE id NOT IN (
-            SELECT MIN(id) FROM channels GROUP BY name
-        );
-    """,
-        ),
-    ],
-)
+
+def path() -> Path:
+    return paths.dot_space() / "bridge.db"
 
 
 def connect():
-    return db.ensure("bridge")
+    return db.ensure("bridge").__enter__()
 
 
 def create_message(channel_id: str, agent_id: str, content: str, priority: str = "normal") -> str:
     message_id = uuid7()
-    with connect() as conn:
+    with db.ensure("bridge") as conn:
         conn.execute(
-            "INSERT INTO messages (id, channel_id, agent_id, content, priority) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO messages (message_id, channel_id, agent_id, content, priority) VALUES (?, ?, ?, ?, ?)",
             (message_id, channel_id, agent_id, content, priority),
         )
         return message_id
@@ -125,7 +84,7 @@ def _row_to_note(row: sqlite3.Row) -> Note:
 
 
 def get_new_messages(channel_id: str, agent_id: str) -> list[Message]:
-    with connect() as conn:
+    with db.ensure("bridge") as conn:
         get_channel_name(channel_id)
 
         last_seen_id = None
@@ -137,9 +96,9 @@ def get_new_messages(channel_id: str, agent_id: str) -> list[Message]:
             last_seen_id = row["last_seen_id"] if row else None
 
         base_query = """
-            SELECT m.id AS message_id, m.channel_id, m.agent_id, m.content, m.created_at
+            SELECT m.message_id, m.channel_id, m.agent_id, m.content, m.created_at
             FROM messages m
-            JOIN channels c ON m.channel_id = c.id
+            JOIN channels c ON m.channel_id = c.channel_id
             WHERE m.channel_id = ? AND c.archived_at IS NULL
         """
 
@@ -148,7 +107,7 @@ def get_new_messages(channel_id: str, agent_id: str) -> list[Message]:
             params = (channel_id,)
         else:
             last_seen_row = conn.execute(
-                "SELECT created_at, rowid FROM messages WHERE id = ?", (last_seen_id,)
+                "SELECT created_at, rowid FROM messages WHERE message_id = ?", (last_seen_id,)
             ).fetchone()
             if last_seen_row:
                 query = f"{base_query} AND (m.created_at > ? OR (m.created_at = ? AND m.rowid > ?)) ORDER BY m.created_at, m.rowid"
@@ -167,16 +126,16 @@ def get_new_messages(channel_id: str, agent_id: str) -> list[Message]:
 
 
 def get_all_messages(channel_id: str) -> list[Message]:
-    with connect() as conn:
+    with db.ensure("bridge") as conn:
         cursor = conn.execute(
-            "SELECT id AS message_id, channel_id, agent_id, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
+            "SELECT message_id, channel_id, agent_id, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
             (channel_id,),
         )
         return [_row_to_message(row) for row in cursor.fetchall()]
 
 
 def set_bookmark(agent_id: str, channel_id: str, last_seen_id: str):
-    with connect() as conn:
+    with db.ensure("bridge") as conn:
         conn.execute(
             "INSERT OR REPLACE INTO bookmarks (agent_id, channel_id, last_seen_id) VALUES (?, ?, ?)",
             (agent_id, channel_id, last_seen_id),
@@ -184,13 +143,13 @@ def set_bookmark(agent_id: str, channel_id: str, last_seen_id: str):
 
 
 def get_alerts(agent_id: str) -> list[Message]:
-    with connect() as conn:
+    with db.ensure("bridge") as conn:
         cursor = conn.execute(
             """
-            SELECT m.id AS message_id, m.channel_id, m.agent_id, m.content, m.created_at
+            SELECT m.message_id, m.channel_id, m.agent_id, m.content, m.created_at
             FROM messages m
             LEFT JOIN bookmarks b ON m.channel_id = b.channel_id AND b.agent_id = ?
-            WHERE m.priority = 'alert' AND (b.last_seen_id IS NULL OR m.id > b.last_seen_id)
+            WHERE m.priority = 'alert' AND (b.last_seen_id IS NULL OR m.message_id > b.last_seen_id)
             ORDER BY m.created_at DESC
             """,
             (agent_id,),
@@ -199,10 +158,10 @@ def get_alerts(agent_id: str) -> list[Message]:
 
 
 def get_sender_history(agent_id: str, limit: int = 5) -> list[Message]:
-    with connect() as conn:
+    with db.ensure("bridge") as conn:
         cursor = conn.execute(
             """
-            SELECT m.id AS message_id, m.channel_id, m.agent_id, m.content, m.created_at
+            SELECT m.message_id, m.channel_id, m.agent_id, m.content, m.created_at
             FROM messages m
             WHERE m.agent_id = ?
             ORDER BY m.created_at DESC
@@ -215,53 +174,55 @@ def get_sender_history(agent_id: str, limit: int = 5) -> list[Message]:
 
 def create_channel(channel_name: str, topic: str | None = None) -> str:
     channel_id = str(uuid.uuid4())
-    with connect() as conn:
+    with db.ensure("bridge") as conn:
         conn.execute(
-            "INSERT INTO channels (id, name, topic) VALUES (?, ?, ?)",
+            "INSERT INTO channels (channel_id, name, topic) VALUES (?, ?, ?)",
             (channel_id, channel_name, topic),
         )
     return channel_id
 
 
 def get_channel_id(channel_name: str) -> str | None:
-    with connect() as conn:
-        cursor = conn.execute("SELECT id FROM channels WHERE name = ?", (channel_name,))
+    with db.ensure("bridge") as conn:
+        cursor = conn.execute("SELECT channel_id FROM channels WHERE name = ?", (channel_name,))
         result = cursor.fetchone()
         if result:
-            return result["id"]
+            return result["channel_id"]
 
         if len(channel_name) == 8:
-            cursor = conn.execute("SELECT id FROM channels WHERE id LIKE ?", (f"%{channel_name}",))
+            cursor = conn.execute(
+                "SELECT channel_id FROM channels WHERE channel_id LIKE ?", (f"%{channel_name}",)
+            )
             result = cursor.fetchone()
             if result:
-                return result["id"]
+                return result["channel_id"]
     return None
 
 
 def get_channel_name(channel_id: str) -> str | None:
-    with connect() as conn:
-        cursor = conn.execute("SELECT name FROM channels WHERE id = ?", (channel_id,))
+    with db.ensure("bridge") as conn:
+        cursor = conn.execute("SELECT name FROM channels WHERE channel_id = ?", (channel_id,))
         row = cursor.fetchone()
     return row["name"] if row else None
 
 
 def set_topic(channel_id: str, topic: str):
-    with connect() as conn:
+    with db.ensure("bridge") as conn:
         conn.execute(
-            "UPDATE channels SET topic = ? WHERE id = ? AND (topic IS NULL OR topic = '')",
+            "UPDATE channels SET topic = ? WHERE channel_id = ? AND (topic IS NULL OR topic = '')",
             (topic, channel_id),
         )
 
 
 def get_topic(channel_id: str) -> str | None:
-    with connect() as conn:
-        cursor = conn.execute("SELECT topic FROM channels WHERE id = ?", (channel_id,))
+    with db.ensure("bridge") as conn:
+        cursor = conn.execute("SELECT topic FROM channels WHERE channel_id = ?", (channel_id,))
         result = cursor.fetchone()
     return result["topic"] if result and result["topic"] else None
 
 
 def get_participants(channel_id: str) -> list[str]:
-    with connect() as conn:
+    with db.ensure("bridge") as conn:
         cursor = conn.execute(
             "SELECT DISTINCT agent_id FROM messages WHERE channel_id = ? ORDER BY agent_id",
             (channel_id,),
@@ -277,9 +238,9 @@ def fetch_channels(
     unread_only: bool = False,
     active_only: bool = False,
 ) -> list[Channel]:
-    with connect() as conn:
+    with db.ensure("bridge") as conn:
         query = """
-            SELECT t.id, t.name, t.topic, t.created_at, t.archived_at,
+            SELECT t.channel_id AS id, t.name, t.topic, t.created_at, t.archived_at,
                    COALESCE(msg_counts.total_messages, 0) as total_messages,
                    msg_counts.last_activity,
                    COALESCE(msg_counts.participants, '') as participants,
@@ -291,19 +252,19 @@ def fetch_channels(
                        GROUP_CONCAT(DISTINCT agent_id) as participants
                 FROM messages
                 GROUP BY channel_id
-            ) as msg_counts ON t.id = msg_counts.channel_id
+            ) as msg_counts ON t.channel_id = msg_counts.channel_id
             LEFT JOIN (
                 SELECT channel_id, COUNT(*) as notes_count
                 FROM notes
                 GROUP BY channel_id
-            ) as note_counts ON t.id = note_counts.channel_id
+            ) as note_counts ON t.channel_id = note_counts.channel_id
             LEFT JOIN (
-                SELECT m.channel_id, COUNT(m.id) as unread_count
+                SELECT m.channel_id, COUNT(m.message_id) as unread_count
                 FROM messages m
                 LEFT JOIN bookmarks b ON m.channel_id = b.channel_id AND b.agent_id = ?
-                WHERE b.last_seen_id IS NULL OR m.id > b.last_seen_id
+                WHERE b.last_seen_id IS NULL OR m.message_id > b.last_seen_id
                 GROUP BY m.channel_id
-            ) as unread_counts ON t.id = unread_counts.channel_id
+            ) as unread_counts ON t.channel_id = unread_counts.channel_id
             WHERE 1 = 1
         """
         params = [agent_id]
@@ -343,14 +304,14 @@ def fetch_channels(
 
 
 def get_export_data(channel_id: str) -> Export:
-    with connect() as conn:
+    with db.ensure("bridge") as conn:
         channel_cursor = conn.execute(
-            "SELECT name, topic, created_at FROM channels WHERE id = ?", (channel_id,)
+            "SELECT name, topic, created_at FROM channels WHERE channel_id = ?", (channel_id,)
         )
         channel_info = channel_cursor.fetchone()
 
         msg_cursor = conn.execute(
-            "SELECT id AS message_id, channel_id, agent_id, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
+            "SELECT message_id, channel_id, agent_id, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
             (channel_id,),
         )
         messages = [_row_to_message(row) for row in msg_cursor.fetchall()]
@@ -376,38 +337,38 @@ def get_export_data(channel_id: str) -> Export:
 
 
 def pin_channel(channel_id: str):
-    with connect() as conn:
+    with db.ensure("bridge") as conn:
         conn.execute(
-            "UPDATE channels SET pinned_at = CURRENT_TIMESTAMP WHERE id = ?",
+            "UPDATE channels SET pinned_at = CURRENT_TIMESTAMP WHERE channel_id = ?",
             (channel_id,),
         )
 
 
 def unpin_channel(channel_id: str):
-    with connect() as conn:
+    with db.ensure("bridge") as conn:
         conn.execute(
-            "UPDATE channels SET pinned_at = NULL WHERE id = ?",
+            "UPDATE channels SET pinned_at = NULL WHERE channel_id = ?",
             (channel_id,),
         )
 
 
 def archive_channel(channel_id: str):
-    with connect() as conn:
+    with db.ensure("bridge") as conn:
         conn.execute(
-            "UPDATE channels SET archived_at = CURRENT_TIMESTAMP WHERE id = ?",
+            "UPDATE channels SET archived_at = CURRENT_TIMESTAMP WHERE channel_id = ?",
             (channel_id,),
         )
 
 
 def delete_channel(channel_id: str):
-    with connect() as conn:
+    with db.ensure("bridge") as conn:
         conn.execute("DELETE FROM messages WHERE channel_id = ?", (channel_id,))
         conn.execute("DELETE FROM bookmarks WHERE channel_id = ?", (channel_id,))
-        conn.execute("DELETE FROM channels WHERE id = ?", (channel_id,))
+        conn.execute("DELETE FROM channels WHERE channel_id = ?", (channel_id,))
 
 
 def rename_channel(old_name: str, new_name: str) -> bool:
-    with connect() as conn:
+    with db.ensure("bridge") as conn:
         try:
             conn.execute("UPDATE channels SET name = ? WHERE name = ?", (new_name, old_name))
             return True
@@ -417,7 +378,7 @@ def rename_channel(old_name: str, new_name: str) -> bool:
 
 def create_note(channel_id: str, agent_id: str, content: str) -> str:
     note_id = uuid7()
-    with connect() as conn:
+    with db.ensure("bridge") as conn:
         conn.execute(
             "INSERT INTO notes (note_id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
             (note_id, channel_id, agent_id, content),
@@ -426,7 +387,7 @@ def create_note(channel_id: str, agent_id: str, content: str) -> str:
 
 
 def get_notes(channel_id: str) -> list[Note]:
-    with connect() as conn:
+    with db.ensure("bridge") as conn:
         cursor = conn.execute(
             "SELECT note_id, agent_id, content, created_at FROM notes WHERE channel_id = ? ORDER BY created_at ASC",
             (channel_id,),

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import sqlite3
 import time
 import uuid
@@ -15,10 +14,11 @@ from .. import events
 from ..lib import paths
 from ..models import Memory
 from ..spawn import db as spawn_db
+from . import migrations
 
 MEMORY_DB_NAME = "memory.db"
 
-_MEMORY_SCHEMA = """
+SCHEMA = """
 CREATE TABLE IF NOT EXISTS memories (
     memory_id TEXT PRIMARY KEY,
     agent_id TEXT NOT NULL,
@@ -56,90 +56,16 @@ CREATE INDEX IF NOT EXISTS idx_links_memory ON memory_links(memory_id);
 CREATE INDEX IF NOT EXISTS idx_links_parent ON memory_links(parent_id);
 """
 
+db.register("memory", MEMORY_DB_NAME, SCHEMA)
+db.add_migrations("memory", migrations.MIGRATIONS)
 
-def database_path() -> Path:
+
+def path() -> Path:
     return paths.dot_space() / MEMORY_DB_NAME
 
 
-def _migrate_memory_table_to_memories(conn: sqlite3.Connection):
-    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='memory'")
-    if not cursor.fetchone():
-        return
-    cursor = conn.execute("PRAGMA table_info(memory)")
-    cols = [row["name"] for row in cursor.fetchall()]
-    if "uuid" not in cols:
-        return
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS memories (
-            memory_id TEXT PRIMARY KEY,
-            agent_id TEXT NOT NULL,
-            topic TEXT NOT NULL,
-            message TEXT NOT NULL,
-            timestamp TEXT NOT NULL,
-            created_at INTEGER NOT NULL,
-            archived_at INTEGER,
-            core INTEGER DEFAULT 0,
-            source TEXT NOT NULL DEFAULT 'manual',
-            bridge_channel TEXT,
-            code_anchors TEXT,
-            synthesis_note TEXT,
-            supersedes TEXT,
-            superseded_by TEXT
-        );
-        INSERT OR IGNORE INTO memories (memory_id, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors, synthesis_note)
-            SELECT uuid, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors, synthesis_note FROM memory;
-        DROP TABLE memory;
-        CREATE INDEX IF NOT EXISTS idx_memories_agent_topic ON memories(agent_id, topic);
-        CREATE INDEX IF NOT EXISTS idx_memories_agent_created ON memories(agent_id, created_at);
-        CREATE INDEX IF NOT EXISTS idx_memories_memory_id ON memories(memory_id);
-        CREATE INDEX IF NOT EXISTS idx_memories_archived ON memories(archived_at);
-        CREATE INDEX IF NOT EXISTS idx_memories_core ON memories(core);
-    """)
-    conn.commit()
-
-
-def _backfill_memory_links(conn: sqlite3.Connection):
-    cursor = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='memory_links'"
-    )
-    if not cursor.fetchone():
-        return
-
-    now = int(time.time())
-    rows = conn.execute(
-        "SELECT memory_id, supersedes FROM memories WHERE supersedes IS NOT NULL"
-    ).fetchall()
-    for row in rows:
-        memory_id = row[0]
-        supersedes_str = row[1]
-        if supersedes_str:
-            parent_ids = [pid.strip() for pid in supersedes_str.split(",") if pid.strip()]
-            for parent_id in parent_ids:
-                link_id = str(uuid.uuid4())
-                with contextlib.suppress(sqlite3.IntegrityError):
-                    conn.execute(
-                        "INSERT OR IGNORE INTO memory_links (link_id, memory_id, parent_id, kind, created_at) VALUES (?, ?, ?, ?, ?)",
-                        (link_id, memory_id, parent_id, "supersedes", now),
-                    )
-
-
-db.register("memory", MEMORY_DB_NAME, _MEMORY_SCHEMA)
-
-db.add_migrations(
-    "memory",
-    [
-        ("migrate_memory_table_to_memories", _migrate_memory_table_to_memories),
-        ("backfill_memory_links", _backfill_memory_links),
-    ],
-)
-
-
-def connect():
-    return db.ensure("memory")
-
-
 def _resolve_memory_id(short_id: str) -> str:
-    with connect() as conn:
+    with db.ensure("memory") as conn:
         rows = conn.execute(
             "SELECT memory_id FROM memories WHERE memory_id LIKE ?", (f"%{short_id}",)
         ).fetchall()
@@ -158,7 +84,7 @@ def add_entry(agent_id: str, topic: str, message: str, core: bool = False, sourc
     memory_id = uuid7()
     now = int(time.time())
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-    with connect() as conn:
+    with db.ensure("memory") as conn:
         conn.execute(
             "INSERT INTO memories (memory_id, agent_id, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (memory_id, agent_id, topic, message, ts, now, 1 if core else 0, source),
@@ -185,7 +111,7 @@ def get_memories(
     if not agent_id:
         raise ValueError(f"Agent '{identity}' not found.")
 
-    with connect() as conn:
+    with db.ensure("memory") as conn:
         params = [agent_id]
         query = "SELECT memory_id, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors, synthesis_note, supersedes, superseded_by FROM memories WHERE agent_id = ?"
         if topic:
@@ -208,7 +134,7 @@ def edit_entry(memory_id: str, new_message: str):
     if not entry:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-    with connect() as conn:
+    with db.ensure("memory") as conn:
         conn.execute(
             "UPDATE memories SET message = ?, timestamp = ? WHERE memory_id = ? ",
             (new_message, ts, full_id),
@@ -221,7 +147,7 @@ def delete_entry(memory_id: str):
     entry = get_by_memory_id(full_id)
     if not entry:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
-    with connect() as conn:
+    with db.ensure("memory") as conn:
         conn.execute("DELETE FROM memories WHERE memory_id = ?", (full_id,))
     events.emit("memory", "note_delete", entry.agent_id, f"{full_id[-8:]}")
 
@@ -230,7 +156,7 @@ def clear_entries(identity: str, topic: str | None = None):
     agent_id = spawn_db.get_agent_id(identity)
     if not agent_id:
         raise ValueError(f"Agent '{identity}' not found.")
-    with connect() as conn:
+    with db.ensure("memory") as conn:
         if topic:
             conn.execute("DELETE FROM memories WHERE agent_id = ? AND topic = ?", (agent_id, topic))
         else:
@@ -243,7 +169,7 @@ def archive_entry(memory_id: str):
     if not entry:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
     now = int(time.time())
-    with connect() as conn:
+    with db.ensure("memory") as conn:
         conn.execute(
             "UPDATE memories SET archived_at = ? WHERE memory_id = ?",
             (now, full_id),
@@ -256,7 +182,7 @@ def restore_entry(memory_id: str):
     entry = get_by_memory_id(full_id)
     if not entry:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
-    with connect() as conn:
+    with db.ensure("memory") as conn:
         conn.execute(
             "UPDATE memories SET archived_at = NULL WHERE memory_id = ?",
             (full_id,),
@@ -269,7 +195,7 @@ def mark_core(memory_id: str, core: bool = True):
     entry = get_by_memory_id(full_id)
     if not entry:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
-    with connect() as conn:
+    with db.ensure("memory") as conn:
         conn.execute(
             "UPDATE memories SET core = ? WHERE memory_id = ?",
             (1 if core else 0, full_id),
@@ -282,7 +208,7 @@ def get_core_entries(identity: str) -> list[Memory]:
     if not agent_id:
         return []
 
-    with connect() as conn:
+    with db.ensure("memory") as conn:
         rows = conn.execute(
             "SELECT memory_id, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors, synthesis_note, supersedes, superseded_by FROM memories WHERE agent_id = ? AND core = 1 AND archived_at IS NULL ORDER BY created_at DESC",
             (agent_id,),
@@ -296,7 +222,7 @@ def get_recent_entries(identity: str, days: int = 7, limit: int = 20) -> list[Me
         return []
 
     cutoff = int(time.time()) - (days * 86400)
-    with connect() as conn:
+    with db.ensure("memory") as conn:
         rows = conn.execute(
             "SELECT memory_id, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors, synthesis_note, supersedes, superseded_by FROM memories WHERE agent_id = ? AND created_at >= ? AND archived_at IS NULL ORDER BY created_at DESC LIMIT ?",
             (agent_id, cutoff, limit),
@@ -310,7 +236,7 @@ def search_entries(identity: str, keyword: str, include_archived: bool = False) 
         return []
 
     archive_filter = "" if include_archived else "AND archived_at IS NULL"
-    with connect() as conn:
+    with db.ensure("memory") as conn:
         rows = conn.execute(
             f"SELECT memory_id, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors, synthesis_note, supersedes, superseded_by FROM memories WHERE agent_id = ? AND (message LIKE ? OR topic LIKE ?) {archive_filter} ORDER BY created_at DESC",
             (agent_id, f"%{keyword}%", f"%{keyword}%"),
@@ -332,7 +258,7 @@ def find_related(
     agent_id = entry.agent_id
 
     archive_filter = "" if include_archived else "AND archived_at IS NULL"
-    with connect() as conn:
+    with db.ensure("memory") as conn:
         try:
             conn.execute("CREATE TEMPORARY TABLE keywords (keyword TEXT)")
             conn.executemany("INSERT INTO keywords VALUES (?)", [(k,) for k in keywords])
@@ -354,7 +280,7 @@ def find_related(
 
 def get_by_memory_id(memory_id: str) -> Memory | None:
     full_id = _resolve_memory_id(memory_id)
-    with connect() as conn:
+    with db.ensure("memory") as conn:
         row = conn.execute(
             "SELECT memory_id, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors, synthesis_note, supersedes, superseded_by FROM memories WHERE memory_id = ?",
             (full_id,),
@@ -373,7 +299,7 @@ def replace_entry(
     now = int(time.time())
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    with connect() as conn:
+    with db.ensure("memory") as conn:
         with conn:
             conn.execute(
                 "INSERT INTO memories (memory_id, agent_id, topic, message, timestamp, created_at, core, source, synthesis_note, supersedes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -417,7 +343,7 @@ def get_chain(memory_id: str) -> dict:
         if current_id in visited:
             return
         visited.add(current_id)
-        with connect() as conn:
+        with db.ensure("memory") as conn:
             rows = conn.execute(
                 """
                 SELECT m.memory_id, m.agent_id, m.topic, m.message, m.timestamp,
@@ -438,7 +364,7 @@ def get_chain(memory_id: str) -> dict:
         if current_id in visited:
             return
         visited.add(current_id)
-        with connect() as conn:
+        with db.ensure("memory") as conn:
             rows = conn.execute(
                 """
                 SELECT m.memory_id, m.agent_id, m.topic, m.message, m.timestamp,

@@ -2,10 +2,7 @@ from datetime import datetime
 
 from space.os import db
 
-from ..events import DB_PATH
-from ..knowledge import db as knowledge_db
-from ..lib import paths
-from ..memory import db as memory_db
+from .. import bridge, events, knowledge, memory
 from ..spawn import db as spawn_db
 
 
@@ -33,8 +30,8 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
         "events.memory.summary.replace",
     }
 
-    if DB_PATH.exists():
-        with db.connect(DB_PATH) as conn:
+    if events.path().exists():
+        with db.ensure("events") as conn:
             query = "SELECT id, source, agent_id, event_type, data, timestamp FROM events WHERE data LIKE ?"
             params = [f"%{topic}%"]
             query, params = _query_with_identity(query, params, identity, all_agents)
@@ -61,8 +58,8 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
                     }
                 )
 
-    if memory_db.database_path().exists():
-        with memory_db.connect() as conn:
+    if memory.db.path().exists():
+        with db.ensure("memory") as conn:
             query = "SELECT agent_id, topic, message, created_at FROM memories WHERE (message LIKE ? OR topic LIKE ?)"
             params = [f"%{topic}%", f"%{topic}%"]
             query, params = _query_with_identity(query, params, identity, all_agents)
@@ -85,8 +82,8 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
                     }
                 )
 
-    if knowledge_db.database_path().exists():
-        with knowledge_db.connect() as conn:
+    if knowledge.db.path().exists():
+        with db.ensure("knowledge") as conn:
             query = "SELECT domain, content, agent_id, created_at FROM knowledge WHERE (content LIKE ? OR domain LIKE ?)"
             params = [f"%{topic}%", f"%{topic}%"]
             query, params = _query_with_identity(query, params, identity, all_agents)
@@ -108,9 +105,8 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
                         "timestamp": row[3] if isinstance(row[3], int) else 0,
                     }
                 )
-    bridge_db_path = paths.dot_space() / "bridge.db"
-    if bridge_db_path.exists():
-        with db.connect(bridge_db_path) as conn:
+    if bridge.db.path().exists():
+        with db.ensure("bridge") as conn:
             query = "SELECT c.name, m.agent_id, m.content, m.created_at FROM messages m JOIN channels c ON m.channel_id = c.id WHERE (m.content LIKE ? OR c.name LIKE ?)"
             params = [f"%{topic}%", f"%{topic}%"]
             query, params = _query_with_identity(query, params, identity, all_agents)
@@ -146,8 +142,8 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
 def collect_current_state(topic: str, identity: str | None, all_agents: bool):
     results = {"memory": [], "knowledge": [], "bridge": []}
 
-    if memory_db.database_path().exists():
-        with memory_db.connect() as conn:
+    if memory.db.path().exists():
+        with db.ensure("memory") as conn:
             query = "SELECT agent_id, topic, message FROM memories WHERE message LIKE ?"
             params = [
                 f"%{topic}%",
@@ -159,8 +155,8 @@ def collect_current_state(topic: str, identity: str | None, all_agents: bool):
                 for r in rows
             ]
 
-    if knowledge_db.database_path().exists():
-        with knowledge_db.connect() as conn:
+    if knowledge.db.path().exists():
+        with db.ensure("knowledge") as conn:
             query = "SELECT domain, content, agent_id FROM knowledge WHERE (content LIKE ? OR domain LIKE ?)"
             params = [f"%{topic}%", f"%{topic}%"]
             query, params = _query_with_identity(query, params, identity, all_agents)
@@ -174,9 +170,8 @@ def collect_current_state(topic: str, identity: str | None, all_agents: bool):
                 for r in rows
             ]
 
-    bridge_db_path = paths.dot_space() / "bridge.db"
-    if bridge_db_path.exists():
-        with db.connect(bridge_db_path) as conn:
+    if bridge.db.path().exists():
+        with db.ensure("bridge") as conn:
             query = "SELECT c.name, m.agent_id, m.content FROM messages m JOIN channels c ON m.channel_id = c.id WHERE m.content LIKE ?"
             params = [
                 f"%{topic}%",

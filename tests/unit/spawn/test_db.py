@@ -1,7 +1,7 @@
 from space.os.spawn import db, spawn
 
 
-def test_save_get_agent_identity(in_memory_db):
+def test_save_get_agent_identity(test_space):
     full_identity = "You are a test agent.\nSelf: I am a test.\n\nConstitution: Test."
     constitution_hash = spawn.hash_content(full_identity)
 
@@ -39,7 +39,7 @@ def test_save_special_chars_id(test_space):
     assert retrieved_identity == special_char_identity
 
 
-def test_create_task(in_memory_db):
+def test_create_task(test_space):
     db.ensure_agent("hailot")
 
     task_id = db.create_task(
@@ -50,50 +50,50 @@ def test_create_task(in_memory_db):
 
     assert task_id is not None
     task = db.get_task(task_id)
-    assert task["identity"] == "hailot"
-    assert task["input"] == "list repos"
-    assert task["channel_id"] == "ch-123"
-    assert task["status"] == "pending"
-    assert task["output"] is None
-    assert task["stderr"] is None
-    assert task["started_at"] is None
-    assert task["completed_at"] is None
+    assert task.agent_id is not None
+    assert task.input == "list repos"
+    assert task.channel_id == "ch-123"
+    assert task.status == "pending"
+    assert task.output is None
+    assert task.stderr is None
+    assert task.started_at is None
+    assert task.completed_at is None
 
 
-def test_update_task_status(in_memory_db):
+def test_update_task_status(test_space):
     db.ensure_agent("hailot")
     task_id = db.create_task(identity="hailot", input="test task")
 
     db.update_task(task_id, status="running", started_at=True)
     task = db.get_task(task_id)
-    assert task["status"] == "running"
-    assert task["started_at"] is not None
+    assert task.status == "running"
+    assert task.started_at is not None
 
 
-def test_complete_task(in_memory_db):
+def test_complete_task(test_space):
     db.ensure_agent("hailot")
     task_id = db.create_task(identity="hailot", input="test task")
     db.update_task(task_id, status="running", started_at=True)
 
     db.update_task(task_id, status="completed", output="success", completed_at=True)
     task = db.get_task(task_id)
-    assert task["status"] == "completed"
-    assert task["output"] == "success"
-    assert task["completed_at"] is not None
-    assert task["duration"] is not None
+    assert task.status == "completed"
+    assert task.output == "success"
+    assert task.completed_at is not None
+    assert task.duration is not None
 
 
-def test_fail_task(in_memory_db):
+def test_fail_task(test_space):
     db.ensure_agent("hailot")
     task_id = db.create_task(identity="hailot", input="test task")
 
     db.update_task(task_id, status="failed", stderr="error message", completed_at=True)
     task = db.get_task(task_id)
-    assert task["status"] == "failed"
-    assert task["stderr"] == "error message"
+    assert task.status == "failed"
+    assert task.stderr == "error message"
 
 
-def test_list_tasks(in_memory_db):
+def test_list_tasks(test_space):
     db.ensure_agent("hailot")
     db.ensure_agent("zealot")
 
@@ -106,8 +106,8 @@ def test_list_tasks(in_memory_db):
 
     pending = db.list_tasks(status="pending")
     assert len(pending) == 1
-    assert pending[0]["id"] == t2
+    assert pending[0].task_id == t2
 
     hailot_tasks = db.list_tasks(identity="hailot")
     assert len(hailot_tasks) == 1
-    assert hailot_tasks[0]["id"] == t1
+    assert hailot_tasks[0].task_id == t1

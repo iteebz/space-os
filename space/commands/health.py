@@ -8,11 +8,10 @@ from space.os.lib import paths
 app = typer.Typer(invoke_without_command=True)
 
 ORPHAN_CHECKS = [
-    ("spawn.db", "tasks", "identity", "agents", "name"),
-    ("bridge.db", "tasks", "channel_id", "channels", "id"),
-    ("bridge.db", "messages", "channel_id", "channels", "id"),
-    ("bridge.db", "notes", "channel_id", "channels", "id"),
-    ("bridge.db", "bookmarks", "channel_id", "channels", "id"),
+    ("spawn.db", "tasks", "agent_id", "agents", "agent_id"),
+    ("bridge.db", "messages", "channel_id", "channels", "channel_id"),
+    ("bridge.db", "notes", "channel_id", "channels", "channel_id"),
+    ("bridge.db", "bookmarks", "channel_id", "channels", "channel_id"),
     ("memory.db", "memories", "agent_id", None, None),
     ("knowledge.db", "knowledge", "agent_id", None, None),
 ]
@@ -29,28 +28,23 @@ DEFS = {
 def _check_orphans() -> list[str]:
     """Check for orphaned references across DBs."""
     issues = []
-    spawn_db_path = paths.dot_space() / "spawn.db"
-    bridge_db_path = paths.dot_space() / "bridge.db"
-    memory_db_path = paths.dot_space() / "memory.db"
-    knowledge_db_path = paths.dot_space() / "knowledge.db"
-
+    registry_map = {"spawn.db": "spawn", "bridge.db": "bridge", "memory.db": "memory", "knowledge.db": "knowledge"}
     db_conns = {}
-    if spawn_db_path.exists():
-        db_conns["spawn.db"] = db.connect(spawn_db_path)
-    if bridge_db_path.exists():
-        db_conns["bridge.db"] = db.connect(bridge_db_path)
-    if memory_db_path.exists():
-        db_conns["memory.db"] = db.connect(memory_db_path)
-    if knowledge_db_path.exists():
-        db_conns["knowledge.db"] = db.connect(knowledge_db_path)
+    for db_name, registry_name in registry_map.items():
+        db_path = paths.dot_space() / db_name
+        if db_path.exists():
+            db_conns[db_name] = db.ensure(registry_name)
 
     try:
         for src_db, src_table, src_col, ref_db, ref_col in ORPHAN_CHECKS:
-            if src_db not in db_conns or ref_db not in db_conns:
+            if src_db not in db_conns or (ref_db and ref_db not in db_conns):
                 continue
 
             src_conn = db_conns[src_db]
-            ref_table = ref_db.split(".")[0]
+            ref_table = ref_db.split(".")[0] if ref_db else None
+
+            if not ref_table:
+                continue
 
             query = f"""
             SELECT COUNT(*) FROM {src_table}
@@ -78,14 +72,17 @@ def _check_db(db_name: str, tables: list[str]) -> tuple[bool, list[str], dict]:
         issues.append(f"❌ {db_name} missing")
         return False, issues, {}
 
+    registry_map = {"spawn.db": "spawn", "bridge.db": "bridge", "memory.db": "memory", "knowledge.db": "knowledge", "events.db": "events"}
+    registry_name = registry_map.get(db_name)
+    if not registry_name:
+        issues.append(f"❌ {db_name}: unknown database")
+        return False, issues, {}
+
     try:
-        with db.connect(db_path) as conn:
+        with db.ensure(registry_name) as conn:
             # Schema check
             actual = {
-                row[0]
-                for row in conn.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table'"
-                )
+                row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
             }
 
             missing = set(tables) - actual

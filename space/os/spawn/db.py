@@ -2,29 +2,32 @@ import time
 import uuid
 from datetime import datetime
 from functools import lru_cache
+from pathlib import Path
 
 from space.os import db
 from space.os.lib.uuid7 import uuid7
 
 from .. import events
 from ..lib import paths
+from . import migrations
+from .models import Task
 
-_SCHEMA = """
+SCHEMA = """
 CREATE TABLE IF NOT EXISTS constitutions (
     hash TEXT PRIMARY KEY,
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS agents (
-    id TEXT PRIMARY KEY,
+    agent_id TEXT PRIMARY KEY,
     name TEXT UNIQUE,
     self_description TEXT,
     archived_at INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS tasks (
-    id TEXT PRIMARY KEY,
-    identity TEXT NOT NULL,
+    task_id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
     channel_id TEXT,
     input TEXT NOT NULL,
     output TEXT,
@@ -34,74 +37,29 @@ CREATE TABLE IF NOT EXISTS tasks (
     started_at TIMESTAMP,
     completed_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (identity) REFERENCES agents(name)
+    FOREIGN KEY (agent_id) REFERENCES agents(agent_id)
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
-CREATE INDEX IF NOT EXISTS idx_tasks_identity ON tasks(identity);
+CREATE INDEX IF NOT EXISTS idx_tasks_agent ON tasks(agent_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_channel ON tasks(channel_id);
 """
 
-
-def _drop_canonical_id(conn):
-    """Remove canonical_id column - shared names replace canonical linking."""
-    cursor = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='agents'")
-    row = cursor.fetchone()
-    if not row:
-        return
-
-    schema = row[0]
-    if "canonical_id" not in schema:
-        return
-
-    cursor = conn.execute("PRAGMA table_info(agents)")
-    columns = [col[1] for col in cursor.fetchall() if col[1] != "canonical_id"]
-    col_list = ", ".join(columns)
-
-    conn.execute("""
-        CREATE TABLE agents_new (
-            id TEXT PRIMARY KEY,
-            name TEXT,
-            self_description TEXT,
-            archived_at INTEGER,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.execute(f"""
-        INSERT INTO agents_new ({col_list})
-        SELECT {col_list} FROM agents
-    """)
-
-    conn.execute("DROP TABLE agents")
-    conn.execute("ALTER TABLE agents_new RENAME TO agents")
+db.register("spawn", "spawn.db", SCHEMA)
+db.add_migrations("spawn", migrations.MIGRATIONS)
 
 
-def _add_pid_to_tasks(conn):
-    """Add pid column to tasks table for process tracking."""
-    cursor = conn.execute("PRAGMA table_info(tasks)")
-    columns = [col[1] for col in cursor.fetchall()]
-    if "pid" in columns:
-        return
-    conn.execute("ALTER TABLE tasks ADD COLUMN pid INTEGER")
-
-
-db.register("spawn", "spawn.db", _SCHEMA)
-
-db.add_migrations(
-    "spawn",
-    [
-        ("drop_canonical_id", _drop_canonical_id),
-        ("add_pid_to_tasks", _add_pid_to_tasks),
-    ],
-)
+def path() -> Path:
+    return paths.dot_space() / "spawn.db"
 
 
 def connect():
+    """Return connection to spawn database via central registry."""
     return db.ensure("spawn")
 
 
 def save_constitution(constitution_hash: str, content: str):
     """Save constitution content by hash (content-addressable store)."""
-    with connect() as conn:
+    with db.ensure("spawn") as conn:
         conn.execute(
             """
             INSERT OR IGNORE INTO constitutions (hash, content)
@@ -113,7 +71,7 @@ def save_constitution(constitution_hash: str, content: str):
 
 def get_constitution(constitution_hash: str) -> str | None:
     """Retrieve constitution content by hash."""
-    with connect() as conn:
+    with db.ensure("spawn") as conn:
         row = conn.execute(
             "SELECT content FROM constitutions WHERE hash = ?",
             (constitution_hash,),
@@ -123,12 +81,12 @@ def get_constitution(constitution_hash: str) -> str | None:
 
 def get_agent_ids(name: str, include_archived: bool = False) -> list[str]:
     """Get all agent UUIDs matching name."""
-    with connect() as conn:
+    with db.ensure("spawn") as conn:
         archive_filter = "" if include_archived else "AND archived_at IS NULL"
         rows = conn.execute(
-            f"SELECT id FROM agents WHERE name = ? {archive_filter}", (name,)
+            f"SELECT agent_id FROM agents WHERE name = ? {archive_filter}", (name,)
         ).fetchall()
-        return [row["id"] for row in rows]
+        return [row["agent_id"] for row in rows]
 
 
 def get_agent_id(name: str) -> str | None:
@@ -140,8 +98,8 @@ def get_agent_id(name: str) -> str | None:
 @lru_cache(maxsize=256)
 def get_identity(agent_id: str) -> str | None:
     """Get agent identity by UUID."""
-    with connect() as conn:
-        row = conn.execute("SELECT name FROM agents WHERE id = ?", (agent_id,)).fetchone()
+    with db.ensure("spawn") as conn:
+        row = conn.execute("SELECT name FROM agents WHERE agent_id = ?", (agent_id,)).fetchone()
         return row["name"] if row else None
 
 
@@ -164,9 +122,9 @@ def ensure_agent(name: str) -> str:
 
     agent_id = str(uuid.uuid4())
     now_iso = datetime.now().isoformat()
-    with connect() as conn:
+    with db.ensure("spawn") as conn:
         conn.execute(
-            "INSERT INTO agents (id, name, created_at) VALUES (?, ?, ?)",
+            "INSERT INTO agents (agent_id, name, created_at) VALUES (?, ?, ?)",
             (agent_id, name, now_iso),
         )
     clear_identity_cache()
@@ -176,7 +134,7 @@ def ensure_agent(name: str) -> str:
 
 def get_self_description(identity: str) -> str | None:
     """Get self-description for agent."""
-    with connect() as conn:
+    with db.ensure("spawn") as conn:
         row = conn.execute(
             "SELECT self_description FROM agents WHERE name = ? LIMIT 1",
             (identity,),
@@ -186,17 +144,19 @@ def get_self_description(identity: str) -> str | None:
 
 def set_self_description(identity: str, description: str) -> bool:
     """Set self-description for agent. Returns True when an update occurs."""
-    with connect() as conn:
-        row = conn.execute("SELECT id FROM agents WHERE name = ? LIMIT 1", (identity,)).fetchone()
+    with db.ensure("spawn") as conn:
+        row = conn.execute(
+            "SELECT agent_id FROM agents WHERE name = ? LIMIT 1", (identity,)
+        ).fetchone()
         if row:
             conn.execute(
-                "UPDATE agents SET self_description = ? WHERE id = ?",
-                (description, row["id"]),
+                "UPDATE agents SET self_description = ? WHERE agent_id = ?",
+                (description, row["agent_id"]),
             )
         else:
             agent_id = str(uuid.uuid4())
             conn.execute(
-                "INSERT INTO agents (id, name, self_description) VALUES (?, ?, ?)",
+                "INSERT INTO agents (agent_id, name, self_description) VALUES (?, ?, ?)",
                 (agent_id, identity, description),
             )
     return True
@@ -208,13 +168,13 @@ def rename_agent(old_name: str, new_name: str) -> bool:
     if not old_agent_id:
         return False
 
-    with connect() as conn:
+    with db.ensure("spawn") as conn:
         existing_agent = conn.execute(
-            "SELECT id FROM agents WHERE name = ?", (new_name,)
+            "SELECT agent_id FROM agents WHERE name = ?", (new_name,)
         ).fetchone()
         if existing_agent:
             return False
-        conn.execute("UPDATE agents SET name = ? WHERE id = ?", (new_name, old_agent_id))
+        conn.execute("UPDATE agents SET name = ? WHERE agent_id = ?", (new_name, old_agent_id))
     clear_identity_cache()
     return True
 
@@ -225,8 +185,10 @@ def archive_agent(name: str) -> bool:
     if not agent_id:
         return False
 
-    with connect() as conn:
-        conn.execute("UPDATE agents SET archived_at = ? WHERE id = ?", (int(time.time()), agent_id))
+    with db.ensure("spawn") as conn:
+        conn.execute(
+            "UPDATE agents SET archived_at = ? WHERE agent_id = ?", (int(time.time()), agent_id)
+        )
     return True
 
 
@@ -236,15 +198,15 @@ def restore_agent(name: str) -> bool:
     if not agent_ids:
         return False
 
-    with connect() as conn:
+    with db.ensure("spawn") as conn:
         for agent_id in agent_ids:
-            conn.execute("UPDATE agents SET archived_at = NULL WHERE id = ?", (agent_id,))
+            conn.execute("UPDATE agents SET archived_at = NULL WHERE agent_id = ?", (agent_id,))
     return True
 
 
 def list_all_agents() -> list[str]:
     """List all active agents."""
-    with connect() as conn:
+    with db.ensure("spawn") as conn:
         rows = conn.execute(
             "SELECT name FROM agents WHERE archived_at IS NULL ORDER BY name"
         ).fetchall()
@@ -254,9 +216,11 @@ def list_all_agents() -> list[str]:
 def _resolve_agent(identifier: str) -> str | None:
     """Resolve name or UUID to UUID."""
     if len(identifier) == 36 and identifier.count("-") == 4:
-        with connect() as conn:
-            row = conn.execute("SELECT id FROM agents WHERE id = ?", (identifier,)).fetchone()
-            return row["id"] if row else None
+        with db.ensure("spawn") as conn:
+            row = conn.execute(
+                "SELECT agent_id FROM agents WHERE agent_id = ?", (identifier,)
+            ).fetchone()
+            return row["agent_id"] if row else None
     else:
         ids = get_agent_ids(identifier, include_archived=True)
         if len(ids) > 1:
@@ -281,38 +245,30 @@ def merge_agents(from_identifier: str, to_identifier: str) -> bool:
     knowledge_db = paths.dot_space() / "knowledge.db"
     bridge_db = paths.dot_space() / "bridge.db"
 
-    with connect() as conn:
+    with db.ensure("spawn") as conn:
         conn.execute(
-            "UPDATE agents SET name = (SELECT name FROM agents WHERE id = ?) WHERE id = ?",
+            "UPDATE agents SET name = (SELECT name FROM agents WHERE agent_id = ?) WHERE agent_id = ?",
             (to_id, from_id),
         )
 
     if events_db.exists():
-        conn = db.connect(events_db)
-        conn.execute("UPDATE events SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
-        conn.commit()
-        conn.close()
+        with db.ensure("events") as conn:
+            conn.execute("UPDATE events SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
 
     if memory_db.exists():
-        conn = db.connect(memory_db)
-        conn.execute("UPDATE memories SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
-        conn.commit()
-        conn.close()
+        with db.ensure("memory") as conn:
+            conn.execute("UPDATE memories SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
 
     if knowledge_db.exists():
-        conn = db.connect(knowledge_db)
-        conn.execute("UPDATE knowledge SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
-        conn.commit()
-        conn.close()
+        with db.ensure("knowledge") as conn:
+            conn.execute("UPDATE knowledge SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
 
     if bridge_db.exists():
-        conn = db.connect(bridge_db)
-        conn.execute("UPDATE messages SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
-        conn.commit()
-        conn.close()
+        with db.ensure("bridge") as conn:
+            conn.execute("UPDATE messages SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
 
-    with connect() as conn:
-        conn.execute("DELETE FROM agents WHERE id = ?", (from_id,))
+    with db.ensure("spawn") as conn:
+        conn.execute("DELETE FROM agents WHERE agent_id = ?", (from_id,))
 
     return True
 
@@ -323,7 +279,7 @@ def backfill_unknown_agents() -> int:
     if not bridge_db.exists():
         return 0
 
-    with db.connect(bridge_db) as bridge_conn:
+    with db.ensure("bridge") as bridge_conn:
         bridge_agent_ids = {
             row[0]
             for row in bridge_conn.execute(
@@ -332,16 +288,16 @@ def backfill_unknown_agents() -> int:
         }
 
     with connect() as reg_conn:
-        registered_ids = {row[0] for row in reg_conn.execute("SELECT id FROM agents")}
+        registered_ids = {row[0] for row in reg_conn.execute("SELECT agent_id FROM agents")}
 
     unknown_ids = bridge_agent_ids - registered_ids
     now_iso = datetime.now().isoformat()
 
-    with connect() as conn:
+    with db.ensure("spawn") as conn:
         for agent_id in unknown_ids:
             placeholder_name = f"orphaned-{agent_id[:8]}"
             conn.execute(
-                "INSERT INTO agents (id, name, created_at) VALUES (?, ?, ?)",
+                "INSERT INTO agents (agent_id, name, created_at) VALUES (?, ?, ?)",
                 (agent_id, placeholder_name, now_iso),
             )
 
@@ -350,39 +306,52 @@ def backfill_unknown_agents() -> int:
 
 def create_task(identity: str, input: str, channel_id: str | None = None) -> str:
     """Create task record. Returns task_id."""
+    agent_id = get_agent_id(identity)
+    if not agent_id:
+        raise ValueError(f"Agent '{identity}' not found")
     task_id = uuid7()
     now_iso = datetime.now().isoformat()
-    with connect() as conn:
+    with db.ensure("spawn") as conn:
         conn.execute(
             """
-            INSERT INTO tasks (id, identity, channel_id, input, status, created_at)
+            INSERT INTO tasks (task_id, agent_id, channel_id, input, status, created_at)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (task_id, identity, channel_id, input, "pending", now_iso),
+            (task_id, agent_id, channel_id, input, "pending", now_iso),
         )
-    events.emit("spawn", "task.create", task_id, f"Task created for {identity}")
+    events.emit("spawn", "task.create", agent_id, f"Task created for {identity}")
     return task_id
 
 
-def get_task(task_id: str) -> dict | None:
+def get_task(task_id: str) -> Task | None:
     """Get task by ID."""
-    with connect() as conn:
+    with db.ensure("spawn") as conn:
         row = conn.execute(
-            "SELECT * FROM tasks WHERE id = ?",
+            "SELECT * FROM tasks WHERE task_id = ?",
             (task_id,),
         ).fetchone()
         if not row:
             return None
-        task = dict(row)
-        if task["started_at"] and task["completed_at"]:
-            from datetime import datetime as dt
-
-            start = dt.fromisoformat(task["started_at"])
-            end = dt.fromisoformat(task["completed_at"])
-            task["duration"] = (end - start).total_seconds()
-        else:
-            task["duration"] = None
-        return task
+        task_dict = dict(row)
+        duration = None
+        if task_dict["started_at"] and task_dict["completed_at"]:
+            start = datetime.fromisoformat(task_dict["started_at"])
+            end = datetime.fromisoformat(task_dict["completed_at"])
+            duration = (end - start).total_seconds()
+        return Task(
+            task_id=task_dict["task_id"],
+            agent_id=task_dict["agent_id"],
+            input=task_dict["input"],
+            status=task_dict["status"],
+            channel_id=task_dict["channel_id"],
+            output=task_dict["output"],
+            stderr=task_dict["stderr"],
+            pid=task_dict["pid"],
+            started_at=task_dict["started_at"],
+            completed_at=task_dict["completed_at"],
+            created_at=task_dict["created_at"],
+            duration=duration,
+        )
 
 
 def update_task(
@@ -422,16 +391,14 @@ def update_task(
         return
 
     params.append(task_id)
-    query = f"UPDATE tasks SET {', '.join(updates)} WHERE id = ?"
+    query = f"UPDATE tasks SET {', '.join(updates)} WHERE task_id = ?"
 
-    with connect() as conn:
+    with db.ensure("spawn") as conn:
         conn.execute(query, params)
 
 
-def list_tasks(status: str | None = None, identity: str | None = None) -> list[dict]:
+def list_tasks(status: str | None = None, identity: str | None = None) -> list[Task]:
     """List tasks with optional filters."""
-    from datetime import datetime as dt
-
     query = "SELECT * FROM tasks WHERE 1 = 1"
     params = []
 
@@ -439,21 +406,38 @@ def list_tasks(status: str | None = None, identity: str | None = None) -> list[d
         query += " AND status = ?"
         params.append(status)
     if identity is not None:
-        query += " AND identity = ?"
-        params.append(identity)
+        agent_id = get_agent_id(identity)
+        if not agent_id:
+            return []
+        query += " AND agent_id = ?"
+        params.append(agent_id)
 
     query += " ORDER BY created_at DESC"
 
-    with connect() as conn:
+    with db.ensure("spawn") as conn:
         rows = conn.execute(query, params).fetchall()
         tasks = []
         for row in rows:
-            task = dict(row)
-            if task["started_at"] and task["completed_at"]:
-                start = dt.fromisoformat(task["started_at"])
-                end = dt.fromisoformat(task["completed_at"])
-                task["duration"] = (end - start).total_seconds()
-            else:
-                task["duration"] = None
-            tasks.append(task)
+            task_dict = dict(row)
+            duration = None
+            if task_dict["started_at"] and task_dict["completed_at"]:
+                start = datetime.fromisoformat(task_dict["started_at"])
+                end = datetime.fromisoformat(task_dict["completed_at"])
+                duration = (end - start).total_seconds()
+            tasks.append(
+                Task(
+                    task_id=task_dict["task_id"],
+                    agent_id=task_dict["agent_id"],
+                    input=task_dict["input"],
+                    status=task_dict["status"],
+                    channel_id=task_dict["channel_id"],
+                    output=task_dict["output"],
+                    stderr=task_dict["stderr"],
+                    pid=task_dict["pid"],
+                    started_at=task_dict["started_at"],
+                    completed_at=task_dict["completed_at"],
+                    created_at=task_dict["created_at"],
+                    duration=duration,
+                )
+            )
         return tasks

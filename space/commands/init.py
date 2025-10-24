@@ -13,10 +13,14 @@ def init():
     paths.canon_path().mkdir(parents=True, exist_ok=True)
     (root / "projects").mkdir(parents=True, exist_ok=True)
 
-    spawn_db.connect().close()
-    bridge.db._connect().close()
-    memory.db.connect().close()
-    knowledge.db.connect().close()
+    with spawn_db.connect():
+        pass
+    with bridge.db.connect():
+        pass
+    with memory.db.connect():
+        pass
+    with knowledge.db.connect():
+        pass
 
     typer.echo(f"✓ Initialized workspace at {root}")
     typer.echo("  .space/     → infrastructure")
