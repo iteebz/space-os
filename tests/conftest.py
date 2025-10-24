@@ -25,6 +25,7 @@ def test_space(monkeypatch, tmp_path):
 
     monkeypatch.setattr(paths, "space_root", lambda base_path=None: workspace)
     monkeypatch.setattr(paths, "dot_space", lambda base_path=None: workspace / ".space")
+    monkeypatch.setattr(paths, "space_data", lambda base_path=None: workspace / ".space")
 
     from space.os.db import sqlite
 

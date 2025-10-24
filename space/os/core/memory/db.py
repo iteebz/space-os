@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
+from space.os import db
 from space.os.db import from_row
 from space.os.lib import paths
 from space.os.lib.ids import resolve_id

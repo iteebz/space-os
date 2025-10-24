@@ -34,36 +34,34 @@ def _check_orphans() -> list[str]:
         "memory.db": "memory",
         "knowledge.db": "knowledge",
     }
-    db_conns = {}
-    for db_name, registry_name in registry_map.items():
-        db_path = paths.space_data() / db_name
-        if db_path.exists():
-            db_conns[db_name] = db.ensure(registry_name)
 
-    try:
-        for src_db, src_table, src_col, ref_db, ref_col in ORPHAN_CHECKS:
-            if src_db not in db_conns or (ref_db and ref_db not in db_conns):
-                continue
+    for src_db, src_table, src_col, ref_db, ref_col in ORPHAN_CHECKS:
+        db_path = paths.space_data() / src_db
+        if not db_path.exists():
+            continue
+        if ref_db and not (paths.space_data() / ref_db).exists():
+            continue
 
-            src_conn = db_conns[src_db]
-            ref_table = ref_db.split(".")[0] if ref_db else None
+        registry_name = registry_map.get(src_db)
+        if not registry_name:
+            continue
 
-            if not ref_table:
-                continue
+        ref_table = ref_db.split(".")[0] if ref_db else None
+        if not ref_table:
+            continue
 
-            query = f"""
-            SELECT COUNT(*) FROM {src_table}
-            WHERE {src_col} IS NOT NULL
-            AND {src_col} NOT IN (SELECT {ref_col} FROM {ref_table} WHERE {ref_col} IS NOT NULL)
-            """
-
-            orphans = src_conn.execute(query).fetchone()[0]
-
-            if orphans > 0:
-                issues.append(f"❌ {src_db}::{src_table}.{src_col}: {orphans} orphaned")
-    finally:
-        for conn in db_conns.values():
-            conn.close()
+        try:
+            with db.ensure(registry_name) as conn:
+                query = f"""
+                SELECT COUNT(*) FROM {src_table}
+                WHERE {src_col} IS NOT NULL
+                AND {src_col} NOT IN (SELECT {ref_col} FROM {ref_table} WHERE {ref_col} IS NOT NULL)
+                """
+                orphans = conn.execute(query).fetchone()[0]
+                if orphans > 0:
+                    issues.append(f"❌ {src_db}::{src_table}.{src_col}: {orphans} orphaned")
+        except sqlite3.Error as e:
+            issues.append(f"❌ {src_db}: orphan check failed: {e}")
 
     return issues
 

@@ -4,6 +4,7 @@ from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 
+from space.os import db, events
 from space.os.db.conversions import row_to_task
 from space.os.lib import paths
 from space.os.lib.uuid7 import uuid7
@@ -48,8 +49,6 @@ CREATE INDEX IF NOT EXISTS idx_tasks_channel ON tasks(channel_id);
 
 
 def _register():
-    from space.os import db
-
     db.register("spawn", "spawn.db", schema())
     db.add_migrations("spawn", migrations.MIGRATIONS)
 
@@ -63,8 +62,6 @@ def path() -> Path:
 
 def connect():
     """Return connection to spawn database via central registry."""
-    from space.os import db
-
     return db.ensure("spawn")
 
 

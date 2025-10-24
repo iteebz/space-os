@@ -36,14 +36,10 @@ db.register("chats", "chats.db", schema())
 db.add_migrations("chats", [])
 
 
-def _ensure_conn():
-    """Get chats database connection."""
-    return db.ensure("chats")
-
-
 def _insert_msgs(cli: str, msgs: list[Message], identity: str) -> int:
     synced = 0
     with db.ensure("chats") as conn:
+        conn.row_factory = sqlite3.Row
         for msg in msgs:
             raw_hash = hashlib.sha256(
                 f"{cli}{msg.session_id}{msg.timestamp}{msg.text}".encode()
@@ -83,9 +79,8 @@ def sync(identity: str) -> dict[str, int]:
 
 
 def search(query: str, identity: str | None = None, limit: int = 10) -> list[dict[str, Any]]:
-    with _ensure_conn() as conn:
+    with db.ensure("chats") as conn:
         conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
 
         sql = """
             SELECT id, cli, model, session_id, timestamp, identity, role, text
@@ -101,14 +96,12 @@ def search(query: str, identity: str | None = None, limit: int = 10) -> list[dic
         sql += " ORDER BY timestamp DESC LIMIT ?"
         params.append(limit)
 
-        cursor.execute(sql, params)
-        return [dict(row) for row in cursor.fetchall()]
+        return [dict(row) for row in conn.execute(sql, params).fetchall()]
 
 
 def list_entries(identity: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
-    with _ensure_conn() as conn:
+    with db.ensure("chats") as conn:
         conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
 
         sql = """
             SELECT id, cli, model, session_id, timestamp, identity, role, text
@@ -124,17 +117,13 @@ def list_entries(identity: str | None = None, limit: int = 20) -> list[dict[str,
         sql += " ORDER BY timestamp DESC LIMIT ?"
         params.append(limit)
 
-        cursor.execute(sql, params)
-        return [dict(row) for row in cursor.fetchall()]
+        return [dict(row) for row in conn.execute(sql, params).fetchall()]
 
 
 def get_entry(entry_id: int) -> dict[str, Any] | None:
-    with _ensure_conn() as conn:
+    with db.ensure("chats") as conn:
         conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-
-        cursor.execute("SELECT * FROM entries WHERE id = ?", (entry_id,))
-        row = cursor.fetchone()
+        row = conn.execute("SELECT * FROM entries WHERE id = ?", (entry_id,)).fetchone()
         return dict(row) if row else None
 
 
@@ -143,11 +132,9 @@ def get_surrounding_context(entry_id: int, context_size: int = 5) -> list[dict[s
     if not entry:
         return []
 
-    with _ensure_conn() as conn:
+    with db.ensure("chats") as conn:
         conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-
-        cursor.execute(
+        rows = conn.execute(
             """
             SELECT id, cli, model, session_id, timestamp, identity, role, text
             FROM entries
@@ -156,17 +143,15 @@ def get_surrounding_context(entry_id: int, context_size: int = 5) -> list[dict[s
             LIMIT ?
         """,
             (entry["cli"], entry["session_id"], context_size * 2),
-        )
-
-        return [dict(row) for row in cursor.fetchall()]
+        ).fetchall()
+        return [dict(row) for row in rows]
 
 
 def sample(
     count: int = 5, identity: str | None = None, cli: str | None = None
 ) -> list[dict[str, Any]]:
-    with _ensure_conn() as conn:
+    with db.ensure("chats") as conn:
         conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
 
         sql = "SELECT id, cli, model, session_id, timestamp, identity, role, text FROM entries WHERE 1=1"
         params = []
@@ -182,8 +167,7 @@ def sample(
         sql += " ORDER BY RANDOM() LIMIT ?"
         params.append(count)
 
-        cursor.execute(sql, params)
-        return [dict(row) for row in cursor.fetchall()]
+        return [dict(row) for row in conn.execute(sql, params).fetchall()]
 
 
 app = typer.Typer(help="Search and manage chat logs")

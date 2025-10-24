@@ -8,6 +8,14 @@ from .lib import paths
 from .lib.identity import constitute_identity
 from .lib.uuid7 import uuid7
 
+VALID_TABLES = {"events"}
+
+
+def _validate_table(table_name: str) -> None:
+    if table_name not in VALID_TABLES:
+        raise ValueError(f"Invalid table: {table_name}")
+
+
 DB_PATH = paths.space_data() / "events.db"
 
 SCHEMA = """
@@ -31,6 +39,9 @@ CREATE INDEX IF NOT EXISTS idx_event_id ON events(event_id);
 def _add_column_if_not_exists(
     conn: sqlite3.Connection, table_name: str, column_name: str, column_type: str
 ):
+    _validate_table(table_name)
+    if not column_name.isidentifier() or not column_type.replace(" ", "").isidentifier():
+        raise ValueError("Invalid column or type identifier")
     cursor = conn.execute(f"PRAGMA table_info({table_name})")
     columns = {row[1] for row in cursor.fetchall()}
     if column_name not in columns:

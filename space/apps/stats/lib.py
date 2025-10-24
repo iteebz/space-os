@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import sqlite3
 from pathlib import Path
 
 from space.os import db
@@ -7,6 +9,8 @@ from space.os.core.spawn import db as spawn_db
 from space.os.db.registry import DB_REGISTRY_MAP
 from space.os.lib import format as fmt
 from space.os.lib import paths
+
+logger = logging.getLogger(__name__)
 
 from .models import (
     AgentStats,
@@ -19,12 +23,36 @@ from .models import (
     SpawnStats,
 )
 
+VALID_TABLES = {"messages", "memories", "knowledge", "events", "channels", "agents"}
+VALID_COLUMNS = {
+    "agent_id",
+    "channel_id",
+    "topic",
+    "domain",
+    "archived_at",
+    "event_type",
+    "timestamp",
+}
+
+
+def _validate_identifier(identifier: str, valid_set: set[str]) -> None:
+    if identifier not in valid_set:
+        raise ValueError(f"Invalid identifier: {identifier}")
+
+
+def _get_columns_safe(conn: sqlite3.Connection, table: str) -> list[str]:
+    if table not in VALID_TABLES:
+        raise ValueError(f"Invalid table: {table}")
+    cursor = conn.execute(f"PRAGMA table_info({table})")
+    return [row[1] for row in cursor.fetchall()]
+
 
 def _get_agent_names_map() -> dict[str, str]:
     try:
         with spawn_db.connect() as reg_conn:
             return {row[0]: row[1] for row in reg_conn.execute("SELECT agent_id, name FROM agents")}
-    except Exception:
+    except Exception as exc:
+        logger.error(f"Failed to fetch agent names: {exc}")
         return {}
 
 
@@ -41,8 +69,8 @@ def _discover_all_agent_ids(registered_ids: set[str], include_archived: bool = F
                     "SELECT agent_id FROM agents WHERE archived_at IS NOT NULL"
                 ):
                     all_agent_ids.add(row[0])
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning(f"Failed to discover archived agents: {exc}")
 
     dbs = [
         (paths.space_data() / "bridge.db", "messages"),
@@ -56,16 +84,16 @@ def _discover_all_agent_ids(registered_ids: set[str], include_archived: bool = F
             registry_name = DB_REGISTRY_MAP.get(db_path.name)
             if registry_name:
                 try:
+                    _validate_identifier(table, VALID_TABLES)
                     with db.ensure(registry_name) as conn:
-                        cursor = conn.execute(f"PRAGMA table_info({table})")
-                        columns = [row["name"] for row in cursor.fetchall()]
+                        columns = _get_columns_safe(conn, table)
                         if "agent_id" in columns:
                             for row in conn.execute(
                                 f"SELECT DISTINCT agent_id FROM {table} WHERE agent_id IS NOT NULL"
                             ):
                                 all_agent_ids.add(row[0])
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning(f"Failed to discover agents from {db_path.name}:{table}: {exc}")
 
     return all_agent_ids
 
@@ -84,9 +112,18 @@ def _get_common_db_stats(
     if not registry_name:
         return 0, 0, 0, None, []
 
+    try:
+        _validate_identifier(table_name, VALID_TABLES)
+        if topic_column:
+            _validate_identifier(topic_column, VALID_COLUMNS)
+        if leaderboard_column:
+            _validate_identifier(leaderboard_column, VALID_COLUMNS)
+    except ValueError as e:
+        logger.error(f"Invalid identifier in stats query: {e}")
+        return 0, 0, 0, None, []
+
     with db.ensure(registry_name) as conn:
-        cursor = conn.execute(f"PRAGMA table_info({table_name})")
-        columns = [row["name"] for row in cursor.fetchall()]
+        columns = _get_columns_safe(conn, table_name)
 
         has_archived_at = "archived_at" in columns
 
@@ -223,7 +260,8 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
             agent_ids = {
                 row[0] for row in reg_conn.execute(f"SELECT agent_id FROM agents {where_clause}")
             }
-    except Exception:
+    except Exception as exc:
+        logger.error(f"Failed to fetch registered agents: {exc}")
         agent_ids = set()
 
     agent_ids_from_all_tables = _discover_all_agent_ids(
@@ -309,10 +347,10 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
                                 identities[agent_id][field] = str(row[1])
                             else:
                                 identities[agent_id][field] = row[1]
-                    except Exception:
-                        pass
-        except Exception:
-            pass
+                    except Exception as exc:
+                        logger.warning(f"Query failed for {field}: {exc}")
+        except Exception as exc:
+            logger.warning(f"Failed to connect to {db_path.name}: {exc}")
 
     agents = [
         AgentStats(
@@ -347,7 +385,8 @@ def spawn_stats() -> SpawnStats:
             hashes = conn.execute("SELECT COUNT(*) FROM constitutions").fetchone()[0]
 
         return SpawnStats(available=True, total=agents, agents=agents, hashes=hashes)
-    except Exception:
+    except Exception as exc:
+        logger.error(f"Failed to fetch spawn stats: {exc}")
         return SpawnStats(available=False)
 
 

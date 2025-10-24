@@ -4,6 +4,7 @@ import logging
 import subprocess
 import sys
 
+from space.os import config
 from space.os.core.bridge import parser
 from space.os.core.bridge.api import messages as api_messages
 from space.os.core.spawn import db as spawn_db
@@ -18,7 +19,8 @@ def _get_task_timeout(identity: str, default: int = 120) -> int:
         cfg = config.load_config()
         role_cfg = cfg.get("roles", {}).get(identity, {})
         return role_cfg.get("task_timeout", default)
-    except Exception:
+    except Exception as exc:
+        log.warning(f"Failed to load config for {identity}, using default timeout: {exc}")
         return default
 
 
