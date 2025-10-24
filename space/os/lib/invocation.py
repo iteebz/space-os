@@ -2,8 +2,7 @@
 
 from dataclasses import dataclass, field
 
-from space.os import events
-from space.os.core.spawn import db as spawn_db
+from space.os import events, spawn
 
 
 @dataclass
@@ -46,7 +45,7 @@ class Invocation:
         )
 
         if identity:
-            ctx.agent_id = spawn_db.get_agent_id(identity)
+            ctx.agent_id = spawn.db.get_agent_id(identity)
 
         return ctx
 

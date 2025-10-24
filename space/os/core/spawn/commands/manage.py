@@ -2,10 +2,8 @@ import time
 
 import typer
 
-from space.os import db
-from space.os import events as events_lib
-from space.os.lib import paths
 from space.os.core.spawn import db as spawn_db
+from space.os.lib import paths
 
 app = typer.Typer()
 

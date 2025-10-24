@@ -33,7 +33,7 @@ def backup(
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_path = paths.backup_snapshot(timestamp)
-    
+
     if not paths.validate_backup_path(backup_path):
         typer.echo("ERROR: Backup path validation failed (possible path traversal)", err=True)
         raise typer.Exit(code=1)
@@ -41,16 +41,20 @@ def backup(
     db.resolve(src)
     shutil.copytree(src, backup_path, dirs_exist_ok=False)
     db.resolve(backup_path)
-    
+
     os.chmod(backup_path, 0o555)
 
     backup_stats = _get_backup_stats(backup_path)
 
     if json_output:
-        typer.echo(json.dumps({
-            "backup_path": str(backup_path),
-            "stats": backup_stats,
-        }))
+        typer.echo(
+            json.dumps(
+                {
+                    "backup_path": str(backup_path),
+                    "stats": backup_stats,
+                }
+            )
+        )
     elif not quiet_output:
         typer.echo(f"✓ Backed up to {backup_path}")
         _show_backup_stats(backup_stats)
@@ -69,10 +73,11 @@ def _get_backup_stats(backup_path: Path) -> dict:
             )
             tables = [row[0] for row in cursor.fetchall()]
 
-            total = sum(
-                conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-                for table in tables
-            ) if tables else 0
+            total = (
+                sum(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in tables)
+                if tables
+                else 0
+            )
 
             stats[db_file.name] = {
                 "tables": len(tables),

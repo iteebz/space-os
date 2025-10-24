@@ -1,6 +1,6 @@
 from typer.testing import CliRunner
 
-from space.os import bridge
+from space.os.core.bridge.cli import bridge
 
 runner = CliRunner()
 

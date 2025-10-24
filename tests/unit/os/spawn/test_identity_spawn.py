@@ -1,6 +1,5 @@
+from space.os import spawn
 from space.os.lib import paths
-from space.os.core.spawn import db as spawn_db
-from space.os.core.spawn import spawn
 
 
 def test_hailot_zealot_prompt_lookup(test_space, monkeypatch):
@@ -22,7 +21,7 @@ def test_hailot_zealot_prompt_lookup(test_space, monkeypatch):
 def test_inject_self_description(test_space, mocker):
     mocker.patch("space.os.lib.paths.dot_space", return_value=test_space)
 
-    spawn_db.set_self_description("zealot-1", "Skeptical cothinking partner")
+    spawn.db.set_self_description("zealot-1", "Skeptical cothinking partner")
 
     constitution = "# ZEALOT CONSTITUTION"
     result = spawn.inject_identity(constitution, "zealot", "zealot-1")
@@ -59,7 +58,7 @@ def test_inject_canon(test_space, mocker):
 def test_inject_assembly_order(test_space, mocker):
     mocker.patch("space.os.lib.paths.dot_space", return_value=test_space)
 
-    spawn_db.set_self_description("zealot-1", "Skeptical partner")
+    spawn.db.set_self_description("zealot-1", "Skeptical partner")
 
     constitution = "# CONSTITUTION\nCore rules."
     result = spawn.inject_identity(constitution, "zealot", "zealot-1", model="claude-sonnet-4-5")

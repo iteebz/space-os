@@ -4,8 +4,8 @@ import logging
 import subprocess
 import sys
 
-from space.os.models import Message
 from space.os.core.spawn import db as spawn_db
+from space.os.models import Message
 
 from .. import db
 

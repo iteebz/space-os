@@ -6,13 +6,11 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from space.os import db, events
 from space.os.db import from_row
+from space.os.lib import paths
 from space.os.lib.ids import resolve_id
 from space.os.lib.uuid7 import uuid7
-from space.os.lib import paths
 from space.os.models import Memory
-from space.os.core.spawn import db as spawn_db
 
 from . import migrations
 
@@ -58,17 +56,23 @@ CREATE INDEX IF NOT EXISTS idx_links_parent ON memory_links(parent_id);
 """
 
 
-db.register("memory", "memory.db", schema())
-db.add_migrations("memory", migrations.MIGRATIONS)
+def _register():
+    from space.os import db
+
+    db.register("memory", "memory.db", schema())
+    db.add_migrations("memory", migrations.MIGRATIONS)
+
+
+_register()
 
 
 def path() -> Path:
     return paths.space_data() / "memory.db"
 
 
-
-
 def add_entry(agent_id: str, topic: str, message: str, core: bool = False, source: str = "manual"):
+    from space.os import db, events
+
     memory_id = uuid7()
     now = int(time.time())
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -95,7 +99,7 @@ def get_memories(
     include_archived: bool = False,
     limit: int | None = None,
 ) -> list[Memory]:
-    agent_id = spawn_db.get_agent_id(identity)
+    agent_id = spawn.db.get_agent_id(identity)
     if not agent_id:
         raise ValueError(f"Agent '{identity}' not found.")
 
@@ -131,6 +135,8 @@ def edit_entry(memory_id: str, new_message: str):
 
 
 def delete_entry(memory_id: str):
+    from space.os import db, events
+
     full_id = resolve_id("memory", "memory_id", memory_id)
     entry = get_by_memory_id(full_id)
     if not entry:
@@ -141,7 +147,9 @@ def delete_entry(memory_id: str):
 
 
 def clear_entries(identity: str, topic: str | None = None):
-    agent_id = spawn_db.get_agent_id(identity)
+    from space.os import db, spawn
+
+    agent_id = spawn.db.get_agent_id(identity)
     if not agent_id:
         raise ValueError(f"Agent '{identity}' not found.")
     with db.ensure("memory") as conn:
@@ -152,6 +160,8 @@ def clear_entries(identity: str, topic: str | None = None):
 
 
 def archive_entry(memory_id: str):
+    from space.os import db, events
+
     full_id = resolve_id("memory", "memory_id", memory_id)
     entry = get_by_memory_id(full_id)
     if not entry:
@@ -166,6 +176,8 @@ def archive_entry(memory_id: str):
 
 
 def restore_entry(memory_id: str):
+    from space.os import db, events
+
     full_id = resolve_id("memory", "memory_id", memory_id)
     entry = get_by_memory_id(full_id)
     if not entry:
@@ -192,7 +204,7 @@ def mark_core(memory_id: str, core: bool = True):
 
 
 def get_core_entries(identity: str) -> list[Memory]:
-    agent_id = spawn_db.get_agent_id(identity)
+    agent_id = spawn.db.get_agent_id(identity)
     if not agent_id:
         return []
 
@@ -205,7 +217,7 @@ def get_core_entries(identity: str) -> list[Memory]:
 
 
 def get_recent_entries(identity: str, days: int = 7, limit: int = 20) -> list[Memory]:
-    agent_id = spawn_db.get_agent_id(identity)
+    agent_id = spawn.db.get_agent_id(identity)
     if not agent_id:
         return []
 
@@ -219,7 +231,7 @@ def get_recent_entries(identity: str, days: int = 7, limit: int = 20) -> list[Me
 
 
 def search_entries(identity: str, keyword: str, include_archived: bool = False) -> list[Memory]:
-    agent_id = spawn_db.get_agent_id(identity)
+    agent_id = spawn.db.get_agent_id(identity)
     if not agent_id:
         return []
 

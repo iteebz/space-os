@@ -2,9 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from space.os import config
-from space.os.core.spawn import db as spawn_db
-from space.os.core.spawn import spawn
+from space.os import config, spawn
 
 
 def test_constitution_injection(test_space):
@@ -46,8 +44,8 @@ def test_save_and_load_constitution(test_space):
     content = "Constitution for test agent"
     content_hash = spawn.hash_content(content)
 
-    spawn_db.save_constitution(content_hash, content)
-    loaded = spawn_db.get_constitution(content_hash)
+    spawn.db.save_constitution(content_hash, content)
+    loaded = spawn.db.get_constitution(content_hash)
 
     assert loaded == content
 
@@ -58,10 +56,10 @@ def test_constitution_idempotent_save(test_space):
     content = "Test constitution"
     content_hash = spawn.hash_content(content)
 
-    spawn_db.save_constitution(content_hash, content)
-    spawn_db.save_constitution(content_hash, content)
+    spawn.db.save_constitution(content_hash, content)
+    spawn.db.save_constitution(content_hash, content)
 
-    loaded = spawn_db.get_constitution(content_hash)
+    loaded = spawn.db.get_constitution(content_hash)
     assert loaded == content
 
 

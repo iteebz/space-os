@@ -8,6 +8,11 @@ def space_root() -> Path:
     return Path.home() / "space"
 
 
+def dot_space() -> Path:
+    """Returns the .space directory, ~/.space."""
+    return Path.home() / ".space"
+
+
 def space_data() -> Path:
     """Returns the data directory, ~/.space/data."""
     return Path.home() / ".space" / "data"
@@ -44,10 +49,10 @@ def backups_dir() -> Path:
 
 def backup_snapshot(timestamp: str) -> Path:
     """Returns immutable path to timestamped backup snapshot.
-    
+
     Args:
         timestamp: ISO format or YYYYMMDDhhmmss format
-        
+
     Returns:
         Path like ~/.space/backups/20251025_001530/
     """

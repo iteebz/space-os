@@ -5,8 +5,8 @@ from pathlib import Path
 
 from space.os import db, events
 from space.os.db import from_row
-from space.os.lib.uuid7 import uuid7
 from space.os.lib import paths
+from space.os.lib.uuid7 import uuid7
 from space.os.models import Knowledge
 
 from . import migrations

@@ -42,8 +42,8 @@ def test_space(monkeypatch, tmp_path):
     ]:
         path.mkdir(parents=True, exist_ok=True)
 
-    from space.os import bridge, knowledge, memory, spawn
     from space.os import config as cfg
+    from space.os.core import bridge, knowledge, memory, spawn
 
     registry_db_path = workspace / ".space" / cfg.registry_db().name
     db.ensure_schema(

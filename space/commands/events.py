@@ -17,9 +17,9 @@ def events(
     ),
 ):
     """Show recent events from append-only log."""
-    from space.os.core.spawn import db as spawn_db
+    from space.os import spawn
 
-    agent_id = spawn_db.get_agent_id(identity) if identity else None
+    agent_id = spawn.db.get_agent_id(identity) if identity else None
     rows = events_db.query(source=source, agent_id=agent_id, limit=1000 if errors else limit)
 
     if errors:
@@ -39,7 +39,7 @@ def events(
                 {
                     "uuid": uuid,
                     "source": src,
-                    "identity": spawn_db.get_identity(aid) or aid,
+                    "identity": spawn.db.get_identity(aid) or aid,
                     "event_type": event_type,
                     "data": data,
                     "created_at": datetime.fromtimestamp(created_at).isoformat(),
@@ -49,6 +49,6 @@ def events(
     elif not quiet_output:
         for uuid, src, aid, event_type, data, created_at in rows:
             ts = datetime.fromtimestamp(created_at).strftime("%Y-%m-%d %H:%M:%S")
-            ident_str = f" [{spawn_db.get_identity(aid) or aid}]" if aid else ""
+            ident_str = f" [{spawn.db.get_identity(aid) or aid}]" if aid else ""
             data_str = f" {data}" if data else ""
             typer.echo(f"[{uuid[:8]}] {ts} {src}.{event_type}{ident_str}{data_str}")

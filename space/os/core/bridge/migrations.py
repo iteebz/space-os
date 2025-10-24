@@ -36,7 +36,7 @@ def _migrate_bridge_channels_id_to_channel_id(conn: sqlite3.Connection):
 
     has_pinned = "pinned_at" in cols
     pinned_col = "pinned_at" if has_pinned else "NULL as pinned_at"
-    
+
     conn.executescript(
         f"""
         DROP TABLE IF EXISTS channels_tmp;

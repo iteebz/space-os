@@ -1,5 +1,4 @@
-from space.os.core.spawn import db as spawn_db
-from space.os.core.spawn import spawn
+from space.os import spawn
 
 
 def test_inject_identity_includes_constitution(test_space):
@@ -19,15 +18,15 @@ def test_inject_identity_with_model(test_space):
 
 
 def test_self_description_persists(test_space):
-    spawn_db.set_self_description("agent-1", "Custom behavior")
-    desc = spawn_db.get_self_description("agent-1")
+    spawn.db.set_self_description("agent-1", "Custom behavior")
+    desc = spawn.db.get_self_description("agent-1")
 
     assert desc == "Custom behavior"
 
 
 def test_self_description_updates(test_space):
-    spawn_db.set_self_description("agent-1", "First description")
-    spawn_db.set_self_description("agent-1", "Updated description")
-    desc = spawn_db.get_self_description("agent-1")
+    spawn.db.set_self_description("agent-1", "First description")
+    spawn.db.set_self_description("agent-1", "Updated description")
+    desc = spawn.db.get_self_description("agent-1")
 
     assert desc == "Updated description"

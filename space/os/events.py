@@ -7,7 +7,6 @@ from space.os.models import Event
 from .lib import paths
 from .lib.identity import constitute_identity
 from .lib.uuid7 import uuid7
-from .core.spawn import db as spawn_db
 
 DB_PATH = paths.space_data() / "events.db"
 
@@ -148,8 +147,10 @@ def identify(identity: str, command: str):
 
     Creates immutable audit trail linking identity → command.
     """
+    from space.os import spawn
+
     constitute_identity(identity)
-    agent_id = spawn_db.ensure_agent(identity)
+    agent_id = spawn.db.ensure_agent(identity)
     emit("identity", command, agent_id, "")
 
 

@@ -13,11 +13,11 @@ from space.commands.launch import launch
 from space.commands.sleep import sleep
 from space.commands.wake import wake
 from space.os import bridge, chats, knowledge, memory, spawn
+from space.os.core.spawn.commands.agents import app as agents_app
+from space.os.core.spawn.commands.registry import app as registry_app
 from space.os.lib import readme
 from space.os.lib.aliasing import Aliasing
 from space.os.lib.invocation import Invocation
-from space.os.core.spawn.commands.agents import app as agents_app
-from space.os.core.spawn.commands.registry import app as registry_app
 
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False, add_help_option=False)
 

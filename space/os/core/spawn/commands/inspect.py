@@ -2,7 +2,6 @@ import time
 
 import typer
 
-from space.os import events as events_lib
 from space.os.core.spawn import db as spawn_db
 
 app = typer.Typer()

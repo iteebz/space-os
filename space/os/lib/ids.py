@@ -3,20 +3,18 @@ from __future__ import annotations
 from space.os import db
 
 
-def resolve_id(
-    table: str, id_col: str, partial_id: str, *, error_context: str = ""
-) -> str:
+def resolve_id(table: str, id_col: str, partial_id: str, *, error_context: str = "") -> str:
     """Resolve a partial/suffix ID to full ID via fuzzy matching.
-    
+
     Args:
         table: Table name to query
         id_col: Column name containing the IDs
         partial_id: Partial ID (suffix match)
         error_context: Additional context for error messages
-    
+
     Returns:
         Full ID if unambiguous match found
-        
+
     Raises:
         ValueError: If no match or ambiguous matches
     """

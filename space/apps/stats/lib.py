@@ -3,13 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from space.os import db
-from space.os import events
-from space.os.core.bridge import db as bridge_db
-from space.os.core.knowledge import db as knowledge_db
-from space.os.core.memory import db as memory_db
+from space.os.core.spawn import db as spawn_db
+from space.os.db.registry import DB_REGISTRY_MAP
 from space.os.lib import format as fmt
 from space.os.lib import paths
-from space.os.core.spawn import db as spawn_db
 
 from .models import (
     AgentStats,
@@ -54,15 +51,9 @@ def _discover_all_agent_ids(registered_ids: set[str], include_archived: bool = F
         (paths.space_data() / "events.db", "events"),
     ]
 
-    registry_map = {
-        "bridge.db": "bridge",
-        "memory.db": "memory",
-        "knowledge.db": "knowledge",
-        "events.db": "events",
-    }
     for db_path, table in dbs:
         if db_path.exists():
-            registry_name = registry_map.get(db_path.name)
+            registry_name = DB_REGISTRY_MAP.get(db_path.name)
             if registry_name:
                 try:
                     with db.ensure(registry_name) as conn:
@@ -89,13 +80,7 @@ def _get_common_db_stats(
     if not db_path.exists():
         return 0, 0, 0, None, []
 
-    registry_map = {
-        "bridge.db": "bridge",
-        "memory.db": "memory",
-        "knowledge.db": "knowledge",
-        "events.db": "events",
-    }
-    registry_name = registry_map.get(db_path.name)
+    registry_name = DB_REGISTRY_MAP.get(db_path.name)
     if not registry_name:
         return 0, 0, 0, None, []
 
@@ -304,16 +289,10 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
         ),
     ]
 
-    registry_map = {
-        "bridge.db": "bridge",
-        "memory.db": "memory",
-        "knowledge.db": "knowledge",
-        "events.db": "events",
-    }
     for db_path, query_list in queries:
         if not db_path.exists():
             continue
-        registry_name = registry_map.get(db_path.name)
+        registry_name = DB_REGISTRY_MAP.get(db_path.name)
         if not registry_name:
             continue
         try:

@@ -8,9 +8,9 @@ from space.os.lib import paths
 
 def test_discovers_registered_agents(test_space):
     """Active registered agents are discovered."""
-    from space.os.core.spawn import db as spawn_db
+    from space.os import spawn
 
-    with spawn_db.connect() as conn:
+    with spawn.db.connect() as conn:
         conn.execute("INSERT INTO agents (agent_id, name) VALUES (?, ?)", ("agent-001", "alice"))
 
     result = stats_lib.agent_stats()
@@ -95,11 +95,11 @@ def test_discovers_orphaned_agents_in_knowledge(test_space):
 def test_maps_registered_name_to_orphaned_agent(test_space):
     """If orphaned agent is later registered, name is used."""
     from space.os import events as events_lib
-    from space.os.core.spawn import db as spawn_db
+    from space.os import spawn
 
     events_lib.emit("test", "spawn", "agent-xyz", "data")
 
-    with spawn_db.connect() as conn:
+    with spawn.db.connect() as conn:
         conn.execute("INSERT INTO agents (agent_id, name) VALUES (?, ?)", ("agent-xyz", "bob"))
 
     result = stats_lib.agent_stats()
@@ -109,13 +109,12 @@ def test_maps_registered_name_to_orphaned_agent(test_space):
 
 def test_aggregates_stats_from_all_tables(test_space):
     """Stats are aggregated from all tables for same agent."""
-    from space.os import db
+    from space.os import db, spawn
     from space.os import events as events_lib
-    from space.os.core.spawn import db as spawn_db
 
     agent_id = "aggregator-001"
 
-    with spawn_db.connect() as conn:
+    with spawn.db.connect() as conn:
         conn.execute("INSERT INTO agents (agent_id, name) VALUES (?, ?)", (agent_id, "agg"))
 
     events_lib.emit("test", "spawn", agent_id, "data")
@@ -150,10 +149,10 @@ def test_aggregates_stats_from_all_tables(test_space):
 
 def test_respects_archived_filter(test_space):
     """Archived agents excluded by default, included with flag."""
-    from space.os.core.spawn import db as spawn_db
+    from space.os import spawn
 
     now = int(time.time())
-    with spawn_db.connect() as conn:
+    with spawn.db.connect() as conn:
         conn.execute(
             "INSERT INTO agents (agent_id, name, archived_at) VALUES (?, ?, ?)",
             ("archived-001", "ghost", now),
@@ -174,10 +173,10 @@ def test_respects_archived_filter(test_space):
 def test_orphaned_agents_always_included(test_space):
     """Orphaned agents in activity logs always included (not registered, not archived)."""
     from space.os import events as events_lib
-    from space.os.core.spawn import db as spawn_db
+    from space.os import spawn
 
     now = int(time.time())
-    with spawn_db.connect() as conn:
+    with spawn.db.connect() as conn:
         conn.execute(
             "INSERT INTO agents (agent_id, name, archived_at) VALUES (?, ?, ?)",
             ("archived-001", "archived", now),
@@ -208,10 +207,10 @@ def test_orphaned_agents_always_included(test_space):
 def test_discovery_counts_match_universe(test_space):
     """Active count excludes archived, --all includes archived."""
     from space.os import events as events_lib
-    from space.os.core.spawn import db as spawn_db
+    from space.os import spawn
 
     now = int(time.time())
-    with spawn_db.connect() as conn:
+    with spawn.db.connect() as conn:
         for i in range(3):
             conn.execute(
                 "INSERT INTO agents (agent_id, name) VALUES (?, ?)",

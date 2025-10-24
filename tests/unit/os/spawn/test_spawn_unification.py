@@ -8,16 +8,14 @@ Tests validate:
 5. Unified agent interface across Claude/Gemini/Codex
 """
 
+from space.os.core import bridge, spawn
 from space.os.core.bridge import api as bridge_api
-from space.os.core.bridge import db as bridge_db
-from space.os.core.spawn import db as spawn_db
-from space.os.core.spawn import spawn
 
 
 def test_registry_has_tasks_table(test_space):
     """Spawn registry schema must include tasks table."""
 
-    with spawn_db.connect() as conn:
+    with spawn.db.connect() as conn:
         cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tasks'")
         assert cursor.fetchone() is not None, "tasks table must exist in spawn.db"
 
@@ -25,7 +23,7 @@ def test_registry_has_tasks_table(test_space):
 def test_registry_has_agents_constitutions_tasks(test_space):
     """Spawn registry must have agents, constitutions, and tasks tables."""
 
-    with spawn_db.connect() as conn:
+    with spawn.db.connect() as conn:
         tables = set()
         cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         for row in cursor.fetchall():
@@ -46,7 +44,7 @@ def test_spawn_task_functions_exist(test_space):
 def test_spawn_tasks_table_schema(test_space):
     """Spawn tasks table must have required columns."""
 
-    with spawn_db.connect() as conn:
+    with spawn.db.connect() as conn:
         cursor = conn.execute("PRAGMA table_info(tasks)")
         columns = {col[1] for col in cursor.fetchall()}
 
@@ -68,15 +66,15 @@ def test_spawn_tasks_table_schema(test_space):
 def test_task_lifecycle_states(test_space):
     """Tasks must support all lifecycle states."""
 
-    spawn_db.ensure_agent("test-agent")
+    spawn.db.ensure_agent("test-agent")
 
     states = ["pending", "running", "completed", "failed", "timeout"]
     for state in states:
-        task_id = spawn_db.create_task(identity="test-agent", input=f"task-{state}")
-        spawn_db.update_task(task_id, status=state)
+        task_id = spawn.db.create_task(identity="test-agent", input=f"task-{state}")
+        spawn.db.update_task(task_id, status=state)
 
     for state in states:
-        tasks = spawn_db.list_tasks(status=state)
+        tasks = spawn.db.list_tasks(status=state)
         assert len(tasks) == 1
         assert tasks[0].status == state
 
@@ -154,8 +152,8 @@ def test_worker_uses_spawn_registry(test_space):
     from space.os.core.bridge import worker
 
     source = inspect.getsource(worker.main)
-    assert "spawn_db.create_task" in source, "Worker must call spawn_db.create_task"
-    assert "spawn_db.update_task" in source, "Worker must call spawn_db.update_task"
+    assert "spawn.db.create_task" in source, "Worker must call spawn.db.create_task"
+    assert "spawn.db.update_task" in source, "Worker must call spawn.db.update_task"
 
 
 def test_worker_creates_task_before_spawn(test_space):
@@ -165,7 +163,7 @@ def test_worker_creates_task_before_spawn(test_space):
     from space.os.core.bridge import worker
 
     source = inspect.getsource(worker.main)
-    create_idx = source.find("spawn_db.create_task")
+    create_idx = source.find("spawn.db.create_task")
     run_idx = source.find("subprocess.run")
 
     assert create_idx != -1 and run_idx != -1, (
@@ -175,7 +173,7 @@ def test_worker_creates_task_before_spawn(test_space):
 
 
 def test_worker_tracks_lifecycle_states(test_space):
-    """Worker must track task lifecycle via spawn_db."""
+    """Worker must track task lifecycle via spawn.db."""
     import inspect
 
     from space.os.core.bridge import worker
@@ -214,8 +212,8 @@ def test_constitution_storage_unchanged(test_space):
     content = "Test constitution content"
     content_hash = spawn.hash_content(content)
 
-    spawn_db.save_constitution(content_hash, content)
-    retrieved = spawn_db.get_constitution(content_hash)
+    spawn.db.save_constitution(content_hash, content)
+    retrieved = spawn.db.get_constitution(content_hash)
 
     assert retrieved == content, "Constitution storage must work unchanged"
 
@@ -223,18 +221,18 @@ def test_constitution_storage_unchanged(test_space):
 def test_agent_identity_creation_unchanged(test_space):
     """Agent identity creation/lookup must work."""
 
-    agent_id = spawn_db.ensure_agent("test-agent")
-    retrieved_id = spawn_db.get_agent_id("test-agent")
+    agent_id = spawn.db.ensure_agent("test-agent")
+    retrieved_id = spawn.db.get_agent_id("test-agent")
 
     assert agent_id == retrieved_id, "Agent identity lookup must work"
 
 
 def test_bridge_channels_unchanged(test_space):
     """Bridge channel creation/message sending must work."""
-    bridge_db.connect()
+    bridge.db.connect()
     channel_id = bridge_api.create_channel("test-channel")
     bridge_api.send_message(channel_id, "agent-a", "test message")
 
-    messages = bridge_db.get_all_messages(channel_id)
+    messages = bridge.db.get_all_messages(channel_id)
     assert len(messages) == 1
     assert messages[0].content == "test message"

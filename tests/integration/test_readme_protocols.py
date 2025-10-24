@@ -2,9 +2,11 @@
 
 from typer.testing import CliRunner
 
-from space.apps.context.app import app as context_app
+from space.apps.context.app import context as context_app
 from space.cli import app as space_app
-from space.os import bridge, knowledge, memory
+from space.os.core.bridge.cli import bridge
+from space.os.core.knowledge.cli import knowledge
+from space.os.core.memory.cli import memory
 
 runner = CliRunner()
 

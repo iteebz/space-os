@@ -6,9 +6,7 @@ from dataclasses import asdict
 
 import typer
 
-from space.os import events
 from space.os.lib.identity import constitute_identity
-from space.os.core.spawn import db as spawn_db
 
 from . import api
 
@@ -36,7 +34,7 @@ def send(
             else:
                 raise typer.BadParameter("Invalid base64 payload", param_hint="content") from exc
 
-    agent_id = spawn_db.ensure_agent(identity)
+    agent_id = spawn.db.ensure_agent(identity)
 
     try:
         channel_id = api.resolve_channel_id(channel)
@@ -90,7 +88,7 @@ def alert(
 ):
     constitute_identity(identity)
 
-    agent_id = spawn_db.ensure_agent(identity)
+    agent_id = spawn.db.ensure_agent(identity)
 
     try:
         events.emit(
@@ -100,7 +98,7 @@ def alert(
             json.dumps({"channel": channel, "identity": identity, "content": content}),
         )
         channel_id = api.resolve_channel_id(channel)
-        agent_id = spawn_db.ensure_agent(identity)
+        agent_id = spawn.db.ensure_agent(identity)
         api.send_message(channel_id, identity, content, priority="alert")
         events.emit(
             "bridge",
@@ -138,7 +136,7 @@ def recv(
 ):
     constitute_identity(identity)
 
-    agent_id = spawn_db.ensure_agent(identity)
+    agent_id = spawn.db.ensure_agent(identity)
 
     try:
         channel_id = api.resolve_channel_id(channel)
@@ -172,7 +170,7 @@ def recv(
             )
         elif not quiet_output:
             for msg in messages:
-                typer.echo(f"[{spawn_db.get_identity(msg.agent_id)}] {msg.content}")
+                typer.echo(f"[{spawn.db.get_identity(msg.agent_id)}] {msg.content}")
                 typer.echo()
     except ValueError as e:
         events.emit(
@@ -201,7 +199,7 @@ def alerts(
 
     from . import db
 
-    agent_id = spawn_db.ensure_agent(identity)
+    agent_id = spawn.db.ensure_agent(identity)
 
     try:
         alert_messages = api.get_alerts(identity)
@@ -217,7 +215,7 @@ def alerts(
         elif not quiet_output:
             typer.echo(f"--- Alerts for {identity} ({len(alert_messages)} unread) ---")
             for msg in alert_messages:
-                typer.echo(f"\n[{spawn_db.get_identity(msg.agent_id)} | {msg.channel_id}]")
+                typer.echo(f"\n[{spawn.db.get_identity(msg.agent_id)} | {msg.channel_id}]")
                 typer.echo(msg.content)
 
         for msg in alert_messages:
@@ -246,7 +244,7 @@ def inbox(
     """Show all channels with unreads."""
     constitute_identity(identity)
 
-    agent_id = spawn_db.ensure_agent(identity)
+    agent_id = spawn.db.ensure_agent(identity)
 
     try:
         channels = api.inbox_channels(identity)
@@ -291,7 +289,7 @@ def wait(
     """Block until new message arrives, then return."""
     constitute_identity(identity)
 
-    agent_id = spawn_db.ensure_agent(identity)
+    agent_id = spawn.db.ensure_agent(identity)
 
     try:
         channel_id = api.resolve_channel_id(channel)
@@ -339,7 +337,7 @@ def wait(
                     )
                 elif not quiet_output:
                     for msg in other_messages:
-                        typer.echo(f"[{spawn_db.get_identity(msg.agent_id)}] {msg.content}")
+                        typer.echo(f"[{spawn.db.get_identity(msg.agent_id)}] {msg.content}")
                         typer.echo()
                 break
 

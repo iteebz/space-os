@@ -1,9 +1,10 @@
 import typer
 
-from space.os.lib import errors
 from space.os import config
+from space.os.lib import errors
 
-from . import spawn, tasks
+from . import spawn as spawn_module
+from . import tasks
 from .commands.agents import app as agents_app
 from .commands.registry import app as registry_app
 
@@ -72,10 +73,10 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
             context = extra_args[i + 1]
             i += 2
         elif extra_args[i] == "--sonnet":
-            model = spawn.resolve_model_alias("sonnet")
+            model = spawn_module.resolve_model_alias("sonnet")
             i += 1
         elif extra_args[i] == "--haiku":
-            model = spawn.resolve_model_alias("haiku")
+            model = spawn_module.resolve_model_alias("haiku")
             i += 1
         elif not task and not extra_args[i].startswith("-"):
             task = extra_args[i]
@@ -94,7 +95,7 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
             result = agent_obj.run(full_prompt)
             typer.echo(result)
         else:
-            spawn.launch_agent(
+            spawn_module.launch_agent(
                 arg, identity=arg, base_identity=agent, extra_args=passthrough, model=model
             )
         return
@@ -108,7 +109,7 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
                 result = agent_obj.run(full_prompt)
                 typer.echo(result)
             else:
-                spawn.launch_agent(
+                spawn_module.launch_agent(
                     inferred_role,
                     identity=arg,
                     base_identity=agent,

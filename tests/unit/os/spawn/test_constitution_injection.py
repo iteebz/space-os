@@ -1,6 +1,3 @@
-from space.os.core.spawn import spawn
-
-
 def test_header_injection(tmp_path):
     constitution = "Core rules."
     result = spawn.inject_identity(constitution, "test-role", "test-agent", model="test-model")

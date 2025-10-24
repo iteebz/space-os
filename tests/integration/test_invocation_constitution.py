@@ -48,9 +48,9 @@ def test_constitution_hash_content_addressable(test_space):
 
 
 def test_invocation_context_emits_with_agent_id(test_space):
-    from space.os.core.spawn import db as spawn_db
+    from space.os import spawn
 
-    spawn_db.ensure_agent("telemetry-test-agent")
+    spawn.db.ensure_agent("telemetry-test-agent")
 
     ctx = Invocation.from_args(["wake", "--as", "telemetry-test-agent"])
     assert ctx.agent_id is not None

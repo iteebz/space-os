@@ -1,12 +1,11 @@
 from datetime import datetime
 
-from space.os import bridge, db, events, knowledge, memory
-from space.os.core.spawn import db as spawn_db
+from space.os import bridge, db, events, knowledge, memory, spawn
 
 
 def _query_with_identity(base_query: str, params: list, identity: str | None, all_agents: bool):
     if identity and not all_agents:
-        agent_id = spawn_db.get_agent_id(identity)
+        agent_id = spawn.db.get_agent_id(identity)
         if not agent_id:
             raise ValueError(f"Agent '{identity}' not found")
         base_query += " AND agent_id = ?"

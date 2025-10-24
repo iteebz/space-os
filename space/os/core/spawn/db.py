@@ -4,9 +4,9 @@ from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 
-from space.os import db, events
-from space.os.lib.uuid7 import uuid7
+from space.os.db.conversions import row_to_task
 from space.os.lib import paths
+from space.os.lib.uuid7 import uuid7
 from space.os.models import Task
 
 from . import migrations
@@ -47,8 +47,14 @@ CREATE INDEX IF NOT EXISTS idx_tasks_channel ON tasks(channel_id);
 """
 
 
-db.register("spawn", "spawn.db", schema())
-db.add_migrations("spawn", migrations.MIGRATIONS)
+def _register():
+    from space.os import db
+
+    db.register("spawn", "spawn.db", schema())
+    db.add_migrations("spawn", migrations.MIGRATIONS)
+
+
+_register()
 
 
 def path() -> Path:
@@ -57,6 +63,8 @@ def path() -> Path:
 
 def connect():
     """Return connection to spawn database via central registry."""
+    from space.os import db
+
     return db.ensure("spawn")
 
 
@@ -335,26 +343,7 @@ def get_task(task_id: str) -> Task | None:
         ).fetchone()
         if not row:
             return None
-        task_dict = dict(row)
-        duration = None
-        if task_dict["started_at"] and task_dict["completed_at"]:
-            start = datetime.fromisoformat(task_dict["started_at"])
-            end = datetime.fromisoformat(task_dict["completed_at"])
-            duration = (end - start).total_seconds()
-        return Task(
-            task_id=task_dict["task_id"],
-            agent_id=task_dict["agent_id"],
-            input=task_dict["input"],
-            status=task_dict["status"],
-            channel_id=task_dict["channel_id"],
-            output=task_dict["output"],
-            stderr=task_dict["stderr"],
-            pid=task_dict["pid"],
-            started_at=task_dict["started_at"],
-            completed_at=task_dict["completed_at"],
-            created_at=task_dict["created_at"],
-            duration=duration,
-        )
+        return row_to_task(row)
 
 
 def update_task(
@@ -419,28 +408,4 @@ def list_tasks(status: str | None = None, identity: str | None = None) -> list[T
 
     with db.ensure("spawn") as conn:
         rows = conn.execute(query, params).fetchall()
-        tasks = []
-        for row in rows:
-            task_dict = dict(row)
-            duration = None
-            if task_dict["started_at"] and task_dict["completed_at"]:
-                start = datetime.fromisoformat(task_dict["started_at"])
-                end = datetime.fromisoformat(task_dict["completed_at"])
-                duration = (end - start).total_seconds()
-            tasks.append(
-                Task(
-                    task_id=task_dict["task_id"],
-                    agent_id=task_dict["agent_id"],
-                    input=task_dict["input"],
-                    status=task_dict["status"],
-                    channel_id=task_dict["channel_id"],
-                    output=task_dict["output"],
-                    stderr=task_dict["stderr"],
-                    pid=task_dict["pid"],
-                    started_at=task_dict["started_at"],
-                    completed_at=task_dict["completed_at"],
-                    created_at=task_dict["created_at"],
-                    duration=duration,
-                )
-            )
-        return tasks
+        return [row_to_task(row) for row in rows]

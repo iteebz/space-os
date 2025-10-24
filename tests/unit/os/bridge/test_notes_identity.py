@@ -1,17 +1,17 @@
 def test_add_note_converts_identity_to_agent_id(test_space):
     """Regression test: add_note should convert identity name to agent_id."""
+    from space.os import spawn
     from space.os.core.bridge import api, db
-    from space.os.core.spawn import db as spawn_db
 
     channel_id = api.create_channel("note-test-channel")
     identity = "test-agent"
-    spawn_db.ensure_agent(identity)
+    spawn.db.ensure_agent(identity)
 
     api.add_note(channel_id, identity, "test note content")
 
     notes = db.get_notes(channel_id)
     assert len(notes) == 1
-    assert notes[0].agent_id == spawn_db.get_agent_id(identity), (
+    assert notes[0].agent_id == spawn.db.get_agent_id(identity), (
         "Note should store agent_id not identity name"
     )
     assert notes[0].content == "test note content"
@@ -19,12 +19,12 @@ def test_add_note_converts_identity_to_agent_id(test_space):
 
 def test_get_notes_returns_agent_id_not_name(test_space):
     """Regression test: get_notes should return agent_id UUIDs for lookups."""
+    from space.os import spawn
     from space.os.core.bridge import api, db
-    from space.os.core.spawn import db as spawn_db
 
     channel_id = api.create_channel("note-uuid-test")
     identity = "note-agent"
-    agent_id = spawn_db.ensure_agent(identity)
+    agent_id = spawn.db.ensure_agent(identity)
 
     api.add_note(channel_id, identity, "note content")
 

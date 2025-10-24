@@ -3,9 +3,7 @@ from typing import Annotated
 
 import typer
 
-from space.os import events
 from space.os.lib import output
-from space.os.core.spawn import db as spawn_db
 
 from . import api, utils
 
@@ -40,7 +38,7 @@ def list_channels(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    spawn_db.ensure_agent(identity) if identity and isinstance(identity, str) else None
+    spawn.db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     all_channels = (
         api.all_channels()
         if all_channels_flag
@@ -105,7 +103,7 @@ def create(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent_id = spawn_db.ensure_agent(identity) if identity and isinstance(identity, str) else None
+    agent_id = spawn.db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     try:
         if agent_id:
             events.emit(
@@ -152,7 +150,7 @@ def rename(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent_id = spawn_db.ensure_agent(identity) if identity and isinstance(identity, str) else None
+    agent_id = spawn.db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     old_channel = old_channel.lstrip("#")
     new_channel = new_channel.lstrip("#")
     if agent_id:
@@ -203,7 +201,7 @@ def archive(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent_id = spawn_db.ensure_agent(identity) if identity and isinstance(identity, str) else None
+    agent_id = spawn.db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     channel_names = channels
     if prefix:
         all_channels = api.all_channels()
@@ -261,7 +259,7 @@ def pin(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent_id = spawn_db.ensure_agent(identity) if identity and isinstance(identity, str) else None
+    agent_id = spawn.db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     results = []
     for channel in channels:
         try:
@@ -300,7 +298,7 @@ def unpin(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent_id = spawn_db.ensure_agent(identity) if identity and isinstance(identity, str) else None
+    agent_id = spawn.db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     results = []
     for channel in channels:
         try:
@@ -343,7 +341,7 @@ def delete(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent_id = spawn_db.ensure_agent(identity) if identity and isinstance(identity, str) else None
+    agent_id = spawn.db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     try:
         if agent_id:
             events.emit("bridge", "channel_deleting", agent_id, json.dumps({"channel": channel}))

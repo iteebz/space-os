@@ -54,7 +54,7 @@ def test_initialization(council_instance, mock_channel):
 def test_print_message_formats(council_instance, mock_messages, monkeypatch):
     """_print_message formats identity, timestamp, and prefix."""
     monkeypatch.setattr(
-        "space.apps.council.formatter.spawn_db.get_identity",
+        "space.apps.council.formatter.spawn.db.get_identity",
         lambda x: "alice" if x == "agent-1" else x,
     )
 
@@ -75,7 +75,7 @@ def test_print_message_formats(council_instance, mock_messages, monkeypatch):
 def test_print_message_agent_prefix(council_instance, mock_messages, monkeypatch):
     """_print_message formats agent messages correctly."""
     monkeypatch.setattr(
-        "space.apps.council.formatter.spawn_db.get_identity",
+        "space.apps.council.formatter.spawn.db.get_identity",
         lambda x: "bob" if x == "agent-2" else x,
     )
 
@@ -101,7 +101,7 @@ def test_print_message_human_prefix(council_instance, monkeypatch):
     human_msg.created_at = "2025-10-24T10:00:00"
 
     monkeypatch.setattr(
-        "space.apps.council.formatter.spawn_db.get_identity",
+        "space.apps.council.formatter.spawn.db.get_identity",
         lambda x: "human",
     )
 
