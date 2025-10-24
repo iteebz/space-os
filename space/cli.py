@@ -10,6 +10,7 @@ from space.commands import (
     check,
     describe,
     errors,
+    health,
     init,
     registry,
     search,
@@ -43,6 +44,7 @@ app.command(name="council")(council)
 app.command(name="describe")(describe.describe)
 app.command(name="errors")(errors.errors)
 app.command(name="events")(events_cmd.show_events)
+app.command(name="health")(health.health)
 app.command(name="init")(init.init)
 app.command(name="search")(search.search)
 app.command(name="wake")(wake.wake)
