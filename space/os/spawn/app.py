@@ -13,12 +13,15 @@ app = typer.Typer()
 
 @app.command(name="tasks")
 def tasks_cmd(
-    status: str | None = typer.Option(None, help="Filter by status (pending|running|completed|failed|timeout)"),
+    status: str | None = typer.Option(
+        None, help="Filter by status (pending|running|completed|failed|timeout)"
+    ),
     identity: str | None = typer.Option(None, help="Filter by agent identity"),
+    all: bool = typer.Option(False, "--all", help="Show all tasks (default: active only)"),
 ):
     """List spawn tasks."""
     registry.init_db()
-    tasks_module.tasks_cmd(status=status, identity=identity)
+    tasks_module.tasks_cmd(status=status, identity=identity, show_all=all)
 
 
 @app.command(name="logs")
@@ -83,7 +86,7 @@ def main() -> None:
 
     if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
         cmd = sys.argv[1]
-        if cmd not in ["rename"]:
+        if cmd not in ["rename", "tasks", "logs", "wait", "kill"]:
             sys.argv.insert(1, "launch")
 
     app()

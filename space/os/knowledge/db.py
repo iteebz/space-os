@@ -7,10 +7,10 @@ from pathlib import Path
 
 from space.os import db
 from space.os.db import from_row
+from space.os.lib.uuid7 import uuid7
 
 from .. import events
 from ..lib import paths
-from ..lib.uuid7 import uuid7
 
 KNOWLEDGE_DB_NAME = "knowledge.db"
 

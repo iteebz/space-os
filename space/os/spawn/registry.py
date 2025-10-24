@@ -1,5 +1,6 @@
 import sqlite3
 import time
+import uuid
 from contextlib import contextmanager
 from datetime import datetime
 from functools import lru_cache
@@ -128,7 +129,7 @@ def ensure_agent(name: str) -> str:
         return agent_id
 
     # If no agent (active or archived) exists, create a new one
-    agent_id = uuid7()
+    agent_id = str(uuid.uuid4())
     now_iso = datetime.now().isoformat()
     with get_db() as conn:
         conn.execute(
@@ -161,7 +162,7 @@ def set_self_description(identity: str, description: str) -> bool:
                 (description, row["id"]),
             )
         else:
-            agent_id = uuid7()
+            agent_id = str(uuid.uuid4())
             conn.execute(
                 "INSERT INTO agents (id, name, self_description) VALUES (?, ?, ?)",
                 (agent_id, identity, description),
@@ -402,6 +403,7 @@ def get_task(task_id: str) -> dict | None:
         task = dict(row)
         if task["started_at"] and task["completed_at"]:
             from datetime import datetime as dt
+
             start = dt.fromisoformat(task["started_at"])
             end = dt.fromisoformat(task["completed_at"])
             task["duration"] = (end - start).total_seconds()
@@ -457,7 +459,7 @@ def update_task(
 def list_tasks(status: str | None = None, identity: str | None = None) -> list[dict]:
     """List tasks with optional filters."""
     from datetime import datetime as dt
-    
+
     query = "SELECT * FROM tasks WHERE 1 = 1"
     params = []
 

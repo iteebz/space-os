@@ -3,15 +3,16 @@ from __future__ import annotations
 import contextlib
 import sqlite3
 import time
+import uuid
 from datetime import datetime
 from pathlib import Path
 
 from space.os import db
 from space.os.db import from_row
+from space.os.lib.uuid7 import uuid7
 
 from .. import events
 from ..lib import paths
-from ..lib.uuid7 import uuid7
 from ..models import Memory
 from ..spawn import registry
 
@@ -114,7 +115,7 @@ def _backfill_memory_links(conn: sqlite3.Connection):
         if supersedes_str:
             parent_ids = [pid.strip() for pid in supersedes_str.split(",") if pid.strip()]
             for parent_id in parent_ids:
-                link_id = uuid7()
+                link_id = str(uuid.uuid4())
                 with contextlib.suppress(sqlite3.IntegrityError):
                     conn.execute(
                         "INSERT OR IGNORE INTO memory_links (link_id, memory_id, parent_id, kind, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -391,7 +392,7 @@ def replace_entry(
             )
 
             for full_old_id in full_old_ids:
-                link_id = uuid7()
+                link_id = str(uuid.uuid4())
                 conn.execute(
                     "INSERT OR IGNORE INTO memory_links (link_id, memory_id, parent_id, kind, created_at) VALUES (?, ?, ?, ?, ?)",
                     (link_id, new_id, full_old_id, "supersedes", now),

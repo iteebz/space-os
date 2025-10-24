@@ -3,9 +3,8 @@ import uuid
 
 from space.os import db
 from space.os.db import from_row
+from space.os.lib.uuid7 import uuid7
 from space.os.models import Channel, Export, Message, Note
-
-from ..lib.uuid7 import uuid7
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS messages (
