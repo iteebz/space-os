@@ -24,7 +24,7 @@ def _resolve_agent_id(fuzzy_match: str, include_archived: bool = False) -> tuple
     if len(candidates) == 1:
         agent_id, name = candidates[0]
         resolved = (
-            spawn_db.get_identity(name)
+            spawn_db.get_agent_name(name)
             if (name and len(name) == 36 and name.count("-") == 4)
             else name
         )

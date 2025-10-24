@@ -238,3 +238,38 @@ class TestParameterizedQueries:
 
         source = inspect.getsource(lib._get_common_db_stats)
         assert "LIMIT ?" in source
+
+
+class TestWhitelistCompleteness:
+    """Verify VALID_TABLES and VALID_COLUMNS whitelists are maintained."""
+
+    def test_valid_tables_not_empty(self):
+        """Ensure table whitelist is defined."""
+        assert len(stats_lib.VALID_TABLES) > 0
+        assert isinstance(stats_lib.VALID_TABLES, set)
+
+    def test_valid_columns_not_empty(self):
+        """Ensure column whitelist is defined."""
+        assert len(stats_lib.VALID_COLUMNS) > 0
+        assert isinstance(stats_lib.VALID_COLUMNS, set)
+
+    def test_core_tables_included(self):
+        """Verify core activity tables in whitelist."""
+        required = {"messages", "agents", "events"}
+        assert required.issubset(stats_lib.VALID_TABLES)
+
+    def test_core_columns_included(self):
+        """Verify core activity columns in whitelist."""
+        required = {"agent_id", "archived_at"}
+        assert required.issubset(stats_lib.VALID_COLUMNS)
+
+    def test_no_sql_syntax_in_identifiers(self):
+        """Verify identifiers contain no SQL keywords or syntax."""
+        forbidden_chars = {";", "--", "/*", "'", '"'}
+        for table in stats_lib.VALID_TABLES:
+            for char in forbidden_chars:
+                assert char not in table, f"SQL syntax '{char}' found in table name '{table}'"
+
+        for col in stats_lib.VALID_COLUMNS:
+            for char in forbidden_chars:
+                assert char not in col, f"SQL syntax '{char}' found in column name '{col}'"

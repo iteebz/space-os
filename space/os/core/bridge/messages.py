@@ -8,6 +8,8 @@ import typer
 
 from space.os.lib.identity import constitute_identity
 
+from ...events import emit
+from .. import spawn
 from . import api
 
 
@@ -42,14 +44,14 @@ def send(
         channel_id = api.create_channel(channel)
 
     try:
-        events.emit(
+        emit(
             "bridge",
             "message_sending",
             agent_id,
             json.dumps({"channel": channel, "identity": identity, "content": content}),
         )
         api.send_message(channel_id, identity, content)
-        events.emit(
+        emit(
             "bridge",
             "message_sent",
             agent_id,
@@ -62,7 +64,7 @@ def send(
                 f"Sent to {channel}" if identity == "human" else f"Sent to {channel} as {identity}"
             )
     except ValueError as exc:
-        events.emit(
+        emit(
             "bridge",
             "error",
             agent_id,
@@ -91,7 +93,7 @@ def alert(
     agent_id = spawn.db.ensure_agent(identity)
 
     try:
-        events.emit(
+        emit(
             "bridge",
             "alert_triggering",
             agent_id,
@@ -100,7 +102,7 @@ def alert(
         channel_id = api.resolve_channel_id(channel)
         agent_id = spawn.db.ensure_agent(identity)
         api.send_message(channel_id, identity, content, priority="alert")
-        events.emit(
+        emit(
             "bridge",
             "alert_triggered",
             agent_id,
@@ -111,7 +113,7 @@ def alert(
         elif not quiet_output:
             typer.echo(f"Alert sent to {channel} as {identity}")
     except ValueError as exc:
-        events.emit(
+        emit(
             "bridge",
             "error",
             agent_id,
@@ -143,7 +145,7 @@ def recv(
         messages, count, context, participants = api.recv_updates(channel_id, identity)
 
         for msg in messages:
-            events.emit(
+            emit(
                 "bridge",
                 "message_received",
                 agent_id,
@@ -170,10 +172,10 @@ def recv(
             )
         elif not quiet_output:
             for msg in messages:
-                typer.echo(f"[{spawn.db.get_identity(msg.agent_id)}] {msg.content}")
+                typer.echo(f"[{spawn.db.get_agent_name(msg.agent_id)}] {msg.content}")
                 typer.echo()
     except ValueError as e:
-        events.emit(
+        emit(
             "bridge",
             "error",
             agent_id,
@@ -215,13 +217,13 @@ def alerts(
         elif not quiet_output:
             typer.echo(f"--- Alerts for {identity} ({len(alert_messages)} unread) ---")
             for msg in alert_messages:
-                typer.echo(f"\n[{spawn.db.get_identity(msg.agent_id)} | {msg.channel_id}]")
+                typer.echo(f"\n[{spawn.db.get_agent_name(msg.agent_id)} | {msg.channel_id}]")
                 typer.echo(msg.content)
 
         for msg in alert_messages:
             db.set_bookmark(agent_id, msg.channel_id, msg.message_id)
     except Exception as exc:
-        events.emit(
+        emit(
             "bridge",
             "error",
             agent_id,
@@ -264,7 +266,7 @@ def inbox(
                 last_activity, description = utils.format_channel_row(channel)
                 typer.echo(f"  {last_activity}: {description}")
     except Exception as exc:
-        events.emit(
+        emit(
             "bridge",
             "error",
             agent_id,
@@ -310,7 +312,7 @@ def wait(
 
             if other_messages:
                 for msg in other_messages:
-                    events.emit(
+                    emit(
                         "bridge",
                         "message_received",
                         agent_id,
@@ -337,14 +339,14 @@ def wait(
                     )
                 elif not quiet_output:
                     for msg in other_messages:
-                        typer.echo(f"[{spawn.db.get_identity(msg.agent_id)}] {msg.content}")
+                        typer.echo(f"[{spawn.db.get_agent_name(msg.agent_id)}] {msg.content}")
                         typer.echo()
                 break
 
             time.sleep(poll_interval)
 
     except ValueError as e:
-        events.emit(
+        emit(
             "bridge",
             "error",
             agent_id,

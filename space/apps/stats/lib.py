@@ -6,11 +6,10 @@ from pathlib import Path
 
 from space.os import db
 from space.os.core.spawn import db as spawn_db
-from space.os.db.registry import DB_REGISTRY_MAP
+from space.os.db import query_builders as qb
+from space.os.db.registries import DB_REGISTRY_MAP
 from space.os.lib import format as fmt
 from space.os.lib import paths
-
-logger = logging.getLogger(__name__)
 
 from .models import (
     AgentStats,
@@ -22,6 +21,8 @@ from .models import (
     SpaceStats,
     SpawnStats,
 )
+
+logger = logging.getLogger(__name__)
 
 VALID_TABLES = {"messages", "memories", "knowledge", "events", "channels", "agents"}
 VALID_COLUMNS = {
@@ -53,7 +54,7 @@ def _get_agent_names_map() -> dict[str, str]:
             return {row[0]: row[1] for row in reg_conn.execute("SELECT agent_id, name FROM agents")}
     except Exception as exc:
         logger.error(f"Failed to fetch agent names: {exc}")
-        return {}
+        raise ValueError(f"Critical: unable to fetch agent registry: {exc}") from exc
 
 
 def _discover_all_agent_ids(registered_ids: set[str], include_archived: bool = False) -> set[str]:
@@ -127,42 +128,39 @@ def _get_common_db_stats(
 
         has_archived_at = "archived_at" in columns
 
-        total = conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
+        total = qb.count_table(conn, table_name)
 
         if has_archived_at:
-            active = conn.execute(
-                f"SELECT COUNT(*) FROM {table_name} WHERE archived_at IS NULL"
-            ).fetchone()[0]
-            archived = conn.execute(
-                f"SELECT COUNT(*) FROM {table_name} WHERE archived_at IS NOT NULL"
-            ).fetchone()[0]
+            active = qb.count_active(conn, table_name)
+            archived = qb.count_archived(conn, table_name)
         else:
             active = total
             archived = 0
 
         topics_or_channels = None
         if topic_column and topic_column in columns:
-            if has_archived_at:
-                topics_or_channels = conn.execute(
-                    f"SELECT COUNT(DISTINCT {topic_column}) FROM {table_name} WHERE archived_at IS NULL"
-                ).fetchone()[0]
-            else:
-                topics_or_channels = conn.execute(
-                    f"SELECT COUNT(DISTINCT {topic_column}) FROM {table_name}"
-                ).fetchone()[0]
+            topics_or_channels = (
+                len(
+                    qb.select_distinct(
+                        conn, table_name, topic_column, include_archived=not has_archived_at
+                    )
+                )
+                if has_archived_at
+                else len(qb.select_distinct(conn, table_name, topic_column, include_archived=True))
+            )
 
         leaderboard = []
         if leaderboard_column and leaderboard_column in columns:
             query = f"SELECT {leaderboard_column}, COUNT(*) as count FROM {table_name} GROUP BY {leaderboard_column} ORDER BY count DESC"
+            params = ()
             if limit:
-                rows = conn.execute(f"{query} LIMIT ?", (limit,)).fetchall()
-            else:
-                rows = conn.execute(query).fetchall()
-
+                query += " LIMIT ?"
+                params = (limit,)
+            count_rows = conn.execute(query, params).fetchall()
             agent_names_map = _get_agent_names_map()
             leaderboard = [
                 LeaderboardEntry(identity=agent_names_map.get(row[0], row[0]), count=row[1])
-                for row in rows
+                for row in count_rows
             ]
 
     return total, active, archived, topics_or_channels, leaderboard
@@ -274,7 +272,7 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
     agent_names_map = _get_agent_names_map()
     data_dir = paths.space_data()
 
-    identities = {
+    agent_stats_map = {
         agent_id: {
             "agent_name": agent_names_map.get(agent_id, agent_id),
             "events": 0,
@@ -339,14 +337,16 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
                     try:
                         for row in conn.execute(sql):
                             agent_id = row[0]
-                            if agent_id not in identities:
+                            if agent_id not in agent_stats_map:
                                 continue
                             if field == "channels":
-                                identities[agent_id][field] = row[1].split(",") if row[1] else []
+                                agent_stats_map[agent_id][field] = (
+                                    row[1].split(",") if row[1] else []
+                                )
                             elif field == "last_active":
-                                identities[agent_id][field] = str(row[1])
+                                agent_stats_map[agent_id][field] = str(row[1])
                             else:
-                                identities[agent_id][field] = row[1]
+                                agent_stats_map[agent_id][field] = row[1]
                     except Exception as exc:
                         logger.warning(f"Query failed for {field}: {exc}")
         except Exception as exc:
@@ -367,7 +367,7 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
             if data.get("last_active")
             else None,
         )
-        for agent_id, data in identities.items()
+        for agent_id, data in agent_stats_map.items()
     ]
 
     agents.sort(key=lambda a: a.last_active or "0", reverse=True)
@@ -381,10 +381,10 @@ def spawn_stats() -> SpawnStats:
 
     try:
         with db.ensure("spawn") as conn:
-            agents = conn.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
+            agent_count = conn.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
             hashes = conn.execute("SELECT COUNT(*) FROM constitutions").fetchone()[0]
 
-        return SpawnStats(available=True, total=agents, agents=agents, hashes=hashes)
+        return SpawnStats(available=True, total=agent_count, agents=agent_count, hashes=hashes)
     except Exception as exc:
         logger.error(f"Failed to fetch spawn stats: {exc}")
         return SpawnStats(available=False)

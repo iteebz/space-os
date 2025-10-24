@@ -12,7 +12,13 @@ from space.commands.init import init
 from space.commands.launch import launch
 from space.commands.sleep import sleep
 from space.commands.wake import wake
-from space.os import bridge, chats, knowledge, memory, spawn
+from space.os import (
+    bridge_app,
+    chats,
+    knowledge_app,
+    memory_app,
+    spawn_app,
+)
 from space.os.core.spawn.commands.agents import app as agents_app
 from space.os.core.spawn.commands.registry import app as registry_app
 from space.os.lib import readme
@@ -21,14 +27,14 @@ from space.os.lib.invocation import Invocation
 
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False, add_help_option=False)
 
-app.add_typer(knowledge, name="knowledge")
-app.add_typer(memory, name="memory")
+app.add_typer(knowledge_app, name="knowledge")
+app.add_typer(memory_app, name="memory")
 app.add_typer(agents_app, name="agents")
 app.add_typer(context, name="context")
 app.add_typer(stats, name="stats")
 app.add_typer(registry_app, name="registry")
-app.add_typer(bridge, name="bridge")
-app.add_typer(spawn, name="spawn")
+app.add_typer(bridge_app, name="bridge")
+app.add_typer(spawn_app, name="spawn")
 app.add_typer(chats.app, name="chats")
 
 app.command(name="backup")(backup)

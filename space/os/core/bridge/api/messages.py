@@ -5,7 +5,7 @@ import subprocess
 import sys
 
 from space.os.core.spawn import db as spawn_db
-from space.os.models import Message
+from space.os.models import BridgeMessage
 
 from .. import db
 
@@ -42,7 +42,7 @@ def send_message(channel_id: str, sender: str, content: str, priority: str = "no
     return agent_id
 
 
-def recv_updates(channel_id: str, agent_id: str) -> tuple[list[Message], int, str, list[str]]:
+def recv_updates(channel_id: str, agent_id: str) -> tuple[list[BridgeMessage], int, str, list[str]]:
     """Receive topic updates, returning messages, count, context, and participants."""
     channel_name = db.get_channel_name(channel_id)
 
@@ -61,12 +61,12 @@ def recv_updates(channel_id: str, agent_id: str) -> tuple[list[Message], int, st
     return messages, unread_count, topic, participants
 
 
-def fetch_messages(channel_id: str) -> list[Message]:
+def fetch_messages(channel_id: str) -> list[BridgeMessage]:
     """Retrieve all messages for a given topic."""
     return db.get_all_messages(channel_id)
 
 
-def fetch_agent_history(identity: str, limit: int = 5) -> list[Message]:
+def fetch_agent_history(identity: str, limit: int = 5) -> list[BridgeMessage]:
     """Retrieve message history for a given agent identity."""
     agent_id = spawn_db.ensure_agent(identity)
     return db.get_sender_history(agent_id, limit)

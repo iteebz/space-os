@@ -13,15 +13,15 @@ logging.basicConfig(level=logging.DEBUG, format="[worker] %(message)s")
 log = logging.getLogger(__name__)
 
 
-def _get_task_timeout(identity: str, default: int = 120) -> int:
-    """Get task timeout for identity from config, fallback to default."""
+def _get_task_timeout(identity: str) -> int:
+    """Get task timeout for identity from config: per-role override, then global default."""
     try:
         cfg = config.load_config()
         role_cfg = cfg.get("roles", {}).get(identity, {})
-        return role_cfg.get("task_timeout", default)
+        return role_cfg.get("task_timeout", cfg.get("timeouts", {}).get("task_default", 120))
     except Exception as exc:
         log.warning(f"Failed to load config for {identity}, using default timeout: {exc}")
-        return default
+        return 120
 
 
 def main():

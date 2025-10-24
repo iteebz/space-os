@@ -25,7 +25,7 @@ def _resolve_agent_id(fuzzy_match: str, include_archived: bool = False) -> tuple
     if len(candidates) == 1:
         agent_id, name = candidates[0]
         resolved = (
-            spawn_db.get_identity(name)
+            spawn_db.get_agent_name(name)
             if (name and len(name) == 36 and name.count("-") == 4)
             else name
         )
@@ -37,6 +37,9 @@ def _resolve_agent_id(fuzzy_match: str, include_archived: bool = False) -> tuple
 @app.command()
 def merge(id_from: str, id_to: str):
     """Merge all data from one agent ID to another."""
+    from space.os import db
+    from space.os import events as events_lib
+
     from_result = _resolve_agent_id(id_from)
     to_result = _resolve_agent_id(id_to)
 
@@ -105,6 +108,8 @@ def merge(id_from: str, id_to: str):
 @app.command("rename")
 def rename_agent(agent_ref: str, new_name: str):
     """Rename an agent."""
+    from space.os import events as events_lib
+
     result = _resolve_agent_id(agent_ref)
 
     if not result:
@@ -125,6 +130,8 @@ def delete_agent(
     agent_ref: str, force: bool = typer.Option(False, "--force", help="Skip confirmation")
 ):
     """Hard delete an agent and all related data. Use with caution - backups required."""
+    from space.os import events as events_lib
+
     result = _resolve_agent_id(agent_ref)
 
     if not result:

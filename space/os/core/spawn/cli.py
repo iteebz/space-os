@@ -150,10 +150,10 @@ def _get_agent(identity: str, base_agent: str | None, model: str | None, cfg: di
     return agent_class(actual_identity)
 
 
-tasks_cmd = tasks.tasks
-logs_cmd = tasks.logs
-wait_cmd = tasks.wait
-kill_cmd = tasks.kill
+spawn.tasks_cmd = tasks.tasks
+spawn.logs_cmd = tasks.logs
+spawn.wait_cmd = tasks.wait
+spawn.kill_cmd = tasks.kill
 
 
 if __name__ == "__main__":

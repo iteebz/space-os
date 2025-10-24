@@ -106,6 +106,11 @@ def emit(
     data: str | None = None,
 ):
     """Emit event to append-only log."""
+    if agent_id is not None and not isinstance(agent_id, str):
+        raise ValueError(f"agent_id must be str or None, got {type(agent_id).__name__}")
+    if agent_id is not None and not agent_id.strip():
+        raise ValueError("agent_id must be non-empty string if provided")
+
     event_id = uuid7()
     event_timestamp = int(time.time())
 

@@ -98,6 +98,11 @@ roles:
     base_identity: sonnet
     task_timeout: 120
 
-task_timeout_default: 120
+timeouts:
+  task_default: 120
+  task_wait: 300
+
+search:
+  max_length: 256
 
 canon_path: private/canon

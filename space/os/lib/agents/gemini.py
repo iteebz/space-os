@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 
 from space.os import config
-from space.os.lib.models import Message
+from space.os.models import ChatMessage
 
 
 def _extract_text(content) -> str:
@@ -23,7 +23,7 @@ def _extract_text(content) -> str:
     return str(content) if content else ""
 
 
-def sessions() -> list[Message]:
+def sessions() -> list[ChatMessage]:
     gemini_dir = Path.home() / ".gemini" / "tmp"
     if not gemini_dir.exists():
         return []
@@ -53,17 +53,21 @@ def sessions() -> list[Message]:
                         if not text:
                             continue
                         msgs.append(
-                            Message(
+                            ChatMessage(
+                                id=0,
+                                cli="gemini",
+                                model=None,
+                                session_id=session_id,
+                                timestamp=raw.get("timestamp"),
+                                identity=None,
                                 role=role,
                                 text=text,
-                                timestamp=raw.get("timestamp"),
-                                session_id=session_id,
                             )
                         )
             except (OSError, json.JSONDecodeError):
                 continue
 
-    return [m for m in msgs if m.is_valid()]
+    return msgs
 
 
 def spawn(identity: str, task: str | None = None) -> str:

@@ -34,7 +34,7 @@ def test_channel_groups_tasks(test_space):
     conn.close()
 
     assert len(rows) == 3
-    assert [spawn.db.get_identity(r["agent_id"]) for r in rows] == ["hailot", "zealot", "hailot"]
+    assert [spawn.db.get_agent_name(r["agent_id"]) for r in rows] == ["hailot", "zealot", "hailot"]
 
 
 def test_channel_isolation(test_space):
@@ -102,7 +102,7 @@ def test_retrieve_channel_history(test_space):
 
     assert len(rows) == 3
     for i, (agent_id, output) in enumerate(tasks):
-        assert spawn.db.get_identity(rows[i]["agent_id"]) == spawn.db.get_identity(agent_id)
+        assert spawn.db.get_agent_name(rows[i]["agent_id"]) == spawn.db.get_agent_name(agent_id)
         assert rows[i]["output"] == output
 
 
@@ -129,7 +129,7 @@ def test_spawn_logs_metadata(test_space):
     ).fetchone()
     conn.close()
 
-    assert spawn.db.get_identity(row["agent_id"]) == "hailot"
+    assert spawn.db.get_agent_name(row["agent_id"]) == "hailot"
     assert row["channel_id"] == channel_id
     assert row["output"] == output
     assert row["status"] == "completed"
@@ -173,7 +173,7 @@ def test_task_provenance_chain(test_space):
     conn.close()
 
     assert row["task_id"] == task_id
-    assert spawn.db.get_identity(row["agent_id"]) == "hailot"
+    assert spawn.db.get_agent_name(row["agent_id"]) == "hailot"
     assert row["channel_id"] == channel_id
     assert row["output"] == output
     assert row["status"] == "completed"

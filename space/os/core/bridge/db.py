@@ -4,9 +4,10 @@ from pathlib import Path
 
 from space.os import db
 from space.os.db import from_row
+from space.os.db import query_builders as qb
 from space.os.lib import paths
 from space.os.lib.uuid7 import uuid7
-from space.os.models import Channel, Export, Message, Note
+from space.os.models import BridgeMessage, Channel, Export, Note
 
 from . import migrations
 
@@ -79,15 +80,15 @@ def create_message(channel_id: str, agent_id: str, content: str, priority: str =
         return message_id
 
 
-def _row_to_message(row: sqlite3.Row) -> Message:
-    return from_row(row, Message)
+def _row_to_message(row: sqlite3.Row) -> BridgeMessage:
+    return from_row(row, BridgeMessage)
 
 
 def _row_to_note(row: sqlite3.Row) -> Note:
     return from_row(row, Note)
 
 
-def get_new_messages(channel_id: str, agent_id: str) -> list[Message]:
+def get_new_messages(channel_id: str, agent_id: str) -> list[BridgeMessage]:
     with db.ensure("bridge") as conn:
         get_channel_name(channel_id)
 
@@ -129,7 +130,7 @@ def get_new_messages(channel_id: str, agent_id: str) -> list[Message]:
         return [_row_to_message(row) for row in cursor.fetchall()]
 
 
-def get_all_messages(channel_id: str) -> list[Message]:
+def get_all_messages(channel_id: str) -> list[BridgeMessage]:
     with db.ensure("bridge") as conn:
         cursor = conn.execute(
             "SELECT message_id, channel_id, agent_id, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at ASC",
@@ -138,7 +139,7 @@ def get_all_messages(channel_id: str) -> list[Message]:
         return [_row_to_message(row) for row in cursor.fetchall()]
 
 
-def set_bookmark(agent_id: str, channel_id: str, last_seen_id: str):
+def set_bookmark(agent_id: str, channel_id: str, last_seen_id: str) -> None:
     with db.ensure("bridge") as conn:
         conn.execute(
             "INSERT OR REPLACE INTO bookmarks (agent_id, channel_id, last_seen_id) VALUES (?, ?, ?)",
@@ -146,7 +147,7 @@ def set_bookmark(agent_id: str, channel_id: str, last_seen_id: str):
         )
 
 
-def get_alerts(agent_id: str) -> list[Message]:
+def get_alerts(agent_id: str) -> list[BridgeMessage]:
     with db.ensure("bridge") as conn:
         cursor = conn.execute(
             """
@@ -161,7 +162,7 @@ def get_alerts(agent_id: str) -> list[Message]:
         return [_row_to_message(row) for row in cursor.fetchall()]
 
 
-def get_sender_history(agent_id: str, limit: int = 5) -> list[Message]:
+def get_sender_history(agent_id: str, limit: int = 5) -> list[BridgeMessage]:
     with db.ensure("bridge") as conn:
         cursor = conn.execute(
             """
@@ -210,7 +211,7 @@ def get_channel_name(channel_id: str) -> str | None:
     return row["name"] if row else None
 
 
-def set_topic(channel_id: str, topic: str):
+def set_topic(channel_id: str, topic: str) -> None:
     with db.ensure("bridge") as conn:
         conn.execute(
             "UPDATE channels SET topic = ? WHERE channel_id = ? AND (topic IS NULL OR topic = '')",
@@ -227,12 +228,14 @@ def get_topic(channel_id: str) -> str | None:
 
 def get_participants(channel_id: str) -> list[str]:
     with db.ensure("bridge") as conn:
-        cursor = conn.execute(
-            "SELECT DISTINCT agent_id FROM messages WHERE channel_id = ? ORDER BY agent_id",
-            (channel_id,),
+        return qb.select_distinct(
+            conn,
+            "messages",
+            "agent_id",
+            where="channel_id = ?",
+            params=(channel_id,),
+            include_archived=True,
         )
-
-        return [row["agent_id"] for row in cursor.fetchall()]
 
 
 def fetch_channels(
@@ -340,7 +343,7 @@ def get_export_data(channel_id: str) -> Export:
     )
 
 
-def pin_channel(channel_id: str):
+def pin_channel(channel_id: str) -> None:
     with db.ensure("bridge") as conn:
         conn.execute(
             "UPDATE channels SET pinned_at = CURRENT_TIMESTAMP WHERE channel_id = ?",
@@ -348,7 +351,7 @@ def pin_channel(channel_id: str):
         )
 
 
-def unpin_channel(channel_id: str):
+def unpin_channel(channel_id: str) -> None:
     with db.ensure("bridge") as conn:
         conn.execute(
             "UPDATE channels SET pinned_at = NULL WHERE channel_id = ?",
@@ -356,7 +359,7 @@ def unpin_channel(channel_id: str):
         )
 
 
-def archive_channel(channel_id: str):
+def archive_channel(channel_id: str) -> None:
     with db.ensure("bridge") as conn:
         conn.execute(
             "UPDATE channels SET archived_at = CURRENT_TIMESTAMP WHERE channel_id = ?",
@@ -364,7 +367,7 @@ def archive_channel(channel_id: str):
         )
 
 
-def delete_channel(channel_id: str):
+def delete_channel(channel_id: str) -> None:
     with db.ensure("bridge") as conn:
         conn.execute("DELETE FROM messages WHERE channel_id = ?", (channel_id,))
         conn.execute("DELETE FROM bookmarks WHERE channel_id = ?", (channel_id,))

@@ -17,7 +17,7 @@ def test_bridge_uses_spawn_tasks(test_space):
     )
 
     task = spawn.db.get_task(task_id)
-    assert spawn.db.get_identity(task.agent_id) == "hailot"
+    assert spawn.db.get_agent_name(task.agent_id) == "hailot"
     assert task.channel_id == "ch-test-123"
     assert task.status == "pending"
 

@@ -54,7 +54,7 @@ def notes(
                     timestamp = utils.format_local_time(note_dict["created_at"])
                     agent_id_note = note_dict.get("agent_id")
                     identity_str = (
-                        spawn.db.get_identity(agent_id_note) if agent_id_note else "unknown"
+                        spawn.db.get_agent_name(agent_id_note) if agent_id_note else "unknown"
                     )
                     typer.echo(f"[{timestamp}] {identity_str}: {note_dict['content']}")
                     typer.echo()

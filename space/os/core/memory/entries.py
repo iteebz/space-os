@@ -194,7 +194,7 @@ def inspect(
         return
 
     if entry.agent_id != agent_id:
-        output.out_text(f"Belongs to {spawn_db.get_identity(entry.agent_id)}", ctx.obj)
+        output.out_text(f"Belongs to {spawn_db.get_agent_name(entry.agent_id)}", ctx.obj)
         return
 
     related = db.find_related(entry, limit=limit, include_archived=include_archived)

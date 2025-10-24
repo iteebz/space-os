@@ -25,7 +25,7 @@ def fmt_entry_msg(msg: str, max_len: int = 100) -> str:
 def show_memory_entry(entry, ctx_obj, related=None):
     from space.os import spawn
 
-    typer.echo(fmt_entry_header(entry, spawn.db.get_identity(entry.agent_id)))
+    typer.echo(fmt_entry_header(entry, spawn.db.get_agent_name(entry.agent_id)))
     typer.echo(f"Created: {entry.timestamp}\n")
     typer.echo(f"{entry.message}\n")
 

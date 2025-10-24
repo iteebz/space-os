@@ -5,6 +5,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from space.os import db, events
+from space.os.db import query_builders as qb
 from space.os.db.conversions import row_to_task
 from space.os.lib import paths
 from space.os.lib.uuid7 import uuid7
@@ -90,11 +91,7 @@ def get_constitution(constitution_hash: str) -> str | None:
 def get_agent_ids(name: str, include_archived: bool = False) -> list[str]:
     """Get all agent UUIDs matching name."""
     with db.ensure("spawn") as conn:
-        archive_filter = "" if include_archived else "AND archived_at IS NULL"
-        rows = conn.execute(
-            f"SELECT agent_id FROM agents WHERE name = ? {archive_filter}", (name,)
-        ).fetchall()
-        return [row["agent_id"] for row in rows]
+        return qb.agent_by_name(conn, name, include_archived=include_archived)
 
 
 def get_agent_id(name: str) -> str | None:
@@ -104,16 +101,18 @@ def get_agent_id(name: str) -> str | None:
 
 
 @lru_cache(maxsize=256)
-def get_identity(agent_id: str) -> str | None:
-    """Get agent identity by UUID."""
+def get_agent_name(agent_id: str) -> str | None:
+    """Get agent name by UUID."""
     with db.ensure("spawn") as conn:
-        row = conn.execute("SELECT name FROM agents WHERE agent_id = ?", (agent_id,)).fetchone()
-        return row["name"] if row else None
+        return qb.agent_by_id(conn, agent_id)
 
 
 def clear_identity_cache():
     """Invalidate agent name cache."""
-    get_identity.cache_clear()
+    get_agent_name.cache_clear()
+
+
+get_identity = get_agent_name
 
 
 def ensure_agent(name: str) -> str:
@@ -140,21 +139,21 @@ def ensure_agent(name: str) -> str:
     return agent_id
 
 
-def get_self_description(identity: str) -> str | None:
+def get_self_description(agent_name: str) -> str | None:
     """Get self-description for agent."""
     with db.ensure("spawn") as conn:
         row = conn.execute(
             "SELECT self_description FROM agents WHERE name = ? LIMIT 1",
-            (identity,),
+            (agent_name,),
         ).fetchone()
         return row["self_description"] if row else None
 
 
-def set_self_description(identity: str, description: str) -> bool:
+def set_self_description(agent_name: str, description: str) -> bool:
     """Set self-description for agent. Returns True when an update occurs."""
     with db.ensure("spawn") as conn:
         row = conn.execute(
-            "SELECT agent_id FROM agents WHERE name = ? LIMIT 1", (identity,)
+            "SELECT agent_id FROM agents WHERE name = ? LIMIT 1", (agent_name,)
         ).fetchone()
         if row:
             conn.execute(
@@ -165,7 +164,7 @@ def set_self_description(identity: str, description: str) -> bool:
             agent_id = str(uuid.uuid4())
             conn.execute(
                 "INSERT INTO agents (agent_id, name, self_description) VALUES (?, ?, ?)",
-                (agent_id, identity, description),
+                (agent_id, agent_name, description),
             )
     return True
 

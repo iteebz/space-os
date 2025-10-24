@@ -1,9 +1,9 @@
-from space.os.core.spawn import db, spawn
+from space.os.core.spawn import db, hash_content
 
 
 def test_save_get_agent_identity(test_space):
     full_identity = "You are a test agent.\nSelf: I am a test.\n\nConstitution: Test."
-    constitution_hash = spawn.hash_content(full_identity)
+    constitution_hash = hash_content(full_identity)
 
     db.save_constitution(constitution_hash, full_identity)
     retrieved_identity = db.get_constitution(constitution_hash)
@@ -12,7 +12,7 @@ def test_save_get_agent_identity(test_space):
     updated_full_identity = (
         "You are an updated test agent.\nSelf: I am updated.\n\nConstitution: Updated Test."
     )
-    updated_constitution_hash = spawn.hash_content(updated_full_identity)
+    updated_constitution_hash = hash_content(updated_full_identity)
     db.save_constitution(updated_constitution_hash, updated_full_identity)
     retrieved_updated_identity = db.get_constitution(updated_constitution_hash)
     assert retrieved_updated_identity == updated_full_identity
@@ -23,7 +23,7 @@ def test_save_get_agent_identity(test_space):
 
 def test_save_long_id(test_space):
     long_full_identity = "A" * 10000
-    constitution_hash = spawn.hash_content(long_full_identity)
+    constitution_hash = hash_content(long_full_identity)
 
     db.save_constitution(constitution_hash, long_full_identity)
     retrieved_identity = db.get_constitution(constitution_hash)
@@ -32,7 +32,7 @@ def test_save_long_id(test_space):
 
 def test_save_special_chars_id(test_space):
     special_char_identity = "Hello!@#$%^&*()_+-=[]{}|;':\",./<>?`~"
-    constitution_hash = spawn.hash_content(special_char_identity)
+    constitution_hash = hash_content(special_char_identity)
 
     db.save_constitution(constitution_hash, special_char_identity)
     retrieved_identity = db.get_constitution(constitution_hash)

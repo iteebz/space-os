@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 
 from space.os import config
-from space.os.lib.models import Message
+from space.os.models import ChatMessage
 
 
 def _extract_text(content) -> str:
@@ -23,7 +23,7 @@ def _extract_text(content) -> str:
     return str(content) if content else ""
 
 
-def sessions() -> list[Message]:
+def sessions() -> list[ChatMessage]:
     sessions_dir = Path.home() / ".codex" / "sessions"
     if not sessions_dir.exists():
         return []
@@ -63,18 +63,21 @@ def sessions() -> list[Message]:
                     if not text:
                         continue
                     msgs.append(
-                        Message(
+                        ChatMessage(
+                            id=0,
+                            cli="codex",
+                            model=model_cache[jsonl_file],
+                            session_id=str(jsonl_file.stem),
+                            timestamp=raw.get("timestamp"),
+                            identity=None,
                             role=role,
                             text=text,
-                            timestamp=raw.get("timestamp"),
-                            session_id=str(jsonl_file.stem),
-                            model=model_cache[jsonl_file],
                         )
                     )
         except (OSError, json.JSONDecodeError):
             continue
 
-    return [m for m in msgs if m.is_valid()]
+    return msgs
 
 
 def spawn(identity: str, task: str | None = None) -> str:

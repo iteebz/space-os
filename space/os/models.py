@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 
 @dataclass
-class Message:
+class BridgeMessage:
     """A coordination message."""
 
     message_id: str
@@ -59,7 +59,7 @@ class Export:
     created_at: str | None
     participants: list[str]
     message_count: int
-    messages: list[Message]
+    messages: list[BridgeMessage]
     notes: list[Note]
 
 
@@ -79,6 +79,20 @@ class Memory:
     synthesis_note: str | None = None
     supersedes: str | None = None
     superseded_by: str | None = None
+
+
+@dataclass
+class ChatMessage:
+    """A message from CLI chat history."""
+
+    id: int
+    cli: str
+    model: str | None
+    session_id: str
+    timestamp: str
+    identity: str | None
+    role: str
+    text: str
 
 
 @dataclass

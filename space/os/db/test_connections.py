@@ -157,7 +157,7 @@ class TestMigrationCleanup:
         db.register("test_mig", "test.db", schema)
         db.add_migrations("test_mig", migrations)
 
-        with pytest.raises(Exception):
+        with pytest.raises(sqlite3.OperationalError):
             db.ensure_schema(temp_db_dir / "test.db", schema, migrations)
 
     def test_migration_success_commits(self, temp_db_dir):

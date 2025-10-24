@@ -15,7 +15,7 @@ def dot_space() -> Path:
 
 def space_data() -> Path:
     """Returns the data directory, ~/.space/data."""
-    return Path.home() / ".space" / "data"
+    return dot_space() / "data"
 
 
 def package_root() -> Path:

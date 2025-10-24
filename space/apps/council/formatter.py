@@ -29,7 +29,7 @@ def format_message(msg, is_user: bool) -> str:
     Returns:
         Formatted message string with colors and styling
     """
-    identity = spawn_db.get_identity(msg.agent_id) or msg.agent_id
+    identity = spawn_db.get_agent_name(msg.agent_id) or msg.agent_id
     ts = datetime.fromisoformat(msg.created_at).strftime("%H:%M:%S")
 
     if is_user:

@@ -38,10 +38,10 @@ def test_wake_explicit_flag_invocation(test_space):
 
 
 def test_constitution_hash_content_addressable(test_space):
-    from space.os.core.spawn import spawn
+    from space.os.core.spawn.spawn import hash_content
 
     test_content = "# TEST CONSTITUTION\nTest identity marker"
-    test_hash = spawn.hash_content(test_content)
+    test_hash = hash_content(test_content)
 
     assert len(test_hash) == 64, "SHA256 hash should be 64 hex chars"
     assert test_hash.isalnum(), "Hash should be alphanumeric"

@@ -6,38 +6,40 @@ from space.commands.backup import _get_backup_stats, backup
 
 def test_backup_creates_timestamped_dir(tmp_path):
     """Backup creates timestamped directory."""
-    dot_space = tmp_path / "dot_space"
-    dot_space.mkdir()
-    (dot_space / "test.db").write_text("")
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    (src_dir / "test.db").write_text("")
 
-    backups_dir = tmp_path / "backups"
+    backup_dir = tmp_path / "backups"
 
-    with patch("space.commands.backup.paths.dot_space", return_value=dot_space):
-        with patch("space.commands.backup.paths.global_root", return_value=tmp_path):
+    with patch("space.commands.backup.paths.space_data", return_value=src_dir):
+        with patch("space.commands.backup.paths.backups_dir", return_value=backup_dir):
             backup(quiet_output=True)
 
-    assert backups_dir.exists()
-    backups = list(backups_dir.glob("*"))
+    assert backup_dir.exists()
+    backups = list(backup_dir.glob("*"))
     assert len(backups) == 1
     assert backups[0].is_dir()
 
 
 def test_backup_copies_db_files(tmp_path):
     """Backup copies all .db files."""
-    dot_space = tmp_path / "dot_space"
-    dot_space.mkdir()
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
 
-    conn = sqlite3.connect(dot_space / "test.db")
+    conn = sqlite3.connect(src_dir / "test.db")
     conn.execute("CREATE TABLE data (id INTEGER)")
     conn.execute("INSERT INTO data VALUES (1)")
     conn.commit()
     conn.close()
 
-    with patch("space.commands.backup.paths.dot_space", return_value=dot_space):
-        with patch("space.commands.backup.paths.global_root", return_value=tmp_path):
+    backup_dir = tmp_path / "backups"
+
+    with patch("space.commands.backup.paths.space_data", return_value=src_dir):
+        with patch("space.commands.backup.paths.backups_dir", return_value=backup_dir):
             backup(quiet_output=True)
 
-    backups = list((tmp_path / "backups").glob("*"))
+    backups = list(backup_dir.glob("*"))
     backup_db = backups[0] / "test.db"
     assert backup_db.exists()
 

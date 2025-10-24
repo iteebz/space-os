@@ -1,6 +1,27 @@
+import logging
 from datetime import datetime
 
-from space.os import bridge, db, events, knowledge, memory, spawn
+from space.os import bridge, config, db, events, knowledge, memory, spawn
+
+log = logging.getLogger(__name__)
+
+_MAX_SEARCH_LEN = 256
+
+
+def _get_max_search_len() -> int:
+    """Get max search length from config with security warning if reduced."""
+    cfg = config.load_config()
+    max_len = cfg.get("search", {}).get("max_length", _MAX_SEARCH_LEN)
+    if max_len < _MAX_SEARCH_LEN:
+        log.warning(f"Search limit {max_len} below {_MAX_SEARCH_LEN} may allow ReDoS attacks")
+    return max_len
+
+
+def _validate_search_term(term: str) -> None:
+    """Validate search term to prevent DoS via oversized patterns."""
+    max_len = _get_max_search_len()
+    if len(term) > max_len:
+        raise ValueError(f"Search term too long (max {max_len} chars, got {len(term)})")
 
 
 def _query_with_identity(base_query: str, params: list, identity: str | None, all_agents: bool):
@@ -14,6 +35,7 @@ def _query_with_identity(base_query: str, params: list, identity: str | None, al
 
 
 def collect_timeline(topic: str, identity: str | None, all_agents: bool):
+    _validate_search_term(topic)
     timeline = []
     seen_hashes = set()
 
@@ -51,7 +73,7 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
                     {
                         "source": "events",
                         "type": event_type,
-                        "identity": spawn_db.get_identity(row[1]) or row[1] if row[1] else None,
+                        "identity": spawn.db.get_agent_name(row[1]) or row[1] if row[1] else None,
                         "data": row[3],
                         "timestamp": row[4],
                     }
@@ -75,7 +97,7 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
                     {
                         "source": "memory",
                         "type": row[1],
-                        "identity": spawn_db.get_identity(row[0]) or row[0] if row[0] else None,
+                        "identity": spawn.db.get_agent_name(row[0]) or row[0] if row[0] else None,
                         "data": row[2],
                         "timestamp": row[3] if isinstance(row[3], int) else 0,
                     }
@@ -99,7 +121,7 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
                     {
                         "source": "knowledge",
                         "type": row[0],
-                        "identity": spawn_db.get_identity(row[2]) or row[2] if row[2] else None,
+                        "identity": spawn.db.get_agent_name(row[2]) or row[2] if row[2] else None,
                         "data": row[1],
                         "timestamp": row[3] if isinstance(row[3], int) else 0,
                     }
@@ -128,7 +150,7 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
                     {
                         "source": "bridge",
                         "type": row[0],
-                        "identity": spawn_db.get_identity(row[1]) or row[1] if row[1] else None,
+                        "identity": spawn.db.get_agent_name(row[1]) or row[1] if row[1] else None,
                         "data": row[2],
                         "timestamp": ts,
                     }
@@ -150,7 +172,7 @@ def collect_current_state(topic: str, identity: str | None, all_agents: bool):
             query, params = _query_with_identity(query, params, identity, all_agents)
             rows = conn.execute(query, params).fetchall()
             results["memory"] = [
-                {"identity": spawn_db.get_identity(r[0]) or r[0], "topic": r[1], "message": r[2]}
+                {"identity": spawn.db.get_agent_name(r[0]) or r[0], "topic": r[1], "message": r[2]}
                 for r in rows
             ]
 
@@ -164,7 +186,7 @@ def collect_current_state(topic: str, identity: str | None, all_agents: bool):
                 {
                     "domain": r[0],
                     "content": r[1],
-                    "contributor": spawn_db.get_identity(r[2]) or r[2],
+                    "contributor": spawn.db.get_agent_name(r[2]) or r[2],
                 }
                 for r in rows
             ]
@@ -178,7 +200,7 @@ def collect_current_state(topic: str, identity: str | None, all_agents: bool):
             query, params = _query_with_identity(query, params, identity, all_agents)
             rows = conn.execute(query, params).fetchall()
             results["bridge"] = [
-                {"channel": r[0], "sender": spawn_db.get_identity(r[1]) or r[1], "content": r[2]}
+                {"channel": r[0], "sender": spawn.db.get_agent_name(r[1]) or r[1], "content": r[2]}
                 for r in rows
             ]
 

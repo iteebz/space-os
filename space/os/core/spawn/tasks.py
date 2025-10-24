@@ -5,6 +5,8 @@ import time
 
 import typer
 
+from space.os import config
+
 from . import db
 
 
@@ -30,7 +32,7 @@ def tasks(status: str | None = None, identity: str | None = None, show_all: bool
     durations = []
     for task in tasks_list:
         task_id = task.task_id[:8]
-        ident = (db.get_identity(task.agent_id) or "unknown")[:11]
+        ident = (db.get_agent_name(task.agent_id) or "unknown")[:11]
         stat = task.status
         dur = f"{task.duration:.1f}s" if task.duration else "-"
         created = task.created_at[:19] if task.created_at else "-"
@@ -51,6 +53,9 @@ def logs(task_id: str):
     task = db.get_task(task_id)
     if not task:
         typer.echo(f"❌ Task not found: {task_id}", err=True)
+        raise typer.Exit(1)
+    if not task.agent_id:
+        typer.echo(f"❌ Task has invalid agent_id: {task_id}", err=True)
         raise typer.Exit(1)
 
     typer.echo(f"\n📋 Task: {task.task_id}")
@@ -82,8 +87,11 @@ def logs(task_id: str):
     typer.echo()
 
 
-def wait(task_id: str, timeout: float = 300.0) -> int:
+def wait(task_id: str, timeout: float | None = None) -> int:
     """Block until task completes. Return exit code: 0=success, 1=failed, 124=timeout."""
+    if timeout is None:
+        timeout = config.load_config().get("timeouts", {}).get("task_wait", 300)
+
     task = db.get_task(task_id)
     if not task:
         typer.echo(f"❌ Task not found: {task_id}", err=True)

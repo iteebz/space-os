@@ -1,12 +1,11 @@
 import hashlib
 import sqlite3
-from typing import Any
 
 import typer
 
 from space.os import db
 from space.os.lib import agents
-from space.os.lib.models import Message
+from space.os.models import ChatMessage
 
 
 def schema() -> str:
@@ -36,7 +35,7 @@ db.register("chats", "chats.db", schema())
 db.add_migrations("chats", [])
 
 
-def _insert_msgs(cli: str, msgs: list[Message], identity: str) -> int:
+def _insert_msgs(cli: str, msgs: list[ChatMessage], identity: str) -> int:
     synced = 0
     with db.ensure("chats") as conn:
         conn.row_factory = sqlite3.Row
@@ -68,6 +67,19 @@ def _insert_msgs(cli: str, msgs: list[Message], identity: str) -> int:
     return synced
 
 
+def _to_chat_message(row: dict) -> ChatMessage:
+    return ChatMessage(
+        id=row["id"],
+        cli=row["cli"],
+        model=row.get("model"),
+        session_id=row["session_id"],
+        timestamp=row["timestamp"],
+        identity=row.get("identity"),
+        role=row["role"],
+        text=row["text"],
+    )
+
+
 def sync(identity: str) -> dict[str, int]:
     """Sync CLI sessions for a specific identity. Called on wake."""
     init_db()
@@ -78,7 +90,7 @@ def sync(identity: str) -> dict[str, int]:
     }
 
 
-def search(query: str, identity: str | None = None, limit: int = 10) -> list[dict[str, Any]]:
+def search(query: str, identity: str | None = None, limit: int = 10) -> list[ChatMessage]:
     with db.ensure("chats") as conn:
         conn.row_factory = sqlite3.Row
 
@@ -96,10 +108,10 @@ def search(query: str, identity: str | None = None, limit: int = 10) -> list[dic
         sql += " ORDER BY timestamp DESC LIMIT ?"
         params.append(limit)
 
-        return [dict(row) for row in conn.execute(sql, params).fetchall()]
+        return [_to_chat_message(dict(row)) for row in conn.execute(sql, params).fetchall()]
 
 
-def list_entries(identity: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
+def list_entries(identity: str | None = None, limit: int = 20) -> list[ChatMessage]:
     with db.ensure("chats") as conn:
         conn.row_factory = sqlite3.Row
 
@@ -117,17 +129,17 @@ def list_entries(identity: str | None = None, limit: int = 20) -> list[dict[str,
         sql += " ORDER BY timestamp DESC LIMIT ?"
         params.append(limit)
 
-        return [dict(row) for row in conn.execute(sql, params).fetchall()]
+        return [_to_chat_message(dict(row)) for row in conn.execute(sql, params).fetchall()]
 
 
-def get_entry(entry_id: int) -> dict[str, Any] | None:
+def get_entry(entry_id: int) -> ChatMessage | None:
     with db.ensure("chats") as conn:
         conn.row_factory = sqlite3.Row
         row = conn.execute("SELECT * FROM entries WHERE id = ?", (entry_id,)).fetchone()
-        return dict(row) if row else None
+        return _to_chat_message(dict(row)) if row else None
 
 
-def get_surrounding_context(entry_id: int, context_size: int = 5) -> list[dict[str, Any]]:
+def get_surrounding_context(entry_id: int, context_size: int = 5) -> list[ChatMessage]:
     entry = get_entry(entry_id)
     if not entry:
         return []
@@ -142,14 +154,14 @@ def get_surrounding_context(entry_id: int, context_size: int = 5) -> list[dict[s
             ORDER BY timestamp DESC
             LIMIT ?
         """,
-            (entry["cli"], entry["session_id"], context_size * 2),
+            (entry.cli, entry.session_id, context_size * 2),
         ).fetchall()
-        return [dict(row) for row in rows]
+        return [_to_chat_message(dict(row)) for row in rows]
 
 
 def sample(
     count: int = 5, identity: str | None = None, cli: str | None = None
-) -> list[dict[str, Any]]:
+) -> list[ChatMessage]:
     with db.ensure("chats") as conn:
         conn.row_factory = sqlite3.Row
 
@@ -167,7 +179,7 @@ def sample(
         sql += " ORDER BY RANDOM() LIMIT ?"
         params.append(count)
 
-        return [dict(row) for row in conn.execute(sql, params).fetchall()]
+        return [_to_chat_message(dict(row)) for row in conn.execute(sql, params).fetchall()]
 
 
 app = typer.Typer(help="Search and manage chat logs")
@@ -205,8 +217,8 @@ def search_cmd(
 
     typer.echo(f"Found {len(results)} result(s):\n")
     for entry in results:
-        typer.echo(f"[{entry['id']}] {entry['cli']} @ {entry['timestamp'][:16]}")
-        typer.echo(f"    text: {entry['text'][:80]}...")
+        typer.echo(f"[{entry.id}] {entry.cli} @ {entry.timestamp[:16]}")
+        typer.echo(f"    text: {entry.text[:80]}...")
         typer.echo()
 
 
@@ -224,9 +236,9 @@ def list_cmd(
 
     typer.echo(f"Recent {len(entries)} entries:\n")
     for e in entries:
-        tag = f" ({e['identity']})" if e["identity"] else ""
-        typer.echo(f"[{e['id']}] {e['cli']}{tag} - {e['timestamp'][:16]}")
-        typer.echo(f"     {e['text'][:70]}...")
+        tag = f" ({e.identity})" if e.identity else ""
+        typer.echo(f"[{e.id}] {e.cli}{tag} - {e.timestamp[:16]}")
+        typer.echo(f"     {e.text[:70]}...")
         typer.echo()
 
 
@@ -243,25 +255,25 @@ def view(
         return
 
     typer.echo(f"Entry {entry_id}:")
-    typer.echo(f"  CLI: {entry['cli']}")
-    typer.echo(f"  Session: {entry['session_id']}")
-    typer.echo(f"  Role: {entry['role']}")
-    typer.echo(f"  Timestamp: {entry['timestamp']}")
-    typer.echo(f"  Identity: {entry['identity'] or 'untagged'}")
+    typer.echo(f"  CLI: {entry.cli}")
+    typer.echo(f"  Session: {entry.session_id}")
+    typer.echo(f"  Role: {entry.role}")
+    typer.echo(f"  Timestamp: {entry.timestamp}")
+    typer.echo(f"  Identity: {entry.identity or 'untagged'}")
     typer.echo()
 
     typer.echo("Text:")
-    typer.echo(f"  {entry['text']}")
+    typer.echo(f"  {entry.text}")
 
     if context:
         ctx_entries = get_surrounding_context(entry_id, context_size=context)
         if ctx_entries:
             typer.echo(f"\nSurrounding context ({len(ctx_entries)} entries):")
             for c in ctx_entries[:5]:
-                if c["id"] == entry_id:
-                    typer.echo(f"  → [{c['id']}] {c['timestamp'][:16]} (THIS)")
+                if c.id == entry_id:
+                    typer.echo(f"  → [{c.id}] {c.timestamp[:16]} (THIS)")
                 else:
-                    typer.echo(f"    [{c['id']}] {c['timestamp'][:16]}")
+                    typer.echo(f"    [{c.id}] {c.timestamp[:16]}")
 
 
 @app.command()
@@ -279,9 +291,9 @@ def sample_cmd(
 
     typer.echo(f"Random sample ({len(entries)} entries):\n")
     for e in entries:
-        model = e["model"] or "unknown"
-        typer.echo(f"[{e['id']}] {e['cli']:8} {model:25} {e['role']}")
-        typer.echo(f"     {e['text'][:90]}")
-        if len(e["text"]) > 90:
+        model = e.model or "unknown"
+        typer.echo(f"[{e.id}] {e.cli:8} {model:25} {e.role}")
+        typer.echo(f"     {e.text[:90]}")
+        if len(e.text) > 90:
             typer.echo("     ...")
         typer.echo()

@@ -3,17 +3,13 @@ from space.os.lib import paths
 
 
 def test_config_loads_default_values(tmp_path, monkeypatch):
-    monkeypatch.setattr(paths, "dot_space", lambda base_path=None: tmp_path / ".space")
-    target = tmp_path / ".space" / "config.yaml"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text("agents:\n  test: {command: test}")
+    config.clear_cache()
+    data_dir = tmp_path / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    config_file = data_dir / "config.yaml"
+    config_file.write_text("agents:\n  test: {command: test}")
 
+    monkeypatch.setattr(paths, "space_data", lambda: data_dir)
     cfg = config.load_config()
     assert isinstance(cfg, dict)
     assert "agents" in cfg
-
-
-def test_config_cache_clears(tmp_path, monkeypatch):
-    monkeypatch.setattr(paths, "dot_space", lambda base_path=None: tmp_path / ".space")
-    config.clear_cache()
-    assert config.clear_cache() is None

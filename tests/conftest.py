@@ -1,4 +1,5 @@
 import contextlib
+import shutil
 
 import pytest
 
@@ -9,13 +10,44 @@ from space.os.core.memory import migrations as memory_migrations
 from space.os.core.spawn import migrations as spawn_migrations
 
 
-@pytest.fixture(autouse=True)
-def clear_config_cache():
-    config.clear_cache()
+@pytest.fixture(scope="session")
+def _seed_dbs(tmp_path_factory):
+    seed_dir = tmp_path_factory.mktemp("seed_dbs")
+
+    from space.os import config as cfg
+    from space.os.core import bridge, knowledge, memory, spawn
+
+    db.ensure_schema(
+        seed_dir / cfg.registry_db().name,
+        spawn.db.schema(),
+        spawn_migrations.MIGRATIONS,
+    )
+
+    db.ensure_schema(
+        seed_dir / "memory.db",
+        memory.db.schema(),
+        memory_migrations.MIGRATIONS,
+    )
+
+    db.ensure_schema(
+        seed_dir / "knowledge.db",
+        knowledge.db.schema(),
+        knowledge_migrations.MIGRATIONS,
+    )
+
+    db.ensure_schema(
+        seed_dir / "bridge.db",
+        bridge.db.schema(),
+        bridge_migrations.MIGRATIONS,
+    )
+
+    return seed_dir
 
 
 @pytest.fixture
-def test_space(monkeypatch, tmp_path):
+def test_space(monkeypatch, tmp_path, _seed_dbs):
+    config.clear_cache()
+
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     (workspace / "AGENTS.md").write_text("test workspace")
@@ -44,37 +76,24 @@ def test_space(monkeypatch, tmp_path):
         path.mkdir(parents=True, exist_ok=True)
 
     from space.os import config as cfg
-    from space.os.core import bridge, knowledge, memory, spawn
 
-    registry_db_path = workspace / ".space" / cfg.registry_db().name
-    db.ensure_schema(
-        registry_db_path,
-        spawn.db.schema(),
-        spawn_migrations.MIGRATIONS,
-    )
+    for db_name in [cfg.registry_db().name, "memory.db", "knowledge.db", "bridge.db"]:
+        src = _seed_dbs / db_name
+        dst = workspace / ".space" / db_name
+        if src.exists():
+            shutil.copy2(src, dst)
+            for wal_file in [src.parent / f"{src.name}-wal", src.parent / f"{src.name}-shm"]:
+                dst_wal = workspace / ".space" / wal_file.name
+                if wal_file.exists():
+                    shutil.copy2(wal_file, dst_wal)
 
-    db.ensure_schema(
-        workspace / ".space" / "memory.db",
-        memory.db.schema(),
-        memory_migrations.MIGRATIONS,
-    )
-
-    db.ensure_schema(
-        workspace / ".space" / "knowledge.db",
-        knowledge.db.schema(),
-        knowledge_migrations.MIGRATIONS,
-    )
-
-    db.ensure_schema(
-        workspace / ".space" / "bridge.db",
-        bridge.db.schema(),
-        bridge_migrations.MIGRATIONS,
-    )
+    from space.os.core import spawn
 
     spawn.db.clear_identity_cache()
 
     yield workspace
 
+    config.clear_cache()
     import gc
     import sqlite3
 

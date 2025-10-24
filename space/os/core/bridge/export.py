@@ -4,6 +4,9 @@ from datetime import datetime
 
 import typer
 
+from space.os import events
+from space.os.core import spawn
+
 from . import api
 
 
@@ -25,12 +28,12 @@ def export(
         if json_output:
             export_data_dict = asdict(data)
             export_data_dict["participants"] = [
-                spawn.db.get_identity(p) or p for p in data.participants
+                spawn.db.get_agent_name(p) or p for p in data.participants
             ]
             for msg in export_data_dict["messages"]:
-                msg["agent_id"] = spawn.db.get_identity(msg["agent_id"]) or msg["agent_id"]
+                msg["agent_id"] = spawn.db.get_agent_name(msg["agent_id"]) or msg["agent_id"]
             for note in export_data_dict["notes"]:
-                note["agent_id"] = spawn.db.get_identity(note["agent_id"]) or note["agent_id"]
+                note["agent_id"] = spawn.db.get_agent_name(note["agent_id"]) or note["agent_id"]
             typer.echo(json.dumps(export_data_dict, indent=2))
         elif not quiet_output:
             typer.echo(f"# {data.channel_name}")
@@ -38,7 +41,7 @@ def export(
             if data.topic:
                 typer.echo(f"Topic: {data.topic}")
                 typer.echo()
-            participant_names = [spawn.db.get_identity(p) or p for p in data.participants]
+            participant_names = [spawn.db.get_agent_name(p) or p for p in data.participants]
             typer.echo(f"Participants: {', '.join(participant_names)}")
             typer.echo(f"Messages: {data.message_count}")
 
@@ -63,12 +66,12 @@ def export(
                 timestamp = created.strftime("%Y-%m-%d %H:%M:%S")
 
                 if item_type == "msg":
-                    sender_name = spawn.db.get_identity(item.agent_id) or item.agent_id
+                    sender_name = spawn.db.get_agent_name(item.agent_id) or item.agent_id
                     typer.echo(f"[{sender_name} | {timestamp}]")
                     typer.echo(item.content)
                     typer.echo()
                 else:
-                    author_name = spawn.db.get_identity(item.agent_id) or item.agent_id
+                    author_name = spawn.db.get_agent_name(item.agent_id) or item.agent_id
                     typer.echo(f"[NOTE: {author_name} | {timestamp}]")
                     typer.echo(item.content)
                     typer.echo()

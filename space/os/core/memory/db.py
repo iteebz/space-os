@@ -57,7 +57,7 @@ CREATE INDEX IF NOT EXISTS idx_links_parent ON memory_links(parent_id);
 """
 
 
-def _register():
+def _register() -> None:
     from space.os import db
 
     db.register("memory", "memory.db", schema())
@@ -71,7 +71,9 @@ def path() -> Path:
     return paths.space_data() / "memory.db"
 
 
-def add_entry(agent_id: str, topic: str, message: str, core: bool = False, source: str = "manual"):
+def add_entry(
+    agent_id: str, topic: str, message: str, core: bool = False, source: str = "manual"
+) -> str:
     from space.os import db, events
 
     memory_id = uuid7()
@@ -100,6 +102,8 @@ def get_memories(
     include_archived: bool = False,
     limit: int | None = None,
 ) -> list[Memory]:
+    from space.os import spawn
+
     agent_id = spawn.db.get_agent_id(identity)
     if not agent_id:
         raise ValueError(f"Agent '{identity}' not found.")
@@ -121,7 +125,7 @@ def get_memories(
         return [_row_to_memory(row) for row in rows]
 
 
-def edit_entry(memory_id: str, new_message: str):
+def edit_entry(memory_id: str, new_message: str) -> None:
     full_id = resolve_id("memory", "memory_id", memory_id)
     entry = get_by_memory_id(full_id)
     if not entry:
@@ -135,7 +139,7 @@ def edit_entry(memory_id: str, new_message: str):
     events.emit("memory", "note_edit", entry.agent_id, f"{full_id[-8:]}")
 
 
-def delete_entry(memory_id: str):
+def delete_entry(memory_id: str) -> None:
     from space.os import db, events
 
     full_id = resolve_id("memory", "memory_id", memory_id)
@@ -147,7 +151,7 @@ def delete_entry(memory_id: str):
     events.emit("memory", "note_delete", entry.agent_id, f"{full_id[-8:]}")
 
 
-def clear_entries(identity: str, topic: str | None = None):
+def clear_entries(identity: str, topic: str | None = None) -> None:
     from space.os import db, spawn
 
     agent_id = spawn.db.get_agent_id(identity)
@@ -160,7 +164,7 @@ def clear_entries(identity: str, topic: str | None = None):
             conn.execute("DELETE FROM memories WHERE agent_id = ?", (agent_id,))
 
 
-def archive_entry(memory_id: str):
+def archive_entry(memory_id: str) -> None:
     from space.os import db, events
 
     full_id = resolve_id("memory", "memory_id", memory_id)
@@ -176,7 +180,7 @@ def archive_entry(memory_id: str):
     events.emit("memory", "note_archive", entry.agent_id, f"{full_id[-8:]}")
 
 
-def restore_entry(memory_id: str):
+def restore_entry(memory_id: str) -> None:
     from space.os import db, events
 
     full_id = resolve_id("memory", "memory_id", memory_id)
@@ -191,7 +195,9 @@ def restore_entry(memory_id: str):
     events.emit("memory", "note_restore", entry.agent_id, f"{full_id[-8:]}")
 
 
-def mark_core(memory_id: str, core: bool = True):
+def mark_core(memory_id: str, core: bool = True) -> None:
+    from space.os import events
+
     full_id = resolve_id("memory", "memory_id", memory_id)
     entry = get_by_memory_id(full_id)
     if not entry:
@@ -205,6 +211,8 @@ def mark_core(memory_id: str, core: bool = True):
 
 
 def get_core_entries(identity: str) -> list[Memory]:
+    from space.os import spawn
+
     agent_id = spawn.db.get_agent_id(identity)
     if not agent_id:
         return []
@@ -218,6 +226,8 @@ def get_core_entries(identity: str) -> list[Memory]:
 
 
 def get_recent_entries(identity: str, days: int = 7, limit: int = 20) -> list[Memory]:
+    from space.os import spawn
+
     agent_id = spawn.db.get_agent_id(identity)
     if not agent_id:
         return []
@@ -232,6 +242,8 @@ def get_recent_entries(identity: str, days: int = 7, limit: int = 20) -> list[Me
 
 
 def search_entries(identity: str, keyword: str, include_archived: bool = False) -> list[Memory]:
+    from space.os import spawn
+
     agent_id = spawn.db.get_agent_id(identity)
     if not agent_id:
         return []
@@ -295,6 +307,8 @@ def get_by_memory_id(memory_id: str) -> Memory | None:
 def replace_entry(
     old_ids: list[str], agent_id: str, topic: str, message: str, note: str = "", core: bool = False
 ) -> str:
+    from space.os import events
+
     full_old_ids = [resolve_id("memory", "memory_id", old_id) for old_id in old_ids]
     new_id = uuid7()
     now = int(time.time())
@@ -333,7 +347,7 @@ def replace_entry(
     return new_id
 
 
-def get_chain(memory_id: str) -> dict:
+def get_chain(memory_id: str) -> dict[str, Memory | list[Memory]]:
     """Get the full lineage (predecessors and successors) for a given memory_id."""
     full_id = resolve_id("memory", "memory_id", memory_id)
     predecessors = []

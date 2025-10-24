@@ -45,7 +45,7 @@ def list(
         typer.echo(output.out_json([asdict(entry) for entry in entries]))
     else:
         for entry in entries:
-            agent_name = spawn_db.get_identity(entry.agent_id) or entry.agent_id
+            agent_name = spawn_db.get_agent_name(entry.agent_id) or entry.agent_id
             output.out_text(
                 f"[{entry.knowledge_id[-8:]}] [{entry.created_at}] Domain: {entry.domain}, "
                 f"Agent: {agent_name}, Confidence: {entry.confidence or 'N/A'}\n"
@@ -72,7 +72,7 @@ def query_by_domain(
         typer.echo(output.out_json([asdict(entry) for entry in entries]))
     else:
         for entry in entries:
-            agent_name = spawn_db.get_identity(entry.agent_id) or entry.agent_id
+            agent_name = spawn_db.get_agent_name(entry.agent_id) or entry.agent_id
             output.out_text(
                 f"[{entry.knowledge_id[-8:]}] [{entry.created_at}] Agent: {agent_name}, "
                 f"Confidence: {entry.confidence or 'N/A'}\n"
@@ -131,7 +131,7 @@ def get(
     if ctx.obj.get("json_output"):
         typer.echo(output.out_json(asdict(entry)))
     else:
-        agent_name = spawn_db.get_identity(entry.agent_id) or entry.agent_id
+        agent_name = spawn_db.get_agent_name(entry.agent_id) or entry.agent_id
         output.out_text(
             f"ID: {entry.knowledge_id}\n"
             f"Created At: {entry.created_at}\n"
@@ -167,7 +167,7 @@ def inspect(
         }
         typer.echo(output.out_json(payload))
     else:
-        agent_name = spawn_db.get_identity(entry.agent_id) or entry.agent_id
+        agent_name = spawn_db.get_agent_name(entry.agent_id) or entry.agent_id
         archived_mark = " [ARCHIVED]" if entry.archived_at else ""
         output.out_text(
             f"[{entry.knowledge_id[-8:]}] {entry.domain} by {agent_name}{archived_mark}", ctx.obj
@@ -180,7 +180,7 @@ def inspect(
             output.out_text("─" * 60, ctx.obj)
             output.out_text(f"Related nodes ({len(related)}):\n", ctx.obj)
             for rel_entry, overlap in related:
-                rel_agent_name = spawn_db.get_identity(rel_entry.agent_id) or rel_entry.agent_id
+                rel_agent_name = spawn_db.get_agent_name(rel_entry.agent_id) or rel_entry.agent_id
                 archived_mark = " [ARCHIVED]" if rel_entry.archived_at else ""
                 output.out_text(
                     f"[{rel_entry.knowledge_id[-8:]}] {rel_entry.domain} by {rel_agent_name} ({overlap} keywords){archived_mark}",

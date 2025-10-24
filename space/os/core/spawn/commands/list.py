@@ -28,7 +28,7 @@ def list_agents(show_all: bool = typer.Option(False, "--all", help="Show archive
         short_id = agent_id[:8]
 
         if len(name) == 36 and name.count("-") == 4:
-            resolved = spawn_db.get_identity(name)
+            resolved = spawn_db.get_agent_name(name)
             if resolved:
                 name = resolved
 

@@ -158,7 +158,7 @@ No explicit sender column in bridge.messages — resolve via:
 from space.os.spawn import db as spawn_db
 
 message = bridge.db.get_all_messages(channel_id)[0]
-sender_name = spawn_db.get_identity(message.agent_id)  # lookup from registry
+sender_name = spawn_db.get_agent_name(message.agent_id)  # lookup from registry
 ```
 
 ## Analytics
