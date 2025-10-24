@@ -2,9 +2,9 @@
 
 from unittest.mock import patch
 
-from space.spawn.agents.claude import Claude
-from space.spawn.agents.codex import Codex
-from space.spawn.agents.gemini import Gemini
+from space.os.spawn.agents.claude import Claude
+from space.os.spawn.agents.codex import Codex
+from space.os.spawn.agents.gemini import Gemini
 
 
 def test_claude_init_valid():
@@ -15,7 +15,7 @@ def test_claude_init_valid():
 
 def test_claude_run_with_prompt():
     """Claude.run() with prompt calls lib_agents.claude.spawn()."""
-    with patch("space.lib.agents.claude.spawn", return_value="task output") as mock_spawn:
+    with patch("space.os.lib.agents.claude.spawn", return_value="task output") as mock_spawn:
         agent = Claude("hailot")
         result = agent.run("test prompt")
 
@@ -25,7 +25,7 @@ def test_claude_run_with_prompt():
 
 def test_claude_run_no_prompt():
     """Claude.run() with None calls lib_agents.claude.spawn()."""
-    with patch("space.lib.agents.claude.spawn", return_value="") as mock_spawn:
+    with patch("space.os.lib.agents.claude.spawn", return_value="") as mock_spawn:
         agent = Claude("hailot")
         result = agent.run(None)
 
@@ -41,7 +41,7 @@ def test_gemini_init_valid():
 
 def test_gemini_run_with_prompt():
     """Gemini.run() with prompt calls lib_agents.gemini.spawn()."""
-    with patch("space.lib.agents.gemini.spawn", return_value="gemini output") as mock_spawn:
+    with patch("space.os.lib.agents.gemini.spawn", return_value="gemini output") as mock_spawn:
         agent = Gemini("zealot")
         result = agent.run("analyze this")
 
@@ -57,7 +57,7 @@ def test_codex_init_valid():
 
 def test_codex_run_with_prompt():
     """Codex.run() with prompt calls lib_agents.codex.spawn()."""
-    with patch("space.lib.agents.codex.spawn", return_value="codex output") as mock_spawn:
+    with patch("space.os.lib.agents.codex.spawn", return_value="codex output") as mock_spawn:
         agent = Codex("hailot")
         result = agent.run("code this")
 

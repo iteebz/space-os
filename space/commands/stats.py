@@ -1,6 +1,6 @@
 import typer
 
-from ..lib import stats as space_stats
+from space.os.lib import stats as space_stats
 
 app = typer.Typer(invoke_without_command=True)
 

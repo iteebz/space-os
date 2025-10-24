@@ -2,13 +2,13 @@
 
 import time
 
-from space.lib import paths
-from space.lib import stats as stats_lib
+from space.os.lib import paths
+from space.os.lib import stats as stats_lib
 
 
 def test_discovers_registered_agents(test_space):
     """Active registered agents are discovered."""
-    from space.spawn import registry
+    from space.os.spawn import registry
 
     registry.init_db()
     with registry.get_db() as conn:
@@ -24,7 +24,7 @@ def test_discovers_registered_agents(test_space):
 
 def test_discovers_orphaned_agents_in_events(test_space):
     """Agents with events but no registration are discovered."""
-    from space import events as events_lib
+    from space.os import events as events_lib
 
     events_lib.emit("test", "spawn", "orphan-001", "data")
 
@@ -38,7 +38,7 @@ def test_discovers_orphaned_agents_in_events(test_space):
 
 def test_discovers_orphaned_agents_in_messages(test_space):
     """Agents with messages but no registration are discovered."""
-    from space import db
+    from space.os import db
 
     bridge_db = paths.dot_space() / "bridge.db"
     with db.connect(bridge_db) as conn:
@@ -55,7 +55,7 @@ def test_discovers_orphaned_agents_in_messages(test_space):
 
 def test_discovers_orphaned_agents_in_memory(test_space):
     """Agents with memories but no registration are discovered."""
-    from space import db
+    from space.os import db
 
     mem_db = paths.dot_space() / "memory.db"
     with db.connect(mem_db) as conn:
@@ -80,7 +80,7 @@ def test_discovers_orphaned_agents_in_memory(test_space):
 
 def test_discovers_orphaned_agents_in_knowledge(test_space):
     """Agents with knowledge but no registration are discovered."""
-    from space import db
+    from space.os import db
 
     know_db = paths.dot_space() / "knowledge.db"
     with db.connect(know_db) as conn:
@@ -97,8 +97,8 @@ def test_discovers_orphaned_agents_in_knowledge(test_space):
 
 def test_maps_registered_name_to_orphaned_agent(test_space):
     """If orphaned agent is later registered, name is used."""
-    from space import events as events_lib
-    from space.spawn import registry
+    from space.os import events as events_lib
+    from space.os.spawn import registry
 
     events_lib.emit("test", "spawn", "agent-xyz", "data")
 
@@ -114,9 +114,9 @@ def test_maps_registered_name_to_orphaned_agent(test_space):
 
 def test_aggregates_stats_from_all_tables(test_space):
     """Stats are aggregated from all tables for same agent."""
-    from space import db
-    from space import events as events_lib
-    from space.spawn import registry
+    from space.os import db
+    from space.os import events as events_lib
+    from space.os.spawn import registry
 
     agent_id = "aggregator-001"
 
@@ -159,7 +159,7 @@ def test_aggregates_stats_from_all_tables(test_space):
 
 def test_respects_archived_filter(test_space):
     """Archived agents excluded by default, included with flag."""
-    from space.spawn import registry
+    from space.os.spawn import registry
 
     registry.init_db()
     now = int(time.time())
@@ -184,8 +184,8 @@ def test_respects_archived_filter(test_space):
 
 def test_orphaned_agents_always_included(test_space):
     """Orphaned agents in activity logs always included (not registered, not archived)."""
-    from space import events as events_lib
-    from space.spawn import registry
+    from space.os import events as events_lib
+    from space.os.spawn import registry
 
     registry.init_db()
     now = int(time.time())
@@ -220,8 +220,8 @@ def test_orphaned_agents_always_included(test_space):
 
 def test_discovery_counts_match_universe(test_space):
     """Active count excludes archived, --all includes archived."""
-    from space import events as events_lib
-    from space.spawn import registry
+    from space.os import events as events_lib
+    from space.os.spawn import registry
 
     registry.init_db()
     now = int(time.time())

@@ -1,7 +1,7 @@
 import subprocess
 from unittest.mock import MagicMock, patch
 
-from space.bridge import parser
+from space.os.bridge import parser
 
 
 def test_parse_mentions_single():
@@ -83,7 +83,7 @@ def test_extract_mention_task_not_found():
 
 def test_spawn_from_mention_success():
     """Spawn from mention returns prompt for worker to execute."""
-    with patch("space.bridge.parser.subprocess.run") as mock_run:
+    with patch("space.os.bridge.parser.subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="# test-channel\n\n[alice] hello\n")
 
         result = parser.spawn_from_mention("hailot", "test-channel", "@hailot test message")
@@ -98,7 +98,7 @@ def test_spawn_from_mention_success():
 
 def test_spawn_from_mention_failure():
     """Failed spawn returns None."""
-    with patch("space.bridge.parser.subprocess.run") as mock_run:
+    with patch("space.os.bridge.parser.subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error")
 
         result = parser.spawn_from_mention("hailot", "test-channel", "test")
@@ -108,7 +108,7 @@ def test_spawn_from_mention_failure():
 
 def test_spawn_from_mention_timeout():
     """Spawn timeout returns None gracefully."""
-    with patch("space.bridge.parser.subprocess.run") as mock_run:
+    with patch("space.os.bridge.parser.subprocess.run") as mock_run:
         mock_run.side_effect = subprocess.TimeoutExpired("spawn", 120)
 
         result = parser.spawn_from_mention("hailot", "test-channel", "test")
@@ -118,7 +118,7 @@ def test_spawn_from_mention_timeout():
 
 def test_process_message_single_mention():
     """Process message detects mentions and returns prompts."""
-    with patch("space.bridge.parser.subprocess.run") as mock_run:
+    with patch("space.os.bridge.parser.subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="# test-channel\n\n[alice] hello\n")
 
         results = parser.process_message("test-channel", "@hailot hello")
@@ -130,7 +130,7 @@ def test_process_message_single_mention():
 
 def test_process_message_multiple_mentions():
     """Process multiple mentions in one message."""
-    with patch("space.bridge.parser.subprocess.run") as mock_run:
+    with patch("space.os.bridge.parser.subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="# test-channel\n\n[alice] hello\n")
 
         results = parser.process_message("test-channel", "@hailot @zealot thoughts?")
@@ -144,7 +144,7 @@ def test_process_message_multiple_mentions():
 
 def test_process_message_skips_invalid():
     """Skip invalid identities in mentions."""
-    with patch("space.bridge.parser.subprocess.run"):
+    with patch("space.os.bridge.parser.subprocess.run"):
         results = parser.process_message("test-channel", "@nonexistent @hailot hi")
 
         assert len(results) <= 1

@@ -1,6 +1,6 @@
 from typer.testing import CliRunner
 
-from space.memory.app import app
+from space.os.memory.app import app
 
 runner = CliRunner()
 
@@ -23,8 +23,8 @@ def test_add_with_identity():
 
 
 def test_memory_replace_single(test_space):
-    from space.memory import db
-    from space.spawn import registry
+    from space.os.memory import db
+    from space.os.spawn import registry
 
     registry.init_db()
     identity = "replacer"
@@ -51,8 +51,8 @@ def test_memory_replace_single(test_space):
 
 
 def test_replace_merge(test_space):
-    from space.memory import db
-    from space.spawn import registry
+    from space.os.memory import db
+    from space.os.spawn import registry
 
     registry.init_db()
     identity = "merger"
@@ -79,8 +79,8 @@ def test_replace_merge(test_space):
 
 
 def test_memory_chain_query(test_space):
-    from space.memory import db
-    from space.spawn import registry
+    from space.os.memory import db
+    from space.os.spawn import registry
 
     registry.init_db()
     identity = "tracer"
@@ -101,8 +101,8 @@ def test_memory_chain_query(test_space):
 
 
 def test_memory_lineage_upward_traversal(test_space):
-    from space.memory import db
-    from space.spawn import registry
+    from space.os.memory import db
+    from space.os.spawn import registry
 
     registry.init_db()
     identity = "lineage"
@@ -121,8 +121,8 @@ def test_memory_lineage_upward_traversal(test_space):
 
 
 def test_memory_lineage_downward_traversal(test_space):
-    from space.memory import db
-    from space.spawn import registry
+    from space.os.memory import db
+    from space.os.spawn import registry
 
     registry.init_db()
     identity = "descend"
@@ -138,8 +138,8 @@ def test_memory_lineage_downward_traversal(test_space):
 
 
 def test_memory_lineage_merge_predecessors(test_space):
-    from space.memory import db
-    from space.spawn import registry
+    from space.os.memory import db
+    from space.os.spawn import registry
 
     registry.init_db()
     identity = "merger"
@@ -164,8 +164,8 @@ def test_memory_lineage_merge_predecessors(test_space):
 
 
 def test_memory_lineage_bidirectional_traversal(test_space):
-    from space.memory import db
-    from space.spawn import registry
+    from space.os.memory import db
+    from space.os.spawn import registry
 
     registry.init_db()
     identity = "bidir"

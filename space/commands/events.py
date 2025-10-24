@@ -3,7 +3,7 @@ from datetime import datetime
 
 import typer
 
-from .. import events
+from space.os import events
 
 
 def show_events(
@@ -16,7 +16,7 @@ def show_events(
     ),
 ):
     """Show recent events from append-only log."""
-    from ..spawn import registry
+    from space.os.spawn import registry
 
     agent_id = registry.get_agent_id(identity) if identity else None
     rows = events.query(source=source, agent_id=agent_id, limit=limit)
@@ -28,7 +28,7 @@ def show_events(
         return
 
     if json_output:
-        from ..spawn import registry
+        from space.os.spawn import registry
 
         json_rows = []
         for uuid, src, aid, event_type, data, created_at in rows:
@@ -44,7 +44,7 @@ def show_events(
             )
         typer.echo(json.dumps(json_rows))
     elif not quiet_output:
-        from ..spawn import registry
+        from space.os.spawn import registry
 
         for uuid, src, aid, event_type, data, created_at in rows:
             ts = datetime.fromtimestamp(created_at).strftime("%Y-%m-%d %H:%M:%S")

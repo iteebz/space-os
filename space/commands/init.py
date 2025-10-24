@@ -1,8 +1,8 @@
 import typer
 
-from .. import bridge, knowledge, memory
-from ..lib import paths
-from ..spawn import registry
+from space.os import bridge, knowledge, memory
+from space.os.lib import paths
+from space.os.spawn import registry
 
 
 def init():

@@ -4,19 +4,19 @@ from unittest.mock import MagicMock, patch
 from typer.testing import CliRunner
 
 from space.app import app
-from space.models import Channel
+from space.os.models import Channel
 
 runner = CliRunner()
 
 
 def test_wake_new_identity_spawn_count_zero(test_space):
     with (
-        patch("space.events.identify"),
-        patch("space.events.get_sleep_count", return_value=0),
-        patch("space.events.get_wake_count", return_value=1),
-        patch("space.events.get_last_sleep_time", return_value=time.time()),  # Mock with float
-        patch("space.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
-        patch("space.lib.sessions.sync"),
+        patch("space.os.events.identify"),
+        patch("space.os.events.get_sleep_count", return_value=0),
+        patch("space.os.events.get_wake_count", return_value=1),
+        patch("space.os.events.get_last_sleep_time", return_value=time.time()),  # Mock with float
+        patch("space.os.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
+        patch("space.os.lib.chats.sync"),
     ):
         result = runner.invoke(app, ["wake", "--as", "new-agent"])
         assert result.exit_code == 0
@@ -26,16 +26,16 @@ def test_wake_new_identity_spawn_count_zero(test_space):
 
 def test_wake_existing_identity_spawn_count(test_space):
     with (
-        patch("space.events.identify"),
-        patch("space.events.get_sleep_count", return_value=5),
-        patch("space.events.get_wake_count", return_value=7),
+        patch("space.os.events.identify"),
+        patch("space.os.events.get_sleep_count", return_value=5),
+        patch("space.os.events.get_wake_count", return_value=7),
         patch(
-            "space.events.get_last_sleep_time", return_value=time.time() - 3600 * 24 * 2
+            "space.os.events.get_last_sleep_time", return_value=time.time() - 3600 * 24 * 2
         ),  # Mock with float (2 days ago)
-        patch("space.bridge.api.channels.inbox_channels", return_value=[]),
-        patch("space.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
-        patch("space.memory.db.get_memories", return_value=[]),  # Mock memory dependency
-        patch("space.lib.sessions.sync"),
+        patch("space.os.bridge.api.channels.inbox_channels", return_value=[]),
+        patch("space.os.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
+        patch("space.os.memory.db.get_memories", return_value=[]),  # Mock memory dependency
+        patch("space.os.lib.chats.sync"),
     ):
         result = runner.invoke(app, ["wake", "--as", "existing-agent"])
         assert result.exit_code == 0
@@ -57,18 +57,19 @@ def test_command_unread_messages(test_space):
     mock_channel2.last_activity = "2025-10-14T11:00:00"
 
     with (
-        patch("space.events.identify"),
-        patch("space.events.get_sleep_count", return_value=1),
-        patch("space.events.get_wake_count", return_value=3),
+        patch("space.os.events.identify"),
+        patch("space.os.events.get_sleep_count", return_value=1),
+        patch("space.os.events.get_wake_count", return_value=3),
         patch(
-            "space.events.get_last_sleep_time", return_value=time.time() - 3600 * 24
+            "space.os.events.get_last_sleep_time", return_value=time.time() - 3600 * 24
         ),  # Mock with float (1 day ago)
         patch(
-            "space.bridge.api.channels.inbox_channels", return_value=[mock_channel1, mock_channel2]
+            "space.os.bridge.api.channels.inbox_channels",
+            return_value=[mock_channel1, mock_channel2],
         ),
-        patch("space.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
-        patch("space.memory.db.get_memories", return_value=[]),  # Mock memory dependency
-        patch("space.lib.sessions.sync"),
+        patch("space.os.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
+        patch("space.os.memory.db.get_memories", return_value=[]),  # Mock memory dependency
+        patch("space.os.lib.chats.sync"),
     ):
         result = runner.invoke(app, ["wake", "--as", "test-agent"])
         assert result.exit_code == 0
@@ -91,18 +92,18 @@ def test_wake_prioritizes_space_feedback(test_space):
     mock_other_channel.last_activity = "2025-10-14T13:00:00"
 
     with (
-        patch("space.events.identify"),
-        patch("space.events.get_sleep_count", return_value=1),
-        patch("space.events.get_wake_count", return_value=2),
+        patch("space.os.events.identify"),
+        patch("space.os.events.get_sleep_count", return_value=1),
+        patch("space.os.events.get_wake_count", return_value=2),
         patch(
-            "space.events.get_last_sleep_time", return_value=time.time() - 3600 * 24
+            "space.os.events.get_last_sleep_time", return_value=time.time() - 3600 * 24
         ),  # Mock with float (1 day ago)
         patch(
-            "space.bridge.api.channels.inbox_channels",
+            "space.os.bridge.api.channels.inbox_channels",
             return_value=[mock_other_channel, mock_feedback_channel],
         ),
-        patch("space.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
-        patch("space.lib.sessions.sync"),
+        patch("space.os.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
+        patch("space.os.lib.chats.sync"),
     ):
         result = runner.invoke(app, ["wake", "--as", "test-agent"])
         assert result.exit_code == 0
@@ -112,8 +113,8 @@ def test_wake_prioritizes_space_feedback(test_space):
 
 def test_show_wake_summary_uses_prompt_constants(test_space):
     from space.commands import wake
-    from space.lib.display import show_wake_summary
-    from space.spawn import registry
+    from space.os.lib.display import show_wake_summary
+    from space.os.spawn import registry
 
     identity = "test-agent"
     registry.ensure_agent(identity)
@@ -121,13 +122,13 @@ def test_show_wake_summary_uses_prompt_constants(test_space):
 
     # Mock dependencies for show_wake_summary
     with (
-        patch("space.events.get_last_sleep_time", return_value=time.time() - 3600),
-        patch("space.memory.db.get_memories", return_value=[]),
-        patch("space.memory.db.get_core_entries", return_value=[]),
-        patch("space.memory.db.get_recent_entries", return_value=[]),
-        patch("space.bridge.db.get_sender_history", return_value=[]),
-        patch("space.bridge.api.channels.inbox_channels", return_value=[]),
-        patch("space.knowledge.db.list_all", return_value=[]),
+        patch("space.os.events.get_last_sleep_time", return_value=time.time() - 3600),
+        patch("space.os.memory.db.get_memories", return_value=[]),
+        patch("space.os.memory.db.get_core_entries", return_value=[]),
+        patch("space.os.memory.db.get_recent_entries", return_value=[]),
+        patch("space.os.bridge.db.get_sender_history", return_value=[]),
+        patch("space.os.bridge.api.channels.inbox_channels", return_value=[]),
+        patch("space.os.knowledge.db.list_all", return_value=[]),
     ):
         # Capture stdout
         import io

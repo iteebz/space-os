@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from space import events
+from space.os import events
 
 
 @pytest.fixture
@@ -21,14 +21,14 @@ def in_memory_db():
 def mock_db_path(tmp_path):
     """Mocks DB_PATH to use a temporary file."""
     mock_path = tmp_path / "events.db"
-    with patch("space.events.DB_PATH", mock_path):
+    with patch("space.os.events.DB_PATH", mock_path):
         yield mock_path
 
 
 @pytest.fixture
 def mock_ensure(in_memory_db):
     """Mock db.ensure to return in-memory database."""
-    with patch("space.db.ensure") as mock:
+    with patch("space.os.db.ensure") as mock:
         mock.return_value = in_memory_db
         yield mock
 
@@ -61,7 +61,7 @@ def test_query_events(mock_db_path, mock_ensure, in_memory_db):
         ("2", "other_src", "other_type", "data2", 2000, "agent2"),
     )
 
-    with patch("space.events.DB_PATH", mock_db_path):
+    with patch("space.os.events.DB_PATH", mock_db_path):
         mock_db_path.touch()
         results = events.query(source="test_src")
         assert len(results) == 1

@@ -1,4 +1,4 @@
-from space.spawn import registry, spawn
+from space.os.spawn import registry, spawn
 
 
 def test_header_injection(tmp_path):
@@ -39,7 +39,7 @@ def test_canon_injection_order(mocker, tmp_path):
     canon_dir = tmp_path / "canon"
     canon_dir.mkdir(parents=True, exist_ok=True)
     (canon_dir / "test_canon.md").write_text("# CANON\n1. Truth")
-    mocker.patch("space.lib.paths.canon_path", return_value=canon_dir)
+    mocker.patch("space.os.lib.paths.canon_path", return_value=canon_dir)
 
     constitution = "Core rules."
     result = spawn.inject_identity(constitution, "test-role", "test-agent")

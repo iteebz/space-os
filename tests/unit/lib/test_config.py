@@ -1,5 +1,5 @@
-from space import config
-from space.lib import paths
+from space.os import config
+from space.os.lib import paths
 
 
 def test_config_loads_default_values(tmp_path, monkeypatch):

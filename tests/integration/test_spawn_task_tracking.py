@@ -2,8 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
-from space.bridge import parser
-from space.spawn import registry, spawn
+from space.os.bridge import parser
+from space.os.spawn import registry, spawn
 
 
 def test_channel_groups_tasks(in_memory_db):
@@ -87,7 +87,7 @@ def test_spawn_logs_metadata(in_memory_db):
 
 def test_mention_spawns_worker():
     """Bridge detects @mention and returns prompt for worker."""
-    with patch("space.bridge.parser.subprocess.run") as mock_run:
+    with patch("space.os.bridge.parser.subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(
             returncode=0, stdout="# subagents-test\n\n[alice] hello\n"
         )

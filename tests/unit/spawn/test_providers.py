@@ -2,7 +2,7 @@ import subprocess
 import sys
 from unittest.mock import patch
 
-from space.spawn import scripts
+from space.os.spawn import scripts
 
 
 @patch("subprocess.run")

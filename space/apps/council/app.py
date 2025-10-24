@@ -10,8 +10,8 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 
-from space.spawn import registry
-from space.bridge import api, db
+from space.os.bridge import api, db
+from space.os.spawn import registry
 
 
 class Council:

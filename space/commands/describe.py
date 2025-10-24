@@ -2,7 +2,7 @@ import json
 
 import typer
 
-from ..spawn import registry
+from space.os.spawn import registry
 
 
 def describe(

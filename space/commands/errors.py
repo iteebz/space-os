@@ -1,6 +1,6 @@
 import typer
 
-from .. import events
+from space.os import events
 
 
 def errors(
@@ -8,7 +8,7 @@ def errors(
     identity: str = typer.Option(None, "--as", help="Filter by identity"),
 ):
     """Show recent errors from events log."""
-    from ..spawn import registry
+    from space.os.spawn import registry
 
     agent_id = registry.get_agent_id(identity) if identity else None
 

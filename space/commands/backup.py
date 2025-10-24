@@ -4,7 +4,7 @@ from datetime import datetime
 
 import typer
 
-from ..lib import paths
+from space.os.lib import paths
 
 
 def backup(

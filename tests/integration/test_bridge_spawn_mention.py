@@ -1,9 +1,9 @@
 from unittest.mock import MagicMock, patch
 
-from space.bridge import parser
+from space.os.bridge import parser
 
 
-@patch("space.bridge.parser.subprocess.run")
+@patch("space.os.bridge.parser.subprocess.run")
 def test_spawn_from_mention_with_context(mock_run):
     """Spawn from mention exports channel and injects context."""
     # Mock bridge export
@@ -28,7 +28,7 @@ def test_spawn_from_mention_with_context(mock_run):
     assert export_call[0][0] == ["bridge", "export", "test-channel"]
 
 
-@patch("space.bridge.parser.subprocess.run")
+@patch("space.os.bridge.parser.subprocess.run")
 def test_spawn_from_mention_export_fails(mock_run):
     """Spawn fails gracefully if export fails."""
     export_result = MagicMock()
@@ -41,7 +41,7 @@ def test_spawn_from_mention_export_fails(mock_run):
     assert result is None
 
 
-@patch("space.bridge.parser.subprocess.run")
+@patch("space.os.bridge.parser.subprocess.run")
 def test_spawn_from_mention_returns_prompt(mock_run):
     """Spawn from mention returns prompt for worker to execute."""
     export_result = MagicMock()
@@ -56,7 +56,7 @@ def test_spawn_from_mention_returns_prompt(mock_run):
     assert "[TASK INSTRUCTIONS]" in result
 
 
-@patch("space.bridge.parser.subprocess.run")
+@patch("space.os.bridge.parser.subprocess.run")
 def test_spawn_from_mention_invalid_identity(mock_run):
     """Spawn skipped for invalid identities."""
     result = parser.spawn_from_mention("nonexistent", "test-channel", "@nonexistent do something")

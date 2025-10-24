@@ -3,7 +3,7 @@ import uuid
 
 import pytest
 
-from space.lib.uuid7 import uuid7
+from space.os.lib.uuid7 import uuid7
 
 
 @pytest.mark.asyncio

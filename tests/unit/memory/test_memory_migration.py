@@ -26,7 +26,7 @@ def test_memory_migration_preserves_data():
     """)
     conn.commit()
 
-    from space.memory.db import _migrate_memory_table_to_memories
+    from space.os.memory.db import _migrate_memory_table_to_memories
 
     _migrate_memory_table_to_memories(conn)
 
@@ -52,8 +52,8 @@ def test_memory_migration_idempotent():
     import tempfile
     from pathlib import Path
 
-    from space import db
-    from space.memory import db as memory_db
+    from space.os import db
+    from space.os.memory import db as memory_db
 
     tmpdir = tempfile.mkdtemp()
     try:

@@ -1,7 +1,7 @@
 """Test alias resolution for unified command routing."""
 
-from space.lib.aliasing import Aliasing
-from space.lib.invocation import Invocation
+from space.os.lib.aliasing import Aliasing
+from space.os.lib.invocation import Invocation
 
 
 def test_alias_normalize_positional_identity():

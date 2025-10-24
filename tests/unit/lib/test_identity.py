@@ -1,4 +1,4 @@
-from space.spawn import registry, spawn
+from space.os.spawn import registry, spawn
 
 
 def test_inject_identity_includes_constitution(in_memory_db):

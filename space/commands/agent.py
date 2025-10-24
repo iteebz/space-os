@@ -3,10 +3,10 @@ import time
 
 import typer
 
-from space import events as events_lib
-from space.lib import paths
-from space.lib import stats as stats_lib
-from space.spawn import registry
+from space.os import events as events_lib
+from space.os.lib import paths
+from space.os.lib import stats as stats_lib
+from space.os.spawn import registry
 
 app = typer.Typer(invoke_without_command=True)
 

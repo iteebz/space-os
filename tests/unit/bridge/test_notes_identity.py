@@ -1,7 +1,7 @@
 def test_add_note_converts_identity_to_agent_id(test_space):
     """Regression test: add_note should convert identity name to agent_id."""
-    from space.bridge import api, db
-    from space.spawn import registry
+    from space.os.bridge import api, db
+    from space.os.spawn import registry
 
     channel_id = api.create_channel("note-test-channel")
     identity = "test-agent"
@@ -19,8 +19,8 @@ def test_add_note_converts_identity_to_agent_id(test_space):
 
 def test_get_notes_returns_agent_id_not_name(test_space):
     """Regression test: get_notes should return agent_id UUIDs for lookups."""
-    from space.bridge import api, db
-    from space.spawn import registry
+    from space.os.bridge import api, db
+    from space.os.spawn import registry
 
     channel_id = api.create_channel("note-uuid-test")
     identity = "note-agent"

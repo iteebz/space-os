@@ -2,12 +2,7 @@ import sys
 
 import typer
 
-from space.lib import readme
-from space.lib.aliasing import Aliasing
-from space.lib.invocation import Invocation
-
-from .bridge.app import app as bridge_app
-from .commands import (
+from space.commands import (
     agent,
     backup,
     check,
@@ -20,10 +15,14 @@ from .commands import (
     stats,
     wake,
 )
-from .commands import events as events_cmd
-from .context.app import app as context_app
-from .knowledge.app import app as knowledge_app
-from .memory.app import app as memory_app
+from space.commands import events as events_cmd
+from space.os.bridge.app import app as bridge_app
+from space.os.context.app import app as context_app
+from space.os.knowledge.app import app as knowledge_app
+from space.os.lib import readme
+from space.os.lib.aliasing import Aliasing
+from space.os.lib.invocation import Invocation
+from space.os.memory.app import app as memory_app
 
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False, add_help_option=False)
 

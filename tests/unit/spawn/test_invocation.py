@@ -2,8 +2,8 @@
 
 from typer.testing import CliRunner
 
-from space.events import query
-from space.lib.invocation import Invocation
+from space.os.events import query
+from space.os.lib.invocation import Invocation
 
 runner = CliRunner()
 

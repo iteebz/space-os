@@ -1,12 +1,11 @@
 """Council test fixtures."""
 
-import asyncio
-import pytest
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
+from unittest.mock import Mock
 
-from space.bridge import api, db
-from space.spawn import registry
+import pytest
+
 from space.apps.council.app import Council
+from space.os.bridge import api, db
 
 
 @pytest.fixture
@@ -40,9 +39,7 @@ def mock_messages():
 @pytest.fixture
 def council_instance(mock_channel, monkeypatch):
     """Create a Council instance with mocked dependencies."""
-    monkeypatch.setattr(
-        api.channels, "resolve_channel_id", lambda x: mock_channel["channel_id"]
-    )
+    monkeypatch.setattr(api.channels, "resolve_channel_id", lambda x: mock_channel["channel_id"])
     monkeypatch.setattr(db, "get_topic", lambda x: mock_channel["topic"])
 
     return Council(mock_channel["channel_name"])
@@ -51,6 +48,7 @@ def council_instance(mock_channel, monkeypatch):
 @pytest.fixture
 def mock_registry_identity():
     """Mock identity registry."""
+
     def get_identity(agent_id):
         identities = {
             "agent-1": "alice",

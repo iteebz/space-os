@@ -3,7 +3,7 @@
 
 import argparse
 
-from space.lib.chats import (
+from space.os.lib.chats import (
     get_entry,
     get_surrounding_context,
     list_entries,

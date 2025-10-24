@@ -1,6 +1,5 @@
 """Integration tests for council command."""
 
-import pytest
 from unittest.mock import Mock
 
 from space.apps.council.app import council

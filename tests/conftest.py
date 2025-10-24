@@ -3,10 +3,10 @@ import sqlite3
 
 import pytest
 
-from space import config, db
-from space.knowledge import db as knowledge_db
-from space.memory import db as memory_db
-from space.spawn import registry
+from space.os import config, db
+from space.os.knowledge import db as knowledge_db
+from space.os.memory import db as memory_db
+from space.os.spawn import registry
 
 
 @pytest.fixture(autouse=True)
@@ -21,11 +21,11 @@ def test_space(monkeypatch, tmp_path):
     (workspace / "AGENTS.md").write_text("test workspace")
     (workspace / ".space").mkdir()
 
-    from space.lib import paths
+    from space.os.lib import paths
 
     monkeypatch.setattr(paths, "space_root", lambda base_path=None: workspace)
     monkeypatch.setattr(paths, "dot_space", lambda base_path=None: workspace / ".space")
-    from space import events
+    from space.os import events
 
     events.DB_PATH = workspace / ".space" / "events.db"
 
@@ -36,9 +36,9 @@ def test_space(monkeypatch, tmp_path):
     ]:
         path.mkdir(parents=True, exist_ok=True)
 
-    from space import config as cfg
-    from space.bridge import db as bridge_db
-    from space.spawn import registry
+    from space.os import config as cfg
+    from space.os.bridge import db as bridge_db
+    from space.os.spawn import registry
 
     registry_db_path = workspace / ".space" / cfg.registry_db().name
     db.ensure_schema(registry_db_path, registry._SPAWN_SCHEMA, registry.spawn_migrations)
@@ -73,7 +73,7 @@ def in_memory_db():
 
     registry.get_db = mock_get_db
 
-    from space.bridge import db as bridge_db
+    from space.os.bridge import db as bridge_db
 
     conn.executescript(registry._SPAWN_SCHEMA)
     db.migrate(conn, registry.spawn_migrations)

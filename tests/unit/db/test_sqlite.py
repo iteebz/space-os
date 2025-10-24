@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from space.db import sqlite
+from space.os.db import sqlite
 
 
 @pytest.fixture
@@ -61,7 +61,7 @@ def test_register_migrations(clean_registry):
 
 def test_ensure_unregistered_raises(clean_registry, temp_db_dir, monkeypatch):
     """Test ensure raises error for unregistered database."""
-    monkeypatch.setattr("space.lib.paths.dot_space", lambda: temp_db_dir)
+    monkeypatch.setattr("space.os.lib.paths.dot_space", lambda: temp_db_dir)
 
     with pytest.raises(ValueError, match="not registered"):
         sqlite.ensure("nonexistent")
@@ -69,7 +69,7 @@ def test_ensure_unregistered_raises(clean_registry, temp_db_dir, monkeypatch):
 
 def test_ensure_creates_schema(clean_registry, temp_db_dir, monkeypatch):
     """Test ensure creates schema for new database."""
-    monkeypatch.setattr("space.lib.paths.dot_space", lambda: temp_db_dir)
+    monkeypatch.setattr("space.os.lib.paths.dot_space", lambda: temp_db_dir)
 
     schema = "CREATE TABLE test (id TEXT PRIMARY KEY, value TEXT)"
     sqlite.register("test_db", "test.db", schema)
@@ -85,7 +85,7 @@ def test_ensure_creates_schema(clean_registry, temp_db_dir, monkeypatch):
 
 def test_migrate_basic(clean_registry, temp_db_dir, monkeypatch):
     """Test basic migration."""
-    monkeypatch.setattr("space.lib.paths.dot_space", lambda: temp_db_dir)
+    monkeypatch.setattr("space.os.lib.paths.dot_space", lambda: temp_db_dir)
 
     schema = "CREATE TABLE test (id TEXT PRIMARY KEY)"
     migs = [("add_value", "ALTER TABLE test ADD COLUMN value TEXT")]
@@ -103,7 +103,7 @@ def test_migrate_basic(clean_registry, temp_db_dir, monkeypatch):
 
 def test_migrate_callable(clean_registry, temp_db_dir, monkeypatch):
     """Test migration with callable."""
-    monkeypatch.setattr("space.lib.paths.dot_space", lambda: temp_db_dir)
+    monkeypatch.setattr("space.os.lib.paths.dot_space", lambda: temp_db_dir)
 
     def add_column(conn):
         conn.execute("ALTER TABLE test ADD COLUMN computed TEXT")
@@ -124,7 +124,7 @@ def test_migrate_callable(clean_registry, temp_db_dir, monkeypatch):
 
 def test_migrate_skips_applied(clean_registry, temp_db_dir, monkeypatch):
     """Test migrations are applied only once."""
-    monkeypatch.setattr("space.lib.paths.dot_space", lambda: temp_db_dir)
+    monkeypatch.setattr("space.os.lib.paths.dot_space", lambda: temp_db_dir)
 
     call_count = 0
 

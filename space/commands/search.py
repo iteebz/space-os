@@ -2,11 +2,10 @@ import json
 
 import typer
 
-from space import db
-
-from ..knowledge import db as knowledge_db
-from ..lib import paths
-from ..memory import db as memory_db
+from space.os import db
+from space.os.knowledge import db as knowledge_db
+from space.os.lib import paths
+from space.os.memory import db as memory_db
 
 
 def search(
@@ -17,7 +16,7 @@ def search(
     ),
 ):
     """Search across memory, knowledge, and bridge."""
-    from ..spawn import registry
+    from space.os.spawn import registry
 
     results = {"memory": [], "knowledge": [], "bridge": []}
 

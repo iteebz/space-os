@@ -3,10 +3,9 @@ from datetime import datetime
 
 import typer
 
-from space import db
-
-from ..lib import paths
-from ..spawn import registry
+from space.os import db
+from space.os.lib import paths
+from space.os.spawn import registry
 
 
 def check(

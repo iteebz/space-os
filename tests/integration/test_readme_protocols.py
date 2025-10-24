@@ -3,10 +3,10 @@
 from typer.testing import CliRunner
 
 from space.app import app as space_app
-from space.bridge.app import app as bridge_app
-from space.context.app import app as context_app
-from space.knowledge.app import app as knowledge_app
-from space.memory.app import app as memory_app
+from space.os.bridge.app import app as bridge_app
+from space.os.context.app import app as context_app
+from space.os.knowledge.app import app as knowledge_app
+from space.os.memory.app import app as memory_app
 
 runner = CliRunner()
 

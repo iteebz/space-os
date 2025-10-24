@@ -1,8 +1,8 @@
 from typer.testing import CliRunner
 
 from space.commands.agent import app
-from space.memory import db
-from space.spawn import registry
+from space.os.memory import db
+from space.os.spawn import registry
 
 runner = CliRunner()
 

@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from space import config
-from space.spawn import registry, spawn
+from space.os import config
+from space.os.spawn import registry, spawn
 
 
 def test_constitution_injection(test_space):

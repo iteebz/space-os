@@ -1,6 +1,6 @@
 import typer
 
-from space.spawn import registry
+from space.os.spawn import registry
 
 app = typer.Typer(invoke_without_command=True)
 

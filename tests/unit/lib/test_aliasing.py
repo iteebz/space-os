@@ -1,6 +1,6 @@
 """Test command aliasing system."""
 
-from space.lib.aliasing import Aliasing
+from space.os.lib.aliasing import Aliasing
 
 
 class TestAliasing:

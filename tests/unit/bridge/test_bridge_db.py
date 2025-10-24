@@ -1,6 +1,6 @@
 def test_recv_respects_bookmarks(test_space):
-    from space.bridge import api
-    from space.bridge.api import messages as coordination_messages
+    from space.os.bridge import api
+    from space.os.bridge.api import messages as coordination_messages
 
     channel_id = api.create_channel("bookmark-channel")
 
@@ -16,7 +16,7 @@ def test_recv_respects_bookmarks(test_space):
 
 
 def test_get_new_messages_summary_channel_no_special_handling(test_space):
-    from space.bridge import api, db
+    from space.os.bridge import api, db
 
     # Create a summary channel
     channel_id = db.create_channel("summary", topic="test summary topic")
@@ -40,7 +40,7 @@ def test_get_new_messages_summary_channel_no_special_handling(test_space):
 
 
 def test_get_new_messages_mixed_id_types(test_space):
-    from space.bridge import db
+    from space.os.bridge import db
 
     channel_id = db.create_channel("mixed-ids")
     agent_id = "test-agent"

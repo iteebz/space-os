@@ -7,7 +7,7 @@ def test_space_root_respects_env_var(monkeypatch):
 
     import importlib
 
-    from space.lib import paths
+    from space.os.lib import paths
 
     importlib.reload(paths)
 
@@ -21,7 +21,7 @@ def test_space_root_expands_user(monkeypatch):
 
     import importlib
 
-    from space.lib import paths
+    from space.os.lib import paths
 
     importlib.reload(paths)
 
@@ -35,7 +35,7 @@ def test_dot_space_respects_env_var(monkeypatch):
 
     import importlib
 
-    from space.lib import paths
+    from space.os.lib import paths
 
     importlib.reload(paths)
 
@@ -51,7 +51,7 @@ def test_dot_space_falls_back_to_space_root(monkeypatch):
 
     import importlib
 
-    from space.lib import paths
+    from space.os.lib import paths
 
     importlib.reload(paths)
 
@@ -65,7 +65,7 @@ def test_global_root_respects_env_var(monkeypatch):
 
     import importlib
 
-    from space.lib import paths
+    from space.os.lib import paths
 
     importlib.reload(paths)
 
@@ -75,7 +75,7 @@ def test_global_root_respects_env_var(monkeypatch):
 
 def test_base_path_parameter_takes_precedence(monkeypatch):
     """base_path parameter should take precedence over env vars."""
-    from space.lib import paths
+    from space.os.lib import paths
 
     base = Path("/explicit/base")
     monkeypatch.setenv("SPACE_ROOT", "/ignored/path")

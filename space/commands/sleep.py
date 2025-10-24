@@ -2,7 +2,7 @@
 
 import typer
 
-from space.lib import errors
+from space.os.lib import errors
 
 errors.install_error_handler("sleep")
 
@@ -41,9 +41,9 @@ def sleep(
     check: bool = typer.Option(False, "--check", help="Preview sleep without persisting changes."),
 ):
     """Prepare for death. Hand off context to your next self."""
-    from .. import events
-    from ..memory import db as memory_db
-    from ..spawn import registry
+    from space.os import events
+    from space.os.memory import db as memory_db
+    from space.os.spawn import registry
 
     agent_id = registry.get_agent_id(identity)
     if not agent_id:

@@ -5,7 +5,7 @@ All wake-related prompts and formatting centralized here.
 
 import typer
 
-from space.lib import errors
+from space.os.lib import errors
 
 errors.install_error_handler("wake")
 
@@ -53,7 +53,7 @@ def _recent_critical():
     """Get most recent critical knowledge entry (24h)."""
     from datetime import datetime, timedelta
 
-    from ..knowledge import db as knowledge_db
+    from space.os.knowledge import db as knowledge_db
 
     critical_domains = {"decision", "architecture", "operations", "consensus"}
     entries = knowledge_db.list_all(include_archived=False)
@@ -81,14 +81,14 @@ def wake(
 ):
     """Load your context. Resume where you left off."""
     typer.echo(f"Waking up {identity}")
-    from .. import events
-    from ..spawn import registry
+    from space.os import events
+    from space.os.spawn import registry
 
     agent_id = registry.ensure_agent(identity)
     events.identify(identity, "wake")
 
     # Auto-sync chat logs on wake
-    from ..lib import chats
+    from space.os.lib import chats
 
     chats.sync(identity=identity)
 
@@ -100,8 +100,8 @@ def wake(
 
 def _show_orientation(identity: str, quiet: bool, spawn_count: int, wakes_this_spawn: int):
     """Context + coordination state."""
-    from ..bridge.api import channels as bridge_channels
-    from ..lib.display import show_wake_summary
+    from space.os.bridge.api import channels as bridge_channels
+    from space.os.lib.display import show_wake_summary
 
     show_wake_summary(
         identity=identity,

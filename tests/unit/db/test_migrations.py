@@ -2,8 +2,8 @@ import sqlite3
 
 import pytest
 
-from space import db
-from space.bridge import db as bridge_db
+from space.os import db
+from space.os.bridge import db as bridge_db
 
 
 @pytest.fixture

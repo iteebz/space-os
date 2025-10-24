@@ -3,7 +3,7 @@
 import sqlite3
 from dataclasses import dataclass
 
-from space.db.utils import from_row
+from space.os.db.utils import from_row
 
 
 @dataclass

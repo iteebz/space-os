@@ -1,9 +1,6 @@
 """Tests for Council class."""
 
-import pytest
 from unittest.mock import Mock, patch
-
-from space.apps.council.app import Council
 
 
 def test_initialization(council_instance, mock_channel):
@@ -23,6 +20,7 @@ def test_print_message_formats(council_instance, mock_messages, monkeypatch):
     )
 
     output = []
+
     def capture_print(*args, **kwargs):
         output.append(args[0])
 
@@ -42,6 +40,7 @@ def test_print_message_agent_prefix(council_instance, mock_messages, monkeypatch
     )
 
     output = []
+
     def capture_print(*args, **kwargs):
         output.append(args[0])
 
@@ -65,6 +64,7 @@ def test_print_message_human_prefix(council_instance, monkeypatch):
     )
 
     output = []
+
     def capture_print(*args, **kwargs):
         output.append(args[0])
 
@@ -77,10 +77,12 @@ def test_print_message_human_prefix(council_instance, monkeypatch):
 def test_print_error_writes_stderr(council_instance):
     """_print_error writes to stderr."""
     output = []
+
     def capture_print(*args, **kwargs):
         output.append((args, kwargs))
 
     import sys
+
     with patch("builtins.print", side_effect=capture_print):
         council_instance._print_error("Test error")
 

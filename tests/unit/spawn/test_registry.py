@@ -1,4 +1,4 @@
-from space.spawn import registry, spawn
+from space.os.spawn import registry, spawn
 
 
 def test_save_get_agent_identity(in_memory_db):

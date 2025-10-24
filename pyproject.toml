@@ -12,8 +12,8 @@ packages = [
     { include = "space" }
 ]
 include = [
-    "space/config.yaml",
-    "space/constitutions/*.md"
+    "space/os/config.yaml",
+    "space/os/constitutions/*.md"
 ]
 
 [tool.poetry.dependencies]
@@ -23,11 +23,11 @@ pyyaml = "^6.0"
 prompt-toolkit = "^3.0.47"
 
 [tool.poetry.scripts]
-bridge = "space.bridge.app:main"
-spawn = "space.spawn.app:main"
-memory = "space.memory.app:main"
-knowledge = "space.knowledge.app:main"
-context = "space.context.app:main"
+bridge = "space.os.bridge.app:main"
+spawn = "space.os.spawn.app:main"
+memory = "space.os.memory.app:main"
+knowledge = "space.os.knowledge.app:main"
+context = "space.os.context.app:main"
 space = "space.app:main"
 wake = "space.commands.wake:main"
 sleep = "space.commands.sleep:main"
@@ -62,7 +62,7 @@ ignore = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
-pythonpath = ["space"]
+pythonpath = ["."]
 addopts = [
     "--strict-markers",
     "--strict-config",
