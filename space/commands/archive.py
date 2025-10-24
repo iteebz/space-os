@@ -22,20 +22,20 @@ def archive(
     They are NOT touched by recovery.py or backup.py processes.
     """
 
-    global_root = paths.global_root()
-    if not global_root.exists():
+    data_dir = paths.space_data()
+    if not data_dir.exists():
         if not quiet_output:
             typer.echo("No .space directory found")
         raise typer.Exit(code=1)
 
-    archive_root = global_root / "archives"
+    archive_root = data_dir / "archives"
     archive_root.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     archive_path = archive_root / timestamp
 
     shutil.copytree(
-        global_root,
+        data_dir,
         archive_path,
         dirs_exist_ok=False,
         ignore=shutil.ignore_patterns("backups", "archives", "*.db-shm", "*.db-wal"),
@@ -44,7 +44,7 @@ def archive(
     manifest = {
         "timestamp": timestamp,
         "archived_at": datetime.now().isoformat(),
-        "source": str(global_root),
+        "source": str(data_dir),
         "description": "Immutable snapshot. NEVER auto-recovered from. Manual recovery only.",
     }
     manifest_path = archive_path / ".manifest.json"

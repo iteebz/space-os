@@ -53,7 +53,7 @@ db.add_migrations("spawn", migrations.MIGRATIONS)
 
 
 def path() -> Path:
-    return paths.dot_space() / "spawn.db"
+    return paths.space_data() / "spawn.db"
 
 
 def connect():
@@ -244,10 +244,10 @@ def merge_agents(from_identifier: str, to_identifier: str) -> bool:
     if from_id == to_id:
         return False
 
-    events_db = paths.dot_space() / "events.db"
-    memory_db = paths.dot_space() / "memory.db"
-    knowledge_db = paths.dot_space() / "knowledge.db"
-    bridge_db = paths.dot_space() / "bridge.db"
+    events_db = paths.space_data() / "events.db"
+    memory_db = paths.space_data() / "memory.db"
+    knowledge_db = paths.space_data() / "knowledge.db"
+    bridge_db = paths.space_data() / "bridge.db"
 
     with db.ensure("spawn") as conn:
         conn.execute(
@@ -279,7 +279,7 @@ def merge_agents(from_identifier: str, to_identifier: str) -> bool:
 
 def backfill_unknown_agents() -> int:
     """Register orphaned agent IDs from bridge into registry. Returns count of new agents."""
-    bridge_db = paths.dot_space() / "bridge.db"
+    bridge_db = paths.space_data() / "bridge.db"
     if not bridge_db.exists():
         return 0
 

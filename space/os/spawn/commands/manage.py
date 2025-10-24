@@ -82,7 +82,7 @@ def merge(id_from: str, id_to: str):
         "bridge.db": "bridge",
     }
     for db_name, tables in dbs.items():
-        db_path = paths.dot_space() / db_name
+        db_path = paths.space_data() / db_name
         if db_path.exists():
             registry_name = db_names_map.get(db_name)
             if registry_name:
@@ -151,14 +151,14 @@ def delete_agent(
     with spawn_db.connect() as conn:
         deleted_count += conn.execute("DELETE FROM agents WHERE agent_id = ?", (agent_id,)).rowcount
 
-    memory_db_path = paths.dot_space() / "memory.db"
+    memory_db_path = paths.space_data() / "memory.db"
     if memory_db_path.exists():
         with db.ensure("memory") as memory_conn:
             deleted_count += memory_conn.execute(
                 "DELETE FROM memories WHERE agent_id = ?", (agent_id,)
             ).rowcount
 
-    events_db_path = paths.dot_space() / "events.db"
+    events_db_path = paths.space_data() / "events.db"
     if events_db_path.exists():
         with db.ensure("events") as events_conn:
             deleted_count += events_conn.execute(

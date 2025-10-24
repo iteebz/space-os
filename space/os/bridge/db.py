@@ -62,7 +62,7 @@ db.add_migrations("bridge", migrations.MIGRATIONS)
 
 
 def path() -> Path:
-    return paths.dot_space() / "bridge.db"
+    return paths.space_data() / "bridge.db"
 
 
 def connect():

@@ -32,7 +32,7 @@ CREATE INDEX IF NOT EXISTS idx_timestamp ON entries(timestamp);
 """
 
 
-db.register("chats", "chats.db", schema(), use_global_root=True)
+db.register("chats", "chats.db", schema())
 db.add_migrations("chats", [])
 
 

@@ -15,7 +15,7 @@ def config_file() -> Path:
     """Return config file path in .space/"""
     from .lib import paths
 
-    return paths.dot_space() / "config.yaml"
+    return paths.space_data() / "config.yaml"
 
 
 def spawn_dir() -> Path:
@@ -27,7 +27,7 @@ def registry_db() -> Path:
     """Return the registry database path in workspace .space directory."""
     from .lib import paths
 
-    return paths.dot_space() / "spawn.db"
+    return paths.space_data() / "spawn.db"
 
 
 def clear_cache():

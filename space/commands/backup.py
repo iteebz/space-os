@@ -51,13 +51,13 @@ def backup(
 ):
     """Backup ~/space/.space to ~/.space/backups/"""
 
-    src = paths.dot_space()
+    src = paths.space_data()
     if not src.exists():
         if not quiet_output:
             typer.echo("No .space directory found")
         raise typer.Exit(code=1)
 
-    backup_root_dir = paths.global_root() / "backups"
+    backup_root_dir = paths.space_data() / "backups"
     backup_root_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

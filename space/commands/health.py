@@ -36,7 +36,7 @@ def _check_orphans() -> list[str]:
     }
     db_conns = {}
     for db_name, registry_name in registry_map.items():
-        db_path = paths.dot_space() / db_name
+        db_path = paths.space_data() / db_name
         if db_path.exists():
             db_conns[db_name] = db.ensure(registry_name)
 
@@ -71,7 +71,7 @@ def _check_orphans() -> list[str]:
 def _check_db(db_name: str, tables: list[str]) -> tuple[bool, list[str], dict]:
     """Check single DB. Return (healthy, issues, counts)."""
     issues = []
-    db_path = paths.dot_space() / db_name
+    db_path = paths.space_data() / db_name
 
     if not db_path.exists():
         issues.append(f"❌ {db_name} missing")

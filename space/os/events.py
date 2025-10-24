@@ -9,7 +9,7 @@ from .lib.identity import constitute_identity
 from .lib.uuid7 import uuid7
 from .spawn import db as spawn_db
 
-DB_PATH = paths.dot_space() / "events.db"
+DB_PATH = paths.space_data() / "events.db"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (

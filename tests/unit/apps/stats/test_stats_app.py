@@ -38,7 +38,7 @@ def test_discovers_orphaned_agents_in_messages(test_space):
     """Agents with messages but no registration are discovered."""
     from space.os import db
 
-    paths.dot_space() / "bridge.db"
+    paths.space_data() / "bridge.db"
     with db.ensure("bridge") as conn:
         conn.execute(
             "INSERT INTO messages (message_id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
@@ -54,7 +54,7 @@ def test_discovers_orphaned_agents_in_memory(test_space):
     """Agents with memories but no registration are discovered."""
     from space.os import db
 
-    mem_db = paths.dot_space() / "memory.db"
+    mem_db = paths.space_data() / "memory.db"
     with db.connect(mem_db) as conn:
         conn.execute(
             "INSERT INTO memories (memory_id, agent_id, topic, message, timestamp, created_at, source) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -79,7 +79,7 @@ def test_discovers_orphaned_agents_in_knowledge(test_space):
     """Agents with knowledge but no registration are discovered."""
     from space.os import db
 
-    know_db = paths.dot_space() / "knowledge.db"
+    know_db = paths.space_data() / "knowledge.db"
     with db.connect(know_db) as conn:
         conn.execute(
             "INSERT INTO knowledge (knowledge_id, agent_id, domain, content) VALUES (?, ?, ?, ?)",
@@ -121,7 +121,7 @@ def test_aggregates_stats_from_all_tables(test_space):
     events_lib.emit("test", "spawn", agent_id, "data")
     events_lib.emit("test", "session_start", agent_id, "data")
 
-    paths.dot_space() / "bridge.db"
+    paths.space_data() / "bridge.db"
     with db.ensure("bridge") as conn:
         conn.execute(
             "INSERT INTO messages (message_id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
@@ -132,7 +132,7 @@ def test_aggregates_stats_from_all_tables(test_space):
             ("msg-2", "chan-1", agent_id, "msg2"),
         )
 
-    paths.dot_space() / "memory.db"
+    paths.space_data() / "memory.db"
     with db.ensure("memory") as conn:
         conn.execute(
             "INSERT INTO memories (memory_id, agent_id, topic, message, timestamp, created_at, source) VALUES (?, ?, ?, ?, ?, ?, ?)",

@@ -37,7 +37,7 @@ def _row_to_knowledge(row: dict) -> Knowledge:
 
 
 def path() -> Path:
-    return paths.dot_space() / "knowledge.db"
+    return paths.space_data() / "knowledge.db"
 
 
 db.register("knowledge", "knowledge.db", schema())

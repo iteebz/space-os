@@ -39,10 +39,10 @@ def _discover_all_agent_ids(registered_ids: set[str], include_archived: bool = F
                 all_agent_ids.add(row[0])
 
     dbs = [
-        (paths.dot_space() / "bridge.db", "messages"),
-        (paths.dot_space() / "memory.db", "memories"),
-        (paths.dot_space() / "knowledge.db", "knowledge"),
-        (paths.dot_space() / "events.db", "events"),
+        (paths.space_data() / "bridge.db", "messages"),
+        (paths.space_data() / "memory.db", "memories"),
+        (paths.space_data() / "knowledge.db", "knowledge"),
+        (paths.space_data() / "events.db", "events"),
     ]
 
     registry_map = {
@@ -127,7 +127,7 @@ def _get_common_db_stats(
 
 
 def bridge_stats(limit: int = None) -> BridgeStats:
-    db_path = paths.dot_space() / "bridge.db"
+    db_path = paths.space_data() / "bridge.db"
     if not db_path.exists():
         return BridgeStats(available=False)
 
@@ -166,7 +166,7 @@ def bridge_stats(limit: int = None) -> BridgeStats:
 
 
 def memory_stats(limit: int = None) -> MemoryStats:
-    db_path = paths.dot_space() / "memory.db"
+    db_path = paths.space_data() / "memory.db"
     if not db_path.exists():
         return MemoryStats(available=False)
 
@@ -189,7 +189,7 @@ def memory_stats(limit: int = None) -> MemoryStats:
 
 
 def knowledge_stats(limit: int = None) -> KnowledgeStats:
-    db_path = paths.dot_space() / "knowledge.db"
+    db_path = paths.space_data() / "knowledge.db"
     if not db_path.exists():
         return KnowledgeStats(available=False)
 
@@ -228,7 +228,7 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
         return None
 
     agent_names_map = _get_agent_names_map()
-    dot_space = paths.dot_space()
+    data_dir = paths.space_data()
 
     identities = {
         agent_id: {
@@ -246,7 +246,7 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
 
     queries = [
         (
-            dot_space / "bridge.db",
+            data_dir / "bridge.db",
             [
                 ("SELECT agent_id, COUNT(*) FROM messages GROUP BY agent_id", "msgs"),
                 (
@@ -256,19 +256,19 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
             ],
         ),
         (
-            dot_space / "memory.db",
+            data_dir / "memory.db",
             [
                 ("SELECT agent_id, COUNT(*) FROM memories GROUP BY agent_id", "mems"),
             ],
         ),
         (
-            dot_space / "knowledge.db",
+            data_dir / "knowledge.db",
             [
                 ("SELECT agent_id, COUNT(*) FROM knowledge GROUP BY agent_id", "knowledge"),
             ],
         ),
         (
-            dot_space / "events.db",
+            data_dir / "events.db",
             [
                 ("SELECT agent_id, COUNT(*) FROM events GROUP BY agent_id", "events"),
                 (
@@ -331,7 +331,7 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
 
 
 def spawn_stats() -> SpawnStats:
-    db_path = paths.dot_space() / "spawn.db"
+    db_path = paths.space_data() / "spawn.db"
     if not db_path.exists():
         return SpawnStats(available=False)
 
@@ -343,7 +343,7 @@ def spawn_stats() -> SpawnStats:
 
 
 def events_stats() -> EventsStats:
-    db_path = paths.dot_space() / "events.db"
+    db_path = paths.space_data() / "events.db"
     if not db_path.exists():
         return EventsStats(available=False)
 

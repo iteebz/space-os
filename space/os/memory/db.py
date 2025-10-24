@@ -64,7 +64,7 @@ db.add_migrations("memory", migrations.MIGRATIONS)
 
 
 def path() -> Path:
-    return paths.dot_space() / "memory.db"
+    return paths.space_data() / "memory.db"
 
 
 

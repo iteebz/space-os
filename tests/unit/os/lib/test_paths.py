@@ -8,15 +8,8 @@ def test_space_root(monkeypatch):
     assert paths.space_root() == Path.home() / "space"
 
 
-def test_dot_space(monkeypatch):
-    monkeypatch.delenv("SPACE_ROOT", raising=False)
-    monkeypatch.delenv("SPACE_DOT_SPACE", raising=False)
-    assert paths.dot_space() == Path.home() / "space" / ".space"
-
-
-def test_global_root(monkeypatch):
-    monkeypatch.delenv("SPACE_GLOBAL_ROOT", raising=False)
-    assert paths.global_root() == Path.home() / ".space"
+def test_space_data(monkeypatch):
+    assert paths.space_data() == Path.home() / ".space" / "data"
 
 
 def test_canon_path_from_config(mocker):

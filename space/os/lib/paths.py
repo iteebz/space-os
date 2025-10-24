@@ -1,37 +1,16 @@
-import os
 from pathlib import Path
 
 from space.os import config
 
 
-def space_root(base_path: Path | None = None) -> Path:
-    """Returns the space root directory, ~/space or base_path/space."""
-    if base_path:
-        return base_path / "space"
-
-    workspace_root = Path.home() / "space"
-    override = os.environ.get("SPACE_ROOT")
-    return Path(override).expanduser() if override else workspace_root
+def space_root() -> Path:
+    """Returns the space root directory, ~/space."""
+    return Path.home() / "space"
 
 
-def dot_space(base_path: Path | None = None) -> Path:
-    """Returns .space/ directory in workspace root."""
-    if base_path:
-        return base_path / ".space"
-
-    if "SPACE_DOT_SPACE" in os.environ:
-        return Path(os.environ["SPACE_DOT_SPACE"]).expanduser()
-    return space_root() / ".space"
-
-
-def global_root(base_path: Path | None = None) -> Path:
-    """Returns the global root directory, ~/.space."""
-    if base_path:
-        return base_path / ".space"
-
-    if "SPACE_GLOBAL_ROOT" in os.environ:
-        return Path(os.environ["SPACE_GLOBAL_ROOT"]).expanduser()
-    return Path.home() / ".space"
+def space_data() -> Path:
+    """Returns the data directory, ~/.space/data."""
+    return Path.home() / ".space" / "data"
 
 
 def package_root() -> Path:
@@ -44,17 +23,15 @@ def constitution(filename: str) -> Path:
     return package_root().parent / "constitutions" / filename
 
 
-def canon_path(base_path: Path | None = None) -> Path:
+def canon_path() -> Path:
     """Returns path to human's canonical values, ~/space/canon."""
     cfg = config.load_config()
     configured_path = cfg.get("canon_path")
     if configured_path:
-        return space_root(base_path) / configured_path
-    return space_root(base_path) / "canon"
+        return space_root() / configured_path
+    return space_root() / "canon"
 
 
 def chats_db() -> Path:
-    """Returns path to unified chat history, ~/.space/chats.db."""
-    if "SPACE_CHATS_DB" in os.environ:
-        return Path(os.environ["SPACE_CHATS_DB"]).expanduser()
-    return global_root() / "chats.db"
+    """Returns path to unified chat history, ~/space/data/chats.db."""
+    return space_data() / "chats.db"

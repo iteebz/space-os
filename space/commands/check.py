@@ -36,10 +36,10 @@ def check(
             typer.echo(f"Self: {self_desc}")
         typer.echo()
 
-        events_db = paths.dot_space() / "events.db"
-        memory_db = paths.dot_space() / "memory.db"
-        knowledge_db = paths.dot_space() / "knowledge.db"
-        bridge_db = paths.dot_space() / "bridge.db"
+        events_db = paths.space_data() / "events.db"
+        memory_db = paths.space_data() / "memory.db"
+        knowledge_db = paths.space_data() / "knowledge.db"
+        bridge_db = paths.space_data() / "bridge.db"
 
         session_start = None
         last_event = None
@@ -173,12 +173,12 @@ def check(
 
 def _check_database_health() -> dict:
     """Check all databases for data presence and report anomalies."""
-    dot_space = paths.dot_space()
+    data_dir = paths.space_data()
     databases = {
-        "memory.db": dot_space / "memory.db",
-        "knowledge.db": dot_space / "knowledge.db",
-        "events.db": dot_space / "events.db",
-        "bridge.db": dot_space / "bridge.db",
+        "memory.db": data_dir / "memory.db",
+        "knowledge.db": data_dir / "knowledge.db",
+        "events.db": data_dir / "events.db",
+        "bridge.db": data_dir / "bridge.db",
     }
 
     health = {}

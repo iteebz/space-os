@@ -34,8 +34,12 @@ def _migrate_bridge_channels_id_to_channel_id(conn: sqlite3.Connection):
     if "id" not in cols:
         return
 
+    has_pinned = "pinned_at" in cols
+    pinned_col = "pinned_at" if has_pinned else "NULL as pinned_at"
+    
     conn.executescript(
-        """
+        f"""
+        DROP TABLE IF EXISTS channels_tmp;
         CREATE TABLE channels_tmp (
             channel_id TEXT PRIMARY KEY,
             name TEXT NOT NULL UNIQUE,
@@ -45,7 +49,7 @@ def _migrate_bridge_channels_id_to_channel_id(conn: sqlite3.Connection):
             archived_at TIMESTAMP,
             pinned_at TIMESTAMP
         );
-        INSERT INTO channels_tmp SELECT id, name, topic, created_at, notes, archived_at, pinned_at FROM channels;
+        INSERT INTO channels_tmp SELECT id, name, topic, created_at, notes, archived_at, {pinned_col} FROM channels;
         DROP TABLE channels;
         ALTER TABLE channels_tmp RENAME TO channels;
     """

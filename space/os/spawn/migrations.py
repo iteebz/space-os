@@ -38,12 +38,16 @@ def _drop_canonical_id(conn: sqlite3.Connection):
 
 def _migrate_spawn_agents_id_to_agent_id(conn: sqlite3.Connection):
     """Rename agents.id to agent_id."""
+    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='agents'")
+    if not cursor.fetchone():
+        return
     cursor = conn.execute("PRAGMA table_info(agents)")
     cols = {row[1] for row in cursor.fetchall()}
     if "agent_id" in cols:
         return
     conn.executescript(
         """
+        DROP TABLE IF EXISTS agents_new;
         CREATE TABLE agents_new (
             agent_id TEXT PRIMARY KEY,
             name TEXT UNIQUE,
@@ -60,12 +64,16 @@ def _migrate_spawn_agents_id_to_agent_id(conn: sqlite3.Connection):
 
 def _migrate_spawn_tasks_id_to_task_id(conn: sqlite3.Connection):
     """Rename tasks.id to task_id, identity to agent_id, make channel_id optional."""
+    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tasks'")
+    if not cursor.fetchone():
+        return
     cursor = conn.execute("PRAGMA table_info(tasks)")
     cols = {row[1] for row in cursor.fetchall()}
     if "task_id" in cols:
         return
     conn.executescript(
         """
+        DROP TABLE IF EXISTS tasks_new;
         CREATE TABLE tasks_new (
             task_id TEXT PRIMARY KEY,
             agent_id TEXT NOT NULL,
@@ -92,6 +100,9 @@ def _migrate_spawn_tasks_id_to_task_id(conn: sqlite3.Connection):
 
 def _add_pid_to_tasks(conn: sqlite3.Connection):
     """Add pid column to tasks table for process tracking."""
+    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tasks'")
+    if not cursor.fetchone():
+        return
     cursor = conn.execute("PRAGMA table_info(tasks)")
     columns = [col[1] for col in cursor.fetchall()]
     if "pid" in columns:
@@ -100,8 +111,8 @@ def _add_pid_to_tasks(conn: sqlite3.Connection):
 
 
 MIGRATIONS = [
-    ("drop_canonical_id", _drop_canonical_id),
-    ("add_pid_to_tasks", _add_pid_to_tasks),
     ("migrate_spawn_agents_id_to_agent_id", _migrate_spawn_agents_id_to_agent_id),
     ("migrate_spawn_tasks_id_to_task_id", _migrate_spawn_tasks_id_to_task_id),
+    ("drop_canonical_id", _drop_canonical_id),
+    ("add_pid_to_tasks", _add_pid_to_tasks),
 ]
