@@ -51,7 +51,7 @@ def test_get_new_messages_mixed_id_types(test_space):
     db.create_message(channel_id, "agent2", "uuid message 2")
 
     conn.execute(
-        "INSERT INTO messages (id, channel_id, agent_id, content, priority) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO messages (message_id, channel_id, agent_id, content, priority) VALUES (?, ?, ?, ?, ?)",
         ("999", channel_id, "agent3", "integer message", "normal"),
     )
     conn.commit()

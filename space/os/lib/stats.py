@@ -101,7 +101,9 @@ def _discover_all_agent_ids(registered_ids: set[str], include_archived: bool = F
 
     if include_archived:
         with spawn_db.connect() as reg_conn:
-            for row in reg_conn.execute("SELECT agent_id FROM agents WHERE archived_at IS NOT NULL"):
+            for row in reg_conn.execute(
+                "SELECT agent_id FROM agents WHERE archived_at IS NOT NULL"
+            ):
                 all_agent_ids.add(row[0])
 
     dbs = [
@@ -111,7 +113,12 @@ def _discover_all_agent_ids(registered_ids: set[str], include_archived: bool = F
         (paths.dot_space() / "events.db", "events"),
     ]
 
-    registry_map = {"bridge.db": "bridge", "memory.db": "memory", "knowledge.db": "knowledge", "events.db": "events"}
+    registry_map = {
+        "bridge.db": "bridge",
+        "memory.db": "memory",
+        "knowledge.db": "knowledge",
+        "events.db": "events",
+    }
     for db_path, table in dbs:
         if db_path.exists():
             registry_name = registry_map.get(db_path.name)
@@ -135,7 +142,12 @@ def _get_common_db_stats(
     if not db_path.exists():
         return 0, 0, 0, None, []
 
-    registry_map = {"bridge.db": "bridge", "memory.db": "memory", "knowledge.db": "knowledge", "events.db": "events"}
+    registry_map = {
+        "bridge.db": "bridge",
+        "memory.db": "memory",
+        "knowledge.db": "knowledge",
+        "events.db": "events",
+    }
     registry_name = registry_map.get(db_path.name)
     if not registry_name:
         return 0, 0, 0, None, []
@@ -272,7 +284,9 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
 
     with spawn_db.connect() as reg_conn:
         where_clause = "" if include_archived else "WHERE archived_at IS NULL"
-        agent_ids = {row[0] for row in reg_conn.execute(f"SELECT agent_id FROM agents {where_clause}")}
+        agent_ids = {
+            row[0] for row in reg_conn.execute(f"SELECT agent_id FROM agents {where_clause}")
+        }
 
     agent_ids_from_all_tables = _discover_all_agent_ids(
         agent_ids, include_archived=include_archived
@@ -337,7 +351,12 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
         ),
     ]
 
-    registry_map = {"bridge.db": "bridge", "memory.db": "memory", "knowledge.db": "knowledge", "events.db": "events"}
+    registry_map = {
+        "bridge.db": "bridge",
+        "memory.db": "memory",
+        "knowledge.db": "knowledge",
+        "events.db": "events",
+    }
     for db_path, query_list in queries:
         if not db_path.exists():
             continue

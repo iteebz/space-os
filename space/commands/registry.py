@@ -20,8 +20,6 @@ def show_registry():
     constitution is content-addressable via its hash, creating an immutable
     audit trail of constitutional evolution.
     """
-    pass
-
     with spawn_db.connect() as conn:
         rows = conn.execute(
             "SELECT hash, content, created_at FROM constitutions ORDER BY created_at DESC"
@@ -54,7 +52,6 @@ def show_registry():
 @app.command("backfill")
 def backfill():
     """Backfill orphaned agent IDs from bridge into spawn_db."""
-    pass
     count = spawn_db.backfill_unknown_agents()
     if count > 0:
         typer.echo(f"Registered {count} orphaned agent(s)")

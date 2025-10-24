@@ -3,8 +3,9 @@
 
 def test_bridge_db_imports():
     """Test bridge.db module can be imported and path() returns Path."""
-    from space.os.bridge import db
     from pathlib import Path
+
+    from space.os.bridge import db
 
     path = db.path()
     assert isinstance(path, Path)
@@ -13,8 +14,9 @@ def test_bridge_db_imports():
 
 def test_spawn_db_imports():
     """Test spawn.db module can be imported and path() returns Path."""
-    from space.os.spawn import db
     from pathlib import Path
+
+    from space.os.spawn import db
 
     path = db.path()
     assert isinstance(path, Path)

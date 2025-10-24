@@ -1,3 +1,5 @@
+import contextlib
+
 import pytest
 
 from space.os import config, db
@@ -40,6 +42,7 @@ def test_space(monkeypatch, tmp_path):
         workspace / ".space",
         workspace / ".space" / "bridge",
         workspace / ".space" / "security",
+        workspace / ".space" / "knowledge",
     ]:
         path.mkdir(parents=True, exist_ok=True)
 
@@ -73,3 +76,12 @@ def test_space(monkeypatch, tmp_path):
     spawn_db.clear_identity_cache()
 
     yield workspace
+
+    import gc
+    import sqlite3
+
+    gc.collect()
+    for obj in gc.get_objects():
+        if isinstance(obj, sqlite3.Connection):
+            with contextlib.suppress(Exception):
+                obj.close()

@@ -10,7 +10,7 @@ from space.os.bridge import db as bridge_db
 def in_memory_bridge_db():
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
-    conn.executescript(bridge_db._SCHEMA)
+    conn.executescript(bridge_db.SCHEMA)
     conn.commit()
     yield conn
     conn.close()

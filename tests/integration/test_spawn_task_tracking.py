@@ -1,58 +1,62 @@
-"""Integration tests for bridge task tracking (tasks moved from spawn to bridge)."""
+"""Integration tests for spawn task tracking."""
 
 from unittest.mock import MagicMock, patch
 
 from space.os.bridge import api as bridge_api
-from space.os.bridge import db as bridge_db
 from space.os.bridge import parser
 from space.os.lib.uuid7 import uuid7
+from space.os.spawn import db as spawn_db
 
 
 def test_channel_groups_tasks(test_space):
     """Tasks in same channel are grouped."""
     channel_id = bridge_api.create_channel("investigation-channel")
+    agent = spawn_db.ensure_agent("hailot")
+    agent2 = spawn_db.ensure_agent("zealot")
 
-    conn = bridge_db.connect()
-    for identity in ["hailot", "zealot", "hailot"]:
+    conn = spawn_db.connect().__enter__()
+    for agent_id in [agent, agent2, agent]:
         conn.execute(
             """
-            INSERT INTO tasks (uuid7, channel_id, identity, status, created_at)
-            VALUES (?, ?, ?, 'completed', datetime('now'))
+            INSERT INTO tasks (task_id, agent_id, channel_id, input, status, created_at)
+            VALUES (?, ?, ?, 'test', 'completed', datetime('now'))
             """,
-            (uuid7(), channel_id, identity),
+            (uuid7(), agent_id, channel_id),
         )
     conn.commit()
     conn.close()
 
-    conn = bridge_db.connect()
+    conn = spawn_db.connect().__enter__()
     rows = conn.execute(
-        "SELECT uuid7, identity FROM tasks WHERE channel_id = ? ORDER BY created_at",
+        "SELECT task_id, agent_id FROM tasks WHERE channel_id = ? ORDER BY created_at",
         (channel_id,),
     ).fetchall()
     conn.close()
 
     assert len(rows) == 3
-    assert [r["identity"] for r in rows] == ["hailot", "zealot", "hailot"]
+    assert [spawn_db.get_identity(r["agent_id"]) for r in rows] == ["hailot", "zealot", "hailot"]
 
 
 def test_channel_isolation(test_space):
     """Tasks from different channels isolated."""
     channel_a = bridge_api.create_channel("channel-a")
     channel_b = bridge_api.create_channel("channel-b")
+    agent1 = spawn_db.ensure_agent("hailot")
+    agent2 = spawn_db.ensure_agent("zealot")
 
-    conn = bridge_db.connect()
+    conn = spawn_db.connect().__enter__()
     conn.execute(
-        "INSERT INTO tasks (uuid7, channel_id, identity, status, created_at) VALUES (?, ?, ?, 'completed', datetime('now'))",
-        (uuid7(), channel_a, "hailot"),
+        "INSERT INTO tasks (task_id, agent_id, channel_id, input, status, created_at) VALUES (?, ?, ?, 'test', 'completed', datetime('now'))",
+        (uuid7(), agent1, channel_a),
     )
     conn.execute(
-        "INSERT INTO tasks (uuid7, channel_id, identity, status, created_at) VALUES (?, ?, ?, 'completed', datetime('now'))",
-        (uuid7(), channel_b, "zealot"),
+        "INSERT INTO tasks (task_id, agent_id, channel_id, input, status, created_at) VALUES (?, ?, ?, 'test', 'completed', datetime('now'))",
+        (uuid7(), agent2, channel_b),
     )
     conn.commit()
     conn.close()
 
-    conn = bridge_db.connect()
+    conn = spawn_db.connect().__enter__()
     a_count = conn.execute(
         "SELECT COUNT(*) FROM tasks WHERE channel_id = ?", (channel_a,)
     ).fetchone()[0]
@@ -68,61 +72,64 @@ def test_channel_isolation(test_space):
 def test_retrieve_channel_history(test_space):
     """Retrieve full task history for channel."""
     channel_id = bridge_api.create_channel("investigation")
+    agent_hailot = spawn_db.ensure_agent("hailot")
+    agent_zealot = spawn_db.ensure_agent("zealot")
+
     tasks = [
-        ("hailot", "started investigation"),
-        ("zealot", "gathered data"),
-        ("hailot", "final report"),
+        (agent_hailot, "started investigation"),
+        (agent_zealot, "gathered data"),
+        (agent_hailot, "final report"),
     ]
 
-    conn = bridge_db.connect()
-    for identity, output in tasks:
+    conn = spawn_db.connect().__enter__()
+    for agent_id, output in tasks:
         conn.execute(
             """
-            INSERT INTO tasks (uuid7, channel_id, identity, output, status, created_at)
-            VALUES (?, ?, ?, ?, 'completed', datetime('now'))
+            INSERT INTO tasks (task_id, agent_id, channel_id, input, output, status, created_at)
+            VALUES (?, ?, ?, 'test', ?, 'completed', datetime('now'))
             """,
-            (uuid7(), channel_id, identity, output),
+            (uuid7(), agent_id, channel_id, output),
         )
     conn.commit()
     conn.close()
 
-    conn = bridge_db.connect()
+    conn = spawn_db.connect().__enter__()
     rows = conn.execute(
-        "SELECT identity, output FROM tasks WHERE channel_id = ? ORDER BY created_at",
+        "SELECT agent_id, output FROM tasks WHERE channel_id = ? ORDER BY created_at",
         (channel_id,),
     ).fetchall()
     conn.close()
 
     assert len(rows) == 3
-    for i, (identity, output) in enumerate(tasks):
-        assert rows[i]["identity"] == identity
+    for i, (agent_id, output) in enumerate(tasks):
+        assert spawn_db.get_identity(rows[i]["agent_id"]) == spawn_db.get_identity(agent_id)
         assert rows[i]["output"] == output
 
 
 def test_spawn_logs_metadata(test_space):
-    """Bridge task stores all metadata (identity, channel, output, status)."""
+    """Spawn task stores all metadata (agent, channel, output, status)."""
     channel_id = bridge_api.create_channel("subagents-test")
-    identity = "hailot"
+    agent = spawn_db.ensure_agent("hailot")
     output = "response"
     task_id = uuid7()
 
-    conn = bridge_db.connect()
+    conn = spawn_db.connect().__enter__()
     conn.execute(
         """
-        INSERT INTO tasks (uuid7, channel_id, identity, output, status, created_at)
-        VALUES (?, ?, ?, ?, 'completed', datetime('now'))
+        INSERT INTO tasks (task_id, agent_id, channel_id, input, output, status, created_at)
+        VALUES (?, ?, ?, 'test', ?, 'completed', datetime('now'))
         """,
-        (task_id, channel_id, identity, output),
+        (task_id, agent, channel_id, output),
     )
     conn.commit()
 
     row = conn.execute(
-        "SELECT identity, channel_id, output, status FROM tasks WHERE uuid7 = ?",
+        "SELECT agent_id, channel_id, output, status FROM tasks WHERE task_id = ?",
         (task_id,),
     ).fetchone()
     conn.close()
 
-    assert row["identity"] == identity
+    assert spawn_db.get_identity(row["agent_id"]) == "hailot"
     assert row["channel_id"] == channel_id
     assert row["output"] == output
     assert row["status"] == "completed"
@@ -143,30 +150,30 @@ def test_mention_spawns_worker():
 
 
 def test_task_provenance_chain(test_space):
-    """Task entry tracks full provenance: identity, channel_id, output, status, timestamps."""
+    """Task entry tracks full provenance: agent_id, channel_id, output, status, timestamps."""
     channel_id = bridge_api.create_channel("investigation")
-    identity = "hailot"
+    agent = spawn_db.ensure_agent("hailot")
     output = "findings"
     task_id = uuid7()
 
-    conn = bridge_db.connect()
+    conn = spawn_db.connect().__enter__()
     conn.execute(
         """
-        INSERT INTO tasks (uuid7, channel_id, identity, output, status, created_at, completed_at)
-        VALUES (?, ?, ?, ?, 'completed', datetime('now'), datetime('now'))
+        INSERT INTO tasks (task_id, agent_id, channel_id, input, output, status, created_at, completed_at)
+        VALUES (?, ?, ?, 'test', ?, 'completed', datetime('now'), datetime('now'))
         """,
-        (task_id, channel_id, identity, output),
+        (task_id, agent, channel_id, output),
     )
     conn.commit()
 
     row = conn.execute(
-        "SELECT uuid7, identity, channel_id, output, status, created_at, completed_at FROM tasks WHERE uuid7 = ?",
+        "SELECT task_id, agent_id, channel_id, output, status, created_at, completed_at FROM tasks WHERE task_id = ?",
         (task_id,),
     ).fetchone()
     conn.close()
 
-    assert row["uuid7"] == task_id
-    assert row["identity"] == identity
+    assert row["task_id"] == task_id
+    assert spawn_db.get_identity(row["agent_id"]) == "hailot"
     assert row["channel_id"] == channel_id
     assert row["output"] == output
     assert row["status"] == "completed"

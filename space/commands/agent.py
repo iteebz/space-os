@@ -152,7 +152,8 @@ def merge_agents(id_from: str, id_to: str):
 
     with spawn_db.connect() as conn:
         updated_count += conn.execute(
-            "UPDATE agents SET archived_at = ? WHERE agent_id = ?", (int(time.time()), from_agent_id)
+            "UPDATE agents SET archived_at = ? WHERE agent_id = ?",
+            (int(time.time()), from_agent_id),
         ).rowcount
 
     dbs = {
@@ -163,7 +164,12 @@ def merge_agents(id_from: str, id_to: str):
     }
 
     counts = {}
-    db_names_map = {"events.db": "events", "memory.db": "memory", "knowledge.db": "knowledge", "bridge.db": "bridge"}
+    db_names_map = {
+        "events.db": "events",
+        "memory.db": "memory",
+        "knowledge.db": "knowledge",
+        "bridge.db": "bridge",
+    }
     for db_name, tables in dbs.items():
         db_path = paths.dot_space() / db_name
         if db_path.exists():

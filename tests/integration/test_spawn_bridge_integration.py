@@ -18,9 +18,9 @@ def test_bridge_uses_spawn_tasks(test_space):
     )
 
     task = spawn_db.get_task(task_id)
-    assert task["identity"] == "hailot"
-    assert task["channel_id"] == "ch-test-123"
-    assert task["status"] == "pending"
+    assert spawn_db.get_identity(task.agent_id) == "hailot"
+    assert task.channel_id == "ch-test-123"
+    assert task.status == "pending"
 
 
 def test_task_lifecycle_pending_to_completed(test_space):
@@ -31,17 +31,17 @@ def test_task_lifecycle_pending_to_completed(test_space):
     task_id = spawn_db.create_task(identity="hailot", input="task")
 
     task = spawn_db.get_task(task_id)
-    assert task["status"] == "pending"
+    assert task.status == "pending"
 
     spawn_db.update_task(task_id, status="running", started_at=True)
     task = spawn_db.get_task(task_id)
-    assert task["status"] == "running"
+    assert task.status == "running"
 
     spawn_db.update_task(task_id, status="completed", output="done", completed_at=True)
     task = spawn_db.get_task(task_id)
-    assert task["status"] == "completed"
-    assert task["output"] == "done"
-    assert task["duration"] is not None
+    assert task.status == "completed"
+    assert task.output == "done"
+    assert task.duration is not None
 
 
 def test_multiple_agents_concurrent_tasks(test_space):
@@ -59,8 +59,8 @@ def test_multiple_agents_concurrent_tasks(test_space):
 
     hailot_running = spawn_db.list_tasks(status="running", identity="hailot")
     assert len(hailot_running) == 1
-    assert hailot_running[0]["id"] == h1
+    assert hailot_running[0].task_id == h1
 
     zealot_tasks = spawn_db.list_tasks(identity="zealot")
     assert len(zealot_tasks) == 1
-    assert zealot_tasks[0]["id"] == z1
+    assert zealot_tasks[0].task_id == z1

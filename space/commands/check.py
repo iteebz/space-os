@@ -41,7 +41,12 @@ def check(
         last_event = None
         spawn_count = 0
 
-        registry_map = {"events.db": "events", "memory.db": "memory", "knowledge.db": "knowledge", "bridge.db": "bridge"}
+        registry_map = {
+            "events.db": "events",
+            "memory.db": "memory",
+            "knowledge.db": "knowledge",
+            "bridge.db": "bridge",
+        }
 
         def safe_fetch(db_path, query, params=(), default=None, fetch="one"):
             if not db_path.exists():

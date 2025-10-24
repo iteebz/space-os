@@ -1,1 +1,0 @@
-"""Council app tests."""

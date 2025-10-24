@@ -2,6 +2,45 @@
 
 from unittest.mock import Mock, patch
 
+import pytest
+
+from space.apps.council.app import Council
+
+
+@pytest.fixture
+def mock_channel():
+    """Mock channel data."""
+    return {
+        "channel_name": "test-channel",
+        "channel_id": "ch-123",
+    }
+
+
+@pytest.fixture
+def council_instance(mock_channel):
+    """Create a Council instance with mocked API."""
+    with patch("space.apps.council.app.api.channels.resolve_channel_id") as mock_resolve:
+        mock_resolve.return_value = mock_channel["channel_id"]
+        return Council(mock_channel["channel_name"])
+
+
+@pytest.fixture
+def mock_messages():
+    """Create mock message objects."""
+    msg1 = Mock()
+    msg1.agent_id = "agent-1"
+    msg1.content = "First message"
+    msg1.created_at = "2025-10-24T10:00:00"
+    msg1.message_id = "msg-1"
+
+    msg2 = Mock()
+    msg2.agent_id = "agent-2"
+    msg2.content = "Second message"
+    msg2.created_at = "2025-10-24T10:01:00"
+    msg2.message_id = "msg-2"
+
+    return [msg1, msg2]
+
 
 def test_initialization(council_instance, mock_channel):
     """Council initializes with channel."""
@@ -15,7 +54,7 @@ def test_initialization(council_instance, mock_channel):
 def test_print_message_formats(council_instance, mock_messages, monkeypatch):
     """_print_message formats identity, timestamp, and prefix."""
     monkeypatch.setattr(
-        "space.apps.council.formatter.registry.get_identity",
+        "space.apps.council.formatter.spawn_db.get_identity",
         lambda x: "alice" if x == "agent-1" else x,
     )
 
@@ -36,7 +75,7 @@ def test_print_message_formats(council_instance, mock_messages, monkeypatch):
 def test_print_message_agent_prefix(council_instance, mock_messages, monkeypatch):
     """_print_message formats agent messages correctly."""
     monkeypatch.setattr(
-        "space.apps.council.formatter.registry.get_identity",
+        "space.apps.council.formatter.spawn_db.get_identity",
         lambda x: "bob" if x == "agent-2" else x,
     )
 
@@ -62,7 +101,7 @@ def test_print_message_human_prefix(council_instance, monkeypatch):
     human_msg.created_at = "2025-10-24T10:00:00"
 
     monkeypatch.setattr(
-        "space.apps.council.formatter.registry.get_identity",
+        "space.apps.council.formatter.spawn_db.get_identity",
         lambda x: "human",
     )
 

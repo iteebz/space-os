@@ -11,8 +11,7 @@ def test_discovers_registered_agents(test_space):
     from space.os.spawn import db as spawn_db
 
     with spawn_db.connect() as conn:
-        conn.execute("INSERT INTO agents (id, name) VALUES (?, ?)", ("agent-001", "alice"))
-        conn.commit()
+        conn.execute("INSERT INTO agents (agent_id, name) VALUES (?, ?)", ("agent-001", "alice"))
 
     result = stats_lib.agent_stats()
     assert result is not None
@@ -39,13 +38,12 @@ def test_discovers_orphaned_agents_in_messages(test_space):
     """Agents with messages but no registration are discovered."""
     from space.os import db
 
-    bridge_db = paths.dot_space() / "bridge.db"
-    with db.connect(bridge_db) as conn:
+    paths.dot_space() / "bridge.db"
+    with db.ensure("bridge") as conn:
         conn.execute(
-            "INSERT INTO messages (id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
+            "INSERT INTO messages (message_id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
             ("msg-1", "chan-1", "msg-agent-001", "hello"),
         )
-        conn.commit()
 
     result = stats_lib.agent_stats()
     assert result is not None
@@ -102,8 +100,7 @@ def test_maps_registered_name_to_orphaned_agent(test_space):
     events_lib.emit("test", "spawn", "agent-xyz", "data")
 
     with spawn_db.connect() as conn:
-        conn.execute("INSERT INTO agents (id, name) VALUES (?, ?)", ("agent-xyz", "bob"))
-        conn.commit()
+        conn.execute("INSERT INTO agents (agent_id, name) VALUES (?, ?)", ("agent-xyz", "bob"))
 
     result = stats_lib.agent_stats()
     agent = next(a for a in result if a.agent_id == "agent-xyz")
@@ -119,31 +116,28 @@ def test_aggregates_stats_from_all_tables(test_space):
     agent_id = "aggregator-001"
 
     with spawn_db.connect() as conn:
-        conn.execute("INSERT INTO agents (id, name) VALUES (?, ?)", (agent_id, "agg"))
-        conn.commit()
+        conn.execute("INSERT INTO agents (agent_id, name) VALUES (?, ?)", (agent_id, "agg"))
 
     events_lib.emit("test", "spawn", agent_id, "data")
     events_lib.emit("test", "session_start", agent_id, "data")
 
-    bridge_db = paths.dot_space() / "bridge.db"
-    with db.connect(bridge_db) as conn:
+    paths.dot_space() / "bridge.db"
+    with db.ensure("bridge") as conn:
         conn.execute(
-            "INSERT INTO messages (id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
+            "INSERT INTO messages (message_id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
             ("msg-1", "chan-1", agent_id, "msg1"),
         )
         conn.execute(
-            "INSERT INTO messages (id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
+            "INSERT INTO messages (message_id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
             ("msg-2", "chan-1", agent_id, "msg2"),
         )
-        conn.commit()
 
-    mem_db = paths.dot_space() / "memory.db"
-    with db.connect(mem_db) as conn:
+    paths.dot_space() / "memory.db"
+    with db.ensure("memory") as conn:
         conn.execute(
             "INSERT INTO memories (memory_id, agent_id, topic, message, timestamp, created_at, source) VALUES (?, ?, ?, ?, ?, ?, ?)",
             ("mem-1", agent_id, "topic1", "mem", "2024-01-01", int(time.time()), "test"),
         )
-        conn.commit()
 
     result = stats_lib.agent_stats()
     agent = next(a for a in result if a.agent_id == agent_id)
@@ -161,11 +155,10 @@ def test_respects_archived_filter(test_space):
     now = int(time.time())
     with spawn_db.connect() as conn:
         conn.execute(
-            "INSERT INTO agents (id, name, archived_at) VALUES (?, ?, ?)",
+            "INSERT INTO agents (agent_id, name, archived_at) VALUES (?, ?, ?)",
             ("archived-001", "ghost", now),
         )
-        conn.execute("INSERT INTO agents (id, name) VALUES (?, ?)", ("active-001", "alive"))
-        conn.commit()
+        conn.execute("INSERT INTO agents (agent_id, name) VALUES (?, ?)", ("active-001", "alive"))
 
     result_active = stats_lib.agent_stats(include_archived=False)
     result_all = stats_lib.agent_stats(include_archived=True)
@@ -186,11 +179,10 @@ def test_orphaned_agents_always_included(test_space):
     now = int(time.time())
     with spawn_db.connect() as conn:
         conn.execute(
-            "INSERT INTO agents (id, name, archived_at) VALUES (?, ?, ?)",
+            "INSERT INTO agents (agent_id, name, archived_at) VALUES (?, ?, ?)",
             ("archived-001", "archived", now),
         )
-        conn.execute("INSERT INTO agents (id, name) VALUES (?, ?)", ("active-001", "active"))
-        conn.commit()
+        conn.execute("INSERT INTO agents (agent_id, name) VALUES (?, ?)", ("active-001", "active"))
 
     events_lib.emit("test", "spawn", "orphan-001", "data")
 
@@ -222,14 +214,14 @@ def test_discovery_counts_match_universe(test_space):
     with spawn_db.connect() as conn:
         for i in range(3):
             conn.execute(
-                "INSERT INTO agents (id, name) VALUES (?, ?)", (f"active-{i:03d}", f"active{i}")
+                "INSERT INTO agents (agent_id, name) VALUES (?, ?)",
+                (f"active-{i:03d}", f"active{i}"),
             )
         for i in range(2):
             conn.execute(
-                "INSERT INTO agents (id, name, archived_at) VALUES (?, ?, ?)",
+                "INSERT INTO agents (agent_id, name, archived_at) VALUES (?, ?, ?)",
                 (f"archived-{i:03d}", f"archived{i}", now),
             )
-        conn.commit()
 
     for i in range(5):
         events_lib.emit("test", "spawn", f"orphan-{i:03d}", "data")

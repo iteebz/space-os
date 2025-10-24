@@ -32,18 +32,20 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
 
     if events.path().exists():
         with db.ensure("events") as conn:
-            query = "SELECT id, source, agent_id, event_type, data, timestamp FROM events WHERE data LIKE ?"
+            query = (
+                "SELECT source, agent_id, event_type, data, timestamp FROM events WHERE data LIKE ?"
+            )
             params = [f"%{topic}%"]
             query, params = _query_with_identity(query, params, identity, all_agents)
             query += " ORDER BY timestamp ASC"
 
             rows = conn.execute(query, params).fetchall()
             for row in rows:
-                event_type = f"{row[1]}.{row[3]}"
+                event_type = f"{row[0]}.{row[2]}"
                 if event_type in noise_events:
                     continue
 
-                data_hash = hash((row[4], row[2]))
+                data_hash = hash((row[3], row[1]))
                 if data_hash in seen_hashes:
                     continue
                 seen_hashes.add(data_hash)
@@ -52,9 +54,9 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
                     {
                         "source": "events",
                         "type": event_type,
-                        "identity": spawn_db.get_identity(row[2]) or row[2] if row[2] else None,
-                        "data": row[4],
-                        "timestamp": row[5],
+                        "identity": spawn_db.get_identity(row[1]) or row[1] if row[1] else None,
+                        "data": row[3],
+                        "timestamp": row[4],
                     }
                 )
 
@@ -107,7 +109,7 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
                 )
     if bridge.db.path().exists():
         with db.ensure("bridge") as conn:
-            query = "SELECT c.name, m.agent_id, m.content, m.created_at FROM messages m JOIN channels c ON m.channel_id = c.id WHERE (m.content LIKE ? OR c.name LIKE ?)"
+            query = "SELECT c.name, m.agent_id, m.content, m.created_at FROM messages m JOIN channels c ON m.channel_id = c.channel_id WHERE (m.content LIKE ? OR c.name LIKE ?)"
             params = [f"%{topic}%", f"%{topic}%"]
             query, params = _query_with_identity(query, params, identity, all_agents)
             query += " ORDER BY m.created_at ASC"
@@ -172,7 +174,7 @@ def collect_current_state(topic: str, identity: str | None, all_agents: bool):
 
     if bridge.db.path().exists():
         with db.ensure("bridge") as conn:
-            query = "SELECT c.name, m.agent_id, m.content FROM messages m JOIN channels c ON m.channel_id = c.id WHERE m.content LIKE ?"
+            query = "SELECT c.name, m.agent_id, m.content FROM messages m JOIN channels c ON m.channel_id = c.channel_id WHERE m.content LIKE ?"
             params = [
                 f"%{topic}%",
             ]

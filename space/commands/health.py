@@ -28,7 +28,12 @@ DEFS = {
 def _check_orphans() -> list[str]:
     """Check for orphaned references across DBs."""
     issues = []
-    registry_map = {"spawn.db": "spawn", "bridge.db": "bridge", "memory.db": "memory", "knowledge.db": "knowledge"}
+    registry_map = {
+        "spawn.db": "spawn",
+        "bridge.db": "bridge",
+        "memory.db": "memory",
+        "knowledge.db": "knowledge",
+    }
     db_conns = {}
     for db_name, registry_name in registry_map.items():
         db_path = paths.dot_space() / db_name
@@ -72,7 +77,13 @@ def _check_db(db_name: str, tables: list[str]) -> tuple[bool, list[str], dict]:
         issues.append(f"❌ {db_name} missing")
         return False, issues, {}
 
-    registry_map = {"spawn.db": "spawn", "bridge.db": "bridge", "memory.db": "memory", "knowledge.db": "knowledge", "events.db": "events"}
+    registry_map = {
+        "spawn.db": "spawn",
+        "bridge.db": "bridge",
+        "memory.db": "memory",
+        "knowledge.db": "knowledge",
+        "events.db": "events",
+    }
     registry_name = registry_map.get(db_name)
     if not registry_name:
         issues.append(f"❌ {db_name}: unknown database")

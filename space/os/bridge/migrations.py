@@ -70,5 +70,4 @@ MIGRATIONS = [
     ("migrate_bridge_messages_id_to_message_id", _migrate_bridge_messages_id_to_message_id),
     ("migrate_bridge_channels_id_to_channel_id", _migrate_bridge_channels_id_to_channel_id),
     ("remove_duplicate_channels", _remove_duplicate_channels),
-    ("drop_bridge_tasks_table", "DROP TABLE IF EXISTS tasks"),
 ]

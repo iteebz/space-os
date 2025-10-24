@@ -20,8 +20,8 @@ def search(
 
     results = {"memory": [], "knowledge": [], "bridge": []}
 
-    if memory_db.database_path().exists():
-        with memory_db.connect() as conn:
+    if memory_db.path().exists():
+        with db.ensure("memory") as conn:
             rows = conn.execute(
                 "SELECT agent_id, topic, message FROM memories WHERE message LIKE ? AND archived_at IS NULL",
                 (f"%{keyword}%",),
@@ -31,8 +31,8 @@ def search(
                 for r in rows
             ]
 
-    if knowledge_db.database_path().exists():
-        with knowledge_db.connect() as conn:
+    if knowledge_db.path().exists():
+        with db.ensure("knowledge") as conn:
             rows = conn.execute(
                 "SELECT domain, content, agent_id FROM knowledge WHERE (content LIKE ? OR domain LIKE ?) AND archived_at IS NULL",
                 (f"%{keyword}%", f"%{keyword}%"),
