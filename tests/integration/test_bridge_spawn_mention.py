@@ -20,7 +20,7 @@ def test_spawn_from_mention_with_context(mock_run):
     assert result is not None
     assert "hello world" in result  # context included
     assert "what is 2+2?" in result  # task included
-    assert "[TASK INSTRUCTIONS]" in result
+    assert "[SPACE INSTRUCTIONS]" in result
 
     # Verify bridge export was called
     assert mock_run.call_count == 1
@@ -53,7 +53,7 @@ def test_spawn_from_mention_returns_prompt(mock_run):
     result = parser.spawn_from_mention("hailot", "test-channel", "@hailot something")
 
     assert result is not None
-    assert "[TASK INSTRUCTIONS]" in result
+    assert "[SPACE INSTRUCTIONS]" in result
 
 
 @patch("space.os.bridge.parser.subprocess.run")

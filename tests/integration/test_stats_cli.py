@@ -2,7 +2,7 @@
 
 from typer.testing import CliRunner
 
-from space.app import app
+from space.cli import app
 
 runner = CliRunner()
 

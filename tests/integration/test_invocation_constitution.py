@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from space.app import app
+from space.cli import app
 from space.os.lib.invocation import Invocation
 
 runner = CliRunner()

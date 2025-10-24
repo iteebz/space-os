@@ -2,7 +2,7 @@
 
 from typer.testing import CliRunner
 
-from space.app import app as space_app
+from space.cli import app as space_app
 from space.os.bridge.app import app as bridge_app
 from space.os.context.app import app as context_app
 from space.os.knowledge.app import app as knowledge_app

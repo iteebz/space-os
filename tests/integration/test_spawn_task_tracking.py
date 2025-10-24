@@ -139,7 +139,7 @@ def test_mention_spawns_worker():
 
         assert len(results) == 1
         assert results[0][0] == "hailot"
-        assert "[TASK INSTRUCTIONS]" in results[0][1]
+        assert "[SPACE INSTRUCTIONS]" in results[0][1]
 
 
 def test_task_provenance_chain(test_space):
