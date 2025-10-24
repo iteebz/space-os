@@ -2,8 +2,6 @@
 
 import asyncio
 import sys
-from collections import deque
-from datetime import datetime
 
 import typer
 from prompt_toolkit import PromptSession
@@ -11,7 +9,11 @@ from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 
 from space.os.bridge import api, db
-from space.os.spawn import registry
+
+from .formatter import format_error, format_header, format_message
+
+STREAM_POLL_INTERVAL = 0.5
+STREAM_ERROR_BACKOFF = 1.0
 
 
 class Council:
@@ -22,8 +24,8 @@ class Council:
         self.running = True
         self._lock = asyncio.Lock()
         self.sent_msg_ids = set()
-        self.message_queue = deque(maxlen=100)
         self.session = PromptSession(history=InMemoryHistory())
+        self._last_printed_agent_id = None
 
     async def stream_messages(self):
         """Stream new messages from channel."""
@@ -31,24 +33,27 @@ class Council:
             try:
                 msgs = db.get_all_messages(self.channel_id)
                 if msgs:
-                    start_idx = 0
-                    if self.last_msg_id:
-                        for i, msg in enumerate(msgs):
-                            if msg.message_id == self.last_msg_id:
-                                start_idx = i + 1
-                                break
-
+                    start_idx = self._find_new_messages_start(msgs)
                     for msg in msgs[start_idx:]:
                         if msg.message_id not in self.sent_msg_ids:
                             async with self._lock:
                                 self._print_message(msg)
                         self.last_msg_id = msg.message_id
 
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(STREAM_POLL_INTERVAL)
             except Exception as e:
                 async with self._lock:
                     self._print_error(f"Stream error: {e}")
-                await asyncio.sleep(1)
+                await asyncio.sleep(STREAM_ERROR_BACKOFF)
+
+    def _find_new_messages_start(self, msgs: list) -> int:
+        """Find index of first unprocessed message."""
+        if not self.last_msg_id:
+            return 0
+        for i, msg in enumerate(msgs):
+            if msg.message_id == self.last_msg_id:
+                return i + 1
+        return 0
 
     async def read_input(self):
         """Read user input asynchronously with prompt_toolkit."""
@@ -56,7 +61,7 @@ class Council:
         while self.running:
             try:
                 with patch_stdout():
-                    msg = await loop.run_in_executor(None, self.session.prompt, "→ ")
+                    msg = await loop.run_in_executor(None, self.session.prompt, "> ")
                 msg = msg.strip()
                 if msg:
                     api.messages.send_message(self.channel_id, "human", msg)
@@ -70,23 +75,32 @@ class Council:
 
     def _print_message(self, msg):
         """Print a message with identity + timestamp (safe with prompt_toolkit)."""
-        identity = registry.get_identity(msg.agent_id) or msg.agent_id
-        ts = datetime.fromisoformat(msg.created_at).strftime("%H:%M:%S")
-        prefix = "←" if identity != "human" else "→"
-        print(f"{prefix} {ts} {identity}: {msg.content}")
+        agent_id = msg.agent_id
+        is_user = agent_id == "human"
+
+        if self._should_add_separator(agent_id, is_user):
+            print()
+
+        print(format_message(msg, is_user))
+        self._last_printed_agent_id = agent_id
+
+    def _should_add_separator(self, agent_id: str, is_user: bool) -> bool:
+        """Determine if a blank line should precede this message."""
+        if not self._last_printed_agent_id:
+            return False
+        if is_user:
+            return False
+        return self._last_printed_agent_id != agent_id
 
     def _print_error(self, msg: str):
         """Print error to stderr."""
-        print(f"\n⚠️  {msg}\n", file=sys.stderr)
+        print(format_error(msg), file=sys.stderr)
 
     async def run(self):
         """Main loop - stream + input."""
         try:
             topic = db.get_topic(self.channel_id)
-            print(f"\n📡 {self.channel_name}")
-            if topic:
-                print(f"   {topic}")
-            print()
+            print(format_header(self.channel_name, topic), end="")
 
             stream_task = asyncio.create_task(self.stream_messages())
             input_task = asyncio.create_task(self.read_input())
@@ -98,10 +112,7 @@ class Council:
             self.running = False
 
 
-def council(
-    channel: str = typer.Argument(..., help="Channel name"),
-    identity: str = typer.Option("human", "--as", help="Identity (defaults to human)"),
-):
+def council(channel: str = typer.Argument(..., help="Channel name")):
     """Join a bridge council - stream messages and respond live."""
     c = Council(channel)
     asyncio.run(c.run())

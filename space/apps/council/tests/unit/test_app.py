@@ -15,63 +15,69 @@ def test_initialization(council_instance, mock_channel):
 def test_print_message_formats(council_instance, mock_messages, monkeypatch):
     """_print_message formats identity, timestamp, and prefix."""
     monkeypatch.setattr(
-        "space.spawn.registry.get_identity",
+        "space.apps.council.formatter.registry.get_identity",
         lambda x: "alice" if x == "agent-1" else x,
     )
 
     output = []
 
     def capture_print(*args, **kwargs):
-        output.append(args[0])
+        if args:
+            output.append(args[0])
 
     with patch("builtins.print", side_effect=capture_print):
         council_instance._print_message(mock_messages[0])
 
-    assert "alice" in output[0]
-    assert "First message" in output[0]
-    assert "←" in output[0]
+    msg_output = next((o for o in output if "First message" in o), None)
+    assert msg_output
+    assert "alice" in msg_output
 
 
 def test_print_message_agent_prefix(council_instance, mock_messages, monkeypatch):
-    """_print_message uses ← for agent messages."""
+    """_print_message formats agent messages correctly."""
     monkeypatch.setattr(
-        "space.spawn.registry.get_identity",
+        "space.apps.council.formatter.registry.get_identity",
         lambda x: "bob" if x == "agent-2" else x,
     )
 
     output = []
 
     def capture_print(*args, **kwargs):
-        output.append(args[0])
+        if args:
+            output.append(args[0])
 
     with patch("builtins.print", side_effect=capture_print):
         council_instance._print_message(mock_messages[1])
 
-    assert "←" in output[0]
-    assert "bob" in output[0]
+    msg_output = next((o for o in output if "Second message" in o), None)
+    assert msg_output
+    assert "bob" in msg_output
 
 
 def test_print_message_human_prefix(council_instance, monkeypatch):
-    """_print_message uses → for human messages."""
+    """_print_message uses > for human messages."""
     human_msg = Mock()
     human_msg.agent_id = "human"
     human_msg.content = "Input"
     human_msg.created_at = "2025-10-24T10:00:00"
 
     monkeypatch.setattr(
-        "space.spawn.registry.get_identity",
+        "space.apps.council.formatter.registry.get_identity",
         lambda x: "human",
     )
 
     output = []
 
     def capture_print(*args, **kwargs):
-        output.append(args[0])
+        if args:
+            output.append(args[0])
 
     with patch("builtins.print", side_effect=capture_print):
         council_instance._print_message(human_msg)
 
-    assert "→" in output[0]
+    msg_output = next((o for o in output if "Input" in o), None)
+    assert msg_output
+    assert ">" in msg_output
 
 
 def test_print_error_writes_stderr(council_instance):

@@ -2,6 +2,7 @@ import sys
 
 import typer
 
+from space.apps.council.app import council
 from space.commands import (
     agent,
     backup,
@@ -16,7 +17,6 @@ from space.commands import (
     wake,
 )
 from space.commands import events as events_cmd
-from space.apps.council.app import council
 from space.os.bridge.app import app as bridge_app
 from space.os.context.app import app as context_app
 from space.os.knowledge.app import app as knowledge_app
