@@ -7,7 +7,7 @@ import sys
 from space.os import config
 from space.os.bridge import parser
 from space.os.bridge.api import messages as api_messages
-from space.os.spawn import registry
+from space.os.spawn import db as spawn_db
 
 logging.basicConfig(level=logging.DEBUG, format="[worker] %(message)s")
 log = logging.getLogger(__name__)
@@ -39,7 +39,6 @@ def main():
         log.info("No mentions, skipping")
         return
 
-    registry.init_db()
     config.init_config()
     results = []
     for identity in mentions:
@@ -49,10 +48,10 @@ def main():
             log.info(f"Got prompt, running spawn {identity}")
             timeout = _get_task_timeout(identity)
             try:
-                task_id = registry.create_task(
+                task_id = spawn_db.create_task(
                     identity=identity, input=prompt, channel_id=channel_id
                 )
-                registry.update_task(task_id, status="running", started_at=True)
+                spawn_db.update_task(task_id, status="running", started_at=True)
 
                 result = subprocess.run(
                     ["spawn", identity, prompt, "--channel", channel_name],
@@ -67,17 +66,17 @@ def main():
                 )
 
                 if result.returncode == 0 and result.stdout.strip():
-                    registry.update_task(
+                    spawn_db.update_task(
                         task_id, status="completed", output=result.stdout.strip(), completed_at=True
                     )
                     results.append((identity, result.stdout.strip()))
                 else:
-                    registry.update_task(
+                    spawn_db.update_task(
                         task_id, status="failed", stderr=result.stderr, completed_at=True
                     )
                     log.error(f"Spawn failed: {result.stderr}")
             except subprocess.TimeoutExpired:
-                registry.update_task(
+                spawn_db.update_task(
                     task_id,
                     status="timeout",
                     stderr=f"Spawn timeout ({timeout}s)",
@@ -85,7 +84,7 @@ def main():
                 )
                 log.error(f"Spawn timeout for {identity}")
             except Exception as e:
-                registry.update_task(task_id, status="failed", stderr=str(e), completed_at=True)
+                spawn_db.update_task(task_id, status="failed", stderr=str(e), completed_at=True)
                 log.error(f"Spawn error: {e}")
         else:
             log.warning(f"No prompt for {identity}")

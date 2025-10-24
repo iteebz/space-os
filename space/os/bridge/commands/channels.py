@@ -4,7 +4,7 @@ from typing import Annotated
 import typer
 
 from space.os.lib import output
-from space.os.spawn import registry
+from space.os.spawn import db as spawn_db
 
 from ... import events
 from .. import api, utils
@@ -40,7 +40,7 @@ def list_channels(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
+    spawn_db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     all_channels = (
         api.all_channels()
         if all_channels_flag
@@ -105,7 +105,7 @@ def create(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
+    agent_id = spawn_db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     try:
         if agent_id:
             events.emit(
@@ -152,7 +152,7 @@ def rename(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
+    agent_id = spawn_db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     old_channel = old_channel.lstrip("#")
     new_channel = new_channel.lstrip("#")
     if agent_id:
@@ -203,7 +203,7 @@ def archive(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
+    agent_id = spawn_db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     channel_names = channels
     if prefix:
         all_channels = api.all_channels()
@@ -263,7 +263,7 @@ def pin(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
+    agent_id = spawn_db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     results = []
     for channel in channels:
         try:
@@ -302,7 +302,7 @@ def unpin(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
+    agent_id = spawn_db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     results = []
     for channel in channels:
         try:
@@ -345,7 +345,7 @@ def delete(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
+    agent_id = spawn_db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     try:
         if agent_id:
             events.emit("bridge", "channel_deleting", agent_id, json.dumps({"channel": channel}))

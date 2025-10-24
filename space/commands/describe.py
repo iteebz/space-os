@@ -2,7 +2,7 @@ import json
 
 import typer
 
-from space.os.spawn import registry
+from space.os.spawn import db as spawn_db
 
 
 def describe(
@@ -11,10 +11,10 @@ def describe(
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format"),
 ):
     """Get or set self-description for an identity."""
-    registry.init_db()
+    pass
 
     if description:
-        updated = registry.set_self_description(identity, description)
+        updated = spawn_db.set_self_description(identity, description)
         if json_output:
             typer.echo(
                 json.dumps({"identity": identity, "description": description, "updated": updated})
@@ -24,7 +24,7 @@ def describe(
         else:
             typer.echo(f"No agent: {identity}")
     else:
-        desc = registry.get_self_description(identity)
+        desc = spawn_db.get_self_description(identity)
         if json_output:
             typer.echo(json.dumps({"identity": identity, "description": desc}))
         elif desc:

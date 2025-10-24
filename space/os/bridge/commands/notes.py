@@ -2,7 +2,7 @@ import json
 
 import typer
 
-from space.os.spawn import registry
+from space.os.spawn import db as spawn_db
 
 from ... import events
 from .. import api, utils
@@ -23,7 +23,7 @@ def notes(
     ),
 ):
     """Show notes for channel, or add note with content and --as identity."""
-    agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
+    agent_id = spawn_db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     if content is None:
         try:
             if agent_id:
@@ -56,7 +56,7 @@ def notes(
                     note_dict = note.__dict__ if hasattr(note, "__dict__") else note
                     timestamp = utils.format_local_time(note_dict["created_at"])
                     agent_id = note_dict.get("agent_id")
-                    identity_str = registry.get_identity(agent_id) if agent_id else "unknown"
+                    identity_str = spawn_db.get_identity(agent_id) if agent_id else "unknown"
                     typer.echo(f"[{timestamp}] {identity_str}: {note_dict['content']}")
                     typer.echo()
         except ValueError as e:

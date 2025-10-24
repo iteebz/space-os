@@ -5,7 +5,7 @@ import subprocess
 import sys
 
 from space.os.models import Message
-from space.os.spawn import registry
+from space.os.spawn import db as spawn_db
 
 from .. import db
 
@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 def send_message(channel_id: str, sender: str, content: str, priority: str = "normal") -> str:
     """Orchestrate sending a message: validate, ensure identity, and store."""
-    agent_id = registry.ensure_agent(sender)
+    agent_id = spawn_db.ensure_agent(sender)
     db.create_message(
         channel_id=channel_id,
         agent_id=agent_id,
@@ -26,7 +26,7 @@ def send_message(channel_id: str, sender: str, content: str, priority: str = "no
     if sender != "system" and "@" in content:
         channel_name = db.get_channel_name(channel_id)
         log.debug(f"Spawning worker for channel={channel_name}, mentions in content")
-        space_agent_id = registry.ensure_agent("space")
+        space_agent_id = spawn_db.ensure_agent("space")
         db.create_message(
             channel_id=channel_id,
             agent_id=space_agent_id,
@@ -68,5 +68,5 @@ def fetch_messages(channel_id: str) -> list[Message]:
 
 def fetch_agent_history(identity: str, limit: int = 5) -> list[Message]:
     """Retrieve message history for a given agent identity."""
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
     return db.get_sender_history(agent_id, limit)

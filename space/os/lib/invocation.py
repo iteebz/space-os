@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 
 from space.os import events
-from space.os.spawn import registry
+from space.os.spawn import db as spawn_db
 
 
 @dataclass
@@ -46,7 +46,7 @@ class Invocation:
         )
 
         if identity:
-            ctx.agent_id = registry.get_agent_id(identity)
+            ctx.agent_id = spawn_db.get_agent_id(identity)
 
         return ctx
 

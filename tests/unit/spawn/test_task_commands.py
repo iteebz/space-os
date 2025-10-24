@@ -2,7 +2,7 @@
 
 import time
 
-from space.os.spawn import registry
+from space.os.spawn import db as spawn_db
 
 
 def test_tasks_list_empty(in_memory_db, capsys):
@@ -18,9 +18,9 @@ def test_tasks_list_shows_running(in_memory_db, capsys):
     """spawn tasks lists running tasks with status, identity, duration."""
     from space.os.spawn.commands.tasks import tasks_cmd
 
-    registry.ensure_agent("hailot")
-    t1 = registry.create_task(identity="hailot", input="task 1", channel_id="ch-1")
-    registry.update_task(t1, status="running", started_at=True)
+    spawn_db.ensure_agent("hailot")
+    t1 = spawn_db.create_task(identity="hailot", input="task 1", channel_id="ch-1")
+    spawn_db.update_task(t1, status="running", started_at=True)
 
     tasks_cmd(None, None)
     captured = capsys.readouterr()
@@ -32,10 +32,10 @@ def test_tasks_list_filter_by_status(in_memory_db, capsys):
     """spawn tasks --status pending shows only pending."""
     from space.os.spawn.commands.tasks import tasks_cmd
 
-    registry.ensure_agent("hailot")
-    t1 = registry.create_task(identity="hailot", input="task 1")
-    t2 = registry.create_task(identity="hailot", input="task 2")
-    registry.update_task(t1, status="completed")
+    spawn_db.ensure_agent("hailot")
+    t1 = spawn_db.create_task(identity="hailot", input="task 1")
+    t2 = spawn_db.create_task(identity="hailot", input="task 2")
+    spawn_db.update_task(t1, status="completed")
 
     tasks_cmd(status="pending", identity=None)
     captured = capsys.readouterr()
@@ -47,10 +47,10 @@ def test_tasks_list_filter_by_identity(in_memory_db, capsys):
     """spawn tasks --identity hailot shows only hailot tasks."""
     from space.os.spawn.commands.tasks import tasks_cmd
 
-    registry.ensure_agent("hailot")
-    registry.ensure_agent("zealot")
-    registry.create_task(identity="hailot", input="hailot task")
-    t2 = registry.create_task(identity="zealot", input="zealot task")
+    spawn_db.ensure_agent("hailot")
+    spawn_db.ensure_agent("zealot")
+    spawn_db.create_task(identity="hailot", input="hailot task")
+    t2 = spawn_db.create_task(identity="zealot", input="zealot task")
 
     tasks_cmd(status=None, identity="hailot")
     captured = capsys.readouterr()
@@ -62,11 +62,11 @@ def test_logs_shows_full_task_detail(in_memory_db, capsys):
     """spawn logs <id> shows input, output, stderr, timestamps, duration."""
     from space.os.spawn.commands.tasks import logs_cmd
 
-    registry.ensure_agent("hailot")
-    task_id = registry.create_task(identity="hailot", input="list repos")
-    registry.update_task(task_id, status="running", started_at=True)
+    spawn_db.ensure_agent("hailot")
+    task_id = spawn_db.create_task(identity="hailot", input="list repos")
+    spawn_db.update_task(task_id, status="running", started_at=True)
     time.sleep(0.01)
-    registry.update_task(task_id, status="completed", output="repo1\nrepo2", completed_at=True)
+    spawn_db.update_task(task_id, status="completed", output="repo1\nrepo2", completed_at=True)
 
     logs_cmd(task_id)
     captured = capsys.readouterr()
@@ -79,9 +79,9 @@ def test_logs_shows_failed_task_stderr(in_memory_db, capsys):
     """spawn logs shows stderr for failed tasks."""
     from space.os.spawn.commands.tasks import logs_cmd
 
-    registry.ensure_agent("hailot")
-    task_id = registry.create_task(identity="hailot", input="bad command")
-    registry.update_task(task_id, status="failed", stderr="error: not found", completed_at=True)
+    spawn_db.ensure_agent("hailot")
+    task_id = spawn_db.create_task(identity="hailot", input="bad command")
+    spawn_db.update_task(task_id, status="failed", stderr="error: not found", completed_at=True)
 
     logs_cmd(task_id)
     captured = capsys.readouterr()

@@ -5,7 +5,7 @@ import typer
 
 from space.os import events
 from space.os.lib import errors, output, readme
-from space.os.spawn import registry
+from space.os.spawn import db as spawn_db
 
 from ..lib import display
 from ..lib import identity as identity_lib
@@ -77,7 +77,7 @@ def add_entry_command(
     identity = identity or ctx.obj.get("identity")
     if not identity:
         raise typer.BadParameter("--as required")
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
     entry_id = db.add_entry(agent_id, topic, message)
     if ctx.obj.get("json_output"):
         typer.echo(output.out_json({"entry_id": entry_id}))
@@ -116,7 +116,7 @@ def summary_command(
     identity = identity or ctx.obj.get("identity")
     if not identity:
         raise typer.BadParameter("--as required")
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
 
     if message:
         existing = db.get_memories(identity, topic="summary", limit=1)
@@ -267,7 +267,7 @@ def inspect_entry_command(
     identity = identity or ctx.obj.get("identity")
     if not identity:
         raise typer.BadParameter("--as required")
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
     try:
         entry = db.get_by_uuid(uuid)
     except ValueError as e:
@@ -279,7 +279,7 @@ def inspect_entry_command(
         return
 
     if entry.agent_id != agent_id:
-        output.out_text(f"Belongs to {registry.get_identity(entry.agent_id)}", ctx.obj)
+        output.out_text(f"Belongs to {spawn_db.get_identity(entry.agent_id)}", ctx.obj)
         return
 
     related = db.find_related(entry, limit=limit, include_archived=include_archived)
@@ -307,7 +307,7 @@ def replace_entry_command(
     if not identity:
         raise typer.BadParameter("--as required")
     identity_lib.constitute_identity(identity)
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
 
     if supersedes:
         old_ids = [x.strip() for x in supersedes.split(",")]

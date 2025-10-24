@@ -24,11 +24,10 @@ def test_add_with_identity():
 
 def test_memory_replace_single(test_space):
     from space.os.memory import db
-    from space.os.spawn import registry
+    from space.os.spawn import db as spawn_db
 
-    registry.init_db()
     identity = "replacer"
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
     db.add_entry(agent_id, "insight", "initial thought")
 
     entries = db.get_memories(identity, topic="insight")
@@ -52,11 +51,10 @@ def test_memory_replace_single(test_space):
 
 def test_replace_merge(test_space):
     from space.os.memory import db
-    from space.os.spawn import registry
+    from space.os.spawn import db as spawn_db
 
-    registry.init_db()
     identity = "merger"
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
     db.add_entry(agent_id, "idea", "thought one")
     db.add_entry(agent_id, "idea", "thought two")
     db.add_entry(agent_id, "idea", "thought three")
@@ -80,11 +78,10 @@ def test_replace_merge(test_space):
 
 def test_memory_chain_query(test_space):
     from space.os.memory import db
-    from space.os.spawn import registry
+    from space.os.spawn import db as spawn_db
 
-    registry.init_db()
     identity = "tracer"
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
     db.add_entry(agent_id, "evolution", "version 1")
 
     memories = db.get_memories(identity, topic="evolution")
@@ -102,11 +99,10 @@ def test_memory_chain_query(test_space):
 
 def test_memory_lineage_upward_traversal(test_space):
     from space.os.memory import db
-    from space.os.spawn import registry
+    from space.os.spawn import db as spawn_db
 
-    registry.init_db()
     identity = "lineage"
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
 
     v1_id = db.add_entry(agent_id, "thought", "version 1")
     v2_id = db.replace_entry([v1_id], agent_id, "thought", "version 2")
@@ -122,11 +118,10 @@ def test_memory_lineage_upward_traversal(test_space):
 
 def test_memory_lineage_downward_traversal(test_space):
     from space.os.memory import db
-    from space.os.spawn import registry
+    from space.os.spawn import db as spawn_db
 
-    registry.init_db()
     identity = "descend"
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
 
     v1_id = db.add_entry(agent_id, "idea", "original")
     db.replace_entry([v1_id], agent_id, "idea", "evolved")
@@ -139,11 +134,10 @@ def test_memory_lineage_downward_traversal(test_space):
 
 def test_memory_lineage_merge_predecessors(test_space):
     from space.os.memory import db
-    from space.os.spawn import registry
+    from space.os.spawn import db as spawn_db
 
-    registry.init_db()
     identity = "merger"
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
 
     id_a = db.add_entry(agent_id, "notes", "idea A")
     id_b = db.add_entry(agent_id, "notes", "idea B")
@@ -165,11 +159,10 @@ def test_memory_lineage_merge_predecessors(test_space):
 
 def test_memory_lineage_bidirectional_traversal(test_space):
     from space.os.memory import db
-    from space.os.spawn import registry
+    from space.os.spawn import db as spawn_db
 
-    registry.init_db()
     identity = "bidir"
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
 
     v1_id = db.add_entry(agent_id, "stream", "gen1")
     v2_id = db.replace_entry([v1_id], agent_id, "stream", "gen2")

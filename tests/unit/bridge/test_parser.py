@@ -89,7 +89,7 @@ def test_spawn_from_mention_success():
         result = parser.spawn_from_mention("hailot", "test-channel", "@hailot test message")
 
         assert result is not None
-        assert "[TASK INSTRUCTIONS]" in result
+        assert "[SPACE INSTRUCTIONS]" in result
         assert "test message" in result
         mock_run.assert_called_once()
         call_args = mock_run.call_args[0][0]
@@ -125,7 +125,7 @@ def test_process_message_single_mention():
 
         assert len(results) == 1
         assert results[0][0] == "hailot"
-        assert "[TASK INSTRUCTIONS]" in results[0][1]
+        assert "[SPACE INSTRUCTIONS]" in results[0][1]
 
 
 def test_process_message_multiple_mentions():
@@ -139,7 +139,7 @@ def test_process_message_multiple_mentions():
         identities = [r[0] for r in results]
         assert set(identities) == {"hailot", "zealot"}
         for _, prompt in results:
-            assert "[TASK INSTRUCTIONS]" in prompt
+            assert "[SPACE INSTRUCTIONS]" in prompt
 
 
 def test_process_message_skips_invalid():

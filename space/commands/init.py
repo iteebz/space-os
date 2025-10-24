@@ -2,7 +2,7 @@ import typer
 
 from space.os import bridge, knowledge, memory
 from space.os.lib import paths
-from space.os.spawn import registry
+from space.os.spawn import db as spawn_db
 
 
 def init():
@@ -13,7 +13,7 @@ def init():
     paths.canon_path().mkdir(parents=True, exist_ok=True)
     (root / "projects").mkdir(parents=True, exist_ok=True)
 
-    registry.init_db()
+    spawn_db.connect().close()
     bridge.db._connect().close()
     memory.db.connect().close()
     knowledge.db.connect().close()

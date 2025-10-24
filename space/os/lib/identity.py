@@ -17,10 +17,10 @@ def callback_with_identity(
 
     if identity:
         from .. import events
-        from ..spawn import registry
+        from ..spawn import db as spawn_db
 
         command = ctx.info_name or "unknown"
-        agent_id = registry.ensure_agent(identity)
+        agent_id = spawn_db.ensure_agent(identity)
         events.emit("identity", command, agent_id)
 
 
@@ -40,13 +40,12 @@ def get_identity(ctx: typer.Context, identity: str | None = None) -> str | None:
 
 def _get_role_and_config(identity: str) -> tuple[str, dict] | None:
     from .. import config
-    from ..spawn import registry
 
     role = extract_role(identity)
     if not role:
         return None
 
-    registry.init_db()
+    pass
     config.init_config()
     cfg = config.load_config()
     if role not in cfg["roles"]:
@@ -55,19 +54,20 @@ def _get_role_and_config(identity: str) -> tuple[str, dict] | None:
 
 
 def _process_constitution(role: str) -> tuple[str, str]:
-    from ..spawn import registry, spawn
+    from ..spawn import db as spawn_db
+    from ..spawn import spawn
 
     const_path = spawn.get_constitution_path(role)
     final_constitution_content = const_path.read_text()
     const_hash = spawn.hash_content(final_constitution_content)
-    registry.save_constitution(const_hash, final_constitution_content)
+    spawn_db.save_constitution(const_hash, final_constitution_content)
     return const_hash, final_constitution_content
 
 
 def constitute_identity(identity: str):
     """Hash constitution and emit provenance event."""
     from .. import events
-    from ..spawn import registry
+    from ..spawn import db as spawn_db
 
     result = _get_role_and_config(identity)
     if not result:
@@ -76,7 +76,7 @@ def constitute_identity(identity: str):
 
     const_hash, _ = _process_constitution(role)
 
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
     model = extract_model_from_identity(identity, cfg)
     events.emit(
         "bridge",

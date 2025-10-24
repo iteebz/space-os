@@ -1,4 +1,5 @@
-from space.os.spawn import registry, spawn
+from space.os.spawn import db as spawn_db
+from space.os.spawn import spawn
 
 
 def test_inject_identity_includes_constitution(in_memory_db):
@@ -18,15 +19,15 @@ def test_inject_identity_with_model(in_memory_db):
 
 
 def test_self_description_persists(in_memory_db):
-    registry.set_self_description("agent-1", "Custom behavior")
-    desc = registry.get_self_description("agent-1")
+    spawn_db.set_self_description("agent-1", "Custom behavior")
+    desc = spawn_db.get_self_description("agent-1")
 
     assert desc == "Custom behavior"
 
 
 def test_self_description_updates(in_memory_db):
-    registry.set_self_description("agent-1", "First description")
-    registry.set_self_description("agent-1", "Updated description")
-    desc = registry.get_self_description("agent-1")
+    spawn_db.set_self_description("agent-1", "First description")
+    spawn_db.set_self_description("agent-1", "Updated description")
+    desc = spawn_db.get_self_description("agent-1")
 
     assert desc == "Updated description"

@@ -7,7 +7,7 @@ import time
 
 import typer
 
-from .. import registry
+from .. import db
 
 
 def tasks_cmd(status: str | None = None, identity: str | None = None, show_all: bool = False):
@@ -17,10 +17,10 @@ def tasks_cmd(status: str | None = None, identity: str | None = None, show_all: 
 
     if status and "|" in status:
         statuses = status.split("|")
-        all_tasks = registry.list_tasks(status=None, identity=identity)
+        all_tasks = db.list_tasks(status=None, identity=identity)
         tasks = [t for t in all_tasks if t["status"] in statuses]
     else:
-        tasks = registry.list_tasks(status=status, identity=identity)
+        tasks = db.list_tasks(status=status, identity=identity)
 
     if not tasks:
         typer.echo("No tasks.")
@@ -50,7 +50,7 @@ def tasks_cmd(status: str | None = None, identity: str | None = None, show_all: 
 
 def logs_cmd(task_id: str):
     """Show full task details: input, output, stderr, timestamps, duration."""
-    task = registry.get_task(task_id)
+    task = db.get_task(task_id)
     if not task:
         typer.echo(f"❌ Task not found: {task_id}", err=True)
         raise typer.Exit(1)
@@ -86,21 +86,21 @@ def logs_cmd(task_id: str):
 
 def wait_cmd(task_id: str, timeout: float = 300.0) -> int:
     """Block until task completes. Return exit code: 0=success, 1=failed, 124=timeout."""
-    task = registry.get_task(task_id)
+    task = db.get_task(task_id)
     if not task:
         typer.echo(f"❌ Task not found: {task_id}", err=True)
         raise typer.Exit(1)
 
     start = time.time()
     while True:
-        task = registry.get_task(task_id)
+        task = db.get_task(task_id)
         if task["status"] in ("completed", "failed", "timeout"):
             if task["status"] == "completed":
                 return 0
             return 1
 
         if time.time() - start > timeout:
-            registry.update_task(
+            db.update_task(
                 task_id, status="timeout", stderr="Wait timeout exceeded", completed_at=True
             )
             raise typer.Exit(124)
@@ -110,7 +110,7 @@ def wait_cmd(task_id: str, timeout: float = 300.0) -> int:
 
 def kill_cmd(task_id: str):
     """Kill a running task."""
-    task = registry.get_task(task_id)
+    task = db.get_task(task_id)
     if not task:
         typer.echo(f"❌ Task not found: {task_id}", err=True)
         raise typer.Exit(1)
@@ -123,5 +123,5 @@ def kill_cmd(task_id: str):
         with contextlib.suppress(OSError, ProcessLookupError):
             os.kill(task["pid"], signal.SIGTERM)
 
-    registry.update_task(task_id, status="failed", stderr="Killed by user", completed_at=True)
+    db.update_task(task_id, status="failed", stderr="Killed by user", completed_at=True)
     typer.echo(f"✓ Task {task_id[:8]} killed")

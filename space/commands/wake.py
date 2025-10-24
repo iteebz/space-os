@@ -82,9 +82,9 @@ def wake(
     """Load your context. Resume where you left off."""
     typer.echo(f"Waking up {identity}")
     from space.os import events
-    from space.os.spawn import registry
+    from space.os.spawn import db as spawn_db
 
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
     events.identify(identity, "wake")
 
     # Auto-sync chat logs on wake

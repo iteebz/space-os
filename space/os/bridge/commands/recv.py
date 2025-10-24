@@ -22,9 +22,9 @@ def recv(
 ):
     constitute_identity(identity)
 
-    from space.os.spawn import registry
+    from space.os.spawn import db as spawn_db
 
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
 
     try:
         channel_id = api.resolve_channel_id(channel)
@@ -58,7 +58,7 @@ def recv(
             )
         elif not quiet_output:
             for msg in messages:
-                typer.echo(f"[{registry.get_identity(msg.agent_id)}] {msg.content}")
+                typer.echo(f"[{spawn_db.get_identity(msg.agent_id)}] {msg.content}")
                 typer.echo()
     except ValueError as e:
         events.emit(
@@ -86,11 +86,11 @@ def alerts(
 ):
     constitute_identity(identity)
 
-    from space.os.spawn import registry
+    from space.os.spawn import db as spawn_db
 
     from .. import db
 
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
 
     try:
         alert_messages = api.get_alerts(identity)
@@ -106,7 +106,7 @@ def alerts(
         elif not quiet_output:
             typer.echo(f"--- Alerts for {identity} ({len(alert_messages)} unread) ---")
             for msg in alert_messages:
-                typer.echo(f"\n[{registry.get_identity(msg.agent_id)} | {msg.channel_id}]")
+                typer.echo(f"\n[{spawn_db.get_identity(msg.agent_id)} | {msg.channel_id}]")
                 typer.echo(msg.content)
 
         for msg in alert_messages:
@@ -136,9 +136,9 @@ def inbox(
     """Show all channels with unreads."""
     constitute_identity(identity)
 
-    from space.os.spawn import registry
+    from space.os.spawn import db as spawn_db
 
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
 
     try:
         channels = api.inbox_channels(identity)

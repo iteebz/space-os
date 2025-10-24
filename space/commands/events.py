@@ -16,9 +16,9 @@ def show_events(
     ),
 ):
     """Show recent events from append-only log."""
-    from space.os.spawn import registry
+    from space.os.spawn import db as spawn_db
 
-    agent_id = registry.get_agent_id(identity) if identity else None
+    agent_id = spawn_db.get_agent_id(identity) if identity else None
     rows = events.query(source=source, agent_id=agent_id, limit=limit)
     if not rows:
         if not quiet_output:
@@ -28,7 +28,7 @@ def show_events(
         return
 
     if json_output:
-        from space.os.spawn import registry
+        from space.os.spawn import db as spawn_db
 
         json_rows = []
         for uuid, src, aid, event_type, data, created_at in rows:
@@ -36,7 +36,7 @@ def show_events(
                 {
                     "uuid": uuid,
                     "source": src,
-                    "identity": registry.get_identity(aid) or aid,
+                    "identity": spawn_db.get_identity(aid) or aid,
                     "event_type": event_type,
                     "data": data,
                     "created_at": datetime.fromtimestamp(created_at).isoformat(),
@@ -44,10 +44,10 @@ def show_events(
             )
         typer.echo(json.dumps(json_rows))
     elif not quiet_output:
-        from space.os.spawn import registry
+        from space.os.spawn import db as spawn_db
 
         for uuid, src, aid, event_type, data, created_at in rows:
             ts = datetime.fromtimestamp(created_at).strftime("%Y-%m-%d %H:%M:%S")
-            ident_str = f" [{registry.get_identity(aid) or aid}]" if aid else ""
+            ident_str = f" [{spawn_db.get_identity(aid) or aid}]" if aid else ""
             data_str = f" {data}" if data else ""
             typer.echo(f"[{uuid[:8]}] {ts} {src}.{event_type}{ident_str}{data_str}")

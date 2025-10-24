@@ -1,13 +1,13 @@
 """Business logic for handling channel notes."""
 
-from space.os.spawn import registry
+from space.os.spawn import db as spawn_db
 
 from .. import db
 
 
 def add_note(channel_id: str, identity: str, content: str):
     """Add a note to a channel, handling identity and channel resolution."""
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
     db.create_note(channel_id, agent_id, content)
 
 

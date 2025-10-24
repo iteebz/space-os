@@ -14,7 +14,7 @@ from space.os.lib.uuid7 import uuid7
 from .. import events
 from ..lib import paths
 from ..models import Memory
-from ..spawn import registry
+from ..spawn import db as spawn_db
 
 MEMORY_DB_NAME = "memory.db"
 
@@ -181,7 +181,7 @@ def get_memories(
     include_archived: bool = False,
     limit: int | None = None,
 ) -> list[Memory]:
-    agent_id = registry.get_agent_id(identity)
+    agent_id = spawn_db.get_agent_id(identity)
     if not agent_id:
         raise ValueError(f"Agent '{identity}' not found.")
 
@@ -227,7 +227,7 @@ def delete_entry(memory_id: str):
 
 
 def clear_entries(identity: str, topic: str | None = None):
-    agent_id = registry.get_agent_id(identity)
+    agent_id = spawn_db.get_agent_id(identity)
     if not agent_id:
         raise ValueError(f"Agent '{identity}' not found.")
     with connect() as conn:
@@ -278,7 +278,7 @@ def mark_core(memory_id: str, core: bool = True):
 
 
 def get_core_entries(identity: str) -> list[Memory]:
-    agent_id = registry.get_agent_id(identity)
+    agent_id = spawn_db.get_agent_id(identity)
     if not agent_id:
         return []
 
@@ -291,7 +291,7 @@ def get_core_entries(identity: str) -> list[Memory]:
 
 
 def get_recent_entries(identity: str, days: int = 7, limit: int = 20) -> list[Memory]:
-    agent_id = registry.get_agent_id(identity)
+    agent_id = spawn_db.get_agent_id(identity)
     if not agent_id:
         return []
 
@@ -305,7 +305,7 @@ def get_recent_entries(identity: str, days: int = 7, limit: int = 20) -> list[Me
 
 
 def search_entries(identity: str, keyword: str, include_archived: bool = False) -> list[Memory]:
-    agent_id = registry.get_agent_id(identity)
+    agent_id = spawn_db.get_agent_id(identity)
     if not agent_id:
         return []
 

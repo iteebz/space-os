@@ -16,7 +16,7 @@ def search(
     ),
 ):
     """Search across memory, knowledge, and bridge."""
-    from space.os.spawn import registry
+    from space.os.spawn import db as spawn_db
 
     results = {"memory": [], "knowledge": [], "bridge": []}
 
@@ -27,7 +27,7 @@ def search(
                 (f"%{keyword}%",),
             ).fetchall()
             results["memory"] = [
-                {"identity": registry.get_identity(r[0]) or r[0], "topic": r[1], "message": r[2]}
+                {"identity": spawn_db.get_identity(r[0]) or r[0], "topic": r[1], "message": r[2]}
                 for r in rows
             ]
 
@@ -41,7 +41,7 @@ def search(
                 {
                     "domain": r[0],
                     "content": r[1],
-                    "contributor": registry.get_identity(r[2]) or r[2],
+                    "contributor": spawn_db.get_identity(r[2]) or r[2],
                 }
                 for r in rows
             ]
@@ -54,7 +54,7 @@ def search(
                 (f"%{keyword}%",),
             ).fetchall()
             results["bridge"] = [
-                {"channel": r[0], "sender": registry.get_identity(r[1]) or r[1], "content": r[2]}
+                {"channel": r[0], "sender": spawn_db.get_identity(r[1]) or r[1], "content": r[2]}
                 for r in rows
             ]
 

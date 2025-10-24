@@ -5,7 +5,7 @@ import json
 import typer
 
 from space.os.lib.identity import constitute_identity
-from space.os.spawn import registry
+from space.os.spawn import db as spawn_db
 
 from ... import events
 from .. import api
@@ -37,7 +37,7 @@ def send(
             else:
                 raise typer.BadParameter("Invalid base64 payload", param_hint="content") from exc
 
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
 
     try:
         channel_id = api.resolve_channel_id(channel)
@@ -93,7 +93,7 @@ def alert(
     """Send high-priority alert to a channel."""
     constitute_identity(identity)
 
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
 
     try:
         events.emit(
@@ -103,7 +103,7 @@ def alert(
             json.dumps({"channel": channel, "identity": identity, "content": content}),
         )
         channel_id = api.resolve_channel_id(channel)
-        agent_id = registry.ensure_agent(identity)
+        agent_id = spawn_db.ensure_agent(identity)
         api.send_message(channel_id, identity, content, priority="alert")
         events.emit(
             "bridge",

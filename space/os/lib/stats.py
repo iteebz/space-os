@@ -86,21 +86,21 @@ class SpaceStats:
 
 
 def _get_agent_names_map() -> dict[str, str]:
-    from ..spawn import registry
+    from ..spawn import db as spawn_db
 
-    with registry.get_db() as reg_conn:
+    with spawn_db.connect() as reg_conn:
         return {row[0]: row[1] for row in reg_conn.execute("SELECT id, name FROM agents")}
 
 
 def _discover_all_agent_ids(registered_ids: set[str], include_archived: bool = False) -> set[str]:
-    """Discover all unique agent_ids across all activity tables and registry."""
-    from ..spawn import registry
+    """Discover all unique agent_ids across all activity tables and spawn_db."""
+    from ..spawn import db as spawn_db
 
     all_agent_ids = set(registered_ids)
 
     if include_archived:
-        registry.init_db()
-        with registry.get_db() as reg_conn:
+        pass
+        with spawn_db.connect() as reg_conn:
             for row in reg_conn.execute("SELECT id FROM agents WHERE archived_at IS NOT NULL"):
                 all_agent_ids.add(row[0])
 
@@ -260,10 +260,10 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
 
 
 def agent_stats(limit: int = None, include_archived: bool = False) -> list[AgentStats] | None:
-    from ..spawn import registry
+    from ..spawn import db as spawn_db
 
-    registry.init_db()
-    with registry.get_db() as reg_conn:
+    pass
+    with spawn_db.connect() as reg_conn:
         where_clause = "" if include_archived else "WHERE archived_at IS NULL"
         agent_ids = {row[0] for row in reg_conn.execute(f"SELECT id FROM agents {where_clause}")}
 

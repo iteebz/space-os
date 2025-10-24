@@ -3,7 +3,8 @@ from pathlib import Path
 import pytest
 
 from space.os import config
-from space.os.spawn import registry, spawn
+from space.os.spawn import db as spawn_db
+from space.os.spawn import spawn
 
 
 def test_constitution_injection(test_space):
@@ -41,28 +42,26 @@ def test_constitution_hash(test_space):
 
 def test_save_and_load_constitution(test_space):
     """Test saving and loading constitutions by hash."""
-    registry.init_db()
 
     content = "Constitution for test agent"
     content_hash = spawn.hash_content(content)
 
-    spawn.registry.save_constitution(content_hash, content)
-    loaded = spawn.registry.get_constitution(content_hash)
+    spawn_db.save_constitution(content_hash, content)
+    loaded = spawn_db.get_constitution(content_hash)
 
     assert loaded == content
 
 
 def test_constitution_idempotent_save(test_space):
     """Test that saving same constitution twice doesn't error."""
-    registry.init_db()
 
     content = "Test constitution"
     content_hash = spawn.hash_content(content)
 
-    spawn.registry.save_constitution(content_hash, content)
-    spawn.registry.save_constitution(content_hash, content)
+    spawn_db.save_constitution(content_hash, content)
+    spawn_db.save_constitution(content_hash, content)
 
-    loaded = spawn.registry.get_constitution(content_hash)
+    loaded = spawn_db.get_constitution(content_hash)
     assert loaded == content
 
 

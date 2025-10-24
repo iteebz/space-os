@@ -1,6 +1,6 @@
 import typer
 
-from space.os.spawn import registry
+from space.os.spawn import db as spawn_db
 
 app = typer.Typer(invoke_without_command=True)
 
@@ -20,9 +20,9 @@ def show_registry():
     constitution is content-addressable via its hash, creating an immutable
     audit trail of constitutional evolution.
     """
-    registry.init_db()
+    pass
 
-    with registry.get_db() as conn:
+    with spawn_db.connect() as conn:
         rows = conn.execute(
             "SELECT hash, content, created_at FROM constitutions ORDER BY created_at DESC"
         ).fetchall()
@@ -53,9 +53,9 @@ def show_registry():
 
 @app.command("backfill")
 def backfill():
-    """Backfill orphaned agent IDs from bridge into registry."""
-    registry.init_db()
-    count = registry.backfill_unknown_agents()
+    """Backfill orphaned agent IDs from bridge into spawn_db."""
+    pass
+    count = spawn_db.backfill_unknown_agents()
     if count > 0:
         typer.echo(f"Registered {count} orphaned agent(s)")
     else:

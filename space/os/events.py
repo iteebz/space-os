@@ -7,7 +7,7 @@ from space.os import db
 from .lib import paths
 from .lib.identity import constitute_identity
 from .lib.uuid7 import uuid7
-from .spawn import registry
+from .spawn import db as spawn_db
 
 Event = namedtuple("Event", ["id", "source", "agent_id", "event_type", "data", "timestamp"])
 
@@ -113,7 +113,7 @@ def identify(identity: str, command: str):
     Creates immutable audit trail linking identity → command.
     """
     constitute_identity(identity)
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
     emit("identity", command, agent_id, "")
 
 

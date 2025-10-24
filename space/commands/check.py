@@ -5,7 +5,7 @@ import typer
 
 from space.os import db
 from space.os.lib import paths
-from space.os.spawn import registry
+from space.os.spawn import db as spawn_db
 
 
 def check(
@@ -15,14 +15,14 @@ def check(
 ):
     """Show agent dashboard: summary, memories, stats."""
     try:
-        registry.init_db()
+        pass
 
-        agent_id = registry.get_agent_id(agent)
+        agent_id = spawn_db.get_agent_id(agent)
         if not agent_id:
             typer.echo(f"Agent {agent} not found")
             raise typer.Exit(1)
 
-        with registry.get_db() as conn:
+        with spawn_db.connect() as conn:
             row = conn.execute(
                 "SELECT name, self_description FROM agents WHERE id = ?", (agent_id,)
             ).fetchone()

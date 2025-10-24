@@ -6,16 +6,16 @@ import typer
 from space.os import events as events_lib
 from space.os.lib import paths
 from space.os.lib import stats as stats_lib
-from space.os.spawn import registry
+from space.os.spawn import db as spawn_db
 
 app = typer.Typer(invoke_without_command=True)
 
 
 def _resolve_agent_id(fuzzy_match: str, include_archived: bool = False) -> tuple[str, str] | None:
     """Resolve agent ID from partial UUID or identity name. Returns (agent_id, display_name)."""
-    registry.init_db()
+    pass
 
-    with registry.get_db() as conn:
+    with spawn_db.connect() as conn:
         where_clause = "" if include_archived else "WHERE archived_at IS NULL"
         rows = conn.execute(f"SELECT id, name FROM agents {where_clause}").fetchall()
 
@@ -30,7 +30,7 @@ def _resolve_agent_id(fuzzy_match: str, include_archived: bool = False) -> tuple
     if len(candidates) == 1:
         agent_id, name = candidates[0]
         resolved = (
-            registry.get_identity(name)
+            spawn_db.get_identity(name)
             if (name and len(name) == 36 and name.count("-") == 4)
             else name
         )
@@ -58,8 +58,8 @@ def list_agents(show_all: bool = typer.Option(False, "--all", help="Show archive
         typer.echo("No agents found.")
         return
 
-    registry.init_db()
-    with registry.get_db() as conn:
+    pass
+    with spawn_db.connect() as conn:
         {row["id"]: row["name"] for row in conn.execute("SELECT id, name FROM agents")}
 
     typer.echo(f"{'NAME':<20} {'ID':<10} {'E-S-B-M-K':<20} {'SELF'}")
@@ -71,7 +71,7 @@ def list_agents(show_all: bool = typer.Option(False, "--all", help="Show archive
         short_id = agent_id[:8]
 
         if len(name) == 36 and name.count("-") == 4:
-            resolved = registry.get_identity(name)
+            resolved = spawn_db.get_identity(name)
             if resolved:
                 name = resolved
 
@@ -153,7 +153,7 @@ def merge_agents(id_from: str, id_to: str):
 
     updated_count = 0
 
-    with registry.get_db() as conn:
+    with spawn_db.connect() as conn:
         updated_count += conn.execute(
             "UPDATE agents SET archived_at = ? WHERE id = ?", (int(time.time()), from_agent_id)
         ).rowcount
@@ -200,9 +200,9 @@ def rename_agent(agent_ref: str, new_name: str):
 
     agent_id, _ = result
 
-    registry.init_db()
+    pass
 
-    with registry.get_db() as conn:
+    with spawn_db.connect() as conn:
         conn.execute("UPDATE agents SET name = ? WHERE id = ?", (new_name, agent_id))
         conn.commit()
 
@@ -236,7 +236,7 @@ def delete_agent(
 
     deleted_count = 0
 
-    with registry.get_db() as conn:
+    with spawn_db.connect() as conn:
         deleted_count += conn.execute("DELETE FROM agents WHERE id = ?", (agent_id,)).rowcount
         conn.commit()
 

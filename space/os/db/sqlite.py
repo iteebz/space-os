@@ -51,6 +51,7 @@ def ensure(name: str) -> sqlite3.Connection:
         raise ValueError(f"Database '{name}' not registered. Call db.register() first.")
     db_file, schema = _registry[name]
     db_path = paths.dot_space() / db_file
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     migs = _migrations.get(name)
     if not db_path.exists():
         ensure_schema(db_path, schema, migs)

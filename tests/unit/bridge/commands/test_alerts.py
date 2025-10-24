@@ -1,10 +1,10 @@
 def test_alerts_sets_bookmarks_after_rendering(test_space):
     """Regression test: Alerts command should set bookmarks after rendering, clearing unread count."""
     from space.os.bridge import db
-    from space.os.spawn import registry
+    from space.os.spawn import db as spawn_db
 
     channel_id = db.create_channel("alert-channel")
-    agent_id = registry.ensure_agent("test-agent")
+    agent_id = spawn_db.ensure_agent("test-agent")
 
     msg_id = db.create_message(channel_id, "system", "alert message", priority="alert")
 

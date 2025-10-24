@@ -3,7 +3,7 @@ from dataclasses import asdict
 
 import typer
 
-from space.os.spawn import registry
+from space.os.spawn import db as spawn_db
 
 from ... import events
 from .. import api, utils
@@ -22,7 +22,7 @@ def history(
     preview: bool = typer.Option(False, "--preview", "-p", help="Show preview snapshot"),
 ):
     """Show all messages broadcast by identity across all channels."""
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
     try:
         events.emit(
             "bridge",

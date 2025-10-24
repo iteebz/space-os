@@ -6,12 +6,12 @@ from ..events import DB_PATH
 from ..knowledge import db as knowledge_db
 from ..lib import paths
 from ..memory import db as memory_db
-from ..spawn import registry
+from ..spawn import db as spawn_db
 
 
 def _query_with_identity(base_query: str, params: list, identity: str | None, all_agents: bool):
     if identity and not all_agents:
-        agent_id = registry.get_agent_id(identity)
+        agent_id = spawn_db.get_agent_id(identity)
         if not agent_id:
             raise ValueError(f"Agent '{identity}' not found")
         base_query += " AND agent_id = ?"
@@ -55,7 +55,7 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
                     {
                         "source": "events",
                         "type": event_type,
-                        "identity": registry.get_identity(row[2]) or row[2] if row[2] else None,
+                        "identity": spawn_db.get_identity(row[2]) or row[2] if row[2] else None,
                         "data": row[4],
                         "timestamp": row[5],
                     }
@@ -79,7 +79,7 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
                     {
                         "source": "memory",
                         "type": row[1],
-                        "identity": registry.get_identity(row[0]) or row[0] if row[0] else None,
+                        "identity": spawn_db.get_identity(row[0]) or row[0] if row[0] else None,
                         "data": row[2],
                         "timestamp": row[3] if isinstance(row[3], int) else 0,
                     }
@@ -103,7 +103,7 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
                     {
                         "source": "knowledge",
                         "type": row[0],
-                        "identity": registry.get_identity(row[2]) or row[2] if row[2] else None,
+                        "identity": spawn_db.get_identity(row[2]) or row[2] if row[2] else None,
                         "data": row[1],
                         "timestamp": row[3] if isinstance(row[3], int) else 0,
                     }
@@ -133,7 +133,7 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
                     {
                         "source": "bridge",
                         "type": row[0],
-                        "identity": registry.get_identity(row[1]) or row[1] if row[1] else None,
+                        "identity": spawn_db.get_identity(row[1]) or row[1] if row[1] else None,
                         "data": row[2],
                         "timestamp": ts,
                     }
@@ -155,7 +155,7 @@ def collect_current_state(topic: str, identity: str | None, all_agents: bool):
             query, params = _query_with_identity(query, params, identity, all_agents)
             rows = conn.execute(query, params).fetchall()
             results["memory"] = [
-                {"identity": registry.get_identity(r[0]) or r[0], "topic": r[1], "message": r[2]}
+                {"identity": spawn_db.get_identity(r[0]) or r[0], "topic": r[1], "message": r[2]}
                 for r in rows
             ]
 
@@ -169,7 +169,7 @@ def collect_current_state(topic: str, identity: str | None, all_agents: bool):
                 {
                     "domain": r[0],
                     "content": r[1],
-                    "contributor": registry.get_identity(r[2]) or r[2],
+                    "contributor": spawn_db.get_identity(r[2]) or r[2],
                 }
                 for r in rows
             ]
@@ -184,7 +184,7 @@ def collect_current_state(topic: str, identity: str | None, all_agents: bool):
             query, params = _query_with_identity(query, params, identity, all_agents)
             rows = conn.execute(query, params).fetchall()
             results["bridge"] = [
-                {"channel": r[0], "sender": registry.get_identity(r[1]) or r[1], "content": r[2]}
+                {"channel": r[0], "sender": spawn_db.get_identity(r[1]) or r[1], "content": r[2]}
                 for r in rows
             ]
 

@@ -43,9 +43,9 @@ def sleep(
     """Prepare for death. Hand off context to your next self."""
     from space.os import events
     from space.os.memory import db as memory_db
-    from space.os.spawn import registry
+    from space.os.spawn import db as spawn_db
 
-    agent_id = registry.get_agent_id(identity)
+    agent_id = spawn_db.get_agent_id(identity)
     if not agent_id:
         if not quiet:
             typer.echo(f"No active session for {identity}")

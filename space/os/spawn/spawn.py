@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .. import config
 from ..lib import paths
-from . import registry
+from . import db
 
 
 def hash_content(content: str) -> str:
@@ -79,9 +79,6 @@ def _run_wake_sequence(identity: str) -> str | None:
     from contextlib import redirect_stdout
 
     from ...commands import wake
-    from . import registry
-
-    registry.init_db()
 
     output = io.StringIO()
     with redirect_stdout(output):
@@ -128,7 +125,7 @@ def launch_agent(
     base_content = const_path.read_text()
     full_identity = inject_identity(base_content, role, actual_identity, actual_model)
     const_hash = hash_content(full_identity)
-    registry.save_constitution(const_hash, full_identity)
+    db.save_constitution(const_hash, full_identity)
 
     _write_identity_file(actual_base_identity, actual_identity, full_identity)
 

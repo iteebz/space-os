@@ -3,7 +3,7 @@ import typer
 from space.os.lib import errors
 
 from .. import config
-from . import registry, spawn
+from . import db, spawn
 from .commands import tasks as tasks_module
 
 errors.install_error_handler("spawn")
@@ -20,14 +20,12 @@ def tasks_cmd(
     all: bool = typer.Option(False, "--all", help="Show all tasks (default: active only)"),
 ):
     """List spawn tasks."""
-    registry.init_db()
     tasks_module.tasks_cmd(status=status, identity=identity, show_all=all)
 
 
 @app.command(name="logs")
 def logs_cmd(task_id: str):
     """Show full task details."""
-    registry.init_db()
     tasks_module.logs_cmd(task_id)
 
 
@@ -37,7 +35,6 @@ def wait_cmd(
     timeout: float = typer.Option(300.0, help="Wait timeout in seconds"),
 ):
     """Block until task completes."""
-    registry.init_db()
     exit_code = tasks_module.wait_cmd(task_id, timeout=timeout)
     raise typer.Exit(exit_code)
 
@@ -45,16 +42,14 @@ def wait_cmd(
 @app.command(name="kill")
 def kill_cmd(task_id: str):
     """Kill a running task."""
-    registry.init_db()
     tasks_module.kill_cmd(task_id)
 
 
 @app.command(name="rename")
 def rename_cmd(old_name: str, new_name: str):
     """Rename an agent."""
-    registry.init_db()
     try:
-        if registry.rename_agent(old_name, new_name):
+        if db.rename_agent(old_name, new_name):
             typer.echo(f"✓ Renamed {old_name} → {new_name}")
         else:
             typer.echo(f"❌ Agent not found: {old_name}. Run `spawn` to list agents.", err=True)
@@ -67,7 +62,7 @@ def rename_cmd(old_name: str, new_name: str):
 @app.callback()
 def main_command(ctx: typer.Context):
     """Constitutional agent registry"""
-    registry.init_db()
+    pass
 
 
 @app.command(

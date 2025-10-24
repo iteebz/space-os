@@ -5,7 +5,7 @@ from dataclasses import asdict
 import typer
 
 from space.os.lib.identity import constitute_identity
-from space.os.spawn import registry
+from space.os.spawn import db as spawn_db
 
 from ... import events
 from .. import api
@@ -26,7 +26,7 @@ def wait(
     """Block until new message arrives, then return."""
     constitute_identity(identity)
 
-    agent_id = registry.ensure_agent(identity)
+    agent_id = spawn_db.ensure_agent(identity)
 
     try:
         channel_id = api.resolve_channel_id(channel)
@@ -74,7 +74,7 @@ def wait(
                     )
                 elif not quiet_output:
                     for msg in other_messages:
-                        typer.echo(f"[{registry.get_identity(msg.agent_id)}] {msg.content}")
+                        typer.echo(f"[{spawn_db.get_identity(msg.agent_id)}] {msg.content}")
                         typer.echo()
                 break
 

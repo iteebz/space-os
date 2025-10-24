@@ -1,11 +1,7 @@
-from space.os.spawn import registry, spawn
+from space.os.spawn import spawn
 
 
 def test_header_injection(tmp_path):
-    db = tmp_path / "spawn.db"
-    registry.config.registry_db = lambda: db
-    registry.init_db()
-
     constitution = "Core rules."
     result = spawn.inject_identity(constitution, "test-role", "test-agent", model="test-model")
 
@@ -18,10 +14,6 @@ def test_header_injection(tmp_path):
 
 
 def test_footer_injection(tmp_path):
-    db = tmp_path / "spawn.db"
-    registry.config.registry_db = lambda: db
-    registry.init_db()
-
     constitution = "Core rules."
     result = spawn.inject_identity(constitution, "test-role", "test-agent")
 
@@ -32,10 +24,6 @@ def test_footer_injection(tmp_path):
 
 
 def test_canon_injection_order(mocker, tmp_path):
-    db = tmp_path / "spawn.db"
-    registry.config.registry_db = lambda: db
-    registry.init_db()
-
     canon_dir = tmp_path / "canon"
     canon_dir.mkdir(parents=True, exist_ok=True)
     (canon_dir / "test_canon.md").write_text("# CANON\n1. Truth")
