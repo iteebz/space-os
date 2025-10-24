@@ -12,10 +12,10 @@ from .channels import list_channels
 
 errors.install_error_handler("bridge")
 
-app = typer.Typer(invoke_without_command=True, add_help_option=False)
+bridge = typer.Typer(invoke_without_command=True, add_help_option=False)
 
 
-@app.callback()
+@bridge.callback()
 def main_command(
     ctx: typer.Context,
     agent_id: str = typer.Option(None, "--as", help="Agent identity"),
@@ -46,17 +46,17 @@ def main_command(
             _show_readme(ctx.obj)
 
 
-app.add_typer(channels_app, name="channels")
-app.command("send")(messages.send)
-app.command("alert")(messages.alert)
-app.command("recv")(messages.recv)
-app.command("wait")(messages.wait)
-app.command("inbox")(messages.inbox)
-app.command("alerts")(messages.alerts)
-app.command("notes")(notes.notes)
-app.command("export")(export.export)
-app.command("archive")(archive_cmd)
-app.command("list")(list_channels)
+bridge.add_typer(channels_app, name="channels")
+bridge.command("send")(messages.send)
+bridge.command("alert")(messages.alert)
+bridge.command("recv")(messages.recv)
+bridge.command("wait")(messages.wait)
+bridge.command("inbox")(messages.inbox)
+bridge.command("alerts")(messages.alerts)
+bridge.command("notes")(notes.notes)
+bridge.command("export")(export.export)
+bridge.command("archive")(archive_cmd)
+bridge.command("list")(list_channels)
 
 
 def _show_readme(ctx_obj: dict):
@@ -115,4 +115,4 @@ def _print_active_channels(agent_id: str, json_output: bool, quiet_output: bool)
 
 def main() -> None:
     """Entry point for poetry script."""
-    app()
+    bridge()

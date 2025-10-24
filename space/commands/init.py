@@ -23,6 +23,8 @@ def init():
         pass
     with db.ensure("knowledge"):
         pass
+    with db.ensure("events"):
+        pass
 
     typer.echo(f"✓ Initialized workspace at {root}")
     typer.echo(f"✓ User data at {Path.home() / '.space'}")

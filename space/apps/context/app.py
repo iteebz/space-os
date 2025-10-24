@@ -9,10 +9,10 @@ from . import db
 
 errors.install_error_handler("context")
 
-app = typer.Typer(invoke_without_command=True)
+context = typer.Typer(invoke_without_command=True)
 
 
-@app.callback()
+@context.callback()
 def main_command(
     ctx: typer.Context,
     topic: str | None = typer.Argument(None, help="Topic to retrieve context for"),

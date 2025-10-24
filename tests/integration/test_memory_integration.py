@@ -1,23 +1,23 @@
 from typer.testing import CliRunner
 
-from space.os.memory.app import app
+from space.os import memory
 
 runner = CliRunner()
 
 
 def test_memory_shows_readme():
-    result = runner.invoke(app)
+    result = runner.invoke(memory)
     assert result.exit_code == 0
     assert "memory" in result.stdout.lower()
 
 
 def test_add_requires_identity():
-    result = runner.invoke(app, ["add", "test content"])
+    result = runner.invoke(memory, ["add", "test content"])
     assert result.exit_code != 0
 
 
 def test_add_with_identity():
-    result = runner.invoke(app, ["add", "test memory", "--as", "test-agent", "--topic", "testing"])
+    result = runner.invoke(memory, ["add", "test memory", "--as", "test-agent", "--topic", "testing"])
     assert result.exit_code == 0
     assert "added" in result.stdout.lower() or "memory" in result.stdout.lower()
 

@@ -82,13 +82,13 @@ def test_task_lifecycle_states(test_space):
 
 
 def test_spawn_app_accepts_context_flag(test_space):
-    """spawn/app.py must parse --context flag."""
+    """spawn/cli.py must parse --context flag."""
     import inspect
 
-    from space.os.spawn.app import _spawn_from_registry
+    from space.os.spawn.cli import _spawn_from_registry
 
     source = inspect.getsource(_spawn_from_registry)
-    assert "--context" in source, "--context flag must be parsed in spawn app"
+    assert "--context" in source, "--context flag must be parsed in spawn cli"
     assert "context =" in source, "context variable must be assigned"
 
 
@@ -96,7 +96,7 @@ def test_context_prepended_to_task_prompt(test_space):
     """Task prompt must prepend context when --context provided."""
     import inspect
 
-    from space.os.spawn.app import _spawn_from_registry
+    from space.os.spawn.cli import _spawn_from_registry
 
     source = inspect.getsource(_spawn_from_registry)
     assert "context + " in source or "context +" in source, (

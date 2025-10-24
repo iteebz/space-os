@@ -2,7 +2,7 @@ import typer
 
 from space.apps import stats as stats_lib
 
-app = typer.Typer(invoke_without_command=True)
+stats = typer.Typer(invoke_without_command=True)
 
 
 def overview():
@@ -62,13 +62,13 @@ overview"""
     typer.echo("\n".join(lines) + "\n")
 
 
-@app.callback(invoke_without_command=True)
+@stats.callback(invoke_without_command=True)
 def main_command(ctx: typer.Context):
     if ctx.invoked_subcommand is None:
         overview()
 
 
-@app.command()
+@stats.command()
 def memory(
     json_output: bool = typer.Option(False, "--json", "-j"),
 ):
@@ -105,7 +105,7 @@ def memory(
     typer.echo("\n".join(lines) + "\n")
 
 
-@app.command()
+@stats.command()
 def knowledge(
     json_output: bool = typer.Option(False, "--json", "-j"),
 ):
@@ -142,7 +142,7 @@ def knowledge(
     typer.echo("\n".join(lines) + "\n")
 
 
-@app.command()
+@stats.command()
 def bridge(
     json_output: bool = typer.Option(False, "--json", "-j"),
 ):

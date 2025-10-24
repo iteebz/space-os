@@ -3,8 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from space.os import db
+from space.os import events
+from space.os.bridge import db as bridge_db
+from space.os.knowledge import db as knowledge_db
+from space.os.memory import db as memory_db
 from space.os.lib import format as fmt
 from space.os.lib import paths
+from space.os.spawn import db as spawn_db
 
 from .models import (
     AgentStats,
@@ -19,10 +24,11 @@ from .models import (
 
 
 def _get_agent_names_map() -> dict[str, str]:
-    from space.os.spawn import db as spawn_db
-
-    with spawn_db.connect() as reg_conn:
-        return {row[0]: row[1] for row in reg_conn.execute("SELECT agent_id, name FROM agents")}
+    try:
+        with spawn_db.connect() as reg_conn:
+            return {row[0]: row[1] for row in reg_conn.execute("SELECT agent_id, name FROM agents")}
+    except Exception:
+        return {}
 
 
 def _discover_all_agent_ids(registered_ids: set[str], include_archived: bool = False) -> set[str]:
@@ -32,11 +38,14 @@ def _discover_all_agent_ids(registered_ids: set[str], include_archived: bool = F
     all_agent_ids = set(registered_ids)
 
     if include_archived:
-        with spawn_db.connect() as reg_conn:
-            for row in reg_conn.execute(
-                "SELECT agent_id FROM agents WHERE archived_at IS NOT NULL"
-            ):
-                all_agent_ids.add(row[0])
+        try:
+            with spawn_db.connect() as reg_conn:
+                for row in reg_conn.execute(
+                    "SELECT agent_id FROM agents WHERE archived_at IS NOT NULL"
+                ):
+                    all_agent_ids.add(row[0])
+        except Exception:
+            pass
 
     dbs = [
         (paths.space_data() / "bridge.db", "messages"),
@@ -55,11 +64,17 @@ def _discover_all_agent_ids(registered_ids: set[str], include_archived: bool = F
         if db_path.exists():
             registry_name = registry_map.get(db_path.name)
             if registry_name:
-                with db.ensure(registry_name) as conn:
-                    for row in conn.execute(
-                        f"SELECT DISTINCT agent_id FROM {table} WHERE agent_id IS NOT NULL"
-                    ):
-                        all_agent_ids.add(row[0])
+                try:
+                    with db.ensure(registry_name) as conn:
+                        cursor = conn.execute(f"PRAGMA table_info({table})")
+                        columns = [row["name"] for row in cursor.fetchall()]
+                        if "agent_id" in columns:
+                            for row in conn.execute(
+                                f"SELECT DISTINCT agent_id FROM {table} WHERE agent_id IS NOT NULL"
+                            ):
+                                all_agent_ids.add(row[0])
+                except Exception:
+                    pass
 
     return all_agent_ids
 
@@ -104,13 +119,18 @@ def _get_common_db_stats(
             archived = 0
 
         topics_or_channels = None
-        if topic_column:
-            topics_or_channels = conn.execute(
-                f"SELECT COUNT(DISTINCT {topic_column}) FROM {table_name} WHERE archived_at IS NULL"
-            ).fetchone()[0]
+        if topic_column and topic_column in columns:
+            if has_archived_at:
+                topics_or_channels = conn.execute(
+                    f"SELECT COUNT(DISTINCT {topic_column}) FROM {table_name} WHERE archived_at IS NULL"
+                ).fetchone()[0]
+            else:
+                topics_or_channels = conn.execute(
+                    f"SELECT COUNT(DISTINCT {topic_column}) FROM {table_name}"
+                ).fetchone()[0]
 
         leaderboard = []
-        if leaderboard_column:
+        if leaderboard_column and leaderboard_column in columns:
             query = f"SELECT {leaderboard_column}, COUNT(*) as count FROM {table_name} GROUP BY {leaderboard_column} ORDER BY count DESC"
             if limit:
                 rows = conn.execute(f"{query} LIMIT ?", (limit,)).fetchall()
@@ -212,13 +232,14 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
 
 
 def agent_stats(limit: int = None, include_archived: bool = False) -> list[AgentStats] | None:
-    from space.os.spawn import db as spawn_db
-
-    with spawn_db.connect() as reg_conn:
-        where_clause = "" if include_archived else "WHERE archived_at IS NULL"
-        agent_ids = {
-            row[0] for row in reg_conn.execute(f"SELECT agent_id FROM agents {where_clause}")
-        }
+    try:
+        with spawn_db.connect() as reg_conn:
+            where_clause = "" if include_archived else "WHERE archived_at IS NULL"
+            agent_ids = {
+                row[0] for row in reg_conn.execute(f"SELECT agent_id FROM agents {where_clause}")
+            }
+    except Exception:
+        agent_ids = set()
 
     agent_ids_from_all_tables = _discover_all_agent_ids(
         agent_ids, include_archived=include_archived
@@ -295,18 +316,24 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
         registry_name = registry_map.get(db_path.name)
         if not registry_name:
             continue
-        with db.ensure(registry_name) as conn:
-            for sql, field in query_list:
-                for row in conn.execute(sql):
-                    agent_id = row[0]
-                    if agent_id not in identities:
-                        continue
-                    if field == "channels":
-                        identities[agent_id][field] = row[1].split(",") if row[1] else []
-                    elif field == "last_active":
-                        identities[agent_id][field] = str(row[1])
-                    else:
-                        identities[agent_id][field] = row[1]
+        try:
+            with db.ensure(registry_name) as conn:
+                for sql, field in query_list:
+                    try:
+                        for row in conn.execute(sql):
+                            agent_id = row[0]
+                            if agent_id not in identities:
+                                continue
+                            if field == "channels":
+                                identities[agent_id][field] = row[1].split(",") if row[1] else []
+                            elif field == "last_active":
+                                identities[agent_id][field] = str(row[1])
+                            else:
+                                identities[agent_id][field] = row[1]
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
     agents = [
         AgentStats(
@@ -335,11 +362,14 @@ def spawn_stats() -> SpawnStats:
     if not db_path.exists():
         return SpawnStats(available=False)
 
-    with db.ensure("spawn") as conn:
-        agents = conn.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
-        hashes = conn.execute("SELECT COUNT(*) FROM constitutions").fetchone()[0]
+    try:
+        with db.ensure("spawn") as conn:
+            agents = conn.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
+            hashes = conn.execute("SELECT COUNT(*) FROM constitutions").fetchone()[0]
 
-    return SpawnStats(available=True, total=agents, agents=agents, hashes=hashes)
+        return SpawnStats(available=True, total=agents, agents=agents, hashes=hashes)
+    except Exception:
+        return SpawnStats(available=False)
 
 
 def events_stats() -> EventsStats:

@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import shutil
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 
@@ -39,6 +40,7 @@ def backup(
 
     db.resolve(src)
     shutil.copytree(src, backup_path, dirs_exist_ok=False)
+    db.resolve(backup_path)
     
     os.chmod(backup_path, 0o555)
 

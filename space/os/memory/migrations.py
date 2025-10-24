@@ -10,7 +10,7 @@ def _migrate_memory_table_to_memories(conn: sqlite3.Connection):
         return
     cursor = conn.execute("PRAGMA table_info(memory)")
     cols = [row["name"] for row in cursor.fetchall()]
-    if "uuid" not in cols:
+    if "uuid" not in cols or "agent_id" not in cols:
         return
     conn.executescript(
         """

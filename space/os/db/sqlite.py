@@ -127,6 +127,13 @@ def resolve(db_dir: Path) -> None:
             conn.execute("PRAGMA journal_mode=DELETE")
             conn.execute("PRAGMA wal_checkpoint(RESTART)")
             conn.close()
+            
+            for artifact in db_file.parent.glob(f"{db_file.name}-*"):
+                try:
+                    artifact.unlink()
+                except OSError:
+                    pass
+            
             logger.info(f"Resolved {db_file.name}")
         except sqlite3.DatabaseError as e:
             logger.warning(f"Failed to resolve {db_file.name}: {e}")

@@ -3,10 +3,10 @@ from datetime import datetime
 
 import typer
 
-from space.os import events
+from space.os import events as events_db
 
 
-def show_events(
+def events(
     source: str = typer.Option(None, help="Filter by source (bridge, memory, spawn)"),
     identity: str = typer.Option(None, help="Filter by identity"),
     errors: bool = typer.Option(False, "--errors", help="Show only error events"),
@@ -20,7 +20,7 @@ def show_events(
     from space.os.spawn import db as spawn_db
 
     agent_id = spawn_db.get_agent_id(identity) if identity else None
-    rows = events.query(source=source, agent_id=agent_id, limit=1000 if errors else limit)
+    rows = events_db.query(source=source, agent_id=agent_id, limit=1000 if errors else limit)
 
     if errors:
         rows = [e for e in rows if e[3] == "error"][:limit]

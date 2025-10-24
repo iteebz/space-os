@@ -4,9 +4,7 @@ from typer.testing import CliRunner
 
 from space.apps.context.app import app as context_app
 from space.cli import app as space_app
-from space.os.bridge.app import app as bridge_app
-from space.os.knowledge.app import app as knowledge_app
-from space.os.memory.app import app as memory_app
+from space.os import bridge, knowledge, memory
 
 runner = CliRunner()
 
@@ -27,42 +25,42 @@ def test_space_help():
 
 def test_bridge_no_args():
     """bridge shows README by default."""
-    result = runner.invoke(bridge_app)
+    result = runner.invoke(bridge)
     assert result.exit_code == 0
     assert "BRIDGE" in result.stdout
 
 
 def test_bridge_help():
     """bridge --help shows README."""
-    result = runner.invoke(bridge_app, ["--help"])
+    result = runner.invoke(bridge, ["--help"])
     assert result.exit_code == 0
     assert "BRIDGE" in result.stdout
 
 
 def test_memory_no_args():
     """memory shows README by default."""
-    result = runner.invoke(memory_app)
+    result = runner.invoke(memory)
     assert result.exit_code == 0
     assert "memory" in result.stdout.lower()
 
 
 def test_memory_help():
     """memory --help shows README."""
-    result = runner.invoke(memory_app, ["--help"])
+    result = runner.invoke(memory, ["--help"])
     assert result.exit_code == 0
     assert result.stdout
 
 
 def test_knowledge_no_args():
     """knowledge shows README by default."""
-    result = runner.invoke(knowledge_app)
+    result = runner.invoke(knowledge)
     assert result.exit_code == 0
     assert "knowledge" in result.stdout.lower()
 
 
 def test_knowledge_help():
     """knowledge --help shows README."""
-    result = runner.invoke(knowledge_app, ["--help"])
+    result = runner.invoke(knowledge, ["--help"])
     assert result.exit_code == 0
     assert result.stdout
 

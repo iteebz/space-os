@@ -8,19 +8,19 @@ from . import entries
 
 errors.install_error_handler("memory")
 
-app = typer.Typer(invoke_without_command=True)
-app.command(name="add")(entries.add)
-app.command(name="edit")(entries.edit)
-app.command(name="list")(entries.list)
-app.command(name="search")(entries.search)
-app.command(name="archive")(entries.archive)
-app.command(name="core")(entries.core)
-app.command(name="inspect")(entries.inspect)
-app.command(name="replace")(entries.replace)
-app.command(name="summary")(entries.summary)
+memory = typer.Typer(invoke_without_command=True)
+memory.command(name="add")(entries.add)
+memory.command(name="edit")(entries.edit)
+memory.command(name="list")(entries.list)
+memory.command(name="search")(entries.search)
+memory.command(name="archive")(entries.archive)
+memory.command(name="core")(entries.core)
+memory.command(name="inspect")(entries.inspect)
+memory.command(name="replace")(entries.replace)
+memory.command(name="summary")(entries.summary)
 
 
-@app.callback()
+@memory.callback()
 def cb(
     ctx: typer.Context,
     identity: str = typer.Option(None, "--as", help="Identity name"),
@@ -54,7 +54,7 @@ def cb(
 def main() -> None:
     """Entry point for poetry script."""
     try:
-        app()
+        memory()
     except typer.Exit as e:
         if e.exit_code and e.exit_code != 0:
             from space.os import events
@@ -70,4 +70,4 @@ def main() -> None:
         sys.exit(1)
 
 
-__all__ = ["app"]
+__all__ = ["memory"]

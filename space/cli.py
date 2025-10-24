@@ -2,49 +2,43 @@ import sys
 
 import typer
 
-from space.apps.context.app import app as context_app
+from space.apps.context.app import context
 from space.apps.council.app import council
-from space.apps.stats.app import app as stats_app
-from space.commands import (
-    archive,
-    backup,
-    check,
-    health,
-    init,
-    sleep,
-    wake,
-)
-from space.commands import events as events_cmd
-from space.os import chats
-from space.os.bridge.app import app as bridge_app
-from space.os.knowledge.app import app as knowledge_app
+from space.apps.stats.app import stats
+from space.commands.backup import backup
+from space.commands.events import events
+from space.commands.health import health
+from space.commands.init import init
+from space.commands.launch import launch
+from space.commands.sleep import sleep
+from space.commands.wake import wake
+from space.os import bridge, chats, knowledge, memory, spawn
 from space.os.lib import readme
 from space.os.lib.aliasing import Aliasing
 from space.os.lib.invocation import Invocation
-from space.os.memory.app import app as memory_app
 from space.os.spawn.commands.agents import app as agents_app
 from space.os.spawn.commands.registry import app as registry_app
 
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False, add_help_option=False)
 
-app.add_typer(knowledge_app, name="knowledge")
-app.add_typer(memory_app, name="memory")
+app.add_typer(knowledge, name="knowledge")
+app.add_typer(memory, name="memory")
 app.add_typer(agents_app, name="agents")
-app.add_typer(context_app, name="context")
-app.add_typer(stats_app, name="stats")
+app.add_typer(context, name="context")
+app.add_typer(stats, name="stats")
 app.add_typer(registry_app, name="registry")
-app.add_typer(bridge_app, name="bridge")
+app.add_typer(bridge, name="bridge")
+app.add_typer(spawn, name="spawn")
 app.add_typer(chats.app, name="chats")
 
-app.command(name="archive")(archive.archive)
-app.command(name="backup")(backup.backup)
-app.command(name="check")(check.check)
+app.command(name="backup")(backup)
 app.command(name="council")(council)
-app.command(name="events")(events_cmd.show_events)
-app.command(name="health")(health.health)
-app.command(name="init")(init.init)
-app.command(name="wake")(wake.wake)
-app.command(name="sleep")(sleep.sleep)
+app.command(name="events")(events)
+app.command(name="health")(health)
+app.command(name="init")(init)
+app.command(name="launch")(launch)
+app.command(name="wake")(wake)
+app.command(name="sleep")(sleep)
 
 
 @app.callback(invoke_without_command=True)

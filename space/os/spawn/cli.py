@@ -9,24 +9,24 @@ from .commands.registry import app as registry_app
 
 errors.install_error_handler("spawn")
 
-app = typer.Typer()
-app.add_typer(agents_app, name="agents")
-app.add_typer(registry_app, name="registry")
+spawn = typer.Typer()
+spawn.add_typer(agents_app, name="agents")
+spawn.add_typer(registry_app, name="registry")
 
-app.command(name="tasks")(tasks.tasks)
-app.command(name="logs")(tasks.logs)
-app.command(name="wait")(tasks.wait)
-app.command(name="kill")(tasks.kill)
-app.command(name="rename")(tasks.rename)
+spawn.command(name="tasks")(tasks.tasks)
+spawn.command(name="logs")(tasks.logs)
+spawn.command(name="wait")(tasks.wait)
+spawn.command(name="kill")(tasks.kill)
+spawn.command(name="rename")(tasks.rename)
 
 
-@app.callback()
+@spawn.callback()
 def cb(ctx: typer.Context):
     """Constitutional agent registry"""
     pass
 
 
-@app.command(
+@spawn.command(
     name="launch",
     hidden=True,
     context_settings={"allow_extra_args": True, "allow_interspersed_args": False},
@@ -45,7 +45,7 @@ def main() -> None:
         if cmd not in ["rename", "tasks", "logs", "wait", "kill"]:
             sys.argv.insert(1, "launch")
 
-    app()
+    spawn()
 
 
 def _spawn_from_registry(arg: str, extra_args: list[str]):
