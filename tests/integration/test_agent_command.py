@@ -1,8 +1,8 @@
 from typer.testing import CliRunner
 
-from space.os import spawn
+from space.os.core.spawn.cli import spawn as spawn_app
+from space.os.core.spawn import db as spawn_db
 from space.os.core.memory import db
-from space.os.core.spawn.commands.agents import app
 
 runner = CliRunner()
 
@@ -10,10 +10,10 @@ runner = CliRunner()
 def test_agent_list(test_space):
     """Test listing agents."""
 
-    spawn.db.ensure_agent("agent-1")
-    spawn.db.ensure_agent("agent-2")
+    spawn_db.ensure_agent("agent-1")
+    spawn_db.ensure_agent("agent-2")
 
-    result = runner.invoke(app, ["list"])
+    result = runner.invoke(spawn_app, ["agents"])
     assert result.exit_code == 0
     assert "agent-1" in result.stdout
     assert "agent-2" in result.stdout
@@ -22,14 +22,14 @@ def test_agent_list(test_space):
 def test_agent_merge(test_space):
     """Test merging agent memories from one ID to another."""
 
-    agent_id_1 = spawn.db.ensure_agent("agent-source")
-    agent_id_2 = spawn.db.ensure_agent("agent-target")
+    agent_id_1 = spawn_db.ensure_agent("agent-source")
+    agent_id_2 = spawn_db.ensure_agent("agent-target")
 
     db.add_entry(agent_id_1, "topic-a", "memory from source 1")
     db.add_entry(agent_id_1, "topic-b", "memory from source 2")
     db.add_entry(agent_id_2, "topic-c", "memory from target")
 
-    result = runner.invoke(app, ["merge", "agent-source", "agent-target"])
+    result = runner.invoke(spawn_app, ["merge", "agent-source", "agent-target"])
     assert result.exit_code == 0
     assert "Merged" in result.stdout
 
@@ -44,9 +44,9 @@ def test_agent_merge(test_space):
 def test_agent_merge_nonexistent_source(test_space):
     """Test merge fails with nonexistent source agent."""
 
-    spawn.db.ensure_agent("agent-target")
+    spawn_db.ensure_agent("agent-target")
 
-    result = runner.invoke(app, ["merge", "nonexistent", "agent-target"])
+    result = runner.invoke(spawn_app, ["merge", "nonexistent", "agent-target"])
     assert result.exit_code != 0
     assert "not found" in result.stdout
 
@@ -54,9 +54,9 @@ def test_agent_merge_nonexistent_source(test_space):
 def test_agent_merge_nonexistent_target(test_space):
     """Test merge fails with nonexistent target agent."""
 
-    spawn.db.ensure_agent("agent-source")
+    spawn_db.ensure_agent("agent-source")
 
-    result = runner.invoke(app, ["merge", "agent-source", "nonexistent"])
+    result = runner.invoke(spawn_app, ["merge", "agent-source", "nonexistent"])
     assert result.exit_code != 0
     assert "not found" in result.stdout
 
@@ -64,12 +64,12 @@ def test_agent_merge_nonexistent_target(test_space):
 def test_agent_rename(test_space):
     """Test renaming an agent."""
 
-    spawn.db.ensure_agent("old-name")
+    spawn_db.ensure_agent("old-name")
 
-    result = runner.invoke(app, ["rename", "old-name", "new-name"])
+    result = runner.invoke(spawn_app, ["rename", "old-name", "new-name"])
     assert result.exit_code == 0
     assert "Renamed" in result.stdout
 
-    with spawn.db.connect() as conn:
+    with spawn_db.connect() as conn:
         agent = conn.execute("SELECT name FROM agents WHERE name = ?", ("new-name",)).fetchone()
     assert agent is not None

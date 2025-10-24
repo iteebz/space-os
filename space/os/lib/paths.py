@@ -43,8 +43,8 @@ def chats_db() -> Path:
 
 
 def backups_dir() -> Path:
-    """Returns the backups directory, ~/.space/backups (read-only)."""
-    return Path.home() / ".space" / "backups"
+    """Returns the backups directory, ~/.space_backups (read-only)."""
+    return Path.home() / ".space_backups"
 
 
 def backup_snapshot(timestamp: str) -> Path:

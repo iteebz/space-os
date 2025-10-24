@@ -6,6 +6,7 @@ import time
 import typer
 
 from space.os import config
+from space.os.models import TaskStatus
 
 from . import db
 
@@ -100,14 +101,17 @@ def wait(task_id: str, timeout: float | None = None) -> int:
     start = time.time()
     while True:
         task = db.get_task(task_id)
-        if task.status in ("completed", "failed", "timeout"):
-            if task.status == "completed":
+        if task.status in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.TIMEOUT):
+            if task.status == TaskStatus.COMPLETED:
                 return 0
             return 1
 
         if time.time() - start > timeout:
             db.update_task(
-                task_id, status="timeout", stderr="Wait timeout exceeded", completed_at=True
+                task_id,
+                status=TaskStatus.TIMEOUT,
+                stderr="Wait timeout exceeded",
+                mark_completed=True,
             )
             raise typer.Exit(124)
 
@@ -121,7 +125,7 @@ def kill(task_id: str):
         typer.echo(f"❌ Task not found: {task_id}", err=True)
         raise typer.Exit(1)
 
-    if task.status in ("completed", "failed", "timeout"):
+    if task.status in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.TIMEOUT):
         typer.echo(f"⚠️ Task already {task.status}, nothing to kill")
         return
 
@@ -129,7 +133,7 @@ def kill(task_id: str):
         with contextlib.suppress(OSError, ProcessLookupError):
             os.kill(task.pid, signal.SIGTERM)
 
-    db.update_task(task_id, status="failed", stderr="Killed by user", completed_at=True)
+    db.update_task(task_id, status="failed", stderr="Killed by user", mark_completed=True)
     typer.echo(f"✓ Task {task_id[:8]} killed")
 
 

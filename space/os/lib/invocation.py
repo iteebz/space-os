@@ -13,11 +13,11 @@ class Invocation:
     identity: str | None = None
     full_args: list[str] = field(default_factory=list)
     subcommand: str | None = None
-    agent_id: str | None = None
+    _agent_id: str | None = field(default=None, init=False)
 
     @classmethod
     def from_args(cls, argv: list[str]) -> "Invocation":
-        """Parse argv into invocation context."""
+        """Parse argv into invocation context (no DB calls)."""
         if not argv:
             return cls(command="", full_args=argv)
 
@@ -37,17 +37,19 @@ class Invocation:
                 subcommand = arg
                 break
 
-        ctx = cls(
+        return cls(
             command=command,
             identity=identity,
             full_args=argv,
             subcommand=subcommand,
         )
 
-        if identity:
-            ctx.agent_id = spawn.db.get_agent_id(identity)
-
-        return ctx
+    @property
+    def agent_id(self) -> str | None:
+        """Lazily resolve agent_id from identity (cached)."""
+        if self._agent_id is None and self.identity:
+            self._agent_id = spawn.db.get_agent_id(self.identity)
+        return self._agent_id
 
     def emit_invocation(self, cmd_str: str | None = None) -> None:
         """Emit invocation event to telemetry."""

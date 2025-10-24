@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import pytest
-
 from space.os import config, spawn
 
 
@@ -81,52 +79,6 @@ def test_resolve_model_alias(test_space):
     assert haiku
     assert sonnet
     assert haiku != sonnet
-
-
-def test_parse_command_string():
-    """Test command string parsing."""
-    cmd = spawn._parse_command("python -m space.commands agent")
-    assert cmd == ["python", "-m", "space.commands", "agent"]
-
-
-def test_parse_command_list():
-    """Test command list parsing."""
-    cmd_list = ["python", "-m", "space"]
-    cmd = spawn._parse_command(cmd_list)
-    assert cmd == cmd_list
-
-
-def test_parse_command_with_quotes():
-    """Test command parsing with quoted arguments."""
-    cmd = spawn._parse_command("python -c \"print('hello')\"")
-    assert "python" in cmd
-    assert len(cmd) >= 2
-
-
-def test_parse_command_empty_raises():
-    """Test that empty command raises error."""
-    with pytest.raises(ValueError, match="Command cannot be empty"):
-        spawn._parse_command("")
-
-    with pytest.raises(ValueError, match="Command list cannot be empty"):
-        spawn._parse_command([])
-
-
-def test_virtualenv_bin_paths():
-    """Test virtual environment bin path collection."""
-    env = {"VIRTUAL_ENV": "/path/to/venv"}
-    paths = spawn._virtualenv_bin_paths(env)
-
-    assert "/path/to/venv/bin" in paths
-
-
-def test_build_launch_env():
-    """Test launch environment building removes poetry venv."""
-    env = spawn._build_launch_env()
-
-    assert "VIRTUAL_ENV" not in env
-    assert "PATH" in env
-    assert env["PATH"]
 
 
 def test_get_constitution_path(test_space):

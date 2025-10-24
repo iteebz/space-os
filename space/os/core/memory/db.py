@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from space.os import db
+from space.os import db, events
 from space.os.db import from_row
 from space.os.lib import paths
 from space.os.lib.ids import resolve_id
@@ -14,6 +14,8 @@ from space.os.lib.uuid7 import uuid7
 from space.os.models import Memory
 
 from . import migrations
+
+_track_memory = events.track("memory")
 
 
 def schema() -> str:
@@ -180,34 +182,34 @@ def archive_entry(memory_id: str) -> None:
     events.emit("memory", "note_archive", entry.agent_id, f"{full_id[-8:]}")
 
 
-def restore_entry(memory_id: str) -> None:
-    from space.os import db, events
-
+@_track_memory
+def restore_entry(memory_id: str, agent_id: str | None = None) -> None:
     full_id = resolve_id("memory", "memory_id", memory_id)
     entry = get_by_memory_id(full_id)
     if not entry:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
+    if agent_id is None:
+        agent_id = entry.agent_id
     with db.ensure("memory") as conn:
         conn.execute(
             "UPDATE memories SET archived_at = NULL WHERE memory_id = ?",
             (full_id,),
         )
-    events.emit("memory", "note_restore", entry.agent_id, f"{full_id[-8:]}")
 
 
-def mark_core(memory_id: str, core: bool = True) -> None:
-    from space.os import events
-
+@_track_memory
+def mark_core(memory_id: str, core: bool = True, agent_id: str | None = None) -> None:
     full_id = resolve_id("memory", "memory_id", memory_id)
     entry = get_by_memory_id(full_id)
     if not entry:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
+    if agent_id is None:
+        agent_id = entry.agent_id
     with db.ensure("memory") as conn:
         conn.execute(
             "UPDATE memories SET core = ? WHERE memory_id = ?",
             (1 if core else 0, full_id),
         )
-    events.emit("memory", "note_core", entry.agent_id, f"{full_id[-8:]} → {core}")
 
 
 def get_core_entries(identity: str) -> list[Memory]:

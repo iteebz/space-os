@@ -30,6 +30,15 @@ def registry_db() -> Path:
     return paths.space_data() / "spawn.db"
 
 
+def _validate_config(cfg: dict) -> None:
+    """Validate config structure. Fail fast on invalid types."""
+    if not isinstance(cfg, dict):
+        raise ValueError(f"Config must be a dict, got {type(cfg).__name__}")
+
+    if "roles" in cfg and not isinstance(cfg.get("roles"), dict):
+        raise ValueError("Config 'roles' must be a dict")
+
+
 def clear_cache():
     load_config.cache_clear()
 
@@ -41,7 +50,9 @@ def load_config() -> dict:
     if not path.exists():
         return {}
     with open(path) as f:
-        return yaml.safe_load(f) or {}
+        cfg = yaml.safe_load(f) or {}
+    _validate_config(cfg)
+    return cfg
 
 
 def init_config() -> None:

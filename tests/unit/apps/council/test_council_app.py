@@ -19,7 +19,7 @@ def mock_channel():
 @pytest.fixture
 def council_instance(mock_channel):
     """Create a Council instance with mocked API."""
-    with patch("space.apps.council.app.api.channels.resolve_channel_id") as mock_resolve:
+    with patch("space.apps.council.app.db.resolve_channel_id") as mock_resolve:
         mock_resolve.return_value = mock_channel["channel_id"]
         return Council(mock_channel["channel_name"])
 

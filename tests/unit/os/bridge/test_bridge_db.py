@@ -1,31 +1,30 @@
 def test_bookmark_respects_bookmarks(test_space):
-    from space.os.core.bridge import api
-    from space.os.core.bridge.api import messages as coordination_messages
+    from space.os.core.bridge import db
 
-    channel_id = api.create_channel("bookmark-channel")
+    channel_id = db.create_channel("bookmark-channel")
 
-    api.send_message(channel_id, "human", "first message")
-    messages, unread_count, _, _ = coordination_messages.recv_updates(channel_id, "agent-a")
+    db.send_message(channel_id, "human", "first message")
+    messages, unread_count, _, _ = db.recv_updates(channel_id, "agent-a")
     assert [msg.content for msg in messages] == ["first message"]
     assert unread_count == 1
 
-    api.send_message(channel_id, "human", "second message")
-    messages, unread_count, _, _ = coordination_messages.recv_updates(channel_id, "agent-a")
+    db.send_message(channel_id, "human", "second message")
+    messages, unread_count, _, _ = db.recv_updates(channel_id, "agent-a")
     assert [msg.content for msg in messages] == ["second message"]
     assert unread_count == 1
 
 
 def test_get_new_messages_summary_channel_no_special_handling(test_space):
-    from space.os.core.bridge import api, db
+    from space.os.core.bridge import db
 
     # Create a summary channel
     channel_id = db.create_channel("summary", topic="test summary topic")
     agent_id = "test-agent"
 
     # Send multiple messages to the summary channel
-    api.send_message(channel_id, "sender1", "summary message 1")
-    api.send_message(channel_id, "sender2", "summary message 2")
-    api.send_message(channel_id, "sender3", "summary message 3")
+    db.send_message(channel_id, "sender1", "summary message 1")
+    db.send_message(channel_id, "sender2", "summary message 2")
+    db.send_message(channel_id, "sender3", "summary message 3")
 
     # This test expects get_new_messages to *not* have special handling for "summary"
     # and thus return all new messages.
@@ -95,13 +94,13 @@ def test_alerts_set_bookmarks(test_space):
 def test_note_convert_identity(test_space):
     """Regression test: add_note should convert identity name to agent_id."""
     from space.os import spawn
-    from space.os.core.bridge import api, db
+    from space.os.core.bridge import db
 
-    channel_id = api.create_channel("note-test-channel")
+    channel_id = db.create_channel("note-test-channel")
     identity = "test-agent"
     spawn.db.ensure_agent(identity)
 
-    api.add_note(channel_id, identity, "test note content")
+    db.add_note(channel_id, identity, "test note content")
 
     notes = db.get_notes(channel_id)
     assert len(notes) == 1
@@ -114,13 +113,13 @@ def test_note_convert_identity(test_space):
 def test_notes_return_agent_id(test_space):
     """Regression test: get_notes should return agent_id UUIDs for lookups."""
     from space.os import spawn
-    from space.os.core.bridge import api, db
+    from space.os.core.bridge import db
 
-    channel_id = api.create_channel("note-uuid-test")
+    channel_id = db.create_channel("note-uuid-test")
     identity = "note-agent"
     agent_id = spawn.db.ensure_agent(identity)
 
-    api.add_note(channel_id, identity, "note content")
+    db.add_note(channel_id, identity, "note content")
 
     notes = db.get_notes(channel_id)
     assert len(notes) == 1

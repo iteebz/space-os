@@ -32,11 +32,11 @@ def test_task_lifecycle_pending_to_completed(test_space):
     task = spawn.db.get_task(task_id)
     assert task.status == "pending"
 
-    spawn.db.update_task(task_id, status="running", started_at=True)
+    spawn.db.update_task(task_id, status="running", mark_started=True)
     task = spawn.db.get_task(task_id)
     assert task.status == "running"
 
-    spawn.db.update_task(task_id, status="completed", output="done", completed_at=True)
+    spawn.db.update_task(task_id, status="completed", output="done", mark_completed=True)
     task = spawn.db.get_task(task_id)
     assert task.status == "completed"
     assert task.output == "done"
@@ -53,8 +53,8 @@ def test_multiple_agents_concurrent_tasks(test_space):
     spawn.db.create_task(identity="hailot", input="hailot task 2")
     z1 = spawn.db.create_task(identity="zealot", input="zealot task 1")
 
-    spawn.db.update_task(h1, status="running", started_at=True)
-    spawn.db.update_task(z1, status="running", started_at=True)
+    spawn.db.update_task(h1, status="running", mark_started=True)
+    spawn.db.update_task(z1, status="running", mark_started=True)
 
     hailot_running = spawn.db.list_tasks(status="running", identity="hailot")
     assert len(hailot_running) == 1

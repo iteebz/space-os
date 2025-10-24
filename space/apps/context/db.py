@@ -81,7 +81,10 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
 
     if memory.db.path().exists():
         with db.ensure("memory") as conn:
-            query = "SELECT agent_id, topic, message, created_at FROM memories WHERE (message LIKE ? OR topic LIKE ?)"
+            query = (
+                "SELECT agent_id, topic, message, created_at FROM memories "
+                "WHERE (message LIKE ? OR topic LIKE ?)"
+            )
             params = [f"%{topic}%", f"%{topic}%"]
             query, params = _query_with_identity(query, params, identity, all_agents)
             query += " ORDER BY created_at ASC"
@@ -105,7 +108,10 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
 
     if knowledge.db.path().exists():
         with db.ensure("knowledge") as conn:
-            query = "SELECT domain, content, agent_id, created_at FROM knowledge WHERE (content LIKE ? OR domain LIKE ?)"
+            query = (
+                "SELECT domain, content, agent_id, created_at FROM knowledge "
+                "WHERE (content LIKE ? OR domain LIKE ?)"
+            )
             params = [f"%{topic}%", f"%{topic}%"]
             query, params = _query_with_identity(query, params, identity, all_agents)
             query += " ORDER BY created_at ASC"
@@ -128,7 +134,11 @@ def collect_timeline(topic: str, identity: str | None, all_agents: bool):
                 )
     if bridge.db.path().exists():
         with db.ensure("bridge") as conn:
-            query = "SELECT c.name, m.agent_id, m.content, m.created_at FROM messages m JOIN channels c ON m.channel_id = c.channel_id WHERE (m.content LIKE ? OR c.name LIKE ?)"
+            query = (
+                "SELECT c.name, m.agent_id, m.content, m.created_at "
+                "FROM messages m JOIN channels c ON m.channel_id = c.channel_id "
+                "WHERE (m.content LIKE ? OR c.name LIKE ?)"
+            )
             params = [f"%{topic}%", f"%{topic}%"]
             query, params = _query_with_identity(query, params, identity, all_agents)
             query += " ORDER BY m.created_at ASC"
@@ -178,7 +188,10 @@ def collect_current_state(topic: str, identity: str | None, all_agents: bool):
 
     if knowledge.db.path().exists():
         with db.ensure("knowledge") as conn:
-            query = "SELECT domain, content, agent_id FROM knowledge WHERE (content LIKE ? OR domain LIKE ?)"
+            query = (
+                "SELECT domain, content, agent_id FROM knowledge "
+                "WHERE (content LIKE ? OR domain LIKE ?)"
+            )
             params = [f"%{topic}%", f"%{topic}%"]
             query, params = _query_with_identity(query, params, identity, all_agents)
             rows = conn.execute(query, params).fetchall()
@@ -193,7 +206,10 @@ def collect_current_state(topic: str, identity: str | None, all_agents: bool):
 
     if bridge.db.path().exists():
         with db.ensure("bridge") as conn:
-            query = "SELECT c.name, m.agent_id, m.content FROM messages m JOIN channels c ON m.channel_id = c.channel_id WHERE m.content LIKE ?"
+            query = (
+                "SELECT c.name, m.agent_id, m.content FROM messages m "
+                "JOIN channels c ON m.channel_id = c.channel_id WHERE m.content LIKE ?"
+            )
             params = [
                 f"%{topic}%",
             ]

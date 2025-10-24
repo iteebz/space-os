@@ -19,14 +19,14 @@ def test_invocation_context_tracks_identity(test_space):
 def test_alias_normalize_wake(test_space):
     from space.os.lib.aliasing import Aliasing
 
-    result = Aliasing.normalize_args(["wake", "my-agent"])
+    result = Aliasing.rewrite(["wake", "my-agent"])
     assert result == ["wake", "--as", "my-agent"]
 
 
 def test_alias_preserve_flag(test_space):
     from space.os.lib.aliasing import Aliasing
 
-    result = Aliasing.normalize_args(["wake", "--as", "my-agent"])
+    result = Aliasing.rewrite(["wake", "--as", "my-agent"])
     assert result == ["wake", "--as", "my-agent"]
 
 

@@ -11,6 +11,8 @@ from space.os.models import Knowledge
 
 from . import migrations
 
+_track_knowledge = events.track("knowledge")
+
 
 def schema() -> str:
     """Knowledge database schema."""
@@ -43,6 +45,7 @@ db.register("knowledge", "knowledge.db", schema())
 db.add_migrations("knowledge", migrations.MIGRATIONS)
 
 
+@_track_knowledge
 def write_knowledge(
     domain: str, agent_id: str, content: str, confidence: float | None = None
 ) -> str:
@@ -52,7 +55,6 @@ def write_knowledge(
             "INSERT INTO knowledge (knowledge_id, domain, agent_id, content, confidence) VALUES (?, ?, ?, ?, ?)",
             (knowledge_id, domain, agent_id, content, confidence),
         )
-    events.emit("knowledge", "entry.write", agent_id, f"{domain}:{content[:50]}")
     return knowledge_id
 
 

@@ -9,7 +9,7 @@ from space.os.db import query_builders as qb
 from space.os.db.conversions import row_to_task
 from space.os.lib import paths
 from space.os.lib.uuid7 import uuid7
-from space.os.models import Task
+from space.os.models import Task, TaskStatus
 
 from . import migrations
 
@@ -205,9 +205,9 @@ def restore_agent(name: str) -> bool:
     if not agent_ids:
         return False
 
+    agent_id = agent_ids[0]
     with db.ensure("spawn") as conn:
-        for agent_id in agent_ids:
-            conn.execute("UPDATE agents SET archived_at = NULL WHERE agent_id = ?", (agent_id,))
+        conn.execute("UPDATE agents SET archived_at = NULL WHERE agent_id = ?", (agent_id,))
     return True
 
 
@@ -251,12 +251,6 @@ def merge_agents(from_identifier: str, to_identifier: str) -> bool:
     memory_db = paths.space_data() / "memory.db"
     knowledge_db = paths.space_data() / "knowledge.db"
     bridge_db = paths.space_data() / "bridge.db"
-
-    with db.ensure("spawn") as conn:
-        conn.execute(
-            "UPDATE agents SET name = (SELECT name FROM agents WHERE agent_id = ?) WHERE agent_id = ?",
-            (to_id, from_id),
-        )
 
     if events_db.exists():
         with db.ensure("events") as conn:
@@ -344,12 +338,12 @@ def get_task(task_id: str) -> Task | None:
 
 def update_task(
     task_id: str,
-    status: str | None = None,
+    status: TaskStatus | str | None = None,
     output: str | None = None,
     stderr: str | None = None,
     pid: int | None = None,
-    started_at: bool = False,
-    completed_at: bool = False,
+    mark_started: bool = False,
+    mark_completed: bool = False,
 ):
     """Update task fields."""
     now_iso = datetime.now().isoformat()
@@ -358,7 +352,7 @@ def update_task(
 
     if status is not None:
         updates.append("status = ?")
-        params.append(status)
+        params.append(str(status))
     if output is not None:
         updates.append("output = ?")
         params.append(output)
@@ -368,10 +362,10 @@ def update_task(
     if pid is not None:
         updates.append("pid = ?")
         params.append(pid)
-    if started_at:
+    if mark_started:
         updates.append("started_at = ?")
         params.append(now_iso)
-    if completed_at:
+    if mark_completed:
         updates.append("completed_at = ?")
         params.append(now_iso)
 

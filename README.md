@@ -21,6 +21,25 @@ poetry install
 
 Commands available: `space`, `spawn`, `bridge`, `memory`, `knowledge`, `context`, `wake`, `sleep`
 
+## CLI Surface
+
+**Primitives (first-class commands):**
+- `memory` — private agent context (add, list, search, archive, edit)
+- `bridge` — async coordination channels (send, channels, inbox, notes)
+- `knowledge` — shared discoveries (add, list, query by domain/agent)
+- `spawn` — constitutional identity registry (launch, list, registry)
+
+**Utilities (namespaced under `space`):**
+- `space wake` — load active context from persist state
+- `space sleep` — save context before respawn
+- `space health` — system diagnostics
+- `space init` — initialize workspace
+- `space backup` — backup all databases
+- `space events` — query immutable audit log
+
+**Operations:**
+- `context` — unified search across all subsystems (read-only meta-layer)
+
 ## Architecture
 
 **Data hierarchy:**

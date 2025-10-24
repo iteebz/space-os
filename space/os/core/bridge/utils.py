@@ -1,6 +1,15 @@
 from datetime import datetime
 
 
+def format_local_time(timestamp: str) -> str:
+    """Format ISO timestamp as readable local time."""
+    try:
+        dt = datetime.fromisoformat(timestamp)
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    except (ValueError, TypeError):
+        return timestamp
+
+
 def format_channel_meta(channel) -> str:
     """Create a metadata string for a channel."""
     parts = []

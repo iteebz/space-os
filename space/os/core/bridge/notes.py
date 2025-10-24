@@ -2,7 +2,10 @@ import json
 
 import typer
 
-from . import api, utils
+from space.os import events
+
+from .. import spawn
+from . import db, utils
 
 
 def notes(
@@ -22,8 +25,8 @@ def notes(
         try:
             if agent_id:
                 events.emit("bridge", "notes_viewing", agent_id, json.dumps({"channel": channel}))
-            channel_id = api.resolve_channel_id(channel)
-            notes_list = api.get_notes(channel_id)
+            channel_id = db.resolve_channel_id(channel)
+            notes_list = db.get_notes(channel_id)
             if agent_id:
                 events.emit(
                     "bridge",
@@ -94,8 +97,8 @@ def notes(
                 agent_id,
                 json.dumps({"channel": channel, "identity": identity}),
             )
-            channel_id = api.resolve_channel_id(channel)
-            api.add_note(channel_id, identity, content)
+            channel_id = db.resolve_channel_id(channel)
+            db.add_note(channel_id, identity, content)
             events.emit(
                 "bridge",
                 "note_added",

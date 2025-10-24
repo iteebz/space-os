@@ -12,7 +12,7 @@ def test_backup_creates_timestamped_dir(tmp_path):
 
     backup_dir = tmp_path / "backups"
 
-    with patch("space.commands.backup.paths.space_data", return_value=src_dir):
+    with patch("space.commands.backup.paths.dot_space", return_value=src_dir):
         with patch("space.commands.backup.paths.backups_dir", return_value=backup_dir):
             backup(quiet_output=True)
 
@@ -35,7 +35,7 @@ def test_backup_copies_db_files(tmp_path):
 
     backup_dir = tmp_path / "backups"
 
-    with patch("space.commands.backup.paths.space_data", return_value=src_dir):
+    with patch("space.commands.backup.paths.dot_space", return_value=src_dir):
         with patch("space.commands.backup.paths.backups_dir", return_value=backup_dir):
             backup(quiet_output=True)
 

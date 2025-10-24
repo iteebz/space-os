@@ -1,5 +1,9 @@
+import functools
+import json
 import sqlite3
 import time
+from enum import Enum
+from typing import Any, Callable, TypeVar
 
 from space.os import db
 from space.os.models import Event
@@ -8,7 +12,21 @@ from .lib import paths
 from .lib.identity import constitute_identity
 from .lib.uuid7 import uuid7
 
+F = TypeVar("F", bound=Callable[..., Any])
+
 VALID_TABLES = {"events"}
+
+
+class EventSource(str, Enum):
+    """Valid event sources for tracking."""
+
+    BRIDGE = "bridge"
+    SPAWN = "spawn"
+    CLI = "cli"
+    IDENTITY = "identity"
+    MEMORY = "memory"
+    KNOWLEDGE = "knowledge"
+    CONTEXT = "context"
 
 
 def _validate_table(table_name: str) -> None:
@@ -222,3 +240,37 @@ def get_wakes_since_last_sleep(agent_id: str) -> int:
             (agent_id, agent_id),
         ).fetchone()
         return result[0] if result else 0
+
+
+def track(source: str) -> Callable[[F], F]:
+    """Decorator: automatically emit operation events.
+
+    Extracts function name as event_type. Emits on entry/exit.
+
+    Usage:
+        @events.track("bridge")
+        def send_message(channel_id, agent_id, content):
+            pass
+
+    Emits: bridge.send_message, bridge.send_message_done (or _error on exception)
+    """
+
+    def decorator(func: F) -> F:
+        event_type = func.__name__
+
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            agent_id = kwargs.get("agent_id")
+
+            try:
+                emit(source, event_type, agent_id)
+                result = func(*args, **kwargs)
+                emit(source, f"{event_type}_done", agent_id)
+                return result
+            except Exception as e:
+                emit(source, "error", agent_id, json.dumps({"op": event_type, "err": str(e)}))
+                raise
+
+        return wrapper  # type: ignore
+
+    return decorator

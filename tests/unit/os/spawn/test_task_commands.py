@@ -20,7 +20,7 @@ def test_tasks_list_shows_running(test_space, capsys):
 
     spawn.db.ensure_agent("hailot")
     t1 = spawn.db.create_task(identity="hailot", input="task 1", channel_id="ch-1")
-    spawn.db.update_task(t1, status="running", started_at=True)
+    spawn.db.update_task(t1, status="running", mark_started=True)
 
     tasks(None, None)
     captured = capsys.readouterr()
@@ -64,9 +64,9 @@ def test_logs_shows_full_task_detail(test_space, capsys):
 
     spawn.db.ensure_agent("hailot")
     task_id = spawn.db.create_task(identity="hailot", input="list repos")
-    spawn.db.update_task(task_id, status="running", started_at=True)
+    spawn.db.update_task(task_id, status="running", mark_started=True)
     time.sleep(0.01)
-    spawn.db.update_task(task_id, status="completed", output="repo1\nrepo2", completed_at=True)
+    spawn.db.update_task(task_id, status="completed", output="repo1\nrepo2", mark_completed=True)
 
     logs(task_id)
     captured = capsys.readouterr()
@@ -81,7 +81,7 @@ def test_logs_shows_failed_task_stderr(test_space, capsys):
 
     spawn.db.ensure_agent("hailot")
     task_id = spawn.db.create_task(identity="hailot", input="bad command")
-    spawn.db.update_task(task_id, status="failed", stderr="error: not found", completed_at=True)
+    spawn.db.update_task(task_id, status="failed", stderr="error: not found", mark_completed=True)
 
     logs(task_id)
     captured = capsys.readouterr()

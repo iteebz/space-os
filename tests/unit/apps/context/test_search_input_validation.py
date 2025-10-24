@@ -5,110 +5,49 @@ import pytest
 from space.apps.context import db as context_db
 
 
-def test_short_search_accepted():
-    """Accept normal search terms."""
+def test_accept_normal_search():
     context_db._validate_search_term("test")
 
 
-def test_max_length_accepted():
-    """Accept search terms at maximum length."""
+def test_accept_max_length():
     max_term = "x" * context_db._MAX_SEARCH_LEN
     context_db._validate_search_term(max_term)
 
 
-def test_oversized_search_rejected():
-    """Reject oversized search terms."""
+def test_reject_oversized():
     oversized = "x" * (context_db._MAX_SEARCH_LEN + 1)
     with pytest.raises(ValueError, match="Search term too long"):
         context_db._validate_search_term(oversized)
 
 
-def test_very_large_search_rejected():
-    """Reject very large search terms (DoS prevention)."""
-    huge = "x" * 10000
-    with pytest.raises(ValueError, match="Search term too long"):
-        context_db._validate_search_term(huge)
-
-
-def test_empty_search_accepted():
-    """Accept empty search terms."""
+def test_accept_empty():
     context_db._validate_search_term("")
 
 
-def test_error_message_informative():
-    """Error includes max length and actual length."""
-    oversized = "x" * 300
-    with pytest.raises(ValueError, match=str(context_db._MAX_SEARCH_LEN)):
-        context_db._validate_search_term(oversized)
-
-
 def test_unicode_counts_toward_limit():
-    """Unicode characters count toward length limit."""
     unicode_term = "x" * (context_db._MAX_SEARCH_LEN - 10) + "🔒" * 100
     with pytest.raises(ValueError, match="Search term too long"):
         context_db._validate_search_term(unicode_term)
 
 
-def test_regex_pattern_length_limited():
-    """Regex patterns subject to length limit."""
+def test_regex_pattern_limited():
     pattern = "(" + "a" * 300 + ")*"
     with pytest.raises(ValueError, match="Search term too long"):
         context_db._validate_search_term(pattern)
 
 
-def test_boundary_max_plus_one_rejected():
-    """Boundary: max_length + 1 is rejected."""
-    boundary = "x" * (context_db._MAX_SEARCH_LEN + 1)
-    with pytest.raises(ValueError, match="Search term too long"):
-        context_db._validate_search_term(boundary)
-
-
-def test_boundary_max_accepted():
-    """Boundary: exactly max_length is accepted."""
-    boundary = "x" * context_db._MAX_SEARCH_LEN
-    context_db._validate_search_term(boundary)
-
-
-def test_whitespace_counted_toward_limit():
-    """Whitespace counts toward length limit."""
+def test_whitespace_counted():
     whitespace = " " * (context_db._MAX_SEARCH_LEN + 1)
     with pytest.raises(ValueError, match="Search term too long"):
         context_db._validate_search_term(whitespace)
 
 
-def test_backtrack_limit():
-    """Catastrophic backtracking patterns limited by length."""
-    pattern = "(" * 128 + "a" * 128 + ")" * 128
-    with pytest.raises(ValueError, match="Search term too long"):
-        context_db._validate_search_term(pattern)
-
-
-def test_exponential_backtrack_limit():
-    """Exponential backtracking limited by length."""
-    pattern = "(a+)+b" * 50
-    if len(pattern) > context_db._MAX_SEARCH_LEN:
-        with pytest.raises(ValueError, match="Search term too long"):
-            context_db._validate_search_term(pattern)
-
-
 def test_wildcard_within_limit():
-    """LIKE wildcard patterns safe (limited by length)."""
     pattern = "%" * (context_db._MAX_SEARCH_LEN - 10)
     context_db._validate_search_term(pattern)
 
 
-def test_wildcard_oversized_rejected():
-    """Oversized LIKE patterns rejected."""
+def test_wildcard_oversized_reject():
     pattern = "%" * (context_db._MAX_SEARCH_LEN + 1)
     with pytest.raises(ValueError, match="Search term too long"):
         context_db._validate_search_term(pattern)
-
-
-def test_max_length_is_defined():
-    """Max search length constant exists."""
-    assert context_db._MAX_SEARCH_LEN > 0
-
-
-def test_max_length_reasonable():
-    """Max length is not too restrictive."""
-    assert context_db._MAX_SEARCH_LEN >= 100

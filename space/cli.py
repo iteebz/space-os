@@ -14,37 +14,32 @@ from space.commands.sleep import sleep
 from space.commands.wake import wake
 from space.os import (
     bridge_app,
-    chats,
     knowledge_app,
     memory_app,
     spawn_app,
 )
-from space.os.core.spawn.commands.agents import app as agents_app
-from space.os.core.spawn.commands.registry import app as registry_app
 from space.os.lib import readme
 from space.os.lib.aliasing import Aliasing
 from space.os.lib.invocation import Invocation
 
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False, add_help_option=False)
 
-app.add_typer(knowledge_app, name="knowledge")
-app.add_typer(memory_app, name="memory")
-app.add_typer(agents_app, name="agents")
-app.add_typer(context, name="context")
-app.add_typer(stats, name="stats")
-app.add_typer(registry_app, name="registry")
 app.add_typer(bridge_app, name="bridge")
 app.add_typer(spawn_app, name="spawn")
-app.add_typer(chats.app, name="chats")
+app.add_typer(memory_app, name="memory")
+app.add_typer(knowledge_app, name="knowledge")
 
-app.command(name="backup")(backup)
-app.command(name="council")(council)
-app.command(name="events")(events)
-app.command(name="health")(health)
-app.command(name="init")(init)
-app.command(name="launch")(launch)
-app.command(name="wake")(wake)
-app.command(name="sleep")(sleep)
+app.add_typer(context, name="context")
+app.add_typer(council, name="council")
+app.add_typer(stats, name="stats")
+
+app.command()(wake)
+app.command()(sleep)
+app.command()(launch)
+app.command()(backup)
+app.command()(health)
+app.command()(init)
+app.command()(events)
 
 
 @app.callback(invoke_without_command=True)

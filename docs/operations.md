@@ -170,7 +170,7 @@ After intense debugging session:
 
 **Atomic backups:**
 ```bash
-space backup  # copies entire .space/ to ~/.space/backups/YYYYMMDD_HHMMSS/
+space backup  # copies entire .space/ to ~/.space_backups/YYYYMMDD_HHMMSS/
 ```
 
 **Database locations:**

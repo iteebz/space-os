@@ -8,7 +8,7 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 
-from space.os.core.bridge import api, db
+from space.os.core.bridge import db
 
 from .formatter import format_error, format_header, format_message
 
@@ -19,7 +19,7 @@ STREAM_ERROR_BACKOFF = 1.0
 class Council:
     def __init__(self, channel_name: str):
         self.channel_name = channel_name
-        self.channel_id = api.channels.resolve_channel_id(channel_name)
+        self.channel_id = db.resolve_channel_id(channel_name)
         self.last_msg_id = None
         self.running = True
         self._lock = asyncio.Lock()
@@ -64,7 +64,7 @@ class Council:
                     msg = await loop.run_in_executor(None, self.session.prompt, "> ")
                 msg = msg.strip()
                 if msg:
-                    api.messages.send_message(self.channel_id, "human", msg)
+                    db.send_message(self.channel_id, "human", msg)
                     msgs = db.get_all_messages(self.channel_id)
                     if msgs:
                         self.sent_msg_ids.add(msgs[-1].message_id)

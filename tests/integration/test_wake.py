@@ -32,7 +32,7 @@ def test_wake_existing_identity_spawn_count(test_space):
         patch(
             "space.os.events.get_last_sleep_time", return_value=time.time() - 3600 * 24 * 2
         ),  # Mock with float (2 days ago)
-        patch("space.os.bridge.api.channels.inbox_channels", return_value=[]),
+        patch("space.os.core.bridge.db.inbox_channels", return_value=[]),
         patch("space.os.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
         patch("space.os.memory.db.get_memories", return_value=[]),  # Mock memory dependency
         patch("space.os.chats.sync"),
@@ -64,7 +64,7 @@ def test_command_unread_messages(test_space):
             "space.os.events.get_last_sleep_time", return_value=time.time() - 3600 * 24
         ),  # Mock with float (1 day ago)
         patch(
-            "space.os.bridge.api.channels.inbox_channels",
+            "space.os.core.bridge.db.inbox_channels",
             return_value=[mock_channel1, mock_channel2],
         ),
         patch("space.os.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
@@ -99,7 +99,7 @@ def test_wake_prioritizes_space_feedback(test_space):
             "space.os.events.get_last_sleep_time", return_value=time.time() - 3600 * 24
         ),  # Mock with float (1 day ago)
         patch(
-            "space.os.bridge.api.channels.inbox_channels",
+            "space.os.core.bridge.db.inbox_channels",
             return_value=[mock_other_channel, mock_feedback_channel],
         ),
         patch("space.os.knowledge.db.list_all", return_value=[]),  # Mock knowledge dependency
@@ -127,7 +127,7 @@ def test_show_wake_summary_uses_prompt_constants(test_space):
         patch("space.os.memory.db.get_core_entries", return_value=[]),
         patch("space.os.memory.db.get_recent_entries", return_value=[]),
         patch("space.os.bridge.db.get_sender_history", return_value=[]),
-        patch("space.os.bridge.api.channels.inbox_channels", return_value=[]),
+        patch("space.os.core.bridge.db.inbox_channels", return_value=[]),
         patch("space.os.knowledge.db.list_all", return_value=[]),
     ):
         # Capture stdout

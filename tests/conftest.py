@@ -4,10 +4,10 @@ import shutil
 import pytest
 
 from space.os import config, db
-from space.os.core.bridge import migrations as bridge_migrations
-from space.os.core.knowledge import migrations as knowledge_migrations
-from space.os.core.memory import migrations as memory_migrations
-from space.os.core.spawn import migrations as spawn_migrations
+from space.os.core.bridge.migrations import MIGRATIONS as bridge_migrations
+from space.os.core.knowledge.migrations import MIGRATIONS as knowledge_migrations
+from space.os.core.memory.migrations import MIGRATIONS as memory_migrations
+from space.os.core.spawn.migrations import MIGRATIONS as spawn_migrations
 
 
 @pytest.fixture(scope="session")
@@ -15,30 +15,33 @@ def _seed_dbs(tmp_path_factory):
     seed_dir = tmp_path_factory.mktemp("seed_dbs")
 
     from space.os import config as cfg
-    from space.os.core import bridge, knowledge, memory, spawn
+    from space.os.core.bridge import db as bridge_db
+    from space.os.core.knowledge import db as knowledge_db
+    from space.os.core.memory import db as memory_db
+    from space.os.core.spawn import db as spawn_db
 
     db.ensure_schema(
         seed_dir / cfg.registry_db().name,
-        spawn.db.schema(),
-        spawn_migrations.MIGRATIONS,
+        spawn_db.schema(),
+        spawn_migrations,
     )
 
     db.ensure_schema(
         seed_dir / "memory.db",
-        memory.db.schema(),
-        memory_migrations.MIGRATIONS,
+        memory_db.schema(),
+        memory_migrations,
     )
 
     db.ensure_schema(
         seed_dir / "knowledge.db",
-        knowledge.db.schema(),
-        knowledge_migrations.MIGRATIONS,
+        knowledge_db.schema(),
+        knowledge_migrations,
     )
 
     db.ensure_schema(
         seed_dir / "bridge.db",
-        bridge.db.schema(),
-        bridge_migrations.MIGRATIONS,
+        bridge_db.schema(),
+        bridge_migrations,
     )
 
     return seed_dir
@@ -87,9 +90,9 @@ def test_space(monkeypatch, tmp_path, _seed_dbs):
                 if wal_file.exists():
                     shutil.copy2(wal_file, dst_wal)
 
-    from space.os.core import spawn
+    from space.os.core.spawn import db as spawn_db
 
-    spawn.db.clear_identity_cache()
+    spawn_db.clear_identity_cache()
 
     yield workspace
 

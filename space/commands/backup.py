@@ -20,9 +20,9 @@ def backup(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    """Backup ~/.space/data to ~/.space/backups/ (immutable, timestamped)"""
+    """Backup ~/.space to ~/.space_backups/ (immutable, timestamped)"""
 
-    src = paths.space_data()
+    src = paths.dot_space()
     if not src.exists():
         if not quiet_output:
             typer.echo("No data directory found")

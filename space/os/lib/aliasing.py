@@ -40,11 +40,6 @@ class Aliasing:
         return argv
 
     @staticmethod
-    def normalize_args(argv: list[str]) -> list[str]:
-        """Normalize argv: same as rewrite."""
-        return Aliasing.rewrite(argv)
-
-    @staticmethod
     def get_routes(cmd: str) -> dict[str, bool]:
         """Get available routes for a command."""
         return {rule.rewrite[0]: True for rule in Aliasing.RULES}

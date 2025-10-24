@@ -10,7 +10,7 @@ from space.os.lib.identity import constitute_identity
 
 from ...events import emit
 from .. import spawn
-from . import api
+from . import db
 
 
 def send(
@@ -39,18 +39,15 @@ def send(
     agent_id = spawn.db.ensure_agent(identity)
 
     try:
-        channel_id = api.resolve_channel_id(channel)
-    except ValueError:
-        channel_id = api.create_channel(channel)
-
-    try:
+        channel_id = db.resolve_channel_id(channel)
         emit(
             "bridge",
             "message_sending",
             agent_id,
             json.dumps({"channel": channel, "identity": identity, "content": content}),
         )
-        api.send_message(channel_id, identity, content)
+        db.send_message(channel_id, identity, content)
+        db.spawn_agents_from_mentions(channel_id, content)
         emit(
             "bridge",
             "message_sent",
@@ -99,9 +96,9 @@ def alert(
             agent_id,
             json.dumps({"channel": channel, "identity": identity, "content": content}),
         )
-        channel_id = api.resolve_channel_id(channel)
+        channel_id = db.resolve_channel_id(channel)
         agent_id = spawn.db.ensure_agent(identity)
-        api.send_message(channel_id, identity, content, priority="alert")
+        db.send_message(channel_id, identity, content, priority="alert")
         emit(
             "bridge",
             "alert_triggered",
@@ -141,8 +138,8 @@ def recv(
     agent_id = spawn.db.ensure_agent(identity)
 
     try:
-        channel_id = api.resolve_channel_id(channel)
-        messages, count, context, participants = api.recv_updates(channel_id, identity)
+        channel_id = db.resolve_channel_id(channel)
+        messages, count, context, participants = db.recv_updates(channel_id, identity)
 
         for msg in messages:
             emit(
@@ -204,7 +201,7 @@ def alerts(
     agent_id = spawn.db.ensure_agent(identity)
 
     try:
-        alert_messages = api.get_alerts(identity)
+        alert_messages = db.get_alerts(identity)
         if not alert_messages:
             if json_output:
                 typer.echo(json.dumps([]))
@@ -249,7 +246,7 @@ def inbox(
     agent_id = spawn.db.ensure_agent(identity)
 
     try:
-        channels = api.inbox_channels(identity)
+        channels = db.inbox_channels(identity)
         if not channels:
             if json_output:
                 typer.echo(json.dumps([]))
@@ -294,8 +291,8 @@ def wait(
     agent_id = spawn.db.ensure_agent(identity)
 
     try:
-        channel_id = api.resolve_channel_id(channel)
-    except ValueError:
+        channel_id = db.resolve_channel_id(channel)
+    except (ValueError, TypeError):
         if json_output:
             typer.echo(
                 json.dumps({"status": "error", "message": f"Channel '{channel}' not found."})
@@ -306,7 +303,7 @@ def wait(
 
     try:
         while True:
-            messages, count, context, participants = api.recv_updates(channel_id, identity)
+            messages, count, context, participants = db.recv_updates(channel_id, identity)
 
             other_messages = [msg for msg in messages if msg.agent_id != agent_id]
 

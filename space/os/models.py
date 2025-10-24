@@ -1,6 +1,17 @@
 """Shared data models and types."""
 
 from dataclasses import dataclass, field
+from enum import Enum
+
+
+class TaskStatus(str, Enum):
+    """Valid task statuses."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    TIMEOUT = "timeout"
 
 
 @dataclass
@@ -139,7 +150,7 @@ class Task:
     task_id: str
     agent_id: str
     input: str
-    status: str = "pending"
+    status: TaskStatus | str = TaskStatus.PENDING
     channel_id: str | None = None
     output: str | None = None
     stderr: str | None = None

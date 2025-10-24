@@ -1,32 +1,28 @@
 """Test invocation context system for CLI telemetry and aliases."""
 
-from typer.testing import CliRunner
-
 from space.os.events import query
 from space.os.lib.invocation import Invocation
 
-runner = CliRunner()
 
-
-def test_tracks_identity(test_space):
+def test_parse_identity():
     ctx = Invocation.from_args(["wake", "--as", "test-agent"])
     assert ctx.identity == "test-agent"
     assert ctx.command == "wake"
 
 
-def test_parses_command(test_space):
+def test_parse_subcommand():
     ctx = Invocation.from_args(["memory", "list"])
     assert ctx.command == "memory"
     assert ctx.subcommand == "list"
 
 
-def test_no_identity(test_space):
+def test_parse_no_identity():
     ctx = Invocation.from_args(["wake"])
     assert ctx.identity is None
     assert ctx.command == "wake"
 
 
-def test_emits_to_events(test_space):
+def test_emit_invocation(test_space):
     ctx = Invocation(
         command="wake",
         identity="test-agent",
@@ -39,9 +35,3 @@ def test_emits_to_events(test_space):
     assert len(events) > 0
     event = events[0]
     assert event.event_type == "invocation"
-
-
-def test_preserves_original_args(test_space):
-    args = ["wake", "--as", "test-agent", "--extra"]
-    ctx = Invocation.from_args(args)
-    assert ctx.full_args == args

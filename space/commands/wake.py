@@ -86,7 +86,7 @@ def wake(
     agent_id = spawn.db.ensure_agent(identity)
     events.identify(identity, "wake")
 
-    from space.os import chats
+    from space.os.lib import chats
 
     chats.sync(identity)
 
@@ -98,7 +98,7 @@ def wake(
 
 def _show_orientation(identity: str, quiet: bool, spawn_count: int, wakes_this_spawn: int):
     """Context + coordination state."""
-    from space.os.core.bridge.api import channels as bridge_channels
+    from space.os.core.bridge import db as bridge_db
     from space.os.lib.display import show_wake_summary
 
     show_wake_summary(
@@ -115,7 +115,7 @@ def _show_orientation(identity: str, quiet: bool, spawn_count: int, wakes_this_s
         typer.echo("  sleep — persist state, hand off to next self")
         typer.echo()
 
-    channels = bridge_channels.inbox_channels(identity)
+    channels = bridge_db.inbox_channels(identity)
     if channels:
         total_msgs = sum(ch.unread_count for ch in channels)
         typer.echo(INBOX_HEADER.format(count=total_msgs, channels=len(channels)))

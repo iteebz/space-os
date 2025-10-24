@@ -45,7 +45,6 @@ def _get_role_and_config(identity: str) -> tuple[str, dict] | None:
     if not role:
         return None
 
-    pass
     config.init_config()
     cfg = config.load_config()
     if role not in cfg["roles"]:

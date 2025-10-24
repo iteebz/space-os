@@ -7,7 +7,7 @@ import typer
 from space.os import events
 from space.os.core import spawn
 
-from . import api
+from . import db
 
 
 def export(
@@ -23,7 +23,8 @@ def export(
     try:
         if agent_id:
             events.emit("bridge", "export_starting", agent_id, json.dumps({"channel": channel}))
-        data = api.export_channel(channel)
+        channel_id = db.resolve_channel_id(channel)
+        data = db.get_export_data(channel_id)
 
         if json_output:
             export_data_dict = asdict(data)

@@ -86,4 +86,4 @@ def _search_canon(topic: str) -> dict:
 
 def main() -> None:
     """Entry point for poetry script."""
-    app()
+    context()
