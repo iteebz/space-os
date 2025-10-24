@@ -58,7 +58,7 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
 
     agent = None
     model = None
-    channel = None
+    context = None
     passthrough = []
     task = None
 
@@ -71,7 +71,10 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
             model = extra_args[i + 1]
             i += 2
         elif extra_args[i] == "--channel" and i + 1 < len(extra_args):
-            channel = extra_args[i + 1]
+            extra_args[i + 1]
+            i += 2
+        elif extra_args[i] == "--context" and i + 1 < len(extra_args):
+            context = extra_args[i + 1]
             i += 2
         elif extra_args[i] == "--sonnet":
             model = spawn.resolve_model_alias("sonnet")
@@ -92,13 +95,9 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
     if arg in cfg["roles"]:
         if task:
             agent_obj = _get_agent(arg, agent, model, cfg)
-            result = agent_obj.run(task)
+            full_prompt = (context + "\n\n" + task) if context else task
+            result = agent_obj.run(full_prompt)
             typer.echo(result)
-            con_path = spawn.get_constitution_path(arg)
-            con_hash = spawn.hash_content(con_path.read_text())
-            registry.log_task(
-                arg, result, constitution_hash=con_hash, channel=channel, input_text=task
-            )
         else:
             spawn.launch_agent(
                 arg, identity=arg, base_identity=agent, extra_args=passthrough, model=model
@@ -110,13 +109,9 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
         if inferred_role in cfg["roles"]:
             if task:
                 agent_obj = _get_agent(arg, agent, model, cfg)
-                result = agent_obj.run(task)
+                full_prompt = (context + "\n\n" + task) if context else task
+                result = agent_obj.run(full_prompt)
                 typer.echo(result)
-                con_path = spawn.get_constitution_path(inferred_role)
-                con_hash = spawn.hash_content(con_path.read_text())
-                registry.log_task(
-                    arg, result, constitution_hash=con_hash, channel=channel, input_text=task
-                )
             else:
                 spawn.launch_agent(
                     inferred_role,

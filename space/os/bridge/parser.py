@@ -33,12 +33,12 @@ def should_spawn(identity: str, content: str) -> bool:
 
 
 def spawn_from_mention(identity: str, channel: str, content: str) -> str | None:
-    """Spawn agent from bridge mention with limited context."""
+    """Spawn agent from bridge mention with full channel context."""
     if not should_spawn(identity, content):
         return None
 
     try:
-        # Export full channel context
+        # Export full channel context (no artificial limit)
         export = subprocess.run(
             ["bridge", "export", channel],
             capture_output=True,
@@ -48,19 +48,8 @@ def spawn_from_mention(identity: str, channel: str, content: str) -> str | None:
         if export.returncode != 0:
             return None
 
-        # Limit context to last 10 messages to avoid token bloat
-        context_lines = export.stdout.split("\n")
-        msg_start = next((i for i, line in enumerate(context_lines) if line.startswith("[")), 0)
-        messages = [line for line in context_lines[msg_start:] if line.startswith("[")]
-        if len(messages) > 10:
-            limited_context = (
-                "\n".join(context_lines[:msg_start]) + "\n" + "\n".join(messages[-10:])
-            )
-        else:
-            limited_context = export.stdout
-
         task = extract_mention_task(identity, content)
-        return AGENT_PROMPT_TEMPLATE.format(context=limited_context, task=task)
+        return AGENT_PROMPT_TEMPLATE.format(context=export.stdout, task=task)
     except Exception as e:
         import sys
 

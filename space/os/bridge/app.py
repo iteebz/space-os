@@ -22,6 +22,9 @@ from .commands import (
     send as send_cmds,
 )
 from .commands import (
+    tasks as tasks_cmds,
+)
+from .commands import (
     wait as wait_cmds,
 )
 from .commands.channels import app as channels_app
@@ -65,6 +68,7 @@ def main_command(
 
 
 app.add_typer(channels_app, name="channels")
+app.add_typer(tasks_cmds.app, name="tasks")
 app.command("send")(send_cmds.send)
 app.command("alert")(send_cmds.alert)
 app.command("recv")(recv_cmds.recv)

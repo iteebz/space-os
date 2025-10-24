@@ -43,11 +43,28 @@ CREATE TABLE IF NOT EXISTS notes (
     FOREIGN KEY (channel_id) REFERENCES channels(id)
 );
 
+CREATE TABLE IF NOT EXISTS tasks (
+    uuid7 TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL,
+    identity TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    input TEXT,
+    output TEXT,
+    stderr TEXT,
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (channel_id) REFERENCES channels(id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_messages_channel_time ON messages(channel_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_bookmarks ON bookmarks(agent_id, channel_id);
 CREATE INDEX IF NOT EXISTS idx_notes ON notes(channel_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_messages_priority ON messages(priority);
 CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+CREATE INDEX IF NOT EXISTS idx_tasks_identity ON tasks(identity);
+CREATE INDEX IF NOT EXISTS idx_tasks_channel ON tasks(channel_id);
 """
 
 db.register("bridge", "bridge.db", _SCHEMA)
