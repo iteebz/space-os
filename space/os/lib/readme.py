@@ -7,6 +7,10 @@ def load(module_name: str) -> str:
     readme = here / module_name / "README.md"
     if readme.exists():
         return readme.read_text()
+
+    apps_readme = here.parent / "apps" / module_name / "README.md"
+    if apps_readme.exists():
+        return apps_readme.read_text()
     return ""
 
 

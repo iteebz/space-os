@@ -1,6 +1,6 @@
 import typer
 
-from space.os import bridge, knowledge, memory
+from space.os import bridge, db, knowledge, memory
 from space.os.lib import paths
 from space.os.spawn import db as spawn_db
 
@@ -15,11 +15,11 @@ def init():
 
     with spawn_db.connect():
         pass
-    with bridge.db.connect():
+    with db.ensure("bridge"):
         pass
-    with memory.db.connect():
+    with db.ensure("memory"):
         pass
-    with knowledge.db.connect():
+    with db.ensure("knowledge"):
         pass
 
     typer.echo(f"✓ Initialized workspace at {root}")

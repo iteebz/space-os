@@ -1,7 +1,6 @@
 from datetime import datetime
 
-from space.os import db
-from space.os import bridge, events, knowledge, memory
+from space.os import bridge, db, events, knowledge, memory
 from space.os.spawn import db as spawn_db
 
 

@@ -86,10 +86,12 @@ class Event:
     """An event for provenance tracking."""
 
     event_id: str
-    timestamp: str
-    type: str
     source: str
-    data: dict | None = None
+    agent_id: str | None
+    event_type: str
+    data: str | None = None
+    timestamp: int | None = None
+    chat_id: str | None = None
 
 
 @dataclass
@@ -103,3 +105,32 @@ class Knowledge:
     confidence: float | None
     created_at: str
     archived_at: int | None = None
+
+
+@dataclass
+class Agent:
+    """An agent in the spawn registry."""
+
+    agent_id: str
+    name: str
+    self_description: str | None = None
+    archived_at: int | None = None
+    created_at: str | None = None
+
+
+@dataclass
+class Task:
+    """A task spawned by an agent."""
+
+    task_id: str
+    agent_id: str
+    input: str
+    status: str = "pending"
+    channel_id: str | None = None
+    output: str | None = None
+    stderr: str | None = None
+    pid: int | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    created_at: str | None = None
+    duration: float | None = None

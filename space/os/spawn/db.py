@@ -6,11 +6,11 @@ from pathlib import Path
 
 from space.os import db
 from space.os.lib.uuid7 import uuid7
+from space.os.models import Task
 
 from .. import events
 from ..lib import paths
 from . import migrations
-from .models import Task
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS constitutions (

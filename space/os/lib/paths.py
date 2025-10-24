@@ -41,7 +41,7 @@ def package_root() -> Path:
 
 def constitution(filename: str) -> Path:
     """Returns the full path to a constitution file."""
-    return package_root() / "constitutions" / filename
+    return package_root().parent / "constitutions" / filename
 
 
 def canon_path(base_path: Path | None = None) -> Path:

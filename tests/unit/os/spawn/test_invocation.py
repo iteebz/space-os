@@ -38,7 +38,7 @@ def test_emits_to_events(test_space):
     events = query(source="cli", limit=1)
     assert len(events) > 0
     event = events[0]
-    assert event[3] == "invocation"
+    assert event.event_type == "invocation"
 
 
 def test_preserves_original_args(test_space):

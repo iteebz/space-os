@@ -1,15 +1,13 @@
 import sqlite3
 import time
-from collections import namedtuple
 
 from space.os import db
+from space.os.models import Event
 
 from .lib import paths
 from .lib.identity import constitute_identity
 from .lib.uuid7 import uuid7
 from .spawn import db as spawn_db
-
-Event = namedtuple("Event", ["id", "source", "agent_id", "event_type", "data", "timestamp"])
 
 DB_PATH = paths.dot_space() / "events.db"
 
@@ -21,7 +19,7 @@ CREATE TABLE IF NOT EXISTS events (
     event_type TEXT NOT NULL,
     data TEXT,
     timestamp INTEGER NOT NULL,
-    session_id TEXT
+    chat_id TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_source ON events(source);
@@ -45,8 +43,8 @@ def _migrate_add_agent_id(conn: sqlite3.Connection):
     _add_column_if_not_exists(conn, "events", "agent_id", "TEXT")
 
 
-def _migrate_add_session_id(conn: sqlite3.Connection):
-    _add_column_if_not_exists(conn, "events", "session_id", "TEXT")
+def _migrate_add_chat_id(conn: sqlite3.Connection):
+    _add_column_if_not_exists(conn, "events", "chat_id", "TEXT")
 
 
 def _migrate_events_id_to_event_id(conn: sqlite3.Connection):
@@ -63,7 +61,7 @@ def _migrate_events_id_to_event_id(conn: sqlite3.Connection):
             event_type TEXT NOT NULL,
             data TEXT,
             timestamp INTEGER NOT NULL,
-            session_id TEXT
+            chat_id TEXT
         );
         INSERT INTO events_new SELECT id, source, agent_id, event_type, data, timestamp, session_id FROM events;
         DROP TABLE events;
@@ -81,7 +79,7 @@ db.add_migrations(
     "events",
     [
         ("add_agent_id_to_events", _migrate_add_agent_id),
-        ("add_session_id_to_events", _migrate_add_session_id),
+        ("add_chat_id_to_events", _migrate_add_chat_id),
         ("migrate_events_id_to_event_id", _migrate_events_id_to_event_id),
     ],
 )
@@ -128,10 +126,21 @@ def query(source: str | None = None, agent_id: str | None = None, limit: int = 1
         params.append(limit)
 
         rows = conn.execute(
-            f"SELECT event_id, source, agent_id, event_type, data, timestamp FROM events {where_clause} ORDER BY event_id DESC LIMIT ?",
+            f"SELECT event_id, source, agent_id, event_type, data, timestamp, chat_id FROM events {where_clause} ORDER BY event_id DESC LIMIT ?",
             tuple(params),
         ).fetchall()
-        return [Event(*row) for row in rows]
+        return [
+            Event(
+                event_id=row[0],
+                source=row[1],
+                agent_id=row[2],
+                event_type=row[3],
+                data=row[4],
+                timestamp=row[5],
+                chat_id=row[6],
+            )
+            for row in rows
+        ]
 
 
 def identify(identity: str, command: str):

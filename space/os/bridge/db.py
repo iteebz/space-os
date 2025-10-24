@@ -62,7 +62,7 @@ def path() -> Path:
 
 
 def connect():
-    return db.ensure("bridge").__enter__()
+    return db.ensure("bridge")
 
 
 def create_message(channel_id: str, agent_id: str, content: str, priority: str = "normal") -> str:
@@ -262,7 +262,7 @@ def fetch_channels(
                 SELECT m.channel_id, COUNT(m.message_id) as unread_count
                 FROM messages m
                 LEFT JOIN bookmarks b ON m.channel_id = b.channel_id AND b.agent_id = ?
-                WHERE b.last_seen_id IS NULL OR m.message_id > b.last_seen_id
+                WHERE (b.agent_id IS NULL AND b.last_seen_id IS NULL) OR (b.agent_id IS NOT NULL AND m.message_id > b.last_seen_id)
                 GROUP BY m.channel_id
             ) as unread_counts ON t.channel_id = unread_counts.channel_id
             WHERE 1 = 1

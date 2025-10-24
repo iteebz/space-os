@@ -29,18 +29,14 @@ def _migrate_bridge_messages_id_to_message_id(conn: sqlite3.Connection):
 def _migrate_bridge_channels_id_to_channel_id(conn: sqlite3.Connection):
     cursor = conn.execute("PRAGMA table_info(channels)")
     cols = {row[1] for row in cursor.fetchall()}
-    if "channel_id" in cols or "id" not in cols:
+    if "channel_id" in cols:
+        return
+    if "id" not in cols:
         return
 
-    cols_to_select = ["id", "name", "topic", "created_at", "notes", "archived_at"]
-    if "pinned_at" in cols:
-        cols_to_select.append("pinned_at")
-    cols_str = ", ".join(cols_to_select)
-
     conn.executescript(
-        f"""
-        DROP TABLE IF EXISTS channels_new;
-        CREATE TABLE channels_new (
+        """
+        CREATE TABLE channels_tmp (
             channel_id TEXT PRIMARY KEY,
             name TEXT NOT NULL UNIQUE,
             topic TEXT,
@@ -49,9 +45,9 @@ def _migrate_bridge_channels_id_to_channel_id(conn: sqlite3.Connection):
             archived_at TIMESTAMP,
             pinned_at TIMESTAMP
         );
-        INSERT INTO channels_new SELECT {cols_str} FROM channels;
+        INSERT INTO channels_tmp SELECT id, name, topic, created_at, notes, archived_at, pinned_at FROM channels;
         DROP TABLE channels;
-        ALTER TABLE channels_new RENAME TO channels;
+        ALTER TABLE channels_tmp RENAME TO channels;
     """
     )
 
