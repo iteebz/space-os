@@ -1,4 +1,4 @@
-from space.os.bridge import api
+from space.os.core.bridge import api
 
 
 def test_send_message(test_space):
@@ -120,7 +120,7 @@ def test_inbox_channels_all_unreads(test_space):
 
 
 def test_recv_updates_summary_channel_returns_only_last_message(test_space):
-    from space.os.bridge import api
+    from space.os.core.bridge import api
 
     # Create a summary channel
     channel_id = api.create_channel("summary", topic="test summary topic")

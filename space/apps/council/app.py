@@ -8,7 +8,7 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 
-from space.os.bridge import api, db
+from space.os.core.bridge import api, db
 
 from .formatter import format_error, format_header, format_message
 

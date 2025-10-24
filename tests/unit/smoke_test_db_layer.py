@@ -5,7 +5,7 @@ def test_bridge_db_imports():
     """Test bridge.db module can be imported and path() returns Path."""
     from pathlib import Path
 
-    from space.os.bridge import db
+    from space.os.core.bridge import db
 
     path = db.path()
     assert isinstance(path, Path)
@@ -16,7 +16,7 @@ def test_spawn_db_imports():
     """Test spawn.db module can be imported and path() returns Path."""
     from pathlib import Path
 
-    from space.os.spawn import db
+    from space.os.core.spawn import db
 
     path = db.path()
     assert isinstance(path, Path)
@@ -25,7 +25,7 @@ def test_spawn_db_imports():
 
 def test_bridge_db_connect():
     """Test bridge.db.connect() returns a registry connection."""
-    from space.os.bridge import db
+    from space.os.core.bridge import db
 
     conn = db.connect()
     assert conn is not None
@@ -34,7 +34,7 @@ def test_bridge_db_connect():
 
 def test_spawn_db_connect():
     """Test spawn.db.connect() returns a registry connection."""
-    from space.os.spawn import db
+    from space.os.core.spawn import db
 
     conn = db.connect()
     assert conn is not None

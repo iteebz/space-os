@@ -16,8 +16,8 @@ from space.os import bridge, chats, knowledge, memory, spawn
 from space.os.lib import readme
 from space.os.lib.aliasing import Aliasing
 from space.os.lib.invocation import Invocation
-from space.os.spawn.commands.agents import app as agents_app
-from space.os.spawn.commands.registry import app as registry_app
+from space.os.core.spawn.commands.agents import app as agents_app
+from space.os.core.spawn.commands.registry import app as registry_app
 
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False, add_help_option=False)
 

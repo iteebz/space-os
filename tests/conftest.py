@@ -3,10 +3,10 @@ import contextlib
 import pytest
 
 from space.os import config, db
-from space.os.bridge import migrations as bridge_migrations
-from space.os.knowledge import migrations as knowledge_migrations
-from space.os.memory import migrations as memory_migrations
-from space.os.spawn import migrations as spawn_migrations
+from space.os.core.bridge import migrations as bridge_migrations
+from space.os.core.knowledge import migrations as knowledge_migrations
+from space.os.core.memory import migrations as memory_migrations
+from space.os.core.spawn import migrations as spawn_migrations
 
 
 @pytest.fixture(autouse=True)

@@ -1,7 +1,7 @@
 """Integration: bridge creates spawn tasks, not bridge.db tasks."""
 
-from space.os.bridge import db as bridge_db
-from space.os.spawn import db as spawn_db
+from space.os.core.bridge import db as bridge_db
+from space.os.core.spawn import db as spawn_db
 
 
 def test_bridge_uses_spawn_tasks(test_space):

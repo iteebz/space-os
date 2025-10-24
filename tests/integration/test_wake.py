@@ -114,7 +114,7 @@ def test_wake_prioritizes_space_feedback(test_space):
 def test_show_wake_summary_uses_prompt_constants(test_space):
     from space.commands import wake
     from space.os.lib.display import show_wake_summary
-    from space.os.spawn import db as spawn_db
+    from space.os.core.spawn import db as spawn_db
 
     identity = "test-agent"
     spawn_db.ensure_agent(identity)

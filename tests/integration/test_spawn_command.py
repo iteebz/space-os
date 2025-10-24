@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 
 from space.os import config
-from space.os.spawn import db as spawn_db
-from space.os.spawn import spawn
+from space.os.core.spawn import db as spawn_db
+from space.os.core.spawn import spawn
 
 
 def test_constitution_injection(test_space):

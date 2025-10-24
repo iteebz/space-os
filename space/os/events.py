@@ -7,7 +7,7 @@ from space.os.models import Event
 from .lib import paths
 from .lib.identity import constitute_identity
 from .lib.uuid7 import uuid7
-from .spawn import db as spawn_db
+from .core.spawn import db as spawn_db
 
 DB_PATH = paths.space_data() / "events.db"
 

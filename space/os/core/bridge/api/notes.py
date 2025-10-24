@@ -1,6 +1,6 @@
 """Business logic for handling channel notes."""
 
-from space.os.spawn import db as spawn_db
+from space.os.core.spawn import db as spawn_db
 
 from .. import db
 

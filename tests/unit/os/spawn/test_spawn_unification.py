@@ -8,10 +8,10 @@ Tests validate:
 5. Unified agent interface across Claude/Gemini/Codex
 """
 
-from space.os.bridge import api as bridge_api
-from space.os.bridge import db as bridge_db
-from space.os.spawn import db as spawn_db
-from space.os.spawn import spawn
+from space.os.core.bridge import api as bridge_api
+from space.os.core.bridge import db as bridge_db
+from space.os.core.spawn import db as spawn_db
+from space.os.core.spawn import spawn
 
 
 def test_registry_has_tasks_table(test_space):
@@ -85,7 +85,7 @@ def test_spawn_app_accepts_context_flag(test_space):
     """spawn/cli.py must parse --context flag."""
     import inspect
 
-    from space.os.spawn.cli import _spawn_from_registry
+    from space.os.core.spawn.cli import _spawn_from_registry
 
     source = inspect.getsource(_spawn_from_registry)
     assert "--context" in source, "--context flag must be parsed in spawn cli"
@@ -96,7 +96,7 @@ def test_context_prepended_to_task_prompt(test_space):
     """Task prompt must prepend context when --context provided."""
     import inspect
 
-    from space.os.spawn.cli import _spawn_from_registry
+    from space.os.core.spawn.cli import _spawn_from_registry
 
     source = inspect.getsource(_spawn_from_registry)
     assert "context + " in source or "context +" in source, (
@@ -108,7 +108,7 @@ def test_parser_uses_full_export(test_space):
     """bridge/parser.py must not limit export to 10 messages."""
     import inspect
 
-    from space.os.bridge import parser
+    from space.os.core.bridge import parser
 
     source = inspect.getsource(parser.spawn_from_mention)
     assert "len(messages) > 10" not in source, "Should not limit to 10 messages"
@@ -117,7 +117,7 @@ def test_parser_uses_full_export(test_space):
 
 def test_all_agents_have_run_method(test_space):
     """All agent classes must have run(prompt) method."""
-    from space.os.spawn.agents import claude, codex, gemini
+    from space.os.core.spawn.agents import claude, codex, gemini
 
     for agent_class in [claude.Claude, gemini.Gemini, codex.Codex]:
         assert hasattr(agent_class, "run"), f"{agent_class.__name__} missing run() method"
@@ -132,7 +132,7 @@ def test_all_agents_have_run_method(test_space):
 
 def test_agents_delegate_to_lib_agents(test_space):
     """Spawn agents must delegate to lib_agents backend."""
-    from space.os.spawn.agents import claude, codex, gemini
+    from space.os.core.spawn.agents import claude, codex, gemini
 
     for module_name, agent_class in [
         ("claude", claude.Claude),
@@ -151,7 +151,7 @@ def test_worker_uses_spawn_registry(test_space):
     """Worker must use spawn.registry for task management."""
     import inspect
 
-    from space.os.bridge import worker
+    from space.os.core.bridge import worker
 
     source = inspect.getsource(worker.main)
     assert "spawn_db.create_task" in source, "Worker must call spawn_db.create_task"
@@ -162,7 +162,7 @@ def test_worker_creates_task_before_spawn(test_space):
     """Worker must create task record BEFORE spawning agent."""
     import inspect
 
-    from space.os.bridge import worker
+    from space.os.core.bridge import worker
 
     source = inspect.getsource(worker.main)
     create_idx = source.find("spawn_db.create_task")
@@ -178,7 +178,7 @@ def test_worker_tracks_lifecycle_states(test_space):
     """Worker must track task lifecycle via spawn_db."""
     import inspect
 
-    from space.os.bridge import worker
+    from space.os.core.bridge import worker
 
     source = inspect.getsource(worker.main)
     assert "running" in source, "Worker must set status=running"
@@ -188,21 +188,21 @@ def test_worker_tracks_lifecycle_states(test_space):
 
 def test_spawn_tasks_command_exists(test_space):
     """spawn tasks command must exist."""
-    from space.os.spawn import app
+    from space.os.core.spawn import app
 
     assert hasattr(app, "tasks_cmd"), "spawn app must have tasks_cmd"
 
 
 def test_spawn_logs_command_exists(test_space):
     """spawn logs command must exist."""
-    from space.os.spawn import app
+    from space.os.core.spawn import app
 
     assert hasattr(app, "logs_cmd"), "spawn app must have logs_cmd"
 
 
 def test_tasks_module_has_functions(test_space):
     """spawn/tasks.py must have task functions."""
-    from space.os.spawn import tasks
+    from space.os.core.spawn import tasks
 
     assert hasattr(tasks, "tasks"), "tasks module must have tasks()"
     assert hasattr(tasks, "logs"), "tasks module must have logs()"

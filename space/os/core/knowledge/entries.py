@@ -3,7 +3,7 @@ from dataclasses import asdict
 import typer
 
 from space.os.lib import errors, output
-from space.os.spawn import db as spawn_db
+from space.os.core.spawn import db as spawn_db
 
 from . import db
 

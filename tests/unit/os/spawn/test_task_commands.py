@@ -2,12 +2,12 @@
 
 import time
 
-from space.os.spawn import db as spawn_db
+from space.os.core.spawn import db as spawn_db
 
 
 def test_tasks_list_empty(test_space, capsys):
     """spawn tasks with no tasks shows empty."""
-    from space.os.spawn.tasks import tasks
+    from space.os.core.spawn.tasks import tasks
 
     tasks(None, None)
     captured = capsys.readouterr()
@@ -16,7 +16,7 @@ def test_tasks_list_empty(test_space, capsys):
 
 def test_tasks_list_shows_running(test_space, capsys):
     """spawn tasks lists running tasks with status, identity, duration."""
-    from space.os.spawn.tasks import tasks
+    from space.os.core.spawn.tasks import tasks
 
     spawn_db.ensure_agent("hailot")
     t1 = spawn_db.create_task(identity="hailot", input="task 1", channel_id="ch-1")
@@ -30,7 +30,7 @@ def test_tasks_list_shows_running(test_space, capsys):
 
 def test_tasks_list_filter_by_status(test_space, capsys):
     """spawn tasks --status pending shows only pending."""
-    from space.os.spawn.tasks import tasks
+    from space.os.core.spawn.tasks import tasks
 
     spawn_db.ensure_agent("hailot")
     t1 = spawn_db.create_task(identity="hailot", input="task 1")
@@ -45,7 +45,7 @@ def test_tasks_list_filter_by_status(test_space, capsys):
 
 def test_tasks_list_filter_by_identity(test_space, capsys):
     """spawn tasks --identity hailot shows only hailot tasks."""
-    from space.os.spawn.tasks import tasks
+    from space.os.core.spawn.tasks import tasks
 
     spawn_db.ensure_agent("hailot")
     spawn_db.ensure_agent("zealot")
@@ -60,7 +60,7 @@ def test_tasks_list_filter_by_identity(test_space, capsys):
 
 def test_logs_shows_full_task_detail(test_space, capsys):
     """spawn logs <id> shows input, output, stderr, timestamps, duration."""
-    from space.os.spawn.tasks import logs
+    from space.os.core.spawn.tasks import logs
 
     spawn_db.ensure_agent("hailot")
     task_id = spawn_db.create_task(identity="hailot", input="list repos")
@@ -77,7 +77,7 @@ def test_logs_shows_full_task_detail(test_space, capsys):
 
 def test_logs_shows_failed_task_stderr(test_space, capsys):
     """spawn logs shows stderr for failed tasks."""
-    from space.os.spawn.tasks import logs
+    from space.os.core.spawn.tasks import logs
 
     spawn_db.ensure_agent("hailot")
     task_id = spawn_db.create_task(identity="hailot", input="bad command")
@@ -93,7 +93,7 @@ def test_logs_task_not_found(test_space, capsys):
     """spawn logs <invalid-id> shows error."""
     import typer
 
-    from space.os.spawn.tasks import logs
+    from space.os.core.spawn.tasks import logs
 
     try:
         logs("nonexistent-id-123")

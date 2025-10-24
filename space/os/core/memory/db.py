@@ -6,15 +6,14 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from space.os import db
+from space.os import db, events
 from space.os.db import from_row
 from space.os.lib.ids import resolve_id
 from space.os.lib.uuid7 import uuid7
+from space.os.lib import paths
+from space.os.models import Memory
+from space.os.core.spawn import db as spawn_db
 
-from .. import events
-from ..lib import paths
-from ..models import Memory
-from ..spawn import db as spawn_db
 from . import migrations
 
 
@@ -236,7 +235,7 @@ def search_entries(identity: str, keyword: str, include_archived: bool = False) 
 def find_related(
     entry: Memory, limit: int = 5, include_archived: bool = False
 ) -> list[tuple[Memory, int]]:
-    from ..lib.text_utils import stopwords
+    from space.os.lib.text_utils import stopwords
 
     tokens = set(entry.message.lower().split()) | set(entry.topic.lower().split())
     keywords = {t.strip(".,;:!?()[]{}") for t in tokens if len(t) > 3 and t not in stopwords}

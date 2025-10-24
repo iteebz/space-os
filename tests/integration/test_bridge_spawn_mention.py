@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from space.os.bridge import parser
+from space.os.core.bridge import parser
 
 
 @patch("space.os.bridge.parser.subprocess.run")

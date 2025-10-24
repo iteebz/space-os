@@ -3,13 +3,12 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from space.os import db
+from space.os import db, events
 from space.os.db import from_row
 from space.os.lib.uuid7 import uuid7
+from space.os.lib import paths
+from space.os.models import Knowledge
 
-from .. import events
-from ..lib import paths
-from ..models import Knowledge
 from . import migrations
 
 
@@ -115,7 +114,7 @@ def restore_entry(knowledge_id: str):
 def find_related(
     entry: Knowledge, limit: int = 5, include_archived: bool = False
 ) -> list[tuple[Knowledge, int]]:
-    from ..lib.text_utils import stopwords
+    from space.os.lib.text_utils import stopwords
 
     tokens = set(entry.content.lower().split()) | set(entry.domain.lower().split())
     keywords = {t.strip(".,;:!?()[]{}") for t in tokens if len(t) > 3 and t not in stopwords}

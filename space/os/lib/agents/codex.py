@@ -101,7 +101,7 @@ def spawn(identity: str, task: str | None = None) -> str:
             text=True,
         )
         return result.stdout
-    from space.os.spawn import spawn as spawn_launcher
+    from space.os.core.spawn import spawn as spawn_launcher
 
     role = identity.split("-")[0] if "-" in identity else identity
     spawn_launcher.launch_agent(

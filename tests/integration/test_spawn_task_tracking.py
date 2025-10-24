@@ -2,10 +2,10 @@
 
 from unittest.mock import MagicMock, patch
 
-from space.os.bridge import api as bridge_api
-from space.os.bridge import parser
+from space.os.core.bridge import api as bridge_api
+from space.os.core.bridge import parser
 from space.os.lib.uuid7 import uuid7
-from space.os.spawn import db as spawn_db
+from space.os.core.spawn import db as spawn_db
 
 
 def test_channel_groups_tasks(test_space):

@@ -1,8 +1,8 @@
 import typer
 
 from space.os.lib import errors
+from space.os import config
 
-from .. import config
 from . import spawn, tasks
 from .commands.agents import app as agents_app
 from .commands.registry import app as registry_app

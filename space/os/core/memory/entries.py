@@ -4,7 +4,7 @@ import typer
 
 from space.os.lib import display, errors, identity, output
 from space.os.lib.format import format_memory_entries
-from space.os.spawn import db as spawn_db
+from space.os.core.spawn import db as spawn_db
 
 from . import db
 

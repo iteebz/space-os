@@ -3,7 +3,7 @@ import json
 import typer
 
 from space.os import events
-from space.os.spawn import db as spawn_db
+from space.os.core.spawn import db as spawn_db
 
 from . import api, utils
 

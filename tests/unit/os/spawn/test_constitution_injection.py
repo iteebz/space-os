@@ -1,4 +1,4 @@
-from space.os.spawn import spawn
+from space.os.core.spawn import spawn
 
 
 def test_header_injection(tmp_path):

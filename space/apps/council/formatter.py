@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from space.os.spawn import db as spawn_db
+from space.os.core.spawn import db as spawn_db
 
 
 class Colors:

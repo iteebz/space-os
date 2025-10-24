@@ -4,7 +4,7 @@ import typer
 
 from space.os import db
 from space.os.lib import paths
-from space.os.spawn import db as spawn_db
+from space.os.core.spawn import db as spawn_db
 
 
 def init():

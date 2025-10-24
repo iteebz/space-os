@@ -2,12 +2,12 @@
 
 import time
 
-from space.os.spawn import db as spawn_db
+from space.os.core.spawn import db as spawn_db
 
 
 def test_wait_blocks_until_completion(test_space):
     """spawn wait <id> blocks until task completes."""
-    from space.os.spawn.tasks import wait
+    from space.os.core.spawn.tasks import wait
 
     spawn_db.ensure_agent("hailot")
     task_id = spawn_db.create_task(identity="hailot", input="test")
@@ -22,7 +22,7 @@ def test_wait_blocks_until_completion(test_space):
 
 def test_wait_returns_task_status_as_exit_code(test_space):
     """spawn wait returns 0 for completed, non-zero for failed."""
-    from space.os.spawn.tasks import wait
+    from space.os.core.spawn.tasks import wait
 
     spawn_db.ensure_agent("hailot")
     task_id = spawn_db.create_task(identity="hailot", input="test")
@@ -36,7 +36,7 @@ def test_wait_timeout(test_space):
     """spawn wait <id> --timeout raises error if exceeded."""
     import typer
 
-    from space.os.spawn.tasks import wait
+    from space.os.core.spawn.tasks import wait
 
     spawn_db.ensure_agent("hailot")
     task_id = spawn_db.create_task(identity="hailot", input="slow task")
@@ -51,7 +51,7 @@ def test_wait_timeout(test_space):
 
 def test_wait_pending_task_waits(test_space):
     """spawn wait on pending task waits for it to start and complete."""
-    from space.os.spawn.tasks import wait
+    from space.os.core.spawn.tasks import wait
 
     spawn_db.ensure_agent("hailot")
     task_id = spawn_db.create_task(identity="hailot", input="test")
@@ -68,7 +68,7 @@ def test_wait_pending_task_waits(test_space):
 
 def test_kill_running_task(test_space):
     """spawn kill <id> marks task as killed."""
-    from space.os.spawn.tasks import kill
+    from space.os.core.spawn.tasks import kill
 
     spawn_db.ensure_agent("hailot")
     task_id = spawn_db.create_task(identity="hailot", input="long task")
@@ -85,7 +85,7 @@ def test_kill_nonexistent_task(test_space, capsys):
     """spawn kill <invalid-id> shows error."""
     import typer
 
-    from space.os.spawn.tasks import kill
+    from space.os.core.spawn.tasks import kill
 
     try:
         kill("nonexistent-id")
@@ -98,7 +98,7 @@ def test_kill_nonexistent_task(test_space, capsys):
 
 def test_kill_completed_task_no_op(test_space):
     """spawn kill on completed task is no-op."""
-    from space.os.spawn.tasks import kill
+    from space.os.core.spawn.tasks import kill
 
     spawn_db.ensure_agent("hailot")
     task_id = spawn_db.create_task(identity="hailot", input="test")

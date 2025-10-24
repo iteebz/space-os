@@ -38,7 +38,7 @@ def test_wake_explicit_flag_invocation(test_space):
 
 
 def test_constitution_hash_content_addressable(test_space):
-    from space.os.spawn import spawn
+    from space.os.core.spawn import spawn
 
     test_content = "# TEST CONSTITUTION\nTest identity marker"
     test_hash = spawn.hash_content(test_content)
@@ -48,7 +48,7 @@ def test_constitution_hash_content_addressable(test_space):
 
 
 def test_invocation_context_emits_with_agent_id(test_space):
-    from space.os.spawn import db as spawn_db
+    from space.os.core.spawn import db as spawn_db
 
     spawn_db.ensure_agent("telemetry-test-agent")
 

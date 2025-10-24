@@ -4,12 +4,12 @@ from pathlib import Path
 
 from space.os import db
 from space.os import events
-from space.os.bridge import db as bridge_db
-from space.os.knowledge import db as knowledge_db
-from space.os.memory import db as memory_db
+from space.os.core.bridge import db as bridge_db
+from space.os.core.knowledge import db as knowledge_db
+from space.os.core.memory import db as memory_db
 from space.os.lib import format as fmt
 from space.os.lib import paths
-from space.os.spawn import db as spawn_db
+from space.os.core.spawn import db as spawn_db
 
 from .models import (
     AgentStats,
@@ -33,7 +33,7 @@ def _get_agent_names_map() -> dict[str, str]:
 
 def _discover_all_agent_ids(registered_ids: set[str], include_archived: bool = False) -> set[str]:
     """Discover all unique agent_ids across all activity tables and spawn_db."""
-    from space.os.spawn import db as spawn_db
+    from space.os.core.spawn import db as spawn_db
 
     all_agent_ids = set(registered_ids)
 

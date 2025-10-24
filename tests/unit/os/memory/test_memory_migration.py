@@ -26,7 +26,7 @@ def test_memory_migration_preserves_data():
     """)
     conn.commit()
 
-    from space.os.memory.migrations import _migrate_memory_table_to_memories
+    from space.os.core.memory.migrations import _migrate_memory_table_to_memories
 
     _migrate_memory_table_to_memories(conn)
 

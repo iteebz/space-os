@@ -1,5 +1,5 @@
-from space.os.spawn import db as spawn_db
-from space.os.spawn import spawn
+from space.os.core.spawn import db as spawn_db
+from space.os.core.spawn import spawn
 
 
 def test_inject_identity_includes_constitution(test_space):

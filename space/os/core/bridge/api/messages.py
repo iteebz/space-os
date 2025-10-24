@@ -5,7 +5,7 @@ import subprocess
 import sys
 
 from space.os.models import Message
-from space.os.spawn import db as spawn_db
+from space.os.core.spawn import db as spawn_db
 
 from .. import db
 

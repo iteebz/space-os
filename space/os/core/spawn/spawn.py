@@ -5,8 +5,9 @@ import shutil
 import sys
 from pathlib import Path
 
-from .. import config
-from ..lib import paths
+from space.os import config
+from space.os.lib import paths
+
 from . import db
 
 

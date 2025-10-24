@@ -4,8 +4,8 @@ import pytest
 def test_collect_timeline_filters_by_identity_uuid_not_name(test_space):
     """Regression test: context filters should compare agent_id UUIDs, not names."""
     from space.apps.context.db import collect_timeline
-    from space.os.memory import db as memory_db
-    from space.os.spawn import db as spawn_db
+    from space.os.core.memory import db as memory_db
+    from space.os.core.spawn import db as spawn_db
 
     agent1 = spawn_db.ensure_agent("alice")
     agent2 = spawn_db.ensure_agent("bob")
@@ -26,8 +26,8 @@ def test_collect_timeline_filters_by_identity_uuid_not_name(test_space):
 def test_collect_current_state_filters_by_agent_id(test_space):
     """Regression test: current state should filter by resolved agent_id."""
     from space.apps.context.db import collect_current_state
-    from space.os.memory import db as memory_db
-    from space.os.spawn import db as spawn_db
+    from space.os.core.memory import db as memory_db
+    from space.os.core.spawn import db as spawn_db
 
     agent1 = spawn_db.ensure_agent("charlie")
     agent2 = spawn_db.ensure_agent("diana")

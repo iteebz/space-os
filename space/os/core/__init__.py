@@ -1,3 +1,3 @@
-from .core import bridge, knowledge, memory, spawn
+from . import bridge, knowledge, memory, spawn
 
 __all__ = ["bridge", "knowledge", "memory", "spawn"]

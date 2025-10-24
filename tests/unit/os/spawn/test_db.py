@@ -1,4 +1,4 @@
-from space.os.spawn import db, spawn
+from space.os.core.spawn import db, spawn
 
 
 def test_save_get_agent_identity(test_space):

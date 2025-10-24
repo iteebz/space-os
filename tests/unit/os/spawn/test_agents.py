@@ -2,9 +2,9 @@
 
 from unittest.mock import patch
 
-from space.os.spawn.agents.claude import Claude
-from space.os.spawn.agents.codex import Codex
-from space.os.spawn.agents.gemini import Gemini
+from space.os.core.spawn.agents.claude import Claude
+from space.os.core.spawn.agents.codex import Codex
+from space.os.core.spawn.agents.gemini import Gemini
 
 
 def test_claude_init_valid():

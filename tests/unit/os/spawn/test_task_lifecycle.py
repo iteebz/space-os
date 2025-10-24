@@ -1,6 +1,6 @@
 """Test spawn task lifecycle: task creation, status transitions, output capture."""
 
-from space.os.spawn import db as spawn_db
+from space.os.core.spawn import db as spawn_db
 
 
 def test_task_pending_to_running(test_space):

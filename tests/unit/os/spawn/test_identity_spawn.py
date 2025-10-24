@@ -1,6 +1,6 @@
 from space.os.lib import paths
-from space.os.spawn import db as spawn_db
-from space.os.spawn import spawn
+from space.os.core.spawn import db as spawn_db
+from space.os.core.spawn import spawn
 
 
 def test_hailot_zealot_prompt_lookup(test_space, monkeypatch):

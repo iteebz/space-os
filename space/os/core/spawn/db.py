@@ -4,12 +4,11 @@ from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 
-from space.os import db
+from space.os import db, events
 from space.os.lib.uuid7 import uuid7
+from space.os.lib import paths
 from space.os.models import Task
 
-from .. import events
-from ..lib import paths
 from . import migrations
 
 

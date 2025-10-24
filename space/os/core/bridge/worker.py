@@ -5,9 +5,9 @@ import subprocess
 import sys
 
 from space.os import config
-from space.os.bridge import parser
-from space.os.bridge.api import messages as api_messages
-from space.os.spawn import db as spawn_db
+from space.os.core.bridge import parser
+from space.os.core.bridge.api import messages as api_messages
+from space.os.core.spawn import db as spawn_db
 
 logging.basicConfig(level=logging.DEBUG, format="[worker] %(message)s")
 log = logging.getLogger(__name__)

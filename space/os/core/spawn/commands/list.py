@@ -8,7 +8,7 @@ app = typer.Typer(invoke_without_command=True)
 @app.callback(invoke_without_command=True)
 def list_agents(show_all: bool = typer.Option(False, "--all", help="Show archived agents")):
     """List all agents (registered and orphaned across universe)."""
-    from space.os.spawn import db as spawn_db
+    from space.os.core.spawn import db as spawn_db
 
     stats = stats_lib.agent_stats(include_archived=show_all) or []
 

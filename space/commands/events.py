@@ -17,7 +17,7 @@ def events(
     ),
 ):
     """Show recent events from append-only log."""
-    from space.os.spawn import db as spawn_db
+    from space.os.core.spawn import db as spawn_db
 
     agent_id = spawn_db.get_agent_id(identity) if identity else None
     rows = events_db.query(source=source, agent_id=agent_id, limit=1000 if errors else limit)

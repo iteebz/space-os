@@ -98,7 +98,7 @@ def wake(
 
 def _show_orientation(identity: str, quiet: bool, spawn_count: int, wakes_this_spawn: int):
     """Context + coordination state."""
-    from space.os.bridge.api import channels as bridge_channels
+    from space.os.core.bridge.api import channels as bridge_channels
     from space.os.lib.display import show_wake_summary
 
     show_wake_summary(

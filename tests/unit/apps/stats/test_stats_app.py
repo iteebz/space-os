@@ -8,7 +8,7 @@ from space.os.lib import paths
 
 def test_discovers_registered_agents(test_space):
     """Active registered agents are discovered."""
-    from space.os.spawn import db as spawn_db
+    from space.os.core.spawn import db as spawn_db
 
     with spawn_db.connect() as conn:
         conn.execute("INSERT INTO agents (agent_id, name) VALUES (?, ?)", ("agent-001", "alice"))
@@ -95,7 +95,7 @@ def test_discovers_orphaned_agents_in_knowledge(test_space):
 def test_maps_registered_name_to_orphaned_agent(test_space):
     """If orphaned agent is later registered, name is used."""
     from space.os import events as events_lib
-    from space.os.spawn import db as spawn_db
+    from space.os.core.spawn import db as spawn_db
 
     events_lib.emit("test", "spawn", "agent-xyz", "data")
 
@@ -111,7 +111,7 @@ def test_aggregates_stats_from_all_tables(test_space):
     """Stats are aggregated from all tables for same agent."""
     from space.os import db
     from space.os import events as events_lib
-    from space.os.spawn import db as spawn_db
+    from space.os.core.spawn import db as spawn_db
 
     agent_id = "aggregator-001"
 
@@ -150,7 +150,7 @@ def test_aggregates_stats_from_all_tables(test_space):
 
 def test_respects_archived_filter(test_space):
     """Archived agents excluded by default, included with flag."""
-    from space.os.spawn import db as spawn_db
+    from space.os.core.spawn import db as spawn_db
 
     now = int(time.time())
     with spawn_db.connect() as conn:
@@ -174,7 +174,7 @@ def test_respects_archived_filter(test_space):
 def test_orphaned_agents_always_included(test_space):
     """Orphaned agents in activity logs always included (not registered, not archived)."""
     from space.os import events as events_lib
-    from space.os.spawn import db as spawn_db
+    from space.os.core.spawn import db as spawn_db
 
     now = int(time.time())
     with spawn_db.connect() as conn:
@@ -208,7 +208,7 @@ def test_orphaned_agents_always_included(test_space):
 def test_discovery_counts_match_universe(test_space):
     """Active count excludes archived, --all includes archived."""
     from space.os import events as events_lib
-    from space.os.spawn import db as spawn_db
+    from space.os.core.spawn import db as spawn_db
 
     now = int(time.time())
     with spawn_db.connect() as conn:

@@ -23,8 +23,8 @@ def test_add_with_identity():
 
 
 def test_memory_replace_single(test_space):
-    from space.os.memory import db
-    from space.os.spawn import db as spawn_db
+    from space.os.core.memory import db
+    from space.os.core.spawn import db as spawn_db
 
     identity = "replacer"
     agent_id = spawn_db.ensure_agent(identity)
@@ -50,8 +50,8 @@ def test_memory_replace_single(test_space):
 
 
 def test_replace_merge(test_space):
-    from space.os.memory import db
-    from space.os.spawn import db as spawn_db
+    from space.os.core.memory import db
+    from space.os.core.spawn import db as spawn_db
 
     identity = "merger"
     agent_id = spawn_db.ensure_agent(identity)
@@ -77,8 +77,8 @@ def test_replace_merge(test_space):
 
 
 def test_memory_chain_query(test_space):
-    from space.os.memory import db
-    from space.os.spawn import db as spawn_db
+    from space.os.core.memory import db
+    from space.os.core.spawn import db as spawn_db
 
     identity = "tracer"
     agent_id = spawn_db.ensure_agent(identity)
@@ -98,8 +98,8 @@ def test_memory_chain_query(test_space):
 
 
 def test_memory_lineage_upward_traversal(test_space):
-    from space.os.memory import db
-    from space.os.spawn import db as spawn_db
+    from space.os.core.memory import db
+    from space.os.core.spawn import db as spawn_db
 
     identity = "lineage"
     agent_id = spawn_db.ensure_agent(identity)
@@ -117,8 +117,8 @@ def test_memory_lineage_upward_traversal(test_space):
 
 
 def test_memory_lineage_downward_traversal(test_space):
-    from space.os.memory import db
-    from space.os.spawn import db as spawn_db
+    from space.os.core.memory import db
+    from space.os.core.spawn import db as spawn_db
 
     identity = "descend"
     agent_id = spawn_db.ensure_agent(identity)
@@ -133,8 +133,8 @@ def test_memory_lineage_downward_traversal(test_space):
 
 
 def test_memory_lineage_merge_predecessors(test_space):
-    from space.os.memory import db
-    from space.os.spawn import db as spawn_db
+    from space.os.core.memory import db
+    from space.os.core.spawn import db as spawn_db
 
     identity = "merger"
     agent_id = spawn_db.ensure_agent(identity)
@@ -158,8 +158,8 @@ def test_memory_lineage_merge_predecessors(test_space):
 
 
 def test_memory_lineage_bidirectional_traversal(test_space):
-    from space.os.memory import db
-    from space.os.spawn import db as spawn_db
+    from space.os.core.memory import db
+    from space.os.core.spawn import db as spawn_db
 
     identity = "bidir"
     agent_id = spawn_db.ensure_agent(identity)

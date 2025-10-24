@@ -1,6 +1,6 @@
 """Test autonomous agent flow: agents post to bridge mid-execution."""
 
-from space.os.bridge import api
+from space.os.core.bridge import api
 
 
 def test_agent_posts_to_bridge_mid_execution(test_space):
