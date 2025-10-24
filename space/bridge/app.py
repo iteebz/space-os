@@ -27,7 +27,6 @@ from .commands import (
 from .commands.channels import app as channels_app
 from .commands.channels import archive as archive_cmd
 from .commands.channels import list_channels
-from .commands.council import council
 
 errors.install_error_handler("bridge")
 
@@ -77,7 +76,6 @@ app.command("export")(export_cmds.export)
 app.command("history")(history_cmds.history)
 app.command("archive")(archive_cmd)
 app.command("list")(list_channels)
-app.command("council")(council)
 
 
 def _show_readme(ctx_obj: dict):

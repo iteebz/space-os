@@ -11,8 +11,7 @@ from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 
 from space.spawn import registry
-
-from .. import api, db
+from space.bridge import api, db
 
 
 class Council:
