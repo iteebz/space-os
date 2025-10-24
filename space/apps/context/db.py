@@ -1,9 +1,8 @@
 from datetime import datetime
 
 from space.os import db
-
-from .. import bridge, events, knowledge, memory
-from ..spawn import db as spawn_db
+from space.os import bridge, events, knowledge, memory
+from space.os.spawn import db as spawn_db
 
 
 def _query_with_identity(base_query: str, params: list, identity: str | None, all_agents: bool):

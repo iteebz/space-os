@@ -3,8 +3,8 @@
 import typer
 
 from space.os.lib import display, errors, output, readme
+from space.os.lib.paths import canon_path
 
-from ..lib.paths import canon_path
 from . import db
 
 errors.install_error_handler("context")

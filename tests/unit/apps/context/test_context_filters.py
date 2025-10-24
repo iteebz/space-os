@@ -3,7 +3,7 @@ import pytest
 
 def test_collect_timeline_filters_by_identity_uuid_not_name(test_space):
     """Regression test: context filters should compare agent_id UUIDs, not names."""
-    from space.os.context.db import collect_timeline
+    from space.apps.context.db import collect_timeline
     from space.os.memory import db as memory_db
     from space.os.spawn import db as spawn_db
 
@@ -25,7 +25,7 @@ def test_collect_timeline_filters_by_identity_uuid_not_name(test_space):
 
 def test_collect_current_state_filters_by_agent_id(test_space):
     """Regression test: current state should filter by resolved agent_id."""
-    from space.os.context.db import collect_current_state
+    from space.apps.context.db import collect_current_state
     from space.os.memory import db as memory_db
     from space.os.spawn import db as spawn_db
 
@@ -48,7 +48,7 @@ def test_collect_current_state_filters_by_agent_id(test_space):
 
 def test_collect_timeline_invalid_identity_raises_error(test_space):
     """Test that invalid identity names raise clear errors."""
-    from space.os.context.db import collect_timeline
+    from space.apps.context.db import collect_timeline
 
     with pytest.raises(ValueError, match="Agent .* not found"):
         collect_timeline("test-topic", "nonexistent-agent", all_agents=False)
