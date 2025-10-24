@@ -119,7 +119,7 @@ def test_inbox_channels_all_unreads(test_space):
     assert len(inbox) == 6
 
 
-def test_recv_updates_summary_channel_returns_only_last_message(test_space):
+def test_recv_summary_latest(test_space):
     from space.os.core.bridge import api
 
     # Create a summary channel

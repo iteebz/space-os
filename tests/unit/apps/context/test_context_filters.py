@@ -1,7 +1,7 @@
 import pytest
 
 
-def test_collect_timeline_filters_by_identity_uuid_not_name(test_space):
+def test_timeline_filter_by_uuid(test_space):
     """Regression test: context filters should compare agent_id UUIDs, not names."""
     from space.apps.context.db import collect_timeline
     from space.os import memory, spawn
@@ -22,7 +22,7 @@ def test_collect_timeline_filters_by_identity_uuid_not_name(test_space):
     assert all_alice_count > 0, "Should find alice's entries in all agents timeline"
 
 
-def test_collect_current_state_filters_by_agent_id(test_space):
+def test_current_state_filter_agent_id(test_space):
     """Regression test: current state should filter by resolved agent_id."""
     from space.apps.context.db import collect_current_state
     from space.os import memory, spawn
@@ -44,7 +44,7 @@ def test_collect_current_state_filters_by_agent_id(test_space):
     assert len(results_all["memory"]) >= 2
 
 
-def test_collect_timeline_invalid_identity_raises_error(test_space):
+def test_timeline_invalid_identity_error(test_space):
     """Test that invalid identity names raise clear errors."""
     from space.apps.context.db import collect_timeline
 

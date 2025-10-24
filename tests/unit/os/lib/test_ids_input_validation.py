@@ -71,7 +71,7 @@ def test_whitespace_only_column_rejected():
         ids.resolve_id("agents", "   ", "abc")
 
 
-def test_special_sql_chars_in_table_rejected():
+def test_sql_chars_table_rejected():
     """Prevent SQL special characters in table names."""
     injection_attempts = [
         "agents' OR '1'='1",
@@ -87,7 +87,7 @@ def test_special_sql_chars_in_table_rejected():
             ids.resolve_id(table, "agent_id", "abc")
 
 
-def test_special_sql_chars_in_column_rejected():
+def test_sql_chars_column_rejected():
     """Prevent SQL special characters in column names."""
     injection_attempts = [
         "agent_id' OR '1'='1",

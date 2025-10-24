@@ -3,7 +3,7 @@
 from space.os.core.bridge import api
 
 
-def test_agent_posts_to_bridge_mid_execution(test_space):
+def test_agent_posts_mid_execution(test_space):
     """Scenario: zealot-1 runs, hits decision point, posts to bridge for zealot-2 input."""
     # Setup
     dev_channel_id = api.create_channel("space-dev", "Development coordination")

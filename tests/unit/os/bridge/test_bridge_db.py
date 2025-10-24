@@ -1,4 +1,4 @@
-def test_recv_respects_bookmarks(test_space):
+def test_bookmark_respects_bookmarks(test_space):
     from space.os.core.bridge import api
     from space.os.core.bridge.api import messages as coordination_messages
 
@@ -71,3 +71,61 @@ def test_get_new_messages_mixed_id_types(test_space):
     assert len(new_msgs) == 2
     assert new_msgs[0].content == "integer message"
     assert new_msgs[1].content == "uuid message 3"
+
+
+def test_alerts_set_bookmarks(test_space):
+    """Regression test: Alerts command should set bookmarks after rendering, clearing unread count."""
+    from space.os import spawn
+    from space.os.core.bridge import db
+
+    channel_id = db.create_channel("alert-channel")
+    agent_id = spawn.db.ensure_agent("test-agent")
+
+    msg_id = db.create_message(channel_id, "system", "alert message", priority="alert")
+
+    before_alerts = db.get_alerts(agent_id)
+    assert len(before_alerts) == 1, "Should have 1 unread alert"
+
+    db.set_bookmark(agent_id, channel_id, msg_id)
+
+    after_alerts = db.get_alerts(agent_id)
+    assert len(after_alerts) == 0, "After setting bookmark, alert should be marked as read"
+
+
+def test_note_convert_identity(test_space):
+    """Regression test: add_note should convert identity name to agent_id."""
+    from space.os import spawn
+    from space.os.core.bridge import api, db
+
+    channel_id = api.create_channel("note-test-channel")
+    identity = "test-agent"
+    spawn.db.ensure_agent(identity)
+
+    api.add_note(channel_id, identity, "test note content")
+
+    notes = db.get_notes(channel_id)
+    assert len(notes) == 1
+    assert notes[0].agent_id == spawn.db.get_agent_id(identity), (
+        "Note should store agent_id not identity name"
+    )
+    assert notes[0].content == "test note content"
+
+
+def test_notes_return_agent_id(test_space):
+    """Regression test: get_notes should return agent_id UUIDs for lookups."""
+    from space.os import spawn
+    from space.os.core.bridge import api, db
+
+    channel_id = api.create_channel("note-uuid-test")
+    identity = "note-agent"
+    agent_id = spawn.db.ensure_agent(identity)
+
+    api.add_note(channel_id, identity, "note content")
+
+    notes = db.get_notes(channel_id)
+    assert len(notes) == 1
+
+    assert hasattr(notes[0], "agent_id")
+    assert notes[0].agent_id == agent_id
+    assert isinstance(notes[0].agent_id, str)
+    assert len(notes[0].agent_id) == 36, "agent_id should be UUID format"

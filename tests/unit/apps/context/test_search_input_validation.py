@@ -76,14 +76,14 @@ def test_whitespace_counted_toward_limit():
         context_db._validate_search_term(whitespace)
 
 
-def test_catastrophic_backtracking_pattern_limited():
+def test_backtrack_limit():
     """Catastrophic backtracking patterns limited by length."""
     pattern = "(" * 128 + "a" * 128 + ")" * 128
     with pytest.raises(ValueError, match="Search term too long"):
         context_db._validate_search_term(pattern)
 
 
-def test_exponential_backtracking_limited():
+def test_exponential_backtrack_limit():
     """Exponential backtracking limited by length."""
     pattern = "(a+)+b" * 50
     if len(pattern) > context_db._MAX_SEARCH_LEN:
@@ -91,13 +91,13 @@ def test_exponential_backtracking_limited():
             context_db._validate_search_term(pattern)
 
 
-def test_like_wildcard_alone_safe():
+def test_wildcard_within_limit():
     """LIKE wildcard patterns safe (limited by length)."""
     pattern = "%" * (context_db._MAX_SEARCH_LEN - 10)
     context_db._validate_search_term(pattern)
 
 
-def test_like_wildcard_oversized_rejected():
+def test_wildcard_oversized_rejected():
     """Oversized LIKE patterns rejected."""
     pattern = "%" * (context_db._MAX_SEARCH_LEN + 1)
     with pytest.raises(ValueError, match="Search term too long"):

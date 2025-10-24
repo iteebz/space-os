@@ -42,7 +42,7 @@ def test_invalid_agent_id_rejected_in_emit(tmp_path, monkeypatch):
         events.emit("test", "event", agent_id=123)  # type: ignore
 
 
-def test_emit_with_valid_agent_id_from_ensure_agent(tmp_path, monkeypatch):
+def test_emit_valid_agent_id(tmp_path, monkeypatch):
     """ensure_agent output should be safe to pass to emit()"""
     monkeypatch.setenv("SPACE_DATA", str(tmp_path))
 
@@ -80,7 +80,7 @@ def test_get_agent_name_none_handling(tmp_path, monkeypatch):
     assert safe_result == "unknown"
 
 
-def test_task_with_channel_preserves_agent_id(tmp_path, monkeypatch):
+def test_task_preserve_agent_id(tmp_path, monkeypatch):
     """Tasks created with channel_id should still have valid agent_id"""
     monkeypatch.setenv("SPACE_DATA", str(tmp_path))
 

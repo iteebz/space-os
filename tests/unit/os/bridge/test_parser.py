@@ -58,7 +58,7 @@ def test_extract_mention_task_with_newlines():
     assert task == "analyze this situation"
 
 
-def test_extract_mention_task_multiple_mentions():
+def test_extract_mention_multiple():
     """Extract task stops at next @mention."""
     content = "@hailot do this @zealot do that"
     task = parser.extract_mention_task("hailot", content)

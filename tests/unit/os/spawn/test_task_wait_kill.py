@@ -20,7 +20,7 @@ def test_wait_blocks_until_completion(test_space):
     assert exit_code == 0
 
 
-def test_wait_returns_task_status_as_exit_code(test_space):
+def test_wait_exit_code(test_space):
     """spawn wait returns 0 for completed, non-zero for failed."""
     from space.os.core.spawn.tasks import wait
 
@@ -49,7 +49,7 @@ def test_wait_timeout(test_space):
         assert e.exit_code == 124
 
 
-def test_wait_pending_task_waits(test_space):
+def test_wait_pending(test_space):
     """spawn wait on pending task waits for it to start and complete."""
     from space.os.core.spawn.tasks import wait
 

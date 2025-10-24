@@ -16,14 +16,14 @@ def test_invocation_context_tracks_identity(test_space):
     assert ctx.command == "wake"
 
 
-def test_alias_resolver_normalizes_wake_identity(test_space):
+def test_alias_normalize_wake(test_space):
     from space.os.lib.aliasing import Aliasing
 
     result = Aliasing.normalize_args(["wake", "my-agent"])
     assert result == ["wake", "--as", "my-agent"]
 
 
-def test_alias_resolver_preserves_explicit_flag(test_space):
+def test_alias_preserve_flag(test_space):
     from space.os.lib.aliasing import Aliasing
 
     result = Aliasing.normalize_args(["wake", "--as", "my-agent"])
@@ -37,7 +37,7 @@ def test_wake_explicit_flag_invocation(test_space):
         assert "explicit-agent" in result.stdout or "Spawn" in result.stdout
 
 
-def test_constitution_hash_content_addressable(test_space):
+def test_constitution_hash_addressable(test_space):
     from space.os.core.spawn.spawn import hash_content
 
     test_content = "# TEST CONSTITUTION\nTest identity marker"
@@ -47,7 +47,7 @@ def test_constitution_hash_content_addressable(test_space):
     assert test_hash.isalnum(), "Hash should be alphanumeric"
 
 
-def test_invocation_context_emits_with_agent_id(test_space):
+def test_invocation_agent_id(test_space):
     from space.os import spawn
 
     spawn.db.ensure_agent("telemetry-test-agent")

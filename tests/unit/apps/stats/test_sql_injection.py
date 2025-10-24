@@ -122,7 +122,7 @@ def test_get_common_db_stats_invalid_column(temp_db):
     assert result == (0, 0, 0, None, [])
 
 
-def test_get_common_db_stats_invalid_leaderboard_column(temp_db):
+def test_invalid_leaderboard_column(temp_db):
     """Should handle invalid leaderboard column gracefully."""
     result = stats_lib._get_common_db_stats(
         temp_db,
@@ -132,13 +132,13 @@ def test_get_common_db_stats_invalid_leaderboard_column(temp_db):
     assert result == (0, 0, 0, None, [])
 
 
-def test_discover_all_agent_ids_invalid_table():
+def test_discover_invalid_table():
     """Should handle invalid table in discovery."""
     result = stats_lib._discover_all_agent_ids({"agent1"}, include_archived=False)
     assert "agent1" in result
 
 
-def test_discover_all_agent_ids_sql_injection_table():
+def test_discover_injection_table():
     """Should reject injection attempts in table name."""
     result = stats_lib._discover_all_agent_ids({"agent1"}, include_archived=False)
     assert isinstance(result, set)

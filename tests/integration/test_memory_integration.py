@@ -118,7 +118,7 @@ def test_memory_lineage_upward_traversal(test_space):
     assert "version 2" in preds
 
 
-def test_memory_lineage_downward_traversal(test_space):
+def test_lineage_downward(test_space):
     from space.os import spawn
     from space.os.core.memory import db
 
@@ -134,7 +134,7 @@ def test_memory_lineage_downward_traversal(test_space):
     assert chain["successors"][0].message == "evolved"
 
 
-def test_memory_lineage_merge_predecessors(test_space):
+def test_lineage_merge(test_space):
     from space.os import spawn
     from space.os.core.memory import db
 
@@ -159,7 +159,7 @@ def test_memory_lineage_merge_predecessors(test_space):
     assert chain_a["successors"][0].message == "unified synthesis"
 
 
-def test_memory_lineage_bidirectional_traversal(test_space):
+def test_lineage_bidirectional(test_space):
     from space.os import spawn
     from space.os.core.memory import db
 
