@@ -112,6 +112,26 @@ def migrate(conn: sqlite3.Connection, migs: list[tuple[str, str | Callable]]) ->
             raise
 
 
+def resolve(db_dir: Path) -> None:
+    """Resolve WAL files by checkpointing all databases in directory.
+    
+    Merges WAL (Write-Ahead Logging) data into main database files,
+    creating complete, standalone snapshots suitable for backup/transfer.
+    
+    Args:
+        db_dir: Directory containing *.db files
+    """
+    for db_file in sorted(db_dir.glob("*.db")):
+        try:
+            conn = connect(db_file)
+            conn.execute("PRAGMA journal_mode=DELETE")
+            conn.execute("PRAGMA wal_checkpoint(RESTART)")
+            conn.close()
+            logger.info(f"Resolved {db_file.name}")
+        except sqlite3.DatabaseError as e:
+            logger.warning(f"Failed to resolve {db_file.name}: {e}")
+
+
 def registry() -> dict[str, tuple[str, str]]:
     """Return registry of all registered databases."""
     return _registry.copy()

@@ -86,10 +86,9 @@ def wake(
     agent_id = spawn.db.ensure_agent(identity)
     events.identify(identity, "wake")
 
-    # Auto-sync chat logs on wake
     from space.os import chats
 
-    chats.sync(identity=identity)
+    chats.sync(identity)
 
     spawn_count = events.get_sleep_count(agent_id)
     wakes_this_spawn = events.get_wakes_since_last_sleep(agent_id)

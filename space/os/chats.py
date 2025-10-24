@@ -36,11 +36,12 @@ db.register("chats", "chats.db", schema())
 db.add_migrations("chats", [])
 
 
-def init_db():
-    db.ensure("chats").close()
+def _ensure_conn():
+    """Get chats database connection."""
+    return db.ensure("chats")
 
 
-def _insert_msgs(cli: str, msgs: list[Message]) -> int:
+def _insert_msgs(cli: str, msgs: list[Message], identity: str) -> int:
     synced = 0
     conn = db.ensure("chats")
     for msg in msgs:
@@ -59,7 +60,7 @@ def _insert_msgs(cli: str, msgs: list[Message]) -> int:
                     msg.model,
                     msg.session_id,
                     msg.timestamp,
-                    None,
+                    identity,
                     msg.role,
                     msg.text,
                     raw_hash,
@@ -72,26 +73,19 @@ def _insert_msgs(cli: str, msgs: list[Message]) -> int:
     return synced
 
 
-def sync(identity: str | None = None) -> dict[str, int]:
+def sync(identity: str) -> dict[str, int]:
+    """Sync CLI sessions for a specific identity. Called on wake."""
     init_db()
-
     results = {
-        "claude": _insert_msgs("claude", agents.claude.sessions()),
-        "codex": _insert_msgs("codex", agents.codex.sessions()),
-        "gemini": _insert_msgs("gemini", agents.gemini.sessions()),
+        "claude": _insert_msgs("claude", agents.claude.sessions(), identity),
+        "codex": _insert_msgs("codex", agents.codex.sessions(), identity),
+        "gemini": _insert_msgs("gemini", agents.gemini.sessions(), identity),
     }
-
-    if identity:
-        conn = db.ensure("chats")
-        conn.execute("UPDATE entries SET identity = ? WHERE identity IS NULL", (identity,))
-        conn.close()
-
     return results
 
 
 def search(query: str, identity: str | None = None, limit: int = 10) -> list[dict[str, Any]]:
-    init_db()
-    conn = db.ensure("chats")
+    conn = _ensure_conn()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -117,8 +111,7 @@ def search(query: str, identity: str | None = None, limit: int = 10) -> list[dic
 
 
 def list_entries(identity: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
-    init_db()
-    conn = db.ensure("chats")
+    conn = _ensure_conn()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -150,8 +143,7 @@ def list_entries(identity: str | None = None, limit: int = 20) -> list[dict[str,
 
 
 def get_entry(entry_id: int) -> dict[str, Any] | None:
-    init_db()
-    conn = db.ensure("chats")
+    conn = _ensure_conn()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -167,8 +159,7 @@ def get_surrounding_context(entry_id: int, context_size: int = 5) -> list[dict[s
     if not entry:
         return []
 
-    init_db()
-    conn = db.ensure("chats")
+    conn = _ensure_conn()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -192,8 +183,7 @@ def get_surrounding_context(entry_id: int, context_size: int = 5) -> list[dict[s
 def sample(
     count: int = 5, identity: str | None = None, cli: str | None = None
 ) -> list[dict[str, Any]]:
-    init_db()
-    conn = db.ensure("chats")
+    conn = _ensure_conn()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -225,21 +215,19 @@ app = typer.Typer(help="Search and manage chat logs")
 
 @app.command()
 def sync_cmd(
-    identity: str | None = typer.Option(
-        None, "--identity", "-i", help="Tag synced entries with identity"
-    ),
+    identity: str = typer.Option(..., "--as", help="Identity to sync chats for"),
 ):
-    """Sync all CLIs with optional identity tag."""
+    """Sync CLI sessions for an identity."""
     results = sync(identity=identity)
 
     total = sum(results.values())
-    typer.echo(f"Synced {total:,} entries")
-    typer.echo(f"  claude: {results['claude']:,}")
-    typer.echo(f"  codex:  {results['codex']:,}")
-    typer.echo(f"  gemini: {results['gemini']:,}")
-
-    if identity:
-        typer.echo(f"\nTagged as: {identity}")
+    typer.echo(f"Synced {total:,} entries for {identity}")
+    if results["claude"]:
+        typer.echo(f"  claude: {results['claude']:,}")
+    if results["codex"]:
+        typer.echo(f"  codex:  {results['codex']:,}")
+    if results["gemini"]:
+        typer.echo(f"  gemini: {results['gemini']:,}")
 
 
 @app.command()

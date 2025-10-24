@@ -33,5 +33,31 @@ def canon_path() -> Path:
 
 
 def chats_db() -> Path:
-    """Returns path to unified chat history, ~/space/data/chats.db."""
+    """Returns path to unified chat history, ~/.space/data/chats.db."""
     return space_data() / "chats.db"
+
+
+def backups_dir() -> Path:
+    """Returns the backups directory, ~/.space/backups (read-only)."""
+    return Path.home() / ".space" / "backups"
+
+
+def backup_snapshot(timestamp: str) -> Path:
+    """Returns immutable path to timestamped backup snapshot.
+    
+    Args:
+        timestamp: ISO format or YYYYMMDDhhmmss format
+        
+    Returns:
+        Path like ~/.space/backups/20251025_001530/
+    """
+    return backups_dir() / timestamp
+
+
+def validate_backup_path(backup_path: Path) -> bool:
+    """Validate backup path is within backups/ to prevent traversal."""
+    try:
+        backup_path.resolve().relative_to(backups_dir().resolve())
+        return True
+    except ValueError:
+        return False

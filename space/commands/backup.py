@@ -2,45 +2,15 @@ import json
 import logging
 import os
 import shutil
-import sqlite3
 from datetime import datetime
 from pathlib import Path
 
 import typer
 
+from space.os import db
 from space.os.lib import paths
 
 logger = logging.getLogger(__name__)
-
-
-def _checkpoint_dbs(db_path: Path) -> None:
-    """Checkpoint databases to merge WAL into main file."""
-    for db_file in sorted(db_path.glob("*.db")):
-        try:
-            conn = sqlite3.connect(db_file, timeout=5.0)
-            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-            conn.close()
-        except sqlite3.DatabaseError:
-            pass
-
-
-def _replay_and_clean(backup_path: Path) -> None:
-    """Replay WAL files and remove them from backup."""
-    for db_file in backup_path.glob("*.db"):
-        try:
-            conn = sqlite3.connect(db_file)
-            conn.execute("PRAGMA journal_mode=DELETE")
-            conn.execute("PRAGMA wal_checkpoint(RESTART)")
-            conn.close()
-        except sqlite3.DatabaseError:
-            pass
-    
-    for item in backup_path.iterdir():
-        if item.name.endswith(('-wal', '-shm')):
-            try:
-                os.remove(item)
-            except OSError:
-                pass
 
 
 def backup(
@@ -49,23 +19,28 @@ def backup(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    """Backup ~/space/.space to ~/.space/backups/"""
+    """Backup ~/.space/data to ~/.space/backups/ (immutable, timestamped)"""
 
     src = paths.space_data()
     if not src.exists():
         if not quiet_output:
-            typer.echo("No .space directory found")
+            typer.echo("No data directory found")
         raise typer.Exit(code=1)
 
-    backup_root_dir = paths.space_data() / "backups"
-    backup_root_dir.mkdir(parents=True, exist_ok=True)
+    backup_dir = paths.backups_dir()
+    backup_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_path = backup_root_dir / timestamp
+    backup_path = paths.backup_snapshot(timestamp)
+    
+    if not paths.validate_backup_path(backup_path):
+        typer.echo("ERROR: Backup path validation failed (possible path traversal)", err=True)
+        raise typer.Exit(code=1)
 
-    _checkpoint_dbs(src)
-    shutil.copytree(src, backup_path, dirs_exist_ok=True, ignore=shutil.ignore_patterns('backups'))
-    _replay_and_clean(backup_path)
+    db.resolve(src)
+    shutil.copytree(src, backup_path, dirs_exist_ok=False)
+    
+    os.chmod(backup_path, 0o555)
 
     backup_stats = _get_backup_stats(backup_path)
 
