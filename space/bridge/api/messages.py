@@ -29,7 +29,7 @@ def send_message(channel_id: str, sender: str, content: str, priority: str = "no
         db.create_message(
             channel_id=channel_id,
             agent_id="system",
-            content="[system] spawning agent(s)",
+            content="[space] spawning agent(s)",
             priority="normal",
         )
         subprocess.Popen(

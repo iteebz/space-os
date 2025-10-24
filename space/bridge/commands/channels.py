@@ -254,6 +254,88 @@ def archive(
 
 
 @app.command()
+def pin(
+    ctx: typer.Context,
+    channels: Annotated[list[str], typer.Argument(...)],
+    identity: str = typer.Option(None, "--as", help="Agent identity"),
+):
+    """Pin channels to wake view."""
+    json_output = ctx.obj.get("json_output")
+    quiet_output = ctx.obj.get("quiet_output")
+
+    agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
+    results = []
+    for channel in channels:
+        try:
+            if agent_id:
+                events.emit(
+                    "bridge", "channel_pinning", agent_id, json.dumps({"channel": channel})
+                )
+            api.pin_channel(channel)
+            if agent_id:
+                events.emit("bridge", "channel_pinned", agent_id, json.dumps({"channel": channel}))
+            if json_output:
+                results.append({"channel": channel, "status": "pinned"})
+            elif not quiet_output:
+                typer.echo(f"Pinned channel: {channel}")
+        except (ValueError, TypeError) as e:
+            if agent_id:
+                events.emit(
+                    "bridge",
+                    "error",
+                    agent_id,
+                    json.dumps({"command": "pin", "details": str(e)}),
+                )
+            if json_output:
+                results.append({"channel": channel, "status": "error", "message": str(e)})
+            elif not quiet_output:
+                typer.echo(f"❌ Channel '{channel}' not found.")
+    if json_output:
+        typer.echo(json.dumps(results))
+
+
+@app.command()
+def unpin(
+    ctx: typer.Context,
+    channels: Annotated[list[str], typer.Argument(...)],
+    identity: str = typer.Option(None, "--as", help="Agent identity"),
+):
+    """Unpin channels from wake view."""
+    json_output = ctx.obj.get("json_output")
+    quiet_output = ctx.obj.get("quiet_output")
+
+    agent_id = registry.ensure_agent(identity) if identity and isinstance(identity, str) else None
+    results = []
+    for channel in channels:
+        try:
+            if agent_id:
+                events.emit(
+                    "bridge", "channel_unpinning", agent_id, json.dumps({"channel": channel})
+                )
+            api.unpin_channel(channel)
+            if agent_id:
+                events.emit("bridge", "channel_unpinned", agent_id, json.dumps({"channel": channel}))
+            if json_output:
+                results.append({"channel": channel, "status": "unpinned"})
+            elif not quiet_output:
+                typer.echo(f"Unpinned channel: {channel}")
+        except (ValueError, TypeError) as e:
+            if agent_id:
+                events.emit(
+                    "bridge",
+                    "error",
+                    agent_id,
+                    json.dumps({"command": "unpin", "details": str(e)}),
+                )
+            if json_output:
+                results.append({"channel": channel, "status": "error", "message": str(e)})
+            elif not quiet_output:
+                typer.echo(f"❌ Channel '{channel}' not found.")
+    if json_output:
+        typer.echo(json.dumps(results))
+
+
+@app.command()
 def delete(
     ctx: typer.Context,
     channel: str = typer.Argument(...),

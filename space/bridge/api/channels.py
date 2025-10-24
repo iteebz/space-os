@@ -31,6 +31,18 @@ def export_channel(channel_name: str) -> Export:
     return db.get_export_data(channel_id)
 
 
+def pin_channel(channel_name: str):
+    """Pin channel to wake view."""
+    channel_id = get_channel_id(channel_name)
+    db.pin_channel(channel_id)
+
+
+def unpin_channel(channel_name: str):
+    """Unpin channel from wake view."""
+    channel_id = get_channel_id(channel_name)
+    db.unpin_channel(channel_id)
+
+
 def archive_channel(channel_name: str):
     """Archive resolved channel."""
     channel_id = get_channel_id(channel_name)

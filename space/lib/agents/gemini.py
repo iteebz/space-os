@@ -29,36 +29,39 @@ def sessions() -> list[Message]:
         return []
 
     msgs = []
-    for json_file in gemini_dir.rglob("*.json"):
-        if json_file.name == "logs.json":
+    for subdir in gemini_dir.iterdir():
+        if not subdir.is_dir():
             continue
+        for json_file in subdir.glob("*.json"):
+            if json_file.name == "logs.json":
+                continue
 
-        try:
-            with open(json_file) as f:
-                data = json.load(f)
-                if not isinstance(data, dict):
-                    continue
+            try:
+                with open(json_file) as f:
+                    data = json.load(f)
+                    if not isinstance(data, dict):
+                        continue
 
-                session_id = data.get("sessionId", str(json_file.stem))
-                for raw in data.get("messages", []):
-                    role = raw.get("role") or raw.get("type")
-                    if role not in ("user", "model", "assistant"):
-                        continue
-                    if role == "model":
-                        role = "assistant"
-                    text = _extract_text(raw.get("content"))
-                    if not text:
-                        continue
-                    msgs.append(
-                        Message(
-                            role=role,
-                            text=text,
-                            timestamp=raw.get("timestamp"),
-                            session_id=session_id,
+                    session_id = data.get("sessionId", str(json_file.stem))
+                    for raw in data.get("messages", []):
+                        role = raw.get("role") or raw.get("type")
+                        if role not in ("user", "model", "assistant"):
+                            continue
+                        if role == "model":
+                            role = "assistant"
+                        text = _extract_text(raw.get("content"))
+                        if not text:
+                            continue
+                        msgs.append(
+                            Message(
+                                role=role,
+                                text=text,
+                                timestamp=raw.get("timestamp"),
+                                session_id=session_id,
+                            )
                         )
-                    )
-        except (OSError, json.JSONDecodeError):
-            continue
+            except (OSError, json.JSONDecodeError):
+                continue
 
     return [m for m in msgs if m.is_valid()]
 

@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS channels (
     topic TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     notes TEXT,
-    archived_at TIMESTAMP
+    archived_at TIMESTAMP,
+    pinned_at TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS notes (
@@ -356,6 +357,22 @@ def get_export_data(channel_id: str) -> Export:
         messages=messages,
         notes=notes,
     )
+
+
+def pin_channel(channel_id: str):
+    with connect() as conn:
+        conn.execute(
+            "UPDATE channels SET pinned_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (channel_id,),
+        )
+
+
+def unpin_channel(channel_id: str):
+    with connect() as conn:
+        conn.execute(
+            "UPDATE channels SET pinned_at = NULL WHERE id = ?",
+            (channel_id,),
+        )
 
 
 def archive_channel(channel_id: str):
