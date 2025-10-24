@@ -26,17 +26,17 @@ CREATE INDEX IF NOT EXISTS idx_cli_session ON entries(cli, session_id);
 CREATE INDEX IF NOT EXISTS idx_timestamp ON entries(timestamp);
 """
 
-db.register("sessions", "sessions.db", _SESSIONS_SCHEMA)
-db.add_migrations("sessions", [])
+db.register("chats", "chats.db", _SESSIONS_SCHEMA)
+db.add_migrations("chats", [])
 
 
 def init_db():
-    db.ensure("sessions").close()
+    db.ensure("chats").close()
 
 
 def _insert_msgs(cli: str, msgs: list[Message]) -> int:
     synced = 0
-    conn = db.ensure("sessions")
+    conn = db.ensure("chats")
     for msg in msgs:
         raw_hash = hashlib.sha256(
             f"{cli}{msg.session_id}{msg.timestamp}{msg.text}".encode()
@@ -76,7 +76,7 @@ def sync(identity: str | None = None) -> dict[str, int]:
     }
 
     if identity:
-        conn = db.ensure("sessions")
+        conn = db.ensure("chats")
         conn.execute("UPDATE entries SET identity = ? WHERE identity IS NULL", (identity,))
         conn.close()
 
@@ -85,7 +85,7 @@ def sync(identity: str | None = None) -> dict[str, int]:
 
 def search(query: str, identity: str | None = None, limit: int = 10) -> list[dict[str, Any]]:
     init_db()
-    conn = db.ensure("sessions")
+    conn = db.ensure("chats")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -112,7 +112,7 @@ def search(query: str, identity: str | None = None, limit: int = 10) -> list[dic
 
 def list_entries(identity: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
     init_db()
-    conn = db.ensure("sessions")
+    conn = db.ensure("chats")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -145,7 +145,7 @@ def list_entries(identity: str | None = None, limit: int = 20) -> list[dict[str,
 
 def get_entry(entry_id: int) -> dict[str, Any] | None:
     init_db()
-    conn = db.ensure("sessions")
+    conn = db.ensure("chats")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -162,7 +162,7 @@ def get_surrounding_context(entry_id: int, context_size: int = 5) -> list[dict[s
         return []
 
     init_db()
-    conn = db.ensure("sessions")
+    conn = db.ensure("chats")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -187,7 +187,7 @@ def sample(
     count: int = 5, identity: str | None = None, cli: str | None = None
 ) -> list[dict[str, Any]]:
     init_db()
-    conn = db.ensure("sessions")
+    conn = db.ensure("chats")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 

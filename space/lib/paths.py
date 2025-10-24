@@ -53,8 +53,8 @@ def canon_path(base_path: Path | None = None) -> Path:
     return space_root(base_path) / "canon"
 
 
-def sessions_db() -> Path:
-    """Returns path to unified session index, ~/.space/sessions.db."""
-    if "SPACE_SESSIONS_DB" in os.environ:
-        return Path(os.environ["SPACE_SESSIONS_DB"]).expanduser()
-    return global_root() / "sessions.db"
+def chats_db() -> Path:
+    """Returns path to unified chat history, ~/.space/chats.db."""
+    if "SPACE_CHATS_DB" in os.environ:
+        return Path(os.environ["SPACE_CHATS_DB"]).expanduser()
+    return global_root() / "chats.db"

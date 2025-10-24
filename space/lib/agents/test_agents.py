@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from space.lib import agents, sessions
+from space.lib import agents, chats
 
 
 @pytest.fixture
@@ -14,7 +14,7 @@ def temp_db():
     """Use temp DB for testing."""
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = Path(tmpdir) / "test.db"
-        with patch("space.lib.paths.sessions_db", return_value=db_path):
+        with patch("space.lib.paths.chats_db", return_value=db_path):
             yield db_path
 
 
@@ -110,8 +110,8 @@ def mock_cli_logs():
 
 def test_init_db(temp_db):
     """Test database initialization."""
-    with patch("space.lib.paths.sessions_db", return_value=temp_db):
-        sessions.init_db()
+    with patch("space.lib.paths.chats_db", return_value=temp_db):
+        chats.init_db()
         assert temp_db.exists()
 
         conn = sqlite3.connect(temp_db)
@@ -152,9 +152,9 @@ def test_gemini_sessions(mock_cli_logs):
 
 def test_sync(temp_db, mock_cli_logs):
     """Test sync all CLIs."""
-    with patch("space.lib.paths.sessions_db", return_value=temp_db):
-        sessions.init_db()
-        results = sessions.sync(identity="zealot")
+    with patch("space.lib.paths.chats_db", return_value=temp_db):
+        chats.init_db()
+        results = chats.sync(identity="zealot")
 
         assert "claude" in results
         assert "codex" in results
@@ -166,8 +166,8 @@ def test_sync(temp_db, mock_cli_logs):
 
 def test_search(temp_db):
     """Test search functionality."""
-    with patch("space.lib.paths.sessions_db", return_value=temp_db):
-        sessions.init_db()
+    with patch("space.lib.paths.chats_db", return_value=temp_db):
+        chats.init_db()
 
         conn = sqlite3.connect(temp_db)
         cursor = conn.cursor()
@@ -189,20 +189,20 @@ def test_search(temp_db):
         conn.commit()
         conn.close()
 
-        results = sessions.search("test")
+        results = chats.search("test")
         assert len(results) == 1
 
-        results = sessions.search("test", identity="zealot")
+        results = chats.search("test", identity="zealot")
         assert len(results) == 1
 
-        results = sessions.search("test", identity="other")
+        results = chats.search("test", identity="other")
         assert len(results) == 0
 
 
 def test_list_entries(temp_db):
     """Test listing entries."""
-    with patch("space.lib.paths.sessions_db", return_value=temp_db):
-        sessions.init_db()
+    with patch("space.lib.paths.chats_db", return_value=temp_db):
+        chats.init_db()
 
         conn = sqlite3.connect(temp_db)
         cursor = conn.cursor()
@@ -225,17 +225,17 @@ def test_list_entries(temp_db):
         conn.commit()
         conn.close()
 
-        results = sessions.list_entries(identity="zealot")
+        results = chats.list_entries(identity="zealot")
         assert len(results) == 3
 
-        results = sessions.list_entries(identity="other")
+        results = chats.list_entries(identity="other")
         assert len(results) == 0
 
 
 def test_get_entry(temp_db):
     """Test retrieving a single entry."""
-    with patch("space.lib.paths.sessions_db", return_value=temp_db):
-        sessions.init_db()
+    with patch("space.lib.paths.chats_db", return_value=temp_db):
+        chats.init_db()
 
         conn = sqlite3.connect(temp_db)
         cursor = conn.cursor()
@@ -260,7 +260,7 @@ def test_get_entry(temp_db):
         entry_id = cursor.fetchone()[0]
         conn.close()
 
-        entry = sessions.get_entry(entry_id)
+        entry = chats.get_entry(entry_id)
         assert entry is not None
         assert entry["text"] == "test"
         assert entry["identity"] == "zealot"
@@ -268,8 +268,8 @@ def test_get_entry(temp_db):
 
 def test_get_surrounding_context(temp_db):
     """Test retrieving surrounding context."""
-    with patch("space.lib.paths.sessions_db", return_value=temp_db):
-        sessions.init_db()
+    with patch("space.lib.paths.chats_db", return_value=temp_db):
+        chats.init_db()
 
         conn = sqlite3.connect(temp_db)
         cursor = conn.cursor()
@@ -294,15 +294,15 @@ def test_get_surrounding_context(temp_db):
         entry_id = cursor.fetchone()[0]
         conn.close()
 
-        context = sessions.get_surrounding_context(entry_id)
+        context = chats.get_surrounding_context(entry_id)
         assert len(context) > 0
         assert entry_id in [e["id"] for e in context]
 
 
 def test_unique_constraint(temp_db):
     """Test that duplicates are ignored."""
-    with patch("space.lib.paths.sessions_db", return_value=temp_db):
-        sessions.init_db()
+    with patch("space.lib.paths.chats_db", return_value=temp_db):
+        chats.init_db()
 
         conn = sqlite3.connect(temp_db)
         cursor = conn.cursor()

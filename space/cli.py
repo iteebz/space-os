@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Sessions CLI - sync and search chat logs across Claude/Codex/Gemini."""
+"""Chats CLI - sync and search chat logs across Claude/Codex/Gemini."""
 
 import argparse
 
-from space.lib.sessions import (
+from space.lib.chats import (
     get_entry,
     get_surrounding_context,
     list_entries,
@@ -129,7 +129,7 @@ def cmd_sample(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Sessions: search chat logs across CLIs")
+    parser = argparse.ArgumentParser(description="Chats: search chat logs across CLIs")
     subparsers = parser.add_subparsers(dest="command", help="command")
 
     sync_p = subparsers.add_parser("sync", help="Sync all CLIs")

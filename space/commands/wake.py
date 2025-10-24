@@ -87,10 +87,10 @@ def wake(
     agent_id = registry.ensure_agent(identity)
     events.identify(identity, "wake")
 
-    # Auto-sync session logs on wake
-    from ..lib import sessions
+    # Auto-sync chat logs on wake
+    from ..lib import chats
 
-    sessions.sync(identity=identity)
+    chats.sync(identity=identity)
 
     spawn_count = events.get_sleep_count(agent_id)
     wakes_this_spawn = events.get_wakes_since_last_sleep(agent_id)
