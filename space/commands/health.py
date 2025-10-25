@@ -19,7 +19,7 @@ ORPHAN_CHECKS = [
 DEFS = {
     "spawn.db": ["constitutions", "agents", "tasks"],
     "bridge.db": ["channels", "messages", "notes", "bookmarks"],
-    "memory.db": ["memories", "memory_links"],
+    "memory.db": ["memories", "links"],
     "knowledge.db": ["knowledge"],
     "events.db": ["events"],
 }

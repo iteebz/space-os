@@ -43,10 +43,16 @@ def _migrate_memory_table_to_memories(conn: sqlite3.Connection):
     conn.commit()
 
 
-def _backfill_memory_links(conn: sqlite3.Connection):
+def _rename_memory_links_to_links(conn: sqlite3.Connection):
     cursor = conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='memory_links'"
     )
+    if cursor.fetchone():
+        conn.execute("ALTER TABLE memory_links RENAME TO links")
+
+
+def _backfill_memory_links(conn: sqlite3.Connection):
+    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='links'")
     if not cursor.fetchone():
         return
 
@@ -63,12 +69,13 @@ def _backfill_memory_links(conn: sqlite3.Connection):
                 link_id = str(uuid.uuid4())
                 with contextlib.suppress(sqlite3.IntegrityError):
                     conn.execute(
-                        "INSERT OR IGNORE INTO memory_links (link_id, memory_id, parent_id, kind, created_at) VALUES (?, ?, ?, ?, ?)",
+                        "INSERT OR IGNORE INTO links (link_id, memory_id, parent_id, kind, created_at) VALUES (?, ?, ?, ?, ?)",
                         (link_id, memory_id, parent_id, "supersedes", now),
                     )
 
 
 MIGRATIONS = [
     ("migrate_memory_table_to_memories", _migrate_memory_table_to_memories),
+    ("rename_memory_links_to_links", _rename_memory_links_to_links),
     ("backfill_memory_links", _backfill_memory_links),
 ]

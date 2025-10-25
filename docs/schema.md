@@ -124,7 +124,7 @@ memories (
   superseded_by TEXT               -- memory_id that replaced this
 )
 
-memory_links (
+links (
   link_id TEXT PRIMARY KEY,        -- UUID
   memory_id TEXT NOT NULL,         -- child entry
   parent_id TEXT NOT NULL,         -- parent entry

@@ -113,7 +113,7 @@ def show_wake_summary(
     identity: str, quiet_output: bool, spawn_count: int, wakes_this_spawn: int = 0
 ):
     from space.commands import wake as wake_prompts
-    from space.os import bridge, events, memory, spawn
+    from space.os import bridge, memory, spawn
 
     if quiet_output:
         return
@@ -127,10 +127,11 @@ def show_wake_summary(
     agent_id = spawn.db.get_agent_id(identity)
 
     if agent_id:
-        last_sleep_timestamp = events.get_last_sleep_time(agent_id)
+        last_journal = memory.db.get_memories(identity, topic="journal", limit=1)
 
-        if last_sleep_timestamp:
-            last_sleep_duration = format_duration(time.time() - last_sleep_timestamp)
+        if last_journal:
+            last_sleep_ts = last_journal[0].created_at
+            last_sleep_duration = format_duration(time.time() - last_sleep_ts)
             typer.echo(
                 wake_prompts.SPAWN_STATUS.format(
                     spawn=spawn_count, wakes=wakes_this_spawn, duration=last_sleep_duration

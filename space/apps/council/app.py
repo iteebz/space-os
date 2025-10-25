@@ -112,7 +112,11 @@ class Council:
             self.running = False
 
 
-def council(channel: str = typer.Argument(..., help="Channel name")):
+council = typer.Typer()
+
+
+@council.command()
+def join(channel: str = typer.Argument(..., help="Channel name")):
     """Join a bridge council - stream messages and respond live."""
     c = Council(channel)
     asyncio.run(c.run())
@@ -120,4 +124,4 @@ def council(channel: str = typer.Argument(..., help="Channel name")):
 
 def main() -> None:
     """Entry point."""
-    typer.run(council)
+    council()

@@ -1,11 +1,12 @@
-import sys
-
 import typer
 
-from space.os import events
+from space.os import events as events
 from space.os.lib import errors, output, readme
 
-from . import db, export, messages, migrations, notes, utils
+from . import db as db
+from . import export, messages, notes
+from . import migrations as migrations
+from . import utils as utils
 from .channels import app as channels_app
 from .channels import archive as archive_cmd
 from .channels import list_channels

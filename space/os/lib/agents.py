@@ -1,7 +1,7 @@
 import json
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from space.os import config
 from space.os.models import ChatMessage

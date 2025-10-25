@@ -246,77 +246,67 @@ def fetch_channels(
     active_only: bool = False,
 ) -> list[Channel]:
     with db.ensure("bridge") as conn:
+        query = """
+            SELECT t.channel_id AS id, t.name, t.topic, t.created_at, t.archived_at,
+                   COALESCE(msg_counts.total_messages, 0) as total_messages,
+                   msg_counts.last_activity,
+                   COALESCE(msg_counts.participants, '') as participants,
+                   COALESCE(note_counts.notes_count, 0) as notes_count
+            FROM channels t
+            LEFT JOIN (
+                SELECT channel_id, COUNT(*) as total_messages, MAX(created_at) as last_activity,
+                       GROUP_CONCAT(DISTINCT agent_id) as participants
+                FROM messages
+                GROUP BY channel_id
+            ) as msg_counts ON t.channel_id = msg_counts.channel_id
+            LEFT JOIN (
+                SELECT channel_id, COUNT(*) as notes_count
+                FROM notes
+                GROUP BY channel_id
+            ) as note_counts ON t.channel_id = note_counts.channel_id
+        """
+
+        params = []
+
         if agent_id:
-            query = """
-                SELECT t.channel_id AS id, t.name, t.topic, t.created_at, t.archived_at,
-                       COALESCE(msg_counts.total_messages, 0) as total_messages,
-                       msg_counts.last_activity,
-                       COALESCE(msg_counts.participants, '') as participants,
-                       COALESCE(note_counts.notes_count, 0) as notes_count,
-                       COALESCE(unread_counts.unread_count, 0) as unread_count
-                FROM channels t
-                LEFT JOIN (
-                    SELECT channel_id, COUNT(*) as total_messages, MAX(created_at) as last_activity,
-                           GROUP_CONCAT(DISTINCT agent_id) as participants
-                    FROM messages
-                    GROUP BY channel_id
-                ) as msg_counts ON t.channel_id = msg_counts.channel_id
-                LEFT JOIN (
-                    SELECT channel_id, COUNT(*) as notes_count
-                    FROM notes
-                    GROUP BY channel_id
-                ) as note_counts ON t.channel_id = note_counts.channel_id
-                LEFT JOIN (
-                    SELECT m.channel_id, COUNT(m.message_id) as unread_count
-                    FROM messages m
-                    LEFT JOIN bookmarks b ON m.channel_id = b.channel_id AND b.agent_id = ?
-                    WHERE (b.agent_id IS NULL OR m.message_id > b.last_seen_id)
-                    GROUP BY m.channel_id
-                ) as unread_counts ON t.channel_id = unread_counts.channel_id
-                WHERE 1 = 1
+            query += """
+            LEFT JOIN (
+                SELECT m.channel_id, COUNT(m.message_id) as unread_count
+                FROM messages m
+                LEFT JOIN bookmarks b ON m.channel_id = b.channel_id AND b.agent_id = ?
+                WHERE (b.agent_id IS NULL OR m.message_id > b.last_seen_id)
+                GROUP BY m.channel_id
+            ) as unread_counts ON t.channel_id = unread_counts.channel_id
             """
-            params = [agent_id]
-        else:
-            query = """
-                SELECT t.channel_id AS id, t.name, t.topic, t.created_at, t.archived_at,
-                       COALESCE(msg_counts.total_messages, 0) as total_messages,
-                       msg_counts.last_activity,
-                       COALESCE(msg_counts.participants, '') as participants,
-                       COALESCE(note_counts.notes_count, 0) as notes_count,
-                       0 as unread_count
-                FROM channels t
-                LEFT JOIN (
-                    SELECT channel_id, COUNT(*) as total_messages, MAX(created_at) as last_activity,
-                           GROUP_CONCAT(DISTINCT agent_id) as participants
-                    FROM messages
-                    GROUP BY channel_id
-                ) as msg_counts ON t.channel_id = msg_counts.channel_id
-                LEFT JOIN (
-                    SELECT channel_id, COUNT(*) as notes_count
-                    FROM notes
-                    GROUP BY channel_id
-                ) as note_counts ON t.channel_id = note_counts.channel_id
-                WHERE 1 = 1
-            """
-            params = []
+            params.append(agent_id)
+
+        query += " WHERE 1 = 1"
+
         if not include_archived:
-            query += " AND t.archived_at IS NULL "
-        if unread_only:
-            query += " AND unread_counts.unread_count > 0 "
+            query += " AND t.archived_at IS NULL"
+        if unread_only and agent_id:
+            query += " AND unread_counts.unread_count > 0"
         if active_only:
-            query += " AND t.archived_at IS NULL "  # Ensure active_only implies not archived
+            query += " AND t.archived_at IS NULL"
 
         if time_filter:
-            query += " AND t.created_at > datetime('now', ?) "
+            query += " AND t.created_at > datetime('now', ?)"
             params.append(time_filter)
 
         query += " ORDER BY t.created_at DESC"
+
         cursor = conn.execute(query, params)
         rows = cursor.fetchall()
 
         channels = []
         for row in rows:
             participants_list = row["participants"].split(",") if row["participants"] else []
+            unread_count = 0
+            if agent_id:
+                try:
+                    unread_count = row["unread_count"]
+                except (KeyError, IndexError):
+                    unread_count = 0
             channels.append(
                 Channel(
                     channel_id=row["id"],
@@ -327,7 +317,7 @@ def fetch_channels(
                     participants=participants_list,
                     message_count=row["total_messages"],
                     last_activity=row["last_activity"],
-                    unread_count=row["unread_count"],
+                    unread_count=unread_count,
                     notes_count=row["notes_count"],
                 )
             )

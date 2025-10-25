@@ -2,7 +2,9 @@ import typer
 
 from space.os.lib import errors, output, readme
 
-from . import db, entries, migrations
+from . import db as db
+from . import entries
+from . import migrations as migrations
 
 errors.install_error_handler("knowledge")
 

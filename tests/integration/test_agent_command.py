@@ -1,8 +1,8 @@
 from typer.testing import CliRunner
 
-from space.os.core.spawn.cli import spawn as spawn_app
-from space.os.core.spawn import db as spawn_db
 from space.os.core.memory import db
+from space.os.core.spawn import db as spawn_db
+from space.os.core.spawn.cli import spawn as spawn_app
 
 runner = CliRunner()
 

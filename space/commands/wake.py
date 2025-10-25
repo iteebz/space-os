@@ -34,6 +34,24 @@ CONTEXT_NUDGE = """
 """
 
 
+def _show_last_journal(identity: str):
+    """Display last journal entry context."""
+    from space.os import memory
+
+    try:
+        entries = memory.db.get_memories(identity, topic="journal", limit=1)
+        if entries:
+            e = entries[0]
+            typer.echo(f"📔 Last journal ({e.memory_id[-8:]})")
+            typer.echo(f"   {e.timestamp}")
+            typer.echo(f"   {e.message}")
+            chain = memory.db.get_chain(e.memory_id)
+            if chain["predecessors"]:
+                typer.echo(f"   (previous: {chain['predecessors'][0].memory_id[-8:]})")
+    except Exception:
+        pass
+
+
 def _priority_channel(channels):
     """Identify highest priority channel."""
     if not channels:
@@ -81,19 +99,19 @@ def wake(
 ):
     """Load your context. Resume where you left off."""
     typer.echo(f"Waking up {identity}")
-    from space.os import events, spawn
+    from space.os import events, memory, spawn
 
-    agent_id = spawn.db.ensure_agent(identity)
+    spawn.db.ensure_agent(identity)
     events.identify(identity, "wake")
 
     from space.os.lib import chats
 
     chats.sync(identity)
 
-    spawn_count = events.get_sleep_count(agent_id)
-    wakes_this_spawn = events.get_wakes_since_last_sleep(agent_id)
+    journal_entries = memory.db.get_memories(identity, topic="journal")
+    spawn_count = len(journal_entries)
 
-    _show_orientation(identity, quiet, spawn_count, wakes_this_spawn)
+    _show_orientation(identity, quiet, spawn_count, 0)
 
 
 def _show_orientation(identity: str, quiet: bool, spawn_count: int, wakes_this_spawn: int):
@@ -109,6 +127,8 @@ def _show_orientation(identity: str, quiet: bool, spawn_count: int, wakes_this_s
     )
 
     if not quiet:
+        typer.echo()
+        _show_last_journal(identity)
         typer.echo()
         typer.echo("**Ritual anchors:**")
         typer.echo("  wake  — absorb context, resume work")

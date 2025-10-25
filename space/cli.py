@@ -11,6 +11,7 @@ from space.commands.health import health
 from space.commands.init import init
 from space.commands.launch import launch
 from space.commands.sleep import sleep
+from space.commands.sleep_journal import sleep_journal
 from space.commands.wake import wake
 from space.os import (
     bridge_app,
@@ -35,6 +36,7 @@ app.add_typer(stats, name="stats")
 
 app.command()(wake)
 app.command()(sleep)
+app.command()(sleep_journal)
 app.command()(launch)
 app.command()(backup)
 app.command()(health)

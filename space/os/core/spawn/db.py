@@ -196,6 +196,7 @@ def archive_agent(name: str) -> bool:
         conn.execute(
             "UPDATE agents SET archived_at = ? WHERE agent_id = ?", (int(time.time()), agent_id)
         )
+    clear_identity_cache()
     return True
 
 
@@ -208,6 +209,7 @@ def restore_agent(name: str) -> bool:
     agent_id = agent_ids[0]
     with db.ensure("spawn") as conn:
         conn.execute("UPDATE agents SET archived_at = NULL WHERE agent_id = ?", (agent_id,))
+    clear_identity_cache()
     return True
 
 
@@ -271,6 +273,7 @@ def merge_agents(from_identifier: str, to_identifier: str) -> bool:
     with db.ensure("spawn") as conn:
         conn.execute("DELETE FROM agents WHERE agent_id = ?", (from_id,))
 
+    clear_identity_cache()
     return True
 
 

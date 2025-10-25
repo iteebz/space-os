@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS memories (
     superseded_by TEXT
 );
 
-CREATE TABLE IF NOT EXISTS memory_links (
+CREATE TABLE IF NOT EXISTS links (
     link_id TEXT PRIMARY KEY,
     memory_id TEXT NOT NULL,
     parent_id TEXT NOT NULL,
@@ -54,8 +54,8 @@ CREATE INDEX IF NOT EXISTS idx_memories_agent_created ON memories(agent_id, crea
 CREATE INDEX IF NOT EXISTS idx_memories_memory_id ON memories(memory_id);
 CREATE INDEX IF NOT EXISTS idx_memories_archived ON memories(archived_at);
 CREATE INDEX IF NOT EXISTS idx_memories_core ON memories(core);
-CREATE INDEX IF NOT EXISTS idx_links_memory ON memory_links(memory_id);
-CREATE INDEX IF NOT EXISTS idx_links_parent ON memory_links(parent_id);
+CREATE INDEX IF NOT EXISTS idx_links_memory ON links(memory_id);
+CREATE INDEX IF NOT EXISTS idx_links_parent ON links(parent_id);
 """
 
 
@@ -337,7 +337,7 @@ def replace_entry(
             for full_old_id in full_old_ids:
                 link_id = str(uuid.uuid4())
                 conn.execute(
-                    "INSERT OR IGNORE INTO memory_links (link_id, memory_id, parent_id, kind, created_at) VALUES (?, ?, ?, ?, ?)",
+                    "INSERT OR IGNORE INTO links (link_id, memory_id, parent_id, kind, created_at) VALUES (?, ?, ?, ?, ?)",
                     (link_id, new_id, full_old_id, "supersedes", now),
                 )
                 conn.execute(
@@ -366,7 +366,7 @@ def get_chain(memory_id: str) -> dict[str, Memory | list[Memory]]:
                 SELECT m.memory_id, m.agent_id, m.topic, m.message, m.timestamp,
                        m.created_at, m.archived_at, m.core, m.source, m.bridge_channel,
                        m.code_anchors, m.synthesis_note, m.supersedes, m.superseded_by
-                FROM memory_links l
+                FROM links l
                 JOIN memories m ON l.parent_id = m.memory_id
                 WHERE l.memory_id = ? AND l.kind = 'supersedes'
                 """,
@@ -387,7 +387,7 @@ def get_chain(memory_id: str) -> dict[str, Memory | list[Memory]]:
                 SELECT m.memory_id, m.agent_id, m.topic, m.message, m.timestamp,
                        m.created_at, m.archived_at, m.core, m.source, m.bridge_channel,
                        m.code_anchors, m.synthesis_note, m.supersedes, m.superseded_by
-                FROM memory_links l
+                FROM links l
                 JOIN memories m ON l.memory_id = m.memory_id
                 WHERE l.parent_id = ? AND l.kind = 'supersedes'
                 """,
@@ -404,3 +404,15 @@ def get_chain(memory_id: str) -> dict[str, Memory | list[Memory]]:
 
     start_entry = get_by_memory_id(full_id)
     return {"start_entry": start_entry, "predecessors": predecessors, "successors": successors}
+
+
+def add_link(memory_id: str, parent_id: str, kind: str = "supersedes") -> str:
+    """Create a link between two memories. Returns link_id."""
+    link_id = str(uuid.uuid4())
+    now = int(time.time())
+    with db.ensure("memory") as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO links (link_id, memory_id, parent_id, kind, created_at) VALUES (?, ?, ?, ?, ?)",
+            (link_id, memory_id, parent_id, kind, now),
+        )
+    return link_id

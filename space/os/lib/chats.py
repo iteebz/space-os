@@ -1,3 +1,4 @@
+import contextlib
 import hashlib
 
 from space.os import db
@@ -37,7 +38,7 @@ def _insert_msgs(cli: str, msgs: list, identity: str) -> None:
             raw_hash = hashlib.sha256(
                 f"{cli}{msg.session_id}{msg.timestamp}{msg.text}".encode()
             ).hexdigest()
-            try:
+            with contextlib.suppress(Exception):
                 conn.execute(
                     """
                     INSERT OR IGNORE INTO entries
@@ -55,8 +56,6 @@ def _insert_msgs(cli: str, msgs: list, identity: str) -> None:
                         raw_hash,
                     ),
                 )
-            except Exception:
-                pass
 
 
 def sync(identity: str) -> None:

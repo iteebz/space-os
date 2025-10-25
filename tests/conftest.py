@@ -4,10 +4,10 @@ import shutil
 import pytest
 
 from space.os import config, db
-from space.os.core.bridge.migrations import MIGRATIONS as bridge_migrations
-from space.os.core.knowledge.migrations import MIGRATIONS as knowledge_migrations
-from space.os.core.memory.migrations import MIGRATIONS as memory_migrations
-from space.os.core.spawn.migrations import MIGRATIONS as spawn_migrations
+from space.os.core.bridge.migrations import MIGRATIONS as BRIDGE_MIGRATIONS
+from space.os.core.knowledge.migrations import MIGRATIONS as KNOWLEDGE_MIGRATIONS
+from space.os.core.memory.migrations import MIGRATIONS as MEMORY_MIGRATIONS
+from space.os.core.spawn.migrations import MIGRATIONS as SPAWN_MIGRATIONS
 
 
 @pytest.fixture(scope="session")
@@ -23,25 +23,25 @@ def _seed_dbs(tmp_path_factory):
     db.ensure_schema(
         seed_dir / cfg.registry_db().name,
         spawn_db.schema(),
-        spawn_migrations,
+        SPAWN_MIGRATIONS,
     )
 
     db.ensure_schema(
         seed_dir / "memory.db",
         memory_db.schema(),
-        memory_migrations,
+        MEMORY_MIGRATIONS,
     )
 
     db.ensure_schema(
         seed_dir / "knowledge.db",
         knowledge_db.schema(),
-        knowledge_migrations,
+        KNOWLEDGE_MIGRATIONS,
     )
 
     db.ensure_schema(
         seed_dir / "bridge.db",
         bridge_db.schema(),
-        bridge_migrations,
+        BRIDGE_MIGRATIONS,
     )
 
     return seed_dir

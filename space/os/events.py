@@ -2,8 +2,9 @@ import functools
 import json
 import sqlite3
 import time
+from collections.abc import Callable
 from enum import Enum
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from space.os import db
 from space.os.models import Event
@@ -186,60 +187,6 @@ def identify(identity: str, command: str):
     constitute_identity(identity)
     agent_id = spawn.db.ensure_agent(identity)
     emit("identity", command, agent_id, "")
-
-
-def get_session_count(agent_id: str) -> int:
-    """Count completed sessions (session_start events)."""
-    with db.ensure("events") as conn:
-        result = conn.execute(
-            "SELECT COUNT(*) FROM events WHERE agent_id = ? AND event_type = 'session_start'",
-            (agent_id,),
-        ).fetchone()
-        return result[0] if result else 0
-
-
-def get_sleep_count(agent_id: str) -> int:
-    """Count sleep events for an agent."""
-    with db.ensure("events") as conn:
-        result = conn.execute(
-            "SELECT COUNT(*) FROM events WHERE agent_id = ? AND event_type = 'sleep'",
-            (agent_id,),
-        ).fetchone()
-        return result[0] if result else 0
-
-
-def get_wake_count(agent_id: str) -> int:
-    """Count wake events for an agent."""
-    with db.ensure("events") as conn:
-        result = conn.execute(
-            "SELECT COUNT(*) FROM events WHERE agent_id = ? AND event_type = 'wake'",
-            (agent_id,),
-        ).fetchone()
-        return result[0] if result else 0
-
-
-def get_last_sleep_time(agent_id: str) -> int | None:
-    """Get timestamp of last sleep event for an agent."""
-    with db.ensure("events") as conn:
-        result = conn.execute(
-            "SELECT timestamp FROM events WHERE agent_id = ? AND event_type = 'sleep' ORDER BY timestamp DESC LIMIT 1",
-            (agent_id,),
-        ).fetchone()
-        return result[0] if result else None
-
-
-def get_wakes_since_last_sleep(agent_id: str) -> int:
-    """Count wake events since last sleep (in current spawn)."""
-    with db.ensure("events") as conn:
-        result = conn.execute(
-            """SELECT COUNT(*) FROM events
-               WHERE agent_id = ? AND event_type = 'wake'
-               AND timestamp > COALESCE(
-                   (SELECT MAX(timestamp) FROM events
-                    WHERE agent_id = ? AND event_type = 'sleep'), 0)""",
-            (agent_id, agent_id),
-        ).fetchone()
-        return result[0] if result else 0
 
 
 def track(source: str) -> Callable[[F], F]:
