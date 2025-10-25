@@ -8,10 +8,10 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 
-from space.os.core.bridge.api import (
-    get_all_messages,
-    get_topic,
-    resolve_channel_id,
+from space.core.bridge.api import (
+    get_channel,
+    get_messages,
+    resolve_channel,
     send_message,
 )
 
@@ -24,7 +24,7 @@ STREAM_ERROR_BACKOFF = 1.0
 class Council:
     def __init__(self, channel_name: str):
         self.channel_name = channel_name
-        self.channel_id = resolve_channel_id(channel_name)
+        self.channel_id = resolve_channel(channel_name).channel_id
         self.last_msg_id = None
         self.running = True
         self._lock = asyncio.Lock()
@@ -36,7 +36,7 @@ class Council:
         """Stream new messages from channel."""
         while self.running:
             try:
-                msgs = get_all_messages(self.channel_id)
+                msgs = get_messages(self.channel_id)
                 if msgs:
                     start_idx = self._find_new_messages_start(msgs)
                     for msg in msgs[start_idx:]:
@@ -70,7 +70,7 @@ class Council:
                 msg = msg.strip()
                 if msg:
                     send_message(self.channel_id, "human", msg)
-                    msgs = get_all_messages(self.channel_id)
+                    msgs = get_messages(self.channel_id)
                     if msgs:
                         self.sent_msg_ids.add(msgs[-1].message_id)
             except EOFError:
@@ -104,8 +104,8 @@ class Council:
     async def run(self):
         """Main loop - stream + input."""
         try:
-            topic = get_topic(self.channel_id)
-            print(format_header(self.channel_name, topic), end="")
+            channel = get_channel(self.channel_id)
+            print(format_header(self.channel_name, channel.topic), end="")
 
             stream_task = asyncio.create_task(self.stream_messages())
             input_task = asyncio.create_task(self.read_input())

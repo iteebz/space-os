@@ -2,14 +2,15 @@
 
 import typer
 
-from space.os.lib import errors
+from space.commands.journal import journal
+from space.lib import errors
 
 errors.install_error_handler("sleep")
 
-SUMMARY_PROMPT = """Consolidate session state before death. Quality sleep = prepared spawn.
+JOURNAL_PROMPT = """Consolidate session state before death. Quality sleep = prepared spawn.
 
 **Capture:**
-- Compress the last summary and this session's activities into a new, consolidated summary.
+- Compress the last journal and this session's activities into a new, consolidated journal.
 - Preserve valuable mental models or architectural insights as separate, focused memories.
 - What shipped this session
 - Active threads mid-execution
@@ -18,7 +19,7 @@ SUMMARY_PROMPT = """Consolidate session state before death. Quality sleep = prep
 - What next spawn inherits
 
 **Memory operations:**
-memory add --as <you> --topic summary "<synthesis>"
+memory add --as <you> --topic journal "<synthesis>"
 memory replace <uuid> "<refined-understanding>"     # evolve existing memories
 memory archive <uuid>                                # retire noise
 
@@ -34,23 +35,38 @@ memory archive <uuid>                                # retire noise
 
 Sleep well = wake sharp."""
 
+sleep = typer.Typer(
+    invoke_without_command=True,
+    no_args_is_help=True,
+    add_help_option=False,
+    help="Prepare for death. Hand off context to your next self.",
+)
 
-def sleep(
+sleep.command("journal")(journal)
+
+
+@sleep.callback(invoke_without_command=True)
+def sleep_callback(
+    ctx: typer.Context,
     identity: str = typer.Option(..., "--as", help="Agent identity"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output"),
     check: bool = typer.Option(False, "--check", help="Preview sleep without persisting changes."),
 ):
     """Prepare for death. Hand off context to your next self."""
-    from space.os import events, memory, spawn
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj["identity"] = identity
 
-    agent_id = spawn.db.get_agent_id(identity)
-    if not agent_id:
+    if ctx.invoked_subcommand is not None:
+        return
+
+    from space.core import memory, spawn
+
+    agent = spawn.resolve_agent(identity)
+    if not agent:
         if not quiet:
             typer.echo(f"No active session for {identity}")
         return
-
-    if not check:
-        events.identify(identity, "sleep")
 
     memory_count = len(memory.db.get_memories(identity))
 
@@ -60,29 +76,27 @@ def sleep(
             typer.echo(" (preview mode - changes not persisted)")
         typer.echo(f"🧠 {memory_count} memories persisted")
 
-        # Retrieve and display last session summary
-        summaries = memory.db.get_memories(identity, topic="summary", limit=1)
+        # Retrieve and display last session journal
+        journals = memory.db.get_memories(identity, topic="journal", limit=1)
         typer.echo()
-        typer.echo("Your last summary:")
-        if summaries:
-            last_summary = summaries[0]
-            typer.echo(f"  {last_summary.message}")
+        typer.echo("Your last journal:")
+        if journals:
+            last_journal = journals[0]
+            typer.echo(f"  {last_journal.message}")
             typer.echo()
-            typer.echo("To update this summary for your next spawn, use:")
+            typer.echo("To update this journal for your next spawn, use:")
             typer.echo(
-                f'  memory --as {identity} replace {last_summary.memory_id} "<new summary>" '
+                f'  memory --as {identity} replace {last_journal.memory_id} "<new journal>" '
             )
         else:
-            typer.echo("  No last summary found.")
+            typer.echo("  No last journal found.")
 
         typer.echo("**Before you go:**")
-        typer.echo(SUMMARY_PROMPT)
+        typer.echo(JOURNAL_PROMPT)
         typer.echo()
         typer.echo(f"**You identified as {identity}.**")
 
 
 def main():
     """Entry point for standalone sleep command."""
-    app = typer.Typer()
-    app.command()(sleep)
     app()

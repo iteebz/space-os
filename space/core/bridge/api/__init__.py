@@ -1,0 +1,54 @@
+"""Bridge operations: pure business logic, zero typer imports.
+
+Functions handle all DB interactions and state management.
+Callers: commands/ layer only.
+"""
+
+from .channels import (
+    archive_channel,
+    create_channel,
+    delete_channel,
+    export_channel,
+    fetch_inbox,
+    get_channel,
+    list_channels,
+    pin_channel,
+    rename_channel,
+    resolve_channel,
+    unpin_channel,
+)
+from .messaging import (
+    get_messages,
+    get_sender_history,
+    recv_messages,
+    send_message,
+    set_bookmark,
+)
+from .notes import add_note, get_notes
+from .search import search
+from .spawning import spawn_from_mentions
+from .stats import stats
+
+__all__ = [
+    "add_note",
+    "archive_channel",
+    "create_channel",
+    "delete_channel",
+    "export_channel",
+    "get_channel",
+    "get_messages",
+    "get_notes",
+    "get_sender_history",
+    "fetch_inbox",
+    "list_channels",
+    "pin_channel",
+    "recv_messages",
+    "rename_channel",
+    "resolve_channel",
+    "search",
+    "send_message",
+    "set_bookmark",
+    "spawn_from_mentions",
+    "stats",
+    "unpin_channel",
+]
