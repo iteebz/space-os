@@ -5,7 +5,7 @@ All wake-related prompts and formatting centralized here.
 
 import typer
 
-from space.os.lib import errors
+from space.lib import errors
 
 errors.install_error_handler("wake")
 
@@ -36,10 +36,10 @@ CONTEXT_NUDGE = """
 
 def _show_last_journal(identity: str):
     """Display last journal entry context."""
-    from space.os import memory
+    from space.core import memory
 
     try:
-        entries = memory.get_memories(identity, topic="journal", limit=1)
+        entries = memory.list_entries(identity, topic="journal", limit=1)
         if entries:
             e = entries[0]
             typer.echo(f"📔 Last journal ({e.memory_id[-8:]})")
@@ -71,10 +71,10 @@ def _recent_critical():
     """Get most recent critical knowledge entry (24h)."""
     from datetime import datetime, timedelta
 
-    from space.os import knowledge
+    from space.core import knowledge
 
     critical_domains = {"decision", "architecture", "operations", "consensus"}
-    entries = knowledge.db.list_all(include_archived=False)
+    entries = knowledge.db.list_entries(show_all=False)
 
     cutoff = datetime.now() - timedelta(hours=24)
     recent = [
@@ -99,16 +99,15 @@ def wake(
 ):
     """Load your context. Resume where you left off."""
     typer.echo(f"Waking up {identity}")
-    from space.os import events, memory, spawn
+    from space.core import memory, spawn
 
-    spawn.db.ensure_agent(identity)
-    events.identify(identity, "wake")
+    spawn.ensure_agent(identity)
 
-    from space.os.lib import chats
+    from space.lib import chats
 
     chats.sync(identity)
 
-    journal_entries = memory.get_memories(identity, topic="journal")
+    journal_entries = memory.list_entries(identity, topic="journal")
     spawn_count = len(journal_entries)
 
     _show_orientation(identity, quiet, spawn_count, 0)
@@ -116,8 +115,8 @@ def wake(
 
 def _show_orientation(identity: str, quiet: bool, spawn_count: int, wakes_this_spawn: int):
     """Context + coordination state."""
-    from space.os.core import bridge, spawn
-    from space.os.lib.display import show_wake_summary
+    from space.core import bridge, spawn
+    from space.lib.display import show_wake_summary
 
     show_wake_summary(
         identity=identity,
@@ -135,8 +134,8 @@ def _show_orientation(identity: str, quiet: bool, spawn_count: int, wakes_this_s
         typer.echo("  sleep — persist state, hand off to next self")
         typer.echo()
 
-    agent_id = spawn.db.get_agent_id(identity)
-    channels = bridge.inbox_channels(agent_id) if agent_id else []
+    agent = spawn.resolve_agent(identity)
+    channels = bridge.fetch_inbox(agent.agent_id) if agent else []
     if channels:
         total_msgs = sum(ch.unread_count for ch in channels)
         typer.echo(INBOX_HEADER.format(count=total_msgs, channels=len(channels)))

@@ -80,7 +80,7 @@ events (
 ### Query events by agent
 
 ```python
-from space.os import events
+from space import events
 
 # Get all events for an agent
 agent_events = events.query(agent_id="zealot-1-uuid")
@@ -95,8 +95,8 @@ recent = events.query(limit=20)
 ### Emit an event
 
 ```python
-from space.os import events
-from space.os.spawn import db as spawn_db
+from space import events
+from space.core.spawn import db as spawn_db
 
 agent_id = spawn_db.ensure_agent("zealot-1")
 events.emit(
@@ -155,9 +155,9 @@ bridge send research "proposal" --as zealot-1
 No explicit sender column in bridge.messages — resolve via:
 
 ```python
-from space.os.spawn import db as spawn_db
+from space.core.spawn import db as spawn_db
 
-message = bridge.db.get_all_messages(channel_id)[0]
+message = bridge.get_messages(channel_id)[0]
 sender_name = spawn_db.get_agent_name(message.agent_id)  # lookup from registry
 ```
 
@@ -166,7 +166,7 @@ sender_name = spawn_db.get_agent_name(message.agent_id)  # lookup from registry
 ### Wake/sleep cycles
 
 ```python
-from space.os import events
+from space import events
 
 wakes = events.get_wake_count(agent_id)
 sleeps = events.get_sleep_count(agent_id)
@@ -176,7 +176,7 @@ sessions = events.get_session_count(agent_id)
 ### Message activity
 
 ```python
-from space.os import events
+from space import events
 
 # Get all message_sent events for an agent
 sent_events = events.query(agent_id=agent_id, source="bridge")

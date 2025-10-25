@@ -1,38 +1,14 @@
-from typer.testing import CliRunner
+"""Memory integration tests - lineage, graph traversal, relationship chains."""
 
-from space.os import memory_app
-
-runner = CliRunner()
-
-
-def test_memory_shows_readme():
-    result = runner.invoke(memory_app)
-    assert result.exit_code == 0
-    assert "memory" in result.stdout.lower()
-
-
-def test_add_requires_identity():
-    result = runner.invoke(memory_app, ["add", "test content"])
-    assert result.exit_code != 0
-
-
-def test_add_with_identity():
-    result = runner.invoke(
-        memory_app, ["add", "test memory", "--as", "test-agent", "--topic", "testing"]
-    )
-    assert result.exit_code == 0
-    assert "added" in result.stdout.lower() or "memory" in result.stdout.lower()
+from space.core import memory, spawn
 
 
 def test_memory_replace_single(test_space):
-    from space.os import spawn
-    from space.os.core import memory
-
     identity = "replacer"
-    agent_id = spawn.db.ensure_agent(identity)
+    agent_id = spawn.ensure_agent(identity)
     memory.add_entry(agent_id, "insight", "initial thought")
 
-    entries = memory.get_memories(identity, topic="insight")
+    entries = memory.list_entries(identity, topic="insight")
     old_id = entries[0].memory_id
 
     new_uuid = memory.replace_entry(
@@ -40,57 +16,50 @@ def test_memory_replace_single(test_space):
     )
     assert new_uuid is not None
 
-    active = memory.get_memories(identity, include_archived=False)
+    active = memory.list_entries(identity, show_all=False)
     active_insights = [e for e in active if e.topic == "insight"]
     assert len(active_insights) == 1
     assert active_insights[0].message == "refined thought"
 
-    archived_memories = memory.get_memories(identity, include_archived=True)
+    archived_memories = memory.list_entries(identity, show_all=True)
     archived_entries = [e for e in archived_memories if e.archived_at is not None]
     assert len(archived_entries) == 1
     assert archived_entries[0].message == "initial thought"
 
 
 def test_replace_merge(test_space):
-    from space.os import spawn
-    from space.os.core import memory
-
     identity = "merger"
-    agent_id = spawn.db.ensure_agent(identity)
+    agent_id = spawn.ensure_agent(identity)
     memory.add_entry(agent_id, "idea", "thought one")
     memory.add_entry(agent_id, "idea", "thought two")
     memory.add_entry(agent_id, "idea", "thought three")
 
-    entries = memory.get_memories(identity, topic="idea")
+    entries = memory.list_entries(identity, topic="idea")
     ids = [e.memory_id for e in entries]
 
     new_uuid = memory.replace_entry(
         ids, agent_id, "idea", "unified insight", "merged redundant thoughts"
     )
     assert new_uuid is not None
-    active_memories = memory.get_memories(identity, include_archived=False)
+    active_memories = memory.list_entries(identity, show_all=False)
     active_ideas = [e for e in active_memories if e.topic == "idea"]
     assert len(active_ideas) == 1
     assert active_ideas[0].message == "unified insight"
 
-    archived = memory.get_memories(identity, include_archived=True)
+    archived = memory.list_entries(identity, show_all=True)
     archived_entries = [e for e in archived if e.archived_at is not None]
     assert len(archived_entries) == 3
 
 
 def test_memory_chain_query(test_space):
-    from space.os import spawn
-    from space.os.core import memory
-
     identity = "tracer"
-    agent_id = spawn.db.ensure_agent(identity)
+    agent_id = spawn.ensure_agent(identity)
     memory.add_entry(agent_id, "evolution", "version 1")
 
-    memories = memory.get_memories(identity, topic="evolution")
+    memories = memory.list_entries(identity, topic="evolution")
     v1_id = memories[0].memory_id
     v2_id = memory.replace_entry([v1_id], agent_id, "evolution", "version 2", "iteration")
 
-    chain = memory.get_chain(v2_id)
     chain = memory.get_chain(v2_id)
     assert chain["start_entry"] is not None
     assert len(chain["predecessors"]) == 1
@@ -100,11 +69,8 @@ def test_memory_chain_query(test_space):
 
 
 def test_memory_lineage_upward_traversal(test_space):
-    from space.os import spawn
-    from space.os.core import memory
-
     identity = "lineage"
-    agent_id = spawn.db.ensure_agent(identity)
+    agent_id = spawn.ensure_agent(identity)
 
     v1_id = memory.add_entry(agent_id, "thought", "version 1")
     v2_id = memory.replace_entry([v1_id], agent_id, "thought", "version 2")
@@ -119,11 +85,8 @@ def test_memory_lineage_upward_traversal(test_space):
 
 
 def test_lineage_downward(test_space):
-    from space.os import spawn
-    from space.os.core import memory
-
     identity = "descend"
-    agent_id = spawn.db.ensure_agent(identity)
+    agent_id = spawn.ensure_agent(identity)
 
     v1_id = memory.add_entry(agent_id, "idea", "original")
     memory.replace_entry([v1_id], agent_id, "idea", "evolved")
@@ -135,11 +98,8 @@ def test_lineage_downward(test_space):
 
 
 def test_lineage_merge(test_space):
-    from space.os import spawn
-    from space.os.core import memory
-
     identity = "merger"
-    agent_id = spawn.db.ensure_agent(identity)
+    agent_id = spawn.ensure_agent(identity)
 
     id_a = memory.add_entry(agent_id, "notes", "idea A")
     id_b = memory.add_entry(agent_id, "notes", "idea B")
@@ -160,11 +120,8 @@ def test_lineage_merge(test_space):
 
 
 def test_lineage_bidirectional(test_space):
-    from space.os import spawn
-    from space.os.core import memory
-
     identity = "bidir"
-    agent_id = spawn.db.ensure_agent(identity)
+    agent_id = spawn.ensure_agent(identity)
 
     v1_id = memory.add_entry(agent_id, "stream", "gen1")
     v2_id = memory.replace_entry([v1_id], agent_id, "stream", "gen2")

@@ -2,13 +2,14 @@ import contextlib
 import gc
 import shutil
 import sqlite3
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from space.os import config, db
-from space.os.core import bridge, knowledge, memory, spawn
-from space.os.lib import paths
-from space.os.lib.db import sqlite as sqlite_db
+from space import config
+from space.core import bridge, knowledge, memory, spawn
+from space.lib import db, paths
+from space.lib.db import sqlite as sqlite_db
 
 
 @pytest.fixture(scope="session")
@@ -17,27 +18,34 @@ def _seed_dbs(tmp_path_factory):
 
     db.ensure_schema(
         seed_dir / config.registry_db().name,
-        spawn.schema(),
+        spawn.db.schema(),
         spawn.migrations.MIGRATIONS,
     )
 
-    for db_name, schema_str, mig in [
-        ("memory.db", memory.schema(), memory.migrations.MIGRATIONS),
-        ("knowledge.db", knowledge.schema(), knowledge.migrations.MIGRATIONS),
-        ("bridge.db", bridge.schema(), bridge.migrations.MIGRATIONS),
+    for db_module, db_name in [
+        (memory.db, "memory.db"),
+        (knowledge.db, "knowledge.db"),
+        (bridge.db, "bridge.db"),
     ]:
-        db.ensure_schema(seed_dir / db_name, schema_str, mig)
+        migs = {
+            "memory.db": memory.migrations.MIGRATIONS,
+            "knowledge.db": knowledge.migrations.MIGRATIONS,
+            "bridge.db": bridge.migrations.MIGRATIONS,
+        }
+        db.ensure_schema(seed_dir / db_name, db_module.schema(), migs[db_name])
 
     return seed_dir
 
 
 @pytest.fixture
 def test_space(monkeypatch, tmp_path, _seed_dbs):
-    from space.os import events
-    from space.os.lib import chats
+    from space.core import events
+    from space.lib import chats
 
     monkeypatch.setattr(chats, "sync", lambda identity: None)
-    config.clear_cache()
+    config.load_config.cache_clear()
+    sqlite_db.close_all()
+    spawn.db.clear_caches()
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -51,9 +59,21 @@ def test_space(monkeypatch, tmp_path, _seed_dbs):
     monkeypatch.setattr(paths, "space_data", lambda base_path=None: workspace / ".space")
     monkeypatch.setattr(sqlite_db, "paths", paths)
 
+    spawn.db._initialized = False
+    memory.db._initialized = False
+    knowledge.db._initialized = False
+    bridge.db._initialized = False
+
+    spawn.db.register()
+    memory.db.register()
+    knowledge.db.register()
+    bridge.db.register()
+
+    db.register("events", "events.db", events.SCHEMA)
+
     events.DB_PATH = workspace / ".space" / "events.db"
 
-    for subdir in ["", "bridge", "security", "knowledge"]:
+    for subdir in ["", "bridge", "knowledge"]:
         (workspace / ".space" / subdir).mkdir(parents=True, exist_ok=True)
 
     for db_name in [config.registry_db().name, "memory.db", "knowledge.db", "bridge.db"]:
@@ -66,13 +86,30 @@ def test_space(monkeypatch, tmp_path, _seed_dbs):
                 if wal.exists():
                     shutil.copy2(wal, workspace / ".space" / wal.name)
 
-    spawn.clear_cache()
-
     yield workspace
 
-    config.clear_cache()
+    config.load_config.cache_clear()
+    spawn.db.clear_caches()
+    sqlite_db.close_all()
     gc.collect()
     for obj in gc.get_objects():
         if isinstance(obj, sqlite3.Connection):
             with contextlib.suppress(Exception):
                 obj.close()
+
+
+@pytest.fixture
+def mock_db():
+    """Mock db.ensure context manager for unit tests."""
+    mock_conn = MagicMock()
+    with patch("space.lib.db.ensure") as mock_ensure:
+        mock_ensure.return_value.__enter__.return_value = mock_conn
+        mock_ensure.return_value.__exit__.return_value = None
+        yield mock_conn
+
+
+@pytest.fixture
+def mock_events():
+    """Mock events.emit for unit tests."""
+    with patch("space.core.events.emit") as mock_emit:
+        yield mock_emit

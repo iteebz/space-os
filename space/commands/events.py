@@ -3,7 +3,15 @@ from datetime import datetime
 
 import typer
 
-from space.os import events as events_db
+from space.core import events as events_db
+from space.core import spawn
+
+
+def _identity_name(agent_id: str | None) -> str | None:
+    if not agent_id:
+        return None
+    agent = spawn.resolve_agent(agent_id)
+    return agent.name if agent else agent_id
 
 
 def events(
@@ -17,9 +25,8 @@ def events(
     ),
 ):
     """Show recent events from append-only log."""
-    from space.os import spawn
-
-    agent_id = spawn.db.get_agent_id(identity) if identity else None
+    agent = spawn.resolve_agent(identity) if identity else None
+    agent_id = agent.agent_id if agent else None
     rows = events_db.query(source=source, agent_id=agent_id, limit=1000 if errors else limit)
 
     if errors:
@@ -39,7 +46,7 @@ def events(
                 {
                     "uuid": uuid,
                     "source": src,
-                    "identity": spawn.db.get_agent_name(aid) or aid,
+                    "identity": _identity_name(aid),
                     "event_type": event_type,
                     "data": data,
                     "created_at": datetime.fromtimestamp(created_at).isoformat(),
@@ -49,6 +56,7 @@ def events(
     elif not quiet_output:
         for uuid, src, aid, event_type, data, created_at in rows:
             ts = datetime.fromtimestamp(created_at).strftime("%Y-%m-%d %H:%M:%S")
-            ident_str = f" [{spawn.db.get_agent_name(aid) or aid}]" if aid else ""
+            ident = _identity_name(aid)
+            ident_str = f" [{ident}]" if ident else ""
             data_str = f" {data}" if data else ""
             typer.echo(f"[{uuid[:8]}] {ts} {src}.{event_type}{ident_str}{data_str}")
