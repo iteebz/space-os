@@ -92,7 +92,7 @@ def list_agents(show_all: bool = typer.Option(False, "--all", help="Show archive
                 name = resolved
 
         esbmk = f"{s.events}-{s.spawns}-{s.msgs}-{s.mems}-{s.knowledge}"
-        
+
         polls_str = "-"
         if s.active_polls:
             polls_str = "🔴 " + ", ".join(s.active_polls)

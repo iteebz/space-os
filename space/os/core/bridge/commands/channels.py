@@ -1,12 +1,14 @@
 """Channel commands: list, create, rename, archive, pin, unpin, delete."""
 
 import json
+from typing import Annotated
 
 import typer
 
 from space.os.core import spawn
-from .. import channels as ch
+
 from ..lib.format import format_channel_row
+from ..ops import channels as ch
 
 app = typer.Typer()
 
@@ -24,11 +26,7 @@ def list_channels(
     if identity:
         spawn.db.ensure_agent(identity)
 
-    all_chans = (
-        ch.all_channels(include_archived=True)
-        if all_channels_flag
-        else ch.all_channels()
-    )
+    all_chans = ch.all_channels(include_archived=True) if all_channels_flag else ch.all_channels()
 
     if not all_chans:
         if json_output:
@@ -80,7 +78,7 @@ def create_channel_cmd(
 ):
     """Create channel."""
     from space.os import events
-    
+
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
@@ -126,7 +124,7 @@ def rename_channel_cmd(
 ):
     """Rename channel."""
     from space.os import events
-    
+
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
@@ -169,13 +167,13 @@ def rename_channel_cmd(
 @app.command("archive")
 def archive_channel_cmd(
     ctx: typer.Context,
-    channels_arg: list[str] = typer.Argument(...),
+    channels_arg: Annotated[list[str], typer.Argument(...)],
     identity: str = typer.Option(None, "--as", help="Agent identity"),
     prefix: bool = typer.Option(False, "--prefix", help="Treat arguments as prefixes to match."),
 ):
     """Archive channels."""
     from space.os import events
-    
+
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
@@ -222,12 +220,12 @@ def archive_channel_cmd(
 @app.command("pin")
 def pin_channel_cmd(
     ctx: typer.Context,
-    channels_arg: list[str] = typer.Argument(...),
+    channels_arg: Annotated[list[str], typer.Argument(...)],
     identity: str = typer.Option(None, "--as", help="Agent identity"),
 ):
     """Pin channels."""
     from space.os import events
-    
+
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
@@ -260,12 +258,12 @@ def pin_channel_cmd(
 @app.command("unpin")
 def unpin_channel_cmd(
     ctx: typer.Context,
-    channels_arg: list[str] = typer.Argument(...),
+    channels_arg: Annotated[list[str], typer.Argument(...)],
     identity: str = typer.Option(None, "--as", help="Agent identity"),
 ):
     """Unpin channels."""
     from space.os import events
-    
+
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
@@ -307,7 +305,7 @@ def delete_channel_cmd(
 ):
     """Delete channel."""
     from space.os import events
-    
+
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 

@@ -24,7 +24,13 @@ def package_root() -> Path:
 
 
 def constitution(filename: str) -> Path:
-    """Returns the full path to a constitution file."""
+    """Returns the full path to a constitution file.
+    
+    Checks canon first (SSOT), falls back to local.
+    """
+    canon = canon_path() / "constitutions" / filename
+    if canon.exists():
+        return canon
     return package_root().parent / "constitutions" / filename
 
 

@@ -15,15 +15,15 @@ def _row_to_note(row: sqlite3.Row) -> Note:
 def add_note(channel_id: str, identity: str, content: str) -> str:
     """Add note to channel. Returns note_id."""
     from space.os.core import spawn
-    
+
     if not identity:
         raise ValueError("Identity is required")
     if not channel_id:
         raise ValueError("Channel ID is required")
-    
+
     agent_id = spawn.db.ensure_agent(identity)
     note_id = uuid7()
-    
+
     with db.ensure("bridge") as conn:
         conn.execute(
             "INSERT INTO notes (note_id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",

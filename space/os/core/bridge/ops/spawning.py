@@ -91,6 +91,19 @@ def _get_task_timeout(identity: str) -> int:
         return 120
 
 
+def spawn_agents_from_mentions(channel_id: str, content: str) -> None:
+    """Spawn agents from @mentions in message content."""
+    try:
+        from . import channels
+        channel_name = channels.get_channel_name(channel_id)
+        subprocess.run(
+            [sys.argv[0], channel_id, channel_name, content],
+            check=False,
+        )
+    except Exception as e:
+        log.error(f"Failed to spawn from mentions: {e}")
+
+
 def main():
     if len(sys.argv) != 4:
         log.error(f"Invalid args: {len(sys.argv)}, expected 4. argv={sys.argv}")
@@ -107,13 +120,15 @@ def main():
     poll_cmd, poll_agents = _parse_poll_command(content)
     if poll_cmd == "poll" and poll_agents:
         log.info(f"Poll command detected for agents: {poll_agents}")
-        from . import messaging, channels as ch
+        from . import messaging
+
         for identity in poll_agents:
             try:
                 agent_id = spawn.db.get_agent_id(identity)
                 if not agent_id:
                     agent_id = spawn.db.ensure_agent(identity)
                 from . import polls as polls_mod
+
                 poll_id = polls_mod.create_poll(agent_id, channel_id, created_by="human")
                 log.info(f"Created poll {poll_id} for {identity} in {channel_name}")
                 messaging.send_message(channel_id, "system", f"🔴 Polling {identity}...")
@@ -126,6 +141,7 @@ def main():
         log.info(f"Dismiss command detected for agents: {dismiss_agents}")
         from . import messaging
         from . import polls as polls_mod
+
         for identity in dismiss_agents:
             try:
                 agent_id = spawn.db.get_agent_id(identity)
@@ -204,6 +220,7 @@ def main():
 
     if results:
         from . import messaging
+
         for identity, output in results:
             messaging.send_message(channel_id, identity, output)
     elif mentions:

@@ -6,7 +6,7 @@ import sqlite3
 import pytest
 
 from space.os import config, db
-from space.os.core.bridge import db as bridge_db
+from space.os.core import bridge as bridge_module
 from space.os.core.bridge.migrations import MIGRATIONS as BRIDGE_MIGRATIONS
 from space.os.core.knowledge import db as knowledge_db
 from space.os.core.knowledge.migrations import MIGRATIONS as KNOWLEDGE_MIGRATIONS
@@ -28,12 +28,12 @@ def _seed_dbs(tmp_path_factory):
         SPAWN_MIGRATIONS,
     )
 
-    for db_name, db_mod, mig in [
-        ("memory.db", memory_db, MEMORY_MIGRATIONS),
-        ("knowledge.db", knowledge_db, KNOWLEDGE_MIGRATIONS),
-        ("bridge.db", bridge_db, BRIDGE_MIGRATIONS),
+    for db_name, schema_str, mig in [
+        ("memory.db", memory_db.schema(), MEMORY_MIGRATIONS),
+        ("knowledge.db", knowledge_db.schema(), KNOWLEDGE_MIGRATIONS),
+        ("bridge.db", bridge_module.SCHEMA, BRIDGE_MIGRATIONS),
     ]:
-        db.ensure_schema(seed_dir / db_name, db_mod.schema(), mig)
+        db.ensure_schema(seed_dir / db_name, schema_str, mig)
 
     return seed_dir
 
@@ -50,6 +50,7 @@ def test_space(monkeypatch, tmp_path, _seed_dbs):
 
     def paths_override(base_path=None):
         return workspace
+
     monkeypatch.setattr(paths, "space_root", paths_override)
     monkeypatch.setattr(paths, "dot_space", lambda base_path=None: workspace / ".space")
     monkeypatch.setattr(paths, "space_data", lambda base_path=None: workspace / ".space")

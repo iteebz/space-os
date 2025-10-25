@@ -16,7 +16,7 @@ def create_channel(name: str, topic: str | None = None) -> str:
     """Create channel. Returns channel_id."""
     if not name:
         raise ValueError("Channel name is required")
-    
+
     channel_id = uuid.uuid4().hex
     with db.ensure("bridge") as conn:
         conn.execute(
@@ -65,7 +65,7 @@ def rename_channel(old_name: str, new_name: str) -> bool:
         ).fetchone()
         if not row:
             return False
-        
+
         try:
             conn.execute(
                 "UPDATE channels SET name = ? WHERE channel_id = ?",
@@ -118,7 +118,7 @@ def delete_channel(name: str) -> None:
         ).fetchone()
         if not row:
             raise ValueError(f"Channel '{name}' not found")
-        
+
         channel_id = row["channel_id"]
         conn.execute("DELETE FROM bookmarks WHERE channel_id = ?", (channel_id,))
         conn.execute("DELETE FROM messages WHERE channel_id = ?", (channel_id,))
@@ -132,7 +132,7 @@ def all_channels(include_archived: bool = False) -> list[Channel]:
     with db.ensure("bridge") as conn:
         archived_clause = "" if include_archived else "AND c.archived_at IS NULL"
         query = f"""
-            SELECT 
+            SELECT
                 c.channel_id,
                 c.name,
                 c.topic,
@@ -154,17 +154,17 @@ def all_channels(include_archived: bool = False) -> list[Channel]:
         return [_row_to_channel(row) for row in cursor.fetchall()]
 
 
-def inbox_channels(identity: str) -> list[Channel]:
-    """Get channels with unread messages for identity."""
-    from space.os.core import spawn
-    
+def active_channels(agent_id: str) -> list[Channel]:
+    """Get up to 5 channels with unread messages for agent, ordered by recency."""
     with db.ensure("bridge") as conn:
-        agent_id = spawn.db.get_agent_id(identity)
-        if not agent_id:
-            return []
-        
         query = """
-            SELECT 
+            WITH last_seen AS (
+                SELECT b.channel_id, m.created_at, m.rowid
+                FROM bookmarks b
+                JOIN messages m ON m.message_id = b.last_seen_id
+                WHERE b.agent_id = ?
+            )
+            SELECT
                 c.channel_id,
                 c.name,
                 c.topic,
@@ -174,10 +174,53 @@ def inbox_channels(identity: str) -> list[Channel]:
                 COUNT(m.message_id) as message_count,
                 MAX(m.created_at) as last_activity,
                 COUNT(n.note_id) as notes_count,
-                SUM(CASE WHEN b.last_seen_id IS NULL OR m.message_id > b.last_seen_id THEN 1 ELSE 0 END) as unread_count
+                SUM(CASE
+                    WHEN ls.channel_id IS NULL THEN 1
+                    WHEN m.created_at > ls.created_at OR (m.created_at = ls.created_at AND m.rowid > ls.rowid) THEN 1
+                    ELSE 0
+                END) as unread_count
             FROM channels c
             LEFT JOIN messages m ON c.channel_id = m.channel_id
-            LEFT JOIN bookmarks b ON c.channel_id = b.channel_id AND b.agent_id = ?
+            LEFT JOIN last_seen ls ON c.channel_id = ls.channel_id
+            LEFT JOIN notes n ON c.channel_id = n.channel_id
+            WHERE c.archived_at IS NULL
+            GROUP BY c.channel_id
+            HAVING unread_count > 0
+            ORDER BY MAX(m.created_at) DESC
+            LIMIT 5
+        """
+        cursor = conn.execute(query, (agent_id,))
+        return [_row_to_channel(row) for row in cursor.fetchall()]
+
+
+def inbox_channels(agent_id: str) -> list[Channel]:
+    """Get all channels with unread messages for agent."""
+    with db.ensure("bridge") as conn:
+        query = """
+            WITH last_seen AS (
+                SELECT b.channel_id, m.created_at, m.rowid
+                FROM bookmarks b
+                JOIN messages m ON m.message_id = b.last_seen_id
+                WHERE b.agent_id = ?
+            )
+            SELECT
+                c.channel_id,
+                c.name,
+                c.topic,
+                c.created_at,
+                c.archived_at,
+                COUNT(DISTINCT m.agent_id) as participants_count,
+                COUNT(m.message_id) as message_count,
+                MAX(m.created_at) as last_activity,
+                COUNT(n.note_id) as notes_count,
+                SUM(CASE
+                    WHEN ls.channel_id IS NULL THEN 1
+                    WHEN m.created_at > ls.created_at OR (m.created_at = ls.created_at AND m.rowid > ls.rowid) THEN 1
+                    ELSE 0
+                END) as unread_count
+            FROM channels c
+            LEFT JOIN messages m ON c.channel_id = m.channel_id
+            LEFT JOIN last_seen ls ON c.channel_id = ls.channel_id
             LEFT JOIN notes n ON c.channel_id = n.channel_id
             WHERE c.archived_at IS NULL
             GROUP BY c.channel_id

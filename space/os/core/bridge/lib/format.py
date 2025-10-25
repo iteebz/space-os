@@ -18,7 +18,7 @@ def format_channel_row(channel) -> tuple[str, str]:
         last_activity = datetime.fromisoformat(channel.last_activity).strftime("%Y-%m-%d")
     else:
         last_activity = "never"
-    
+
     parts = []
     if channel.message_count:
         parts.append(f"{channel.message_count} msgs")
@@ -26,10 +26,10 @@ def format_channel_row(channel) -> tuple[str, str]:
         parts.append(f"{len(channel.participants)} members")
     if channel.notes_count:
         parts.append(f"{channel.notes_count} notes")
-    
+
     meta_str = " | ".join(parts)
     channel_id_suffix = channel.channel_id[-8:] if channel.channel_id else ""
-    
+
     if meta_str:
         return last_activity, f"{channel.name} ({channel_id_suffix}) - {meta_str}"
     return last_activity, f"{channel.name} ({channel_id_suffix})"

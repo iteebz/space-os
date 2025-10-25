@@ -8,7 +8,9 @@ import typer
 
 from space.os import events
 from space.os.core import spawn
-from .. import channels, export as ex
+
+from ..ops import channels
+from ..ops import export as ex
 
 app = typer.Typer()
 
@@ -22,7 +24,7 @@ def export_cmd(
     """Export channel transcript."""
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
-    
+
     agent_id = spawn.db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     try:
         if agent_id:

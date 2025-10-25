@@ -11,7 +11,8 @@ import typer
 from space.os import events
 from space.os.core import spawn
 from space.os.lib.identity import constitute_identity
-from .. import channels, messaging, spawning
+
+from ..ops import channels, messaging, spawning
 
 app = typer.Typer()
 
@@ -302,6 +303,7 @@ def inbox(
             typer.echo(json.dumps([asdict(c) for c in chans]))
         elif not quiet_output:
             from ..lib.format import format_channel_row
+
             for channel in chans:
                 last_activity, description = format_channel_row(channel)
                 typer.echo(f"  {last_activity}: {description}")

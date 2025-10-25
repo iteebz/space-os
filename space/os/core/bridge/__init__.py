@@ -1,15 +1,17 @@
 """Bridge: AI Coordination Protocol
 
-Schema and registration only. Operations are in submodules:
-- messaging.py: send_message, recv_updates, get_alerts, bookmarks
-- channels.py: create_channel, rename, archive, pin, fetch_channels
-- notes.py: add_note, get_notes
-- export.py: get_export_data
-- spawning.py: agent spawning from @mentions, polls
-- cli.py: typer commands
+Layer structure:
+1. ops/: Pure business logic (DB, state, zero typer)
+2. commands/: Typer CLI layer (parse args, format output, emit events)
+3. lib/: Shared formatting utilities
+
+Access: from space.os.core.bridge import bridge (lazy-loads CLI via __getattr__)
+         from space.os.core.bridge import db (bridge operations)
 """
 
-from space.os import db
+from space.os import db as _db
+
+from . import migrations
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS messages (
@@ -66,15 +68,31 @@ CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id);
 CREATE INDEX IF NOT EXISTS idx_polls_active ON polls(agent_id, channel_id, poll_dismissed_at);
 """
 
-from . import migrations
-from .ops import channels, messaging, notes, export, polls, spawning
-
-db.register("bridge", "bridge.db", SCHEMA)
-db.add_migrations("bridge", migrations.MIGRATIONS)
+_db.register("bridge", "bridge.db", SCHEMA)
+_db.add_migrations("bridge", migrations.MIGRATIONS)
 
 
 def __getattr__(name):
+    if name == "db":
+        import importlib
+        import sys
+
+        spec = importlib.util.find_spec(".db", "space.os.core.bridge")
+        if spec and spec.loader:
+            module = importlib.util.module_from_spec(spec)
+            sys.modules["space.os.core.bridge.db"] = module
+            spec.loader.exec_module(module)
+            return module
+    if name == "spawn":
+        from space.os.core import spawn
+
+        return spawn
     if name == "bridge":
         from .commands.cli import bridge as bridge_app
+
         return bridge_app
+    if name == "spawning":
+        from .ops import spawning
+
+        return spawning
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -1,13 +1,10 @@
 """Bridge CLI: Main entry point wiring all commands."""
 
-import json
-
 import typer
 
 from space.os.lib import output, readme
 
-from . import channels, messages, notes, export
-from .. import spawning
+from . import channels, export, messages, notes
 
 errors = __import__("space.os.lib.errors", fromlist=["install_error_handler"])
 errors.install_error_handler("bridge")
@@ -25,7 +22,9 @@ def main_callback(
     ctx: typer.Context,
     agent_id: str = typer.Option(None, "--as", help="Agent identity"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(False, "--quiet", "-q", help="Suppress non-essential output."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
     help: bool = typer.Option(False, "--help", "-h", help="Show help"),
 ):
     """Bridge: AI Coordination Protocol"""
@@ -42,6 +41,12 @@ def main_callback(
             ctx.invoke(messages.inbox, identity=agent_id)
         else:
             _show_readme(ctx.obj)
+
+
+@bridge.command("list")
+def list_cmd(ctx: typer.Context):
+    """List all channels (shortcut for channels list)."""
+    ctx.invoke(channels.list_channels, ctx=ctx, identity=None, all_channels_flag=False)
 
 
 def _show_readme(ctx_obj: dict):

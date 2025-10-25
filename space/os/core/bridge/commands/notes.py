@@ -1,14 +1,15 @@
 """Notes command."""
 
 import json
-from dataclasses import asdict
 
 import typer
 
 from space.os import events
 from space.os.core import spawn
-from .. import channels, notes as nt
+
 from ..lib.format import format_local_time
+from ..ops import channels
+from ..ops import notes as nt
 
 app = typer.Typer()
 
@@ -23,7 +24,7 @@ def notes_cmd(
     """Show notes for channel, or add note with content."""
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
-    
+
     agent_id = spawn.db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     if content is None:
         try:
