@@ -10,7 +10,7 @@ def test_wait_blocks_until_completion(test_space):
     from space.os.core.spawn.tasks import wait
 
     spawn.db.ensure_agent("hailot")
-    task_id = spawn.db.create_task(identity="hailot", input="test")
+    task_id = spawn.db.create_task(role="hailot", input="test")
 
     spawn.db.update_task(task_id, status="running", mark_started=True)
     time.sleep(0.01)
@@ -25,7 +25,7 @@ def test_wait_exit_code(test_space):
     from space.os.core.spawn.tasks import wait
 
     spawn.db.ensure_agent("hailot")
-    task_id = spawn.db.create_task(identity="hailot", input="test")
+    task_id = spawn.db.create_task(role="hailot", input="test")
     spawn.db.update_task(task_id, status="failed", mark_completed=True)
 
     exit_code = wait(task_id)
@@ -39,7 +39,7 @@ def test_wait_timeout(test_space):
     from space.os.core.spawn.tasks import wait
 
     spawn.db.ensure_agent("hailot")
-    task_id = spawn.db.create_task(identity="hailot", input="slow task")
+    task_id = spawn.db.create_task(role="hailot", input="slow task")
     spawn.db.update_task(task_id, status="running", mark_started=True)
 
     try:
@@ -54,7 +54,7 @@ def test_wait_pending(test_space):
     from space.os.core.spawn.tasks import wait
 
     spawn.db.ensure_agent("hailot")
-    task_id = spawn.db.create_task(identity="hailot", input="test")
+    task_id = spawn.db.create_task(role="hailot", input="test")
 
     spawn.db.update_task(task_id, status="running", mark_started=True)
     spawn.db.update_task(task_id, status="completed", output="result", mark_completed=True)
@@ -71,7 +71,7 @@ def test_kill_running_task(test_space):
     from space.os.core.spawn.tasks import kill
 
     spawn.db.ensure_agent("hailot")
-    task_id = spawn.db.create_task(identity="hailot", input="long task")
+    task_id = spawn.db.create_task(role="hailot", input="long task")
     spawn.db.update_task(task_id, status="running", mark_started=True, pid=12345)
 
     kill(task_id)
@@ -101,7 +101,7 @@ def test_kill_completed_task_no_op(test_space):
     from space.os.core.spawn.tasks import kill
 
     spawn.db.ensure_agent("hailot")
-    task_id = spawn.db.create_task(identity="hailot", input="test")
+    task_id = spawn.db.create_task(role="hailot", input="test")
     spawn.db.update_task(task_id, status="completed", output="done", mark_completed=True)
 
     kill(task_id)
@@ -113,7 +113,7 @@ def test_kill_completed_task_no_op(test_space):
 def test_task_pid_tracking(test_space):
     """Tasks can track process ID for kill signal."""
     spawn.db.ensure_agent("hailot")
-    task_id = spawn.db.create_task(identity="hailot", input="test")
+    task_id = spawn.db.create_task(role="hailot", input="test")
 
     spawn.db.update_task(task_id, status="running", mark_started=True, pid=54321)
 

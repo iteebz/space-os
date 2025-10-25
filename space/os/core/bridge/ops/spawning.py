@@ -173,9 +173,7 @@ def main():
             log.info(f"Got prompt, running spawn {identity}")
             timeout = _get_task_timeout(identity)
             try:
-                task_id = spawn.db.create_task(
-                    identity=identity, input=prompt, channel_id=channel_id
-                )
+                task_id = spawn.db.create_task(role=identity, input=prompt, channel_id=channel_id)
                 spawn.db.update_task(task_id, status=TaskStatus.RUNNING, mark_started=True)
 
                 result = subprocess.run(

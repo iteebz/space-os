@@ -11,17 +11,17 @@ from space.os.models import TaskStatus
 from . import db
 
 
-def tasks(status: str | None = None, identity: str | None = None, show_all: bool = False):
-    """List tasks, optionally filtered by status and/or identity."""
+def tasks(status: str | None = None, role: str | None = None, show_all: bool = False):
+    """List tasks, optionally filtered by status and/or role."""
     if not show_all and status is None:
         status = "pending|running"
 
     if status and "|" in status:
         statuses = status.split("|")
-        all_tasks = db.list_tasks(status=None, identity=identity)
+        all_tasks = db.list_tasks(status=None, role=role)
         tasks_list = [t for t in all_tasks if t.status in statuses]
     else:
-        tasks_list = db.list_tasks(status=status, identity=identity)
+        tasks_list = db.list_tasks(status=status, role=role)
 
     if not tasks_list:
         typer.echo("No tasks.")

@@ -6,7 +6,7 @@ from space.os import spawn
 def test_task_pending_to_running(test_space):
     """Task records started_at when transitioning to running."""
     spawn.db.ensure_agent("hailot")
-    task_id = spawn.db.create_task(identity="hailot", input="list repos")
+    task_id = spawn.db.create_task(role="hailot", input="list repos")
 
     task = spawn.db.get_task(task_id)
     assert task.status == "pending"
@@ -21,7 +21,7 @@ def test_task_pending_to_running(test_space):
 def test_task_running_to_completed(test_space):
     """Completed task captures output and duration."""
     spawn.db.ensure_agent("hailot")
-    task_id = spawn.db.create_task(identity="hailot", input="list repos")
+    task_id = spawn.db.create_task(role="hailot", input="list repos")
     spawn.db.update_task(task_id, status="running", mark_started=True)
 
     output = "repo1\nrepo2\nrepo3"
@@ -38,7 +38,7 @@ def test_task_running_to_completed(test_space):
 def test_task_running_to_failed(test_space):
     """Failed task captures stderr and completion time."""
     spawn.db.ensure_agent("hailot")
-    task_id = spawn.db.create_task(identity="hailot", input="invalid command")
+    task_id = spawn.db.create_task(role="hailot", input="invalid command")
     spawn.db.update_task(task_id, status="running", mark_started=True)
 
     stderr = "command not found"
@@ -54,7 +54,7 @@ def test_task_running_to_failed(test_space):
 def test_task_pending_to_timeout(test_space):
     """Timeout task skips started_at if never ran."""
     spawn.db.ensure_agent("hailot")
-    task_id = spawn.db.create_task(identity="hailot", input="slow task")
+    task_id = spawn.db.create_task(role="hailot", input="slow task")
 
     spawn.db.update_task(task_id, status="timeout", mark_completed=True)
     task = spawn.db.get_task(task_id)
@@ -68,7 +68,7 @@ def test_task_lifecycle_with_channel(test_space):
     spawn.db.ensure_agent("hailot")
     channel_id = "ch-spawn-test-123"
     task_id = spawn.db.create_task(
-        identity="hailot",
+        role="hailot",
         input="list repos",
         channel_id=channel_id,
     )
@@ -88,21 +88,21 @@ def test_multiple_tasks_per_identity(test_space):
     """Filter tasks by status and identity."""
     spawn.db.ensure_agent("hailot")
 
-    t1 = spawn.db.create_task(identity="hailot", input="task 1")
-    t2 = spawn.db.create_task(identity="hailot", input="task 2")
-    t3 = spawn.db.create_task(identity="hailot", input="task 3")
+    t1 = spawn.db.create_task(role="hailot", input="task 1")
+    t2 = spawn.db.create_task(role="hailot", input="task 2")
+    t3 = spawn.db.create_task(role="hailot", input="task 3")
 
     spawn.db.update_task(t1, status="running", mark_started=True)
     spawn.db.update_task(t2, status="running", mark_started=True)
 
-    hailot_tasks = spawn.db.list_tasks(identity="hailot")
+    hailot_tasks = spawn.db.list_tasks(role="hailot")
     assert len(hailot_tasks) == 3
 
-    running = spawn.db.list_tasks(status="running", identity="hailot")
+    running = spawn.db.list_tasks(status="running", role="hailot")
     assert len(running) == 2
     assert {t.task_id for t in running} == {t1, t2}
 
-    pending = spawn.db.list_tasks(status="pending", identity="hailot")
+    pending = spawn.db.list_tasks(status="pending", role="hailot")
     assert len(pending) == 1
     assert pending[0].task_id == t3
 
@@ -110,7 +110,7 @@ def test_multiple_tasks_per_identity(test_space):
 def test_task_output_capture(test_space):
     """Capture stdout and stderr independently."""
     spawn.db.ensure_agent("hailot")
-    task_id = spawn.db.create_task(identity="hailot", input="run with mixed output")
+    task_id = spawn.db.create_task(role="hailot", input="run with mixed output")
 
     spawn.db.update_task(task_id, status="running", mark_started=True)
     spawn.db.update_task(

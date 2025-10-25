@@ -71,7 +71,7 @@ def test_space(monkeypatch, tmp_path, _seed_dbs):
                 if wal.exists():
                     shutil.copy2(wal, workspace / ".space" / wal.name)
 
-    spawn_db.clear_identity_cache()
+    spawn_db.clear_role_cache()
 
     yield workspace
 

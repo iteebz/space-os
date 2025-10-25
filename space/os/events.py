@@ -10,7 +10,7 @@ from space.os import db
 from space.os.models import Event
 
 from .lib import paths
-from .lib.identity import constitute_identity
+from .lib.identity import emit_constitution_invoked
 from .lib.uuid7 import uuid7
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -24,7 +24,7 @@ class EventSource(str, Enum):
     BRIDGE = "bridge"
     SPAWN = "spawn"
     CLI = "cli"
-    IDENTITY = "identity"
+    ROLE = "role"
     MEMORY = "memory"
     KNOWLEDGE = "knowledge"
     CONTEXT = "context"
@@ -177,16 +177,16 @@ def query(source: str | None = None, agent_id: str | None = None, limit: int = 1
         ]
 
 
-def identify(identity: str, command: str):
-    """Provenance: track identity invocation.
+def identify(role: str, command: str):
+    """Provenance: track role invocation.
 
-    Creates immutable audit trail linking identity → command.
+    Creates immutable audit trail linking role → command.
     """
     from space.os import spawn
 
-    constitute_identity(identity)
-    agent_id = spawn.db.ensure_agent(identity)
-    emit("identity", command, agent_id, "")
+    emit_constitution_invoked(role)
+    agent_id = spawn.db.ensure_agent(role)
+    emit("role", command, agent_id, "")
 
 
 def track(source: str) -> Callable[[F], F]:

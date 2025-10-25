@@ -11,7 +11,7 @@ def test_bridge_uses_spawn_tasks(test_space):
     spawn.db.ensure_agent("hailot")
 
     task_id = spawn.db.create_task(
-        identity="hailot",
+        role="hailot",
         input="list repos",
         channel_id="ch-test-123",
     )
@@ -27,7 +27,7 @@ def test_task_lifecycle_pending_to_completed(test_space):
 
     spawn.db.ensure_agent("hailot")
 
-    task_id = spawn.db.create_task(identity="hailot", input="task")
+    task_id = spawn.db.create_task(role="hailot", input="task")
 
     task = spawn.db.get_task(task_id)
     assert task.status == "pending"
@@ -49,17 +49,17 @@ def test_multiple_agents_concurrent_tasks(test_space):
     spawn.db.ensure_agent("hailot")
     spawn.db.ensure_agent("zealot")
 
-    h1 = spawn.db.create_task(identity="hailot", input="hailot task 1")
-    spawn.db.create_task(identity="hailot", input="hailot task 2")
-    z1 = spawn.db.create_task(identity="zealot", input="zealot task 1")
+    h1 = spawn.db.create_task(role="hailot", input="hailot task 1")
+    spawn.db.create_task(role="hailot", input="hailot task 2")
+    z1 = spawn.db.create_task(role="zealot", input="zealot task 1")
 
     spawn.db.update_task(h1, status="running", mark_started=True)
     spawn.db.update_task(z1, status="running", mark_started=True)
 
-    hailot_running = spawn.db.list_tasks(status="running", identity="hailot")
+    hailot_running = spawn.db.list_tasks(status="running", role="hailot")
     assert len(hailot_running) == 1
     assert hailot_running[0].task_id == h1
 
-    zealot_tasks = spawn.db.list_tasks(identity="zealot")
+    zealot_tasks = spawn.db.list_tasks(role="zealot")
     assert len(zealot_tasks) == 1
     assert zealot_tasks[0].task_id == z1

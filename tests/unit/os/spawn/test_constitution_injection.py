@@ -3,7 +3,7 @@ from space.os.core import spawn
 
 def test_header_injection(tmp_path):
     constitution = "Core rules."
-    result = spawn.inject_identity(constitution, "test-role", "test-agent", model="test-model")
+    result = spawn.inject_role(constitution, "test-role", "test-agent", model="test-model")
 
     expected_header = "# TEST-ROLE CONSTITUTION"
     expected_self_desc = "Self: You are test-agent. Your model is test-model."
@@ -15,7 +15,7 @@ def test_header_injection(tmp_path):
 
 def test_footer_injection(tmp_path):
     constitution = "Core rules."
-    result = spawn.inject_identity(constitution, "test-role", "test-agent")
+    result = spawn.inject_role(constitution, "test-role", "test-agent")
 
     expected_footer = "run `space` for orientation (already in PATH).\nrun: `memory --as test-agent` to access memories."
 
@@ -30,7 +30,7 @@ def test_canon_injection_order(mocker, tmp_path):
     mocker.patch("space.os.lib.paths.canon_path", return_value=canon_dir)
 
     constitution = "Core rules."
-    result = spawn.inject_identity(constitution, "test-role", "test-agent")
+    result = spawn.inject_role(constitution, "test-role", "test-agent")
 
     assert "# CANON" not in result
     assert "1. Truth" not in result

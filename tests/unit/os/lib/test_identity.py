@@ -2,9 +2,9 @@ from space.os import spawn
 
 
 def test_inject_includes_constitution(test_space):
-    """Inject identity into constitution preamble."""
+    """Inject role into constitution preamble."""
     const = "You are a test agent."
-    result = spawn.inject_identity(const, "test", "test-1")
+    result = spawn.inject_role(const, "test", "test-1")
 
     assert "# TEST CONSTITUTION" in result
     assert "Self: You are test-1." in result
@@ -12,9 +12,9 @@ def test_inject_includes_constitution(test_space):
 
 
 def test_inject_with_model(test_space):
-    """Include model name in identity preamble."""
+    """Include model name in role preamble."""
     const = "You are a test agent."
-    result = spawn.inject_identity(const, "test", "test-1", "claude-opus")
+    result = spawn.inject_role(const, "test", "test-1", "claude-opus")
 
     assert "Self: You are test-1. Your model is claude-opus." in result
 

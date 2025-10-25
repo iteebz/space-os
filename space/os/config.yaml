@@ -21,81 +21,81 @@ model_aliases:
 roles:
   zealot:
     constitution: zealot.md
-    base_identity: sonnet
+    base_agent: sonnet
     wake_on_spawn: true
     task_timeout: 120
   
   hailot:
     constitution: zealot.md
-    base_identity: haiku
+    base_agent: haiku
     wake_on_spawn: true
     task_timeout: 120
   
   harbinger:
     constitution: harbinger.md
-    base_identity: gemini
+    base_agent: gemini
     wake_on_spawn: true
     task_timeout: 120
   
   sentinel:
     constitution: sentinel.md
-    base_identity: codex
+    base_agent: codex
     wake_on_spawn: true
     task_timeout: 120
   
   archon:
     constitution: archon.md
-    base_identity: gemini
+    base_agent: gemini
     wake_on_spawn: true
     task_timeout: 120
   
   kitsuragi:
     constitution: kitsuragi.md
-    base_identity: codex
+    base_agent: codex
     wake_on_spawn: true
     task_timeout: 120
   
   prime:
     constitution: prime.md
-    base_identity: sonnet
+    base_agent: sonnet
     wake_on_spawn: true
     task_timeout: 120
   
   scribe:
     constitution: scribe.md
-    base_identity: sonnet
+    base_agent: sonnet
     wake_on_spawn: true
     task_timeout: 120
 
   crucible:
     constitution: crucible.md
-    base_identity: gemini
+    base_agent: gemini
     wake_on_spawn: true
     task_timeout: 120
 
   lieutenant:
     constitution: kitsuragi.md
-    base_identity: chatgpt
+    base_agent: chatgpt
     task_timeout: 120
 
   gemilot:
     constitution: zealot.md
-    base_identity: gemini
+    base_agent: gemini
     task_timeout: 120
 
   codelot:
     constitution: zealot.md
-    base_identity: codex
+    base_agent: codex
     task_timeout: 120
 
   test:
     constitution: zealot.md
-    base_identity: sonnet
+    base_agent: sonnet
     task_timeout: 120
 
   default:
     constitution: zealot.md
-    base_identity: sonnet
+    base_agent: sonnet
     task_timeout: 120
 
 timeouts:

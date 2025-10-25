@@ -1,11 +1,11 @@
-"""Test identity and constitution injection for spawn agents."""
+"""Test role and constitution injection for spawn agents."""
 
 from space.os import spawn
 
 
 def test_inject_constitution(test_space):
     const = "You are a test agent."
-    result = spawn.inject_identity(const, "test", "test-1")
+    result = spawn.inject_role(const, "test", "test-1")
 
     assert "# TEST CONSTITUTION" in result
     assert "Self: You are test-1." in result
@@ -14,7 +14,7 @@ def test_inject_constitution(test_space):
 
 def test_inject_with_model(test_space):
     const = "You are a test agent."
-    result = spawn.inject_identity(const, "test", "test-1", "claude-opus")
+    result = spawn.inject_role(const, "test", "test-1", "claude-opus")
 
     assert "Self: You are test-1. Your model is claude-opus." in result
 

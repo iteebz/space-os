@@ -20,12 +20,12 @@ def get_constitution_path(role: str) -> Path:
     return paths.constitution(constitution_filename)
 
 
-def get_base_identity(role: str) -> str:
+def get_base_agent(role: str) -> str:
     config.init_config()
     cfg = config.load_config()
     if role not in cfg["roles"]:
         raise ValueError(f"Unknown role: {role}")
-    return cfg["roles"][role]["base_identity"]
+    return cfg["roles"][role]["base_agent"]
 
 
 def resolve_model_alias(alias: str) -> str:
@@ -36,35 +36,35 @@ def resolve_model_alias(alias: str) -> str:
     return aliases.get(alias, alias)
 
 
-def inject_identity(
-    base_constitution_content: str, role: str, identity: str, model: str | None = None
+def inject_role(
+    base_constitution_content: str, constitution: str, role: str, model: str | None = None
 ) -> str:
-    """Injects identity (self-description + model) into the constitution.
+    """Injects role (self-description + model) into the constitution.
 
     Assembly order: header → self → constitution → footer.
     """
     parts = []
 
-    parts.append(f"# {role.upper()} CONSTITUTION")
+    parts.append(f"# {constitution.upper()} CONSTITUTION")
     parts.append("")
 
     if model:
-        parts.append(f"Self: You are {identity}. Your model is {model}.")
+        parts.append(f"Self: You are {role}. Your model is {model}.")
     else:
-        parts.append(f"Self: You are {identity}.")
+        parts.append(f"Self: You are {role}.")
 
     parts.append("")
     parts.append(base_constitution_content)
 
     parts.append("")
     parts.append("run `space` for orientation (already in PATH).")
-    parts.append(f"run: `memory --as {identity}` to access memories.")
+    parts.append(f"run: `memory --as {role}` to access memories.")
 
     return "\n".join(parts)
 
 
-def _run_wake_sequence(identity: str) -> str | None:
-    """Run wake and memory load sequence for identity. Returns wake output for agent context."""
+def _run_wake_sequence(role: str) -> str | None:
+    """Run wake and memory load sequence for role. Returns wake output for agent context."""
     import io
     from contextlib import redirect_stdout
 
@@ -72,24 +72,24 @@ def _run_wake_sequence(identity: str) -> str | None:
 
     output = io.StringIO()
     with redirect_stdout(output):
-        wake.wake(identity=identity, quiet=False)
+        wake.wake(role=role, quiet=False)
 
     return output.getvalue() if output.getvalue() else None
 
 
 def launch_agent(
-    role: str,
-    identity: str | None = None,
-    base_identity: str | None = None,  # CLI client (claude, gemini, codex)
+    constitution: str,
+    role: str | None = None,
+    base_agent: str | None = None,  # CLI client (claude, gemini, codex)
     extra_args: list[str] | None = None,
     model: str | None = None,
 ):
-    """Launch an agent with a specific role.
+    """Launch an agent with a specific constitutional role.
 
     extra_args: Additional CLI arguments forwarded to the underlying agent
     command. These are sourced from inline spawn invocations like
     `spawn sentinel --resume` where `--resume` configures the agent itself
-    rather than selecting a different identity.
+    rather than selecting a different role.
 
     model: Model override (e.g., 'claude-4.5-sonnet', 'gpt-5-codex')
     """
@@ -100,22 +100,22 @@ def launch_agent(
     config.init_config()
     cfg = config.load_config()
 
-    # Use identity if provided, otherwise infer from role's base_identity
-    actual_identity = identity or get_base_identity(role)
-    # Use base_identity if provided, otherwise infer from role's base_identity
-    actual_base_identity = base_identity or get_base_identity(role)
-    agent_cfg = cfg.get("agents", {}).get(actual_base_identity)
+    # Use role if provided, otherwise infer from constitution's base_agent
+    actual_role = role or get_base_agent(constitution)
+    # Use base_agent if provided, otherwise infer from constitution's base_agent
+    actual_base_agent = base_agent or get_base_agent(constitution)
+    agent_cfg = cfg.get("agents", {}).get(actual_base_agent)
 
     if not agent_cfg or "command" not in agent_cfg:
-        raise ValueError(f"Agent '{actual_base_identity}' is not configured for launching.")
+        raise ValueError(f"Agent '{actual_base_agent}' is not configured for launching.")
 
     actual_model = model or agent_cfg.get("model")
 
-    const_path = get_constitution_path(role)
+    const_path = get_constitution_path(constitution)
     base_content = const_path.read_text()
-    full_identity = inject_identity(base_content, role, actual_identity, actual_model)
+    full_role = inject_role(base_content, constitution, actual_role, actual_model)
 
-    _write_identity_file(actual_base_identity, actual_identity, full_identity)
+    _write_role_file(actual_base_agent, actual_role, full_role)
 
     command_tokens = _parse_command(agent_cfg["command"])
     env = _build_launch_env()
@@ -126,11 +126,11 @@ def launch_agent(
     passthrough = extra_args or []
     model_args = ["--model", actual_model] if actual_model else []
 
-    role_cfg = cfg["roles"][role]
+    role_cfg = cfg["roles"][constitution]
     wake_output = None
     if role_cfg.get("wake_on_spawn"):
-        click.echo(f"Waking {actual_identity}...\n")
-        wake_output = _run_wake_sequence(actual_identity)
+        click.echo(f"Waking {actual_role}...\n")
+        wake_output = _run_wake_sequence(actual_role)
 
     if wake_output:
         if "gemini" in command_tokens[0]:
@@ -140,9 +140,9 @@ def launch_agent(
 
     full_command = command_tokens + model_args + passthrough
 
-    const_filename = cfg["roles"][role]["constitution"]
+    const_filename = cfg["roles"][constitution]["constitution"]
     model_suffix = f" --model {actual_model}" if actual_model else ""
-    click.echo(f"Spawning {role} with {const_filename}{model_suffix}")
+    click.echo(f"Spawning {constitution} with {const_filename}{model_suffix}")
     click.echo(f"Executing: {' '.join(full_command)}")
 
     if wake_output and "claude" in command_tokens[0]:
@@ -156,17 +156,17 @@ def launch_agent(
         subprocess.run(full_command, env=env, check=False, cwd=str(workspace_root))
 
 
-def _write_identity_file(base_identity: str, identity: str, content: str) -> None:
-    """Write constitution to the base identity's file (CLAUDE.md, GEMINI.md, etc)."""
+def _write_role_file(base_agent: str, role: str, content: str) -> None:
+    """Write constitution to the base agent's file (CLAUDE.md, GEMINI.md, etc)."""
     filename_map = {
         "sonnet": "CLAUDE.md",
         "haiku": "CLAUDE.md",
         "gemini": "GEMINI.md",
         "codex": "AGENTS.md",
     }
-    filename = filename_map.get(base_identity)
+    filename = filename_map.get(base_agent)
     if not filename:
-        raise ValueError(f"Unknown base_identity: {base_identity}")
+        raise ValueError(f"Unknown base_agent: {base_agent}")
 
     target = paths.space_root() / filename
     target.write_text(content)

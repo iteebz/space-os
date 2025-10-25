@@ -3,7 +3,7 @@ from dataclasses import asdict
 import typer
 
 from space.os.core.spawn import db as spawn_db
-from space.os.lib import display, errors, identity, output
+from space.os.lib import display, errors, output
 from space.os.lib.format import format_memory_entries
 
 from . import db
@@ -220,7 +220,6 @@ def replace(
     id = id or ctx.obj.get("identity")
     if not id:
         raise typer.BadParameter("--as required")
-    identity.constitute_identity(id)
     agent_id = spawn_db.ensure_agent(id)
 
     if supersedes:

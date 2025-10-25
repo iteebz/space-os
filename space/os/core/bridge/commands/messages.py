@@ -10,7 +10,7 @@ import typer
 
 from space.os import events
 from space.os.core import spawn
-from space.os.lib.identity import constitute_identity
+from space.os.lib.identity import emit_constitution_invoked
 
 from ..ops import channels, messaging, spawning
 
@@ -30,7 +30,7 @@ def send_cmd(
     quiet_output = ctx.obj.get("quiet_output")
 
     if identity != "human":
-        constitute_identity(identity)
+        emit_constitution_invoked(identity)
 
     if decode_base64:
         try:
@@ -93,7 +93,6 @@ def alert_cmd(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    constitute_identity(identity)
     agent_id = spawn.db.ensure_agent(identity)
 
     try:
@@ -142,7 +141,6 @@ def recv_cmd(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    constitute_identity(identity)
     agent_id = spawn.db.ensure_agent(identity)
 
     try:
@@ -206,7 +204,6 @@ def wait_cmd(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    constitute_identity(identity)
     agent_id = spawn.db.ensure_agent(identity)
 
     try:
@@ -287,7 +284,6 @@ def inbox(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    constitute_identity(identity)
     agent_id = spawn.db.ensure_agent(identity)
 
     try:
@@ -330,7 +326,6 @@ def alerts_cmd(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    constitute_identity(identity)
     agent_id = spawn.db.ensure_agent(identity)
 
     try:

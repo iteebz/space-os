@@ -43,19 +43,19 @@ class Agent:
             return []
         return self.chats_loader(self.chats_dir)
 
-    def spawn(self, identity: str, task: str | None = None) -> str:
+    def spawn(self, role: str, task: str | None = None) -> str:
         config.init_config()
         cfg = config.load_config()
 
-        if identity not in cfg["roles"]:
-            raise ValueError(f"Unknown identity: {identity}")
+        if role not in cfg["roles"]:
+            raise ValueError(f"Unknown role: {role}")
 
-        role_cfg = cfg["roles"][identity]
-        base_identity = role_cfg["base_identity"]
+        role_cfg = cfg["roles"][role]
+        base_agent = role_cfg["base_agent"]
 
-        agent_cfg = cfg.get("agents", {}).get(base_identity)
+        agent_cfg = cfg.get("agents", {}).get(base_agent)
         if not agent_cfg:
-            raise ValueError(f"Agent not configured: {base_identity}")
+            raise ValueError(f"Agent not configured: {base_agent}")
 
         model = agent_cfg.get("model")
         command = agent_cfg.get("command")
@@ -70,11 +70,11 @@ class Agent:
 
         from space.os.core.spawn import spawn as spawn_launcher
 
-        role = identity.split("-")[0] if "-" in identity else identity
+        constitution = role.split("-")[0] if "-" in role else role
         spawn_launcher.launch_agent(
+            constitution=constitution,
             role=role,
-            identity=identity,
-            base_identity=base_identity,
+            base_agent=base_agent,
             model=model,
         )
         return ""

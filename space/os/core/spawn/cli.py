@@ -383,7 +383,7 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
             typer.echo(result)
         else:
             spawn_module.launch_agent(
-                arg, identity=arg, base_identity=agent, extra_args=passthrough, model=model
+                arg, role=arg, base_agent=agent, extra_args=passthrough, model=model
             )
         return
 
@@ -398,8 +398,8 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
             else:
                 spawn_module.launch_agent(
                     inferred_role,
-                    identity=arg,
-                    base_identity=agent,
+                    role=arg,
+                    base_agent=agent,
                     extra_args=passthrough,
                     model=model,
                 )
@@ -409,21 +409,21 @@ def _spawn_from_registry(arg: str, extra_args: list[str]):
     raise typer.Exit(1)
 
 
-def _get_agent(identity: str, base_agent: str | None, model: str | None, cfg: dict):
-    """Get agent instance by identity."""
+def _get_agent(role: str, base_agent: str | None, model: str | None, cfg: dict):
+    """Get agent instance by role."""
     from space.os.lib import agents
 
-    actual_identity = identity
-    if actual_identity not in cfg["roles"]:
-        typer.echo(f"❌ Unknown identity: {actual_identity}", err=True)
+    actual_role = role
+    if actual_role not in cfg["roles"]:
+        typer.echo(f"❌ Unknown role: {actual_role}", err=True)
         raise typer.Exit(1)
 
-    role_cfg = cfg["roles"][actual_identity]
-    base_identity = base_agent or role_cfg["base_identity"]
+    role_cfg = cfg["roles"][actual_role]
+    actual_base_agent = base_agent or role_cfg["base_agent"]
 
-    agent_cfg = cfg.get("agents", {}).get(base_identity)
+    agent_cfg = cfg.get("agents", {}).get(actual_base_agent)
     if not agent_cfg:
-        typer.echo(f"❌ Unknown agent: {base_identity}", err=True)
+        typer.echo(f"❌ Unknown agent: {actual_base_agent}", err=True)
         raise typer.Exit(1)
 
     command = agent_cfg.get("command")

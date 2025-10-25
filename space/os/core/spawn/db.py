@@ -80,12 +80,12 @@ def get_agent_name(agent_id: str) -> str | None:
         return qb.agent_by_id(conn, agent_id)
 
 
-def clear_identity_cache():
+def clear_role_cache():
     """Invalidate agent name cache."""
     get_agent_name.cache_clear()
 
 
-get_identity = get_agent_name
+get_role = get_agent_name
 
 
 def ensure_agent(name: str) -> str:
@@ -107,7 +107,7 @@ def ensure_agent(name: str) -> str:
             "INSERT INTO agents (agent_id, name, created_at) VALUES (?, ?, ?)",
             (agent_id, name, now_iso),
         )
-    clear_identity_cache()
+    clear_role_cache()
     events.emit("spawn", "agent.create", agent_id, f"Agent '{name}' created")
     return agent_id
 
@@ -155,7 +155,7 @@ def rename_agent(old_name: str, new_name: str) -> bool:
         if existing_agent:
             return False
         conn.execute("UPDATE agents SET name = ? WHERE agent_id = ?", (new_name, old_agent_id))
-    clear_identity_cache()
+    clear_role_cache()
     return True
 
 
@@ -169,7 +169,7 @@ def archive_agent(name: str) -> bool:
         conn.execute(
             "UPDATE agents SET archived_at = ? WHERE agent_id = ?", (int(time.time()), agent_id)
         )
-    clear_identity_cache()
+    clear_role_cache()
     return True
 
 
@@ -182,7 +182,7 @@ def restore_agent(name: str) -> bool:
     agent_id = agent_ids[0]
     with db.ensure("spawn") as conn:
         conn.execute("UPDATE agents SET archived_at = NULL WHERE agent_id = ?", (agent_id,))
-    clear_identity_cache()
+    clear_role_cache()
     return True
 
 
@@ -246,7 +246,7 @@ def merge_agents(from_identifier: str, to_identifier: str) -> bool:
     with db.ensure("spawn") as conn:
         conn.execute("DELETE FROM agents WHERE agent_id = ?", (from_id,))
 
-    clear_identity_cache()
+    clear_role_cache()
     return True
 
 
@@ -281,11 +281,11 @@ def backfill_unknown_agents() -> int:
     return len(unknown_ids)
 
 
-def create_task(identity: str, input: str, channel_id: str | None = None) -> str:
+def create_task(role: str, input: str, channel_id: str | None = None) -> str:
     """Create task record. Returns task_id."""
-    agent_id = get_agent_id(identity)
+    agent_id = get_agent_id(role)
     if not agent_id:
-        raise ValueError(f"Agent '{identity}' not found")
+        raise ValueError(f"Agent '{role}' not found")
     task_id = uuid7()
     now_iso = datetime.now().isoformat()
     with db.ensure("spawn") as conn:
@@ -296,7 +296,7 @@ def create_task(identity: str, input: str, channel_id: str | None = None) -> str
             """,
             (task_id, agent_id, channel_id, input, "pending", now_iso),
         )
-    events.emit("spawn", "task.create", agent_id, f"Task created for {identity}")
+    events.emit("spawn", "task.create", agent_id, f"Task created for {role}")
     return task_id
 
 
@@ -355,7 +355,7 @@ def update_task(
         conn.execute(query, params)
 
 
-def list_tasks(status: str | None = None, identity: str | None = None) -> list[Task]:
+def list_tasks(status: str | None = None, role: str | None = None) -> list[Task]:
     """List tasks with optional filters."""
     query = "SELECT * FROM tasks WHERE 1 = 1"
     params = []
@@ -363,8 +363,8 @@ def list_tasks(status: str | None = None, identity: str | None = None) -> list[T
     if status is not None:
         query += " AND status = ?"
         params.append(status)
-    if identity is not None:
-        agent_id = get_agent_id(identity)
+    if role is not None:
+        agent_id = get_agent_id(role)
         if not agent_id:
             return []
         query += " AND agent_id = ?"
