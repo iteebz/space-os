@@ -389,6 +389,11 @@ def send_message(channel_id: str, identity: str, content: str, priority: str = "
     """Send message and return agent_id."""
     from .. import spawn
 
+    if not identity:
+        raise ValueError("identity is required")
+    if not channel_id:
+        raise ValueError("channel_id is required")
+    
     agent_id = spawn.db.ensure_agent(identity)
     create_message(channel_id, agent_id, content, priority)
     return agent_id

@@ -79,6 +79,79 @@ class Agent:
         )
         return ""
 
+    def ping(self, identity: str) -> bool:
+        """Check if agent exists in registry."""
+        try:
+            from space.os.core.spawn import db as spawn_db
+            return spawn_db.get_agent_id(identity) is not None
+        except Exception:
+            return False
+
+    def status(self, identity: str) -> dict:
+        """Get agent status: health, spawns, tasks, activity."""
+        try:
+            from space.os.core.spawn import db as spawn_db
+            agent_id = spawn_db.get_agent_id(identity)
+            if not agent_id:
+                return {"state": "not_found"}
+
+            with spawn_db.connect() as conn:
+                agent_row = conn.execute(
+                    "SELECT archived_at, created_at FROM agents WHERE agent_id = ?",
+                    (agent_id,)
+                ).fetchone()
+
+                if not agent_row:
+                    return {"state": "not_found"}
+
+                task_rows = conn.execute(
+                    "SELECT status, created_at, completed_at FROM tasks WHERE agent_id = ? ORDER BY created_at DESC",
+                    (agent_id,)
+                ).fetchall()
+
+            state = "archived" if agent_row["archived_at"] else "active"
+            spawns = len(task_rows)
+            pending = sum(1 for t in task_rows if t["status"] == "pending")
+            running = sum(1 for t in task_rows if t["status"] == "running")
+            completed = sum(1 for t in task_rows if t["status"] == "completed")
+            last_activity = task_rows[0]["completed_at"] or task_rows[0]["created_at"] if task_rows else None
+
+            return {
+                "state": state,
+                "spawns": spawns,
+                "tasks": {
+                    "pending": pending,
+                    "running": running,
+                    "completed": completed,
+                },
+                "last_activity": last_activity,
+                "created_at": agent_row["created_at"],
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
+    def health(self, identity: str) -> str:
+        """Get agent health: healthy, idle, or archived."""
+        try:
+            status = self.status(identity)
+            if "error" in status or status.get("state") == "not_found":
+                return "dead"
+            if status.get("state") == "archived":
+                return "archived"
+            if status.get("tasks", {}).get("running", 0) > 0:
+                return "healthy"
+            return "idle"
+        except Exception:
+            return "dead"
+
+    def list_agents(self) -> list[str]:
+        """List all active agents from registry."""
+        try:
+            from space.os.core.spawn import db as spawn_db
+            return spawn_db.list_all_agents()
+        except Exception:
+            return []
+
 
 def _load_claude_chats(chats_dir: Path) -> list[ChatMessage]:
     msgs = []
