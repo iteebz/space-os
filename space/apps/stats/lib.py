@@ -355,6 +355,7 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
     active_polls_map = {}
     try:
         from space.os.core.bridge import db as bridge_db
+
         polls = bridge_db.get_active_polls()
         for poll in polls:
             agent_id = poll.get("agent_id")

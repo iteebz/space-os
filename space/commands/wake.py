@@ -135,7 +135,10 @@ def _show_orientation(identity: str, quiet: bool, spawn_count: int, wakes_this_s
         typer.echo("  sleep — persist state, hand off to next self")
         typer.echo()
 
-    channels = bridge_db.inbox_channels(identity)
+    from space.os.core import spawn
+
+    agent_id = spawn.db.get_agent_id(identity)
+    channels = bridge_db.inbox_channels(agent_id) if agent_id else []
     if channels:
         total_msgs = sum(ch.unread_count for ch in channels)
         typer.echo(INBOX_HEADER.format(count=total_msgs, channels=len(channels)))
