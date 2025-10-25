@@ -352,6 +352,22 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
         except Exception as exc:
             logger.warning(f"Failed to connect to {db_path.name}: {exc}")
 
+    active_polls_map = {}
+    try:
+        from space.os.core.bridge import db as bridge_db
+        polls = bridge_db.get_active_polls()
+        for poll in polls:
+            agent_id = poll.get("agent_id")
+            channel_id = poll.get("channel_id")
+            if agent_id and channel_id:
+                channel_name = bridge_db.get_channel_name(channel_id)
+                if agent_id not in active_polls_map:
+                    active_polls_map[agent_id] = []
+                if channel_name:
+                    active_polls_map[agent_id].append(channel_name)
+    except Exception as exc:
+        logger.warning(f"Failed to fetch active polls: {exc}")
+
     agents = [
         AgentStats(
             agent_id=agent_id,
@@ -366,6 +382,7 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
             last_active_human=fmt.humanize_timestamp(data.get("last_active"))
             if data.get("last_active")
             else None,
+            active_polls=active_polls_map.get(agent_id),
         )
         for agent_id, data in agent_stats_map.items()
     ]

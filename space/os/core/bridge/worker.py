@@ -28,6 +28,22 @@ def _parse_mentions(content: str) -> list[str]:
     return list(set(matches))
 
 
+def _parse_poll_command(content: str) -> tuple[str, list[str]]:
+    """Extract /poll @agent mentions. Returns (cmd_type, agents)."""
+    if content.startswith("/poll "):
+        agents = re.findall(r"@([\w-]+)", content[6:])
+        return ("poll", list(set(agents)))
+    return ("none", [])
+
+
+def _parse_dismiss_command(content: str) -> tuple[str, list[str]]:
+    """Extract !agent dismissals. Returns (cmd_type, agents)."""
+    if content.startswith("!"):
+        agents = re.findall(r"^!([\w-]+)\s*", content)
+        return ("dismiss", agents)
+    return ("none", [])
+
+
 def _extract_mention_task(identity: str, content: str) -> str:
     """Extract task following @identity mention."""
     pattern = rf"@{re.escape(identity)}\s+(.*?)(?=@|\Z)"
@@ -86,13 +102,49 @@ def main():
     content = sys.argv[3]
 
     log.info(f"Processing channel={channel_name}, content={content[:50]}")
+
+    config.init_config()
+
+    poll_cmd, poll_agents = _parse_poll_command(content)
+    if poll_cmd == "poll" and poll_agents:
+        log.info(f"Poll command detected for agents: {poll_agents}")
+        for identity in poll_agents:
+            try:
+                agent_id = spawn_db.get_agent_id(identity)
+                if not agent_id:
+                    agent_id = spawn_db.ensure_agent(identity)
+                poll_id = db.create_poll(agent_id, channel_id, created_by="human")
+                log.info(f"Created poll {poll_id} for {identity} in {channel_name}")
+                db.send_message(channel_id, "system", f"🔴 Polling {identity}...")
+            except Exception as e:
+                log.error(f"Poll creation failed for {identity}: {e}")
+        return
+
+    dismiss_cmd, dismiss_agents = _parse_dismiss_command(content)
+    if dismiss_cmd == "dismiss" and dismiss_agents:
+        log.info(f"Dismiss command detected for agents: {dismiss_agents}")
+        for identity in dismiss_agents:
+            try:
+                agent_id = spawn_db.get_agent_id(identity)
+                if agent_id:
+                    dismissed = db.dismiss_poll(agent_id, channel_id)
+                    if dismissed:
+                        log.info(f"Dismissed poll for {identity} in {channel_name}")
+                        db.send_message(channel_id, "system", f"⚪ Dismissed {identity}")
+                    else:
+                        log.info(f"No active poll for {identity}")
+                else:
+                    log.warning(f"Unknown agent: {identity}")
+            except Exception as e:
+                log.error(f"Poll dismissal failed for {identity}: {e}")
+        return
+
     mentions = _parse_mentions(content)
     log.info(f"Found mentions: {mentions}")
     if not mentions:
         log.info("No mentions, skipping")
         return
 
-    config.init_config()
     results = []
     for identity in mentions:
         log.info(f"Spawning {identity}")

@@ -78,7 +78,7 @@ def list_agents(show_all: bool = typer.Option(False, "--all", help="Show archive
     with spawn_db.connect() as conn:
         {row["agent_id"]: row["name"] for row in conn.execute("SELECT agent_id, name FROM agents")}
 
-    typer.echo(f"{'NAME':<20} {'ID':<10} {'E-S-B-M-K':<20} {'SELF'}")
+    typer.echo(f"{'NAME':<20} {'ID':<10} {'E-S-B-M-K':<20} {'POLLS':<30}")
     typer.echo("-" * 100)
 
     for s in sorted(stats, key=lambda a: a.agent_name):
@@ -91,10 +91,13 @@ def list_agents(show_all: bool = typer.Option(False, "--all", help="Show archive
             if resolved:
                 name = resolved
 
-        desc = "-"
         esbmk = f"{s.events}-{s.spawns}-{s.msgs}-{s.mems}-{s.knowledge}"
+        
+        polls_str = "-"
+        if s.active_polls:
+            polls_str = "🔴 " + ", ".join(s.active_polls)
 
-        typer.echo(f"{name:<20} {short_id:<10} {esbmk:<20} {desc}")
+        typer.echo(f"{name:<20} {short_id:<10} {esbmk:<20} {polls_str}")
 
     typer.echo()
     typer.echo(f"Total: {len(stats)}")

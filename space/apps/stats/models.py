@@ -21,6 +21,7 @@ class AgentStats:
     channels: list[str]
     last_active: str | None
     last_active_human: str | None = None
+    active_polls: list[str] | None = None
 
 
 @dataclass

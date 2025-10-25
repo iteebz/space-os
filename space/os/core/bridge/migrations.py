@@ -66,8 +66,30 @@ def _remove_duplicate_channels(conn: sqlite3.Connection):
     )
 
 
+def _add_polls_table(conn: sqlite3.Connection):
+    cursor = conn.execute("PRAGMA table_info(sqlite_master)")
+    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='polls'")
+    if cursor.fetchone():
+        return
+
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS polls (
+            poll_id TEXT PRIMARY KEY,
+            agent_id TEXT NOT NULL,
+            channel_id TEXT NOT NULL,
+            poll_started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            poll_dismissed_at TIMESTAMP,
+            created_by TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_polls_active ON polls(agent_id, channel_id, poll_dismissed_at);
+    """
+    )
+
+
 MIGRATIONS = [
     ("migrate_bridge_messages_id_to_message_id", _migrate_bridge_messages_id_to_message_id),
     ("migrate_bridge_channels_id_to_channel_id", _migrate_bridge_channels_id_to_channel_id),
     ("remove_duplicate_channels", _remove_duplicate_channels),
+    ("add_polls_table", _add_polls_table),
 ]
