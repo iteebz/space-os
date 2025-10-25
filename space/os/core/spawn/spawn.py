@@ -8,18 +8,6 @@ from space.os import config
 from space.os.lib import paths
 
 
-def get_constitution_path(role: str) -> Path:
-    config.init_config()
-    cfg = config.load_config()
-    constitution_filename = cfg["roles"][role]["constitution"]
-
-    prompt_path = paths.canon_path() / "prompts" / constitution_filename
-    if prompt_path.exists():
-        return prompt_path
-
-    return paths.constitution(constitution_filename)
-
-
 def get_base_agent(role: str) -> str:
     config.init_config()
     cfg = config.load_config()
@@ -111,7 +99,9 @@ def launch_agent(
 
     actual_model = model or agent_cfg.get("model")
 
-    const_path = get_constitution_path(constitution)
+    role_cfg = cfg["roles"][constitution]
+    const_filename = role_cfg["constitution"]
+    const_path = paths.constitution(const_filename)
     base_content = const_path.read_text()
     full_role = inject_role(base_content, constitution, actual_role, actual_model)
 

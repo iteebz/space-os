@@ -39,13 +39,13 @@ def _show_last_journal(identity: str):
     from space.os import memory
 
     try:
-        entries = memory.db.get_memories(identity, topic="journal", limit=1)
+        entries = memory.get_memories(identity, topic="journal", limit=1)
         if entries:
             e = entries[0]
             typer.echo(f"📔 Last journal ({e.memory_id[-8:]})")
             typer.echo(f"   {e.timestamp}")
             typer.echo(f"   {e.message}")
-            chain = memory.db.get_chain(e.memory_id)
+            chain = memory.get_chain(e.memory_id)
             if chain["predecessors"]:
                 typer.echo(f"   (previous: {chain['predecessors'][0].memory_id[-8:]})")
     except Exception:
@@ -108,7 +108,7 @@ def wake(
 
     chats.sync(identity)
 
-    journal_entries = memory.db.get_memories(identity, topic="journal")
+    journal_entries = memory.get_memories(identity, topic="journal")
     spawn_count = len(journal_entries)
 
     _show_orientation(identity, quiet, spawn_count, 0)
@@ -116,7 +116,7 @@ def wake(
 
 def _show_orientation(identity: str, quiet: bool, spawn_count: int, wakes_this_spawn: int):
     """Context + coordination state."""
-    from space.os.core.bridge import db as bridge_db
+    from space.os.core import bridge, spawn
     from space.os.lib.display import show_wake_summary
 
     show_wake_summary(
@@ -135,10 +135,8 @@ def _show_orientation(identity: str, quiet: bool, spawn_count: int, wakes_this_s
         typer.echo("  sleep — persist state, hand off to next self")
         typer.echo()
 
-    from space.os.core import spawn
-
     agent_id = spawn.db.get_agent_id(identity)
-    channels = bridge_db.inbox_channels(agent_id) if agent_id else []
+    channels = bridge.inbox_channels(agent_id) if agent_id else []
     if channels:
         total_msgs = sum(ch.unread_count for ch in channels)
         typer.echo(INBOX_HEADER.format(count=total_msgs, channels=len(channels)))

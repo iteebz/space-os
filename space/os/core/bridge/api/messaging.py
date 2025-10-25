@@ -2,8 +2,8 @@
 
 import sqlite3
 
-from space.os import db
-from space.os.db import from_row
+from space.os.lib import db
+from space.os.lib.db import from_row
 from space.os.lib.uuid7 import uuid7
 from space.os.models import BridgeMessage
 

@@ -2,8 +2,6 @@
 
 from datetime import datetime
 
-from space.os.core.spawn import db as spawn_db
-
 
 class Colors:
     CYAN = "\033[36m"

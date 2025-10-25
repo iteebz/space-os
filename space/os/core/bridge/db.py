@@ -1,119 +1,67 @@
-"""Bridge database operations re-exports.
-
-Provides a unified interface to bridge operations from ops/ modules.
-"""
-
 from pathlib import Path
 
-from space.os import db as _db
+from space.os.lib import db as db_lib
 from space.os.lib import paths
-from space.os.lib.uuid7 import uuid7
 
-from .. import bridge as _bridge
-from .ops.channels import (
-    active_channels,
-    all_channels,
-    archive_channel,
-    create_channel,
-    delete_channel,
-    get_channel_id,
-    get_channel_name,
-    get_participants,
-    get_topic,
-    inbox_channels,
-    pin_channel,
-    rename_channel,
-    resolve_channel_id,
-    unpin_channel,
-)
-from .ops.export import get_export_data
-from .ops.messaging import (
-    get_alerts,
-    get_all_messages,
-    get_new_messages,
-    get_sender_history,
-    recv_updates,
-    send_message,
-    set_bookmark,
-)
-from .ops.notes import add_note, get_notes
-from .ops.polls import create_poll, dismiss_poll, get_active_polls, is_polling
+from . import migrations
+
+_initialized = False
+
+
+def schema() -> str:
+    return """
+CREATE TABLE IF NOT EXISTS messages (
+    message_id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    priority TEXT DEFAULT 'normal'
+);
+
+CREATE TABLE IF NOT EXISTS bookmarks (
+    agent_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    last_seen_id TEXT,
+    PRIMARY KEY (agent_id, channel_id)
+);
+
+CREATE TABLE IF NOT EXISTS channels (
+    channel_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    topic TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT,
+    archived_at TIMESTAMP,
+    pinned_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS notes (
+    note_id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (channel_id) REFERENCES channels(channel_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_messages_channel_time ON messages(channel_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_bookmarks ON bookmarks(agent_id, channel_id);
+CREATE INDEX IF NOT EXISTS idx_notes ON notes(channel_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_priority ON messages(priority);
+CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id);
+"""
 
 
 def path() -> Path:
     return paths.space_data() / "bridge.db"
 
 
-def schema():
-    """Return bridge database schema."""
-    return _bridge.SCHEMA
+def register() -> None:
+    global _initialized
+    if _initialized:
+        return
+    _initialized = True
 
-
-def fetch_messages(channel_id: str):
-    return get_all_messages(channel_id)
-
-
-def fetch_agent_history(agent_name: str, limit: int = 5):
-    from space.os.core import spawn
-
-    agent_id = spawn.db.get_agent_id(agent_name)
-    if not agent_id:
-        return []
-    return get_sender_history(agent_id, limit)
-
-
-def connect():
-    """Get database connection for bridge."""
-    return _db.ensure("bridge").__enter__()
-
-
-def create_message(channel_id: str, identity: str, content: str, priority: str = "normal") -> str:
-    """Create message directly without spawning agent. Returns message_id."""
-    message_id = uuid7()
-    with _db.ensure("bridge") as conn:
-        conn.execute(
-            "INSERT INTO messages (message_id, channel_id, agent_id, content, priority) VALUES (?, ?, ?, ?, ?)",
-            (message_id, channel_id, identity, content, priority),
-        )
-    return message_id
-
-
-get_channel_topic = get_topic
-
-__all__ = [
-    "active_channels",
-    "all_channels",
-    "archive_channel",
-    "create_channel",
-    "delete_channel",
-    "get_channel_id",
-    "get_channel_name",
-    "get_participants",
-    "get_topic",
-    "inbox_channels",
-    "pin_channel",
-    "rename_channel",
-    "resolve_channel_id",
-    "unpin_channel",
-    "get_export_data",
-    "get_alerts",
-    "get_all_messages",
-    "get_new_messages",
-    "get_sender_history",
-    "recv_updates",
-    "send_message",
-    "set_bookmark",
-    "get_notes",
-    "add_note",
-    "create_poll",
-    "dismiss_poll",
-    "get_active_polls",
-    "is_polling",
-    "fetch_messages",
-    "fetch_agent_history",
-    "get_channel_topic",
-    "schema",
-    "connect",
-    "create_message",
-    "path",
-]
+    db_lib.register("bridge", "bridge.db", schema())
+    db_lib.add_migrations("bridge", migrations.MIGRATIONS)

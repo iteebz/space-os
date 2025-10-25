@@ -9,8 +9,8 @@ import typer
 from space.os import events
 from space.os.core import spawn
 
-from ..ops import channels
-from ..ops import export as ex
+from ..api import channels
+from ..api import export as ex
 
 app = typer.Typer()
 

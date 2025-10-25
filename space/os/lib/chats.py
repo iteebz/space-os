@@ -1,8 +1,7 @@
 import contextlib
 import hashlib
 
-from space.os import db
-from space.os.lib import agents
+from space.os.lib import agents, db
 
 
 def schema() -> str:

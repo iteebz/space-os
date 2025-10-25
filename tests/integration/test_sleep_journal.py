@@ -15,13 +15,13 @@ def _unique_identity(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:8]}"
 
 
-def test_sleep_journal_requires_identity():
+def test_sleep_journal_requires_identity(test_space):
     """sleep-journal without --as fails."""
     result = runner.invoke(app, ["sleep-journal"])
     assert result.exit_code != 0
 
 
-def test_add_journal_entry():
+def test_add_journal_entry(test_space):
     """Add a journal entry."""
     ident = _unique_identity("test_agent")
     spawn.db.ensure_agent(ident)
@@ -30,7 +30,7 @@ def test_add_journal_entry():
     assert "Journal entry saved" in result.stdout
 
 
-def test_show_last_journal_empty():
+def test_show_last_journal_empty(test_space):
     """Show last journal when none exist."""
     ident = _unique_identity("test_empty")
     spawn.db.ensure_agent(ident)
@@ -39,7 +39,7 @@ def test_show_last_journal_empty():
     assert "No journal entries" in result.stdout
 
 
-def test_show_last_journal():
+def test_show_last_journal(test_space):
     """Show last journal entry."""
     ident = _unique_identity("test_show")
     spawn.db.ensure_agent(ident)
@@ -50,7 +50,7 @@ def test_show_last_journal():
     assert "first entry" in result.stdout
 
 
-def test_journal_lineage():
+def test_journal_lineage(test_space):
     """Journal entries link to predecessors."""
     ident = _unique_identity("test_lineage")
     spawn.db.ensure_agent(ident)
@@ -58,18 +58,18 @@ def test_journal_lineage():
     runner.invoke(app, ["sleep-journal", "--as", ident, "entry 1"])
     runner.invoke(app, ["sleep-journal", "--as", ident, "entry 2"])
 
-    entries = memory.db.get_memories(ident, topic="journal")
+    entries = memory.get_memories(ident, topic="journal")
     assert len(entries) == 2
 
     latest = entries[0]
     prev = entries[1]
 
-    chain = memory.db.get_chain(latest.memory_id)
+    chain = memory.get_chain(latest.memory_id)
     assert chain["predecessors"]
     assert chain["predecessors"][0].memory_id == prev.memory_id
 
 
-def test_journal_in_wake():
+def test_journal_in_wake(test_space):
     """Wake shows last journal entry."""
     ident = _unique_identity("test_wake")
     spawn.db.ensure_agent(ident)
@@ -79,7 +79,7 @@ def test_journal_in_wake():
     assert result.exit_code == 0
 
 
-def test_spawn_count_from_journal():
+def test_spawn_count_from_journal(test_space):
     """Spawn count derives from journal entries."""
     ident = _unique_identity("test_spawn_count")
     spawn.db.ensure_agent(ident)
@@ -88,5 +88,5 @@ def test_spawn_count_from_journal():
     runner.invoke(app, ["sleep-journal", "--as", ident, "spawn 2"])
     runner.invoke(app, ["sleep-journal", "--as", ident, "spawn 3"])
 
-    entries = memory.db.get_memories(ident, topic="journal")
+    entries = memory.get_memories(ident, topic="journal")
     assert len(entries) == 3

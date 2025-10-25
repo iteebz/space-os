@@ -2,20 +2,15 @@ import typer
 
 from space.os.lib import errors, output, readme
 
-from . import db as db
-from . import entries
-from . import migrations as migrations
+from . import api, db
+from .commands.entries import app as entries_app
 
 errors.install_error_handler("knowledge")
 
+db.register()
+
 knowledge = typer.Typer(invoke_without_command=True)
-knowledge.command("add")(entries.add)
-knowledge.command("list")(entries.list)
-knowledge.command("about")(entries.query_by_domain)
-knowledge.command("from")(entries.query_by_agent)
-knowledge.command("get")(entries.get)
-knowledge.command("inspect")(entries.inspect)
-knowledge.command("archive")(entries.archive)
+knowledge.add_typer(entries_app)
 
 
 @knowledge.callback()
@@ -40,4 +35,4 @@ def main_command(
     return
 
 
-__all__ = ["knowledge"]
+__all__ = ["knowledge", "api", "db"]

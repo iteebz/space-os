@@ -1,4 +1,4 @@
-"""Integration test: CLI aliasing and constitution provenance."""
+"""Integration test: CLI constitution provenance."""
 
 from unittest.mock import patch
 
@@ -7,22 +7,6 @@ from typer.testing import CliRunner
 from space.cli import app
 
 runner = CliRunner()
-
-
-def test_alias_normalize_wake(test_space):
-    """Rewrite positional agent to --as flag."""
-    from space.os.lib.aliasing import Aliasing
-
-    result = Aliasing.rewrite(["wake", "my-agent"])
-    assert result == ["wake", "--as", "my-agent"]
-
-
-def test_alias_preserve_flag(test_space):
-    """Keep explicit --as flag unchanged."""
-    from space.os.lib.aliasing import Aliasing
-
-    result = Aliasing.rewrite(["wake", "--as", "my-agent"])
-    assert result == ["wake", "--as", "my-agent"]
 
 
 def test_wake_explicit_flag(test_space):

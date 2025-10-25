@@ -1,5 +1,3 @@
-import sys
-
 import typer
 
 from space.apps.context.app import context
@@ -20,7 +18,6 @@ from space.os import (
     spawn_app,
 )
 from space.os.lib import readme
-from space.os.lib.aliasing import Aliasing
 
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False, add_help_option=False)
 
@@ -58,10 +55,6 @@ def main_command(
 
 def main() -> None:
     """Entry point for poetry script."""
-    argv_orig = sys.argv[1:]
-    rewritten_argv = Aliasing.rewrite(argv_orig)
-    sys.argv = [sys.argv[0]] + rewritten_argv
-
     try:
         app()
     except SystemExit:

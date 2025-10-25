@@ -2,8 +2,8 @@ from pathlib import Path
 
 import typer
 
-from space.os import db, spawn
-from space.os.lib import paths
+from space.os.core import spawn
+from space.os.lib import db, paths
 
 
 def init():
@@ -14,7 +14,7 @@ def init():
     paths.canon_path().mkdir(parents=True, exist_ok=True)
     (root / "projects").mkdir(parents=True, exist_ok=True)
 
-    with spawn.db.connect():
+    with spawn.connect():
         pass
     with db.ensure("bridge"):
         pass

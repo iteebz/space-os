@@ -3,8 +3,8 @@
 import sqlite3
 import uuid
 
-from space.os import db
-from space.os.db import from_row
+from space.os.lib import db
+from space.os.lib.db import from_row
 from space.os.models import Channel
 
 

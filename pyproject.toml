@@ -24,7 +24,7 @@ prompt-toolkit = "^3.0.47"
 
 [tool.poetry.scripts]
 bridge = "space.os.bridge.app:main"
-spawn = "space.os.spawn.app:main"
+spawn = "space.os.core.spawn.cli:main"
 memory = "space.os.memory.app:main"
 knowledge = "space.os.knowledge.app:main"
 context = "space.os.context.app:main"

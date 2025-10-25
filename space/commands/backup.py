@@ -8,8 +8,7 @@ from pathlib import Path
 
 import typer
 
-from space.os import db
-from space.os.lib import paths
+from space.os.lib import db, paths
 
 logger = logging.getLogger(__name__)
 

@@ -29,7 +29,7 @@ def test_discovers_orphaned_in_events(test_space):
 
 
 def test_discovers_orphaned_in_messages(test_space):
-    from space.os import db
+    from space.os.lib import db
 
     with db.ensure("bridge") as conn:
         conn.execute(
@@ -42,7 +42,7 @@ def test_discovers_orphaned_in_messages(test_space):
 
 
 def test_discovers_orphaned_in_memory(test_space):
-    from space.os import db
+    from space.os.lib import db
 
     mem_db = paths.space_data() / "memory.db"
     with db.connect(mem_db) as conn:
@@ -70,8 +70,8 @@ def test_maps_registration_name_to_orphan(test_space):
 
 
 def test_aggregates_stats_from_all_sources(test_space):
-    from space.os import db, spawn
     from space.os import events as events_lib
+    from space.os.lib import db, spawn
 
     agent_id = "aggregator-001"
     with spawn.db.connect() as conn:

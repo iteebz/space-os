@@ -4,22 +4,36 @@ import typer
 
 from space.os.lib import errors, output, readme
 
-from . import db as db
-from . import entries
-from . import migrations as migrations
+from . import api, commands, db
+from .api import (
+    add_entry,
+    add_link,
+    archive_entry,
+    clear_entries,
+    delete_entry,
+    edit_entry,
+    find_related,
+    get_by_memory_id,
+    get_by_uuid,
+    get_chain,
+    get_core_entries,
+    get_memories,
+    get_recent_entries,
+    get_summary,
+    mark_core,
+    replace_entry,
+    restore_entry,
+    search_entries,
+    update_summary,
+)
 
 errors.install_error_handler("memory")
 
+db.register()
+
+
 memory = typer.Typer(invoke_without_command=True)
-memory.command(name="add")(entries.add)
-memory.command(name="edit")(entries.edit)
-memory.command(name="list")(entries.list)
-memory.command(name="search")(entries.search)
-memory.command(name="archive")(entries.archive)
-memory.command(name="core")(entries.core)
-memory.command(name="inspect")(entries.inspect)
-memory.command(name="replace")(entries.replace)
-memory.command(name="summary")(entries.summary)
+memory.add_typer(commands.app)
 
 
 @memory.callback()
@@ -46,7 +60,7 @@ def cb(
         return
     if ctx.invoked_subcommand is None:
         if identity:
-            entries._list_entries(identity, ctx, include_archived=show_all)
+            commands.entries._list_entries(identity, ctx, include_archived=show_all)
         else:
             typer.echo(readme.load("memory"))
 
@@ -69,4 +83,27 @@ def main() -> None:
         sys.exit(1)
 
 
-__all__ = ["memory"]
+__all__ = [
+    "memory",
+    "api",
+    "db",
+    "add_entry",
+    "add_link",
+    "archive_entry",
+    "clear_entries",
+    "delete_entry",
+    "edit_entry",
+    "find_related",
+    "get_by_memory_id",
+    "get_by_uuid",
+    "get_chain",
+    "get_core_entries",
+    "get_memories",
+    "get_recent_entries",
+    "get_summary",
+    "mark_core",
+    "replace_entry",
+    "restore_entry",
+    "search_entries",
+    "update_summary",
+]

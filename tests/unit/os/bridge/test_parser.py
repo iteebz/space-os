@@ -1,28 +1,28 @@
 import subprocess
 from unittest.mock import MagicMock, patch
 
-from space.os.core.bridge.ops import spawning
+from space.os.core.bridge.api import spawning
 
 
 def test_parse_mentions_single():
     """Extract single @mention."""
-    content = "@hailot can you help?"
+    content = "@zealot can you help?"
     mentions = spawning._parse_mentions(content)
-    assert mentions == ["hailot"]
+    assert mentions == ["zealot"]
 
 
 def test_parse_mentions_multiple():
     """Extract multiple @mentions."""
-    content = "@hailot @zealot what do you think?"
+    content = "@zealot @sentinel what do you think?"
     mentions = spawning._parse_mentions(content)
-    assert set(mentions) == {"hailot", "zealot"}
+    assert set(mentions) == {"zealot", "sentinel"}
 
 
 def test_parse_mentions_no_duplicates():
     """Deduplicate mentions."""
-    content = "@hailot please respond. @hailot are you there?"
+    content = "@zealot please respond. @zealot are you there?"
     mentions = spawning._parse_mentions(content)
-    assert mentions == ["hailot"]
+    assert mentions == ["zealot"]
 
 
 def test_parse_mentions_none():
@@ -34,38 +34,38 @@ def test_parse_mentions_none():
 
 def test_extract_mention_task_simple():
     """Extract task after @mention."""
-    content = "@hailot do something"
-    task = spawning._extract_mention_task("hailot", content)
+    content = "@zealot do something"
+    task = spawning._extract_mention_task("zealot", content)
     assert task == "do something"
 
 
 def test_extract_mention_task_with_newlines():
     """Extract task with newlines after @mention."""
-    content = "@hailot\nanalyze this situation"
-    task = spawning._extract_mention_task("hailot", content)
+    content = "@zealot\nanalyze this situation"
+    task = spawning._extract_mention_task("zealot", content)
     assert task == "analyze this situation"
 
 
 def test_extract_mention_multiple():
     """Extract task stops at next @mention."""
-    content = "@hailot do this @zealot do that"
-    task = spawning._extract_mention_task("hailot", content)
-    assert task == "do this"
+    content = "@zealot do this @sentinel do that"
     task = spawning._extract_mention_task("zealot", content)
+    assert task == "do this"
+    task = spawning._extract_mention_task("sentinel", content)
     assert task == "do that"
 
 
 def test_extract_mention_task_empty():
     """Mention with no task."""
-    content = "@hailot"
-    task = spawning._extract_mention_task("hailot", content)
+    content = "@zealot"
+    task = spawning._extract_mention_task("zealot", content)
     assert task == ""
 
 
 def test_extract_mention_task_not_found():
     """Identity not mentioned."""
-    content = "@zealot do something"
-    task = spawning._extract_mention_task("hailot", content)
+    content = "@sentinel do something"
+    task = spawning._extract_mention_task("zealot", content)
     assert task == ""
 
 
@@ -75,10 +75,10 @@ def test_build_prompt_success():
         patch("space.os.core.bridge.spawning.subprocess.run") as mock_run,
         patch("space.os.core.bridge.spawning.config.load_config") as mock_config,
     ):
-        mock_config.return_value = {"roles": {"hailot": {}}}
+        mock_config.return_value = {"roles": {"zealot": {}}}
         mock_run.return_value = MagicMock(returncode=0, stdout="# test-channel\n\n[alice] hello\n")
 
-        result = spawning._build_prompt("hailot", "test-channel", "@hailot test message")
+        result = spawning._build_prompt("zealot", "test-channel", "@zealot test message")
 
         assert result is not None
         assert "[SPACE INSTRUCTIONS]" in result
@@ -93,7 +93,7 @@ def test_build_prompt_failure():
     with patch("space.os.core.bridge.spawning.subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error")
 
-        result = spawning._build_prompt("hailot", "test-channel", "test")
+        result = spawning._build_prompt("zealot", "test-channel", "test")
 
         assert result is None
 
@@ -103,6 +103,6 @@ def test_build_prompt_timeout():
     with patch("space.os.core.bridge.spawning.subprocess.run") as mock_run:
         mock_run.side_effect = subprocess.TimeoutExpired("spawn", 120)
 
-        result = spawning._build_prompt("hailot", "test-channel", "test")
+        result = spawning._build_prompt("zealot", "test-channel", "test")
 
         assert result is None

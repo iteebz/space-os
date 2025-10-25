@@ -1,98 +1,62 @@
-"""Bridge: AI Coordination Protocol
+from . import api, db
+from .api import (
+    active_channels,
+    add_note,
+    all_channels,
+    archive_channel,
+    create_channel,
+    delete_channel,
+    get_alerts,
+    get_all_messages,
+    get_channel_id,
+    get_channel_name,
+    get_export_data,
+    get_new_messages,
+    get_notes,
+    get_participants,
+    get_sender_history,
+    get_topic,
+    inbox_channels,
+    pin_channel,
+    recv_updates,
+    rename_channel,
+    resolve_channel_id,
+    send_message,
+    set_bookmark,
+    spawn_agents_from_mentions,
+    unpin_channel,
+)
+from .commands.cli import bridge
 
-Layer structure:
-1. ops/: Pure business logic (DB, state, zero typer)
-2. commands/: Typer CLI layer (parse args, format output, emit events)
-3. lib/: Shared formatting utilities
+db.register()
 
-Access: from space.os.core.bridge import bridge (lazy-loads CLI via __getattr__)
-         from space.os.core.bridge import db (bridge operations)
-"""
-
-from space.os import db as _db
-
-from . import migrations
-
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS messages (
-    message_id TEXT PRIMARY KEY,
-    channel_id TEXT NOT NULL,
-    agent_id TEXT NOT NULL,
-    content TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    priority TEXT DEFAULT 'normal'
-);
-
-CREATE TABLE IF NOT EXISTS bookmarks (
-    agent_id TEXT NOT NULL,
-    channel_id TEXT NOT NULL,
-    last_seen_id TEXT,
-    PRIMARY KEY (agent_id, channel_id)
-);
-
-CREATE TABLE IF NOT EXISTS channels (
-    channel_id TEXT PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
-    topic TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    notes TEXT,
-    archived_at TIMESTAMP,
-    pinned_at TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS notes (
-    note_id TEXT PRIMARY KEY,
-    channel_id TEXT NOT NULL,
-    agent_id TEXT NOT NULL,
-    content TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (channel_id) REFERENCES channels(channel_id)
-);
-
-CREATE TABLE IF NOT EXISTS polls (
-    poll_id TEXT PRIMARY KEY,
-    agent_id TEXT NOT NULL,
-    channel_id TEXT NOT NULL,
-    poll_started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    poll_dismissed_at TIMESTAMP,
-    created_by TEXT,
-    FOREIGN KEY (agent_id) REFERENCES agents(agent_id),
-    FOREIGN KEY (channel_id) REFERENCES channels(channel_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_messages_channel_time ON messages(channel_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_bookmarks ON bookmarks(agent_id, channel_id);
-CREATE INDEX IF NOT EXISTS idx_notes ON notes(channel_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_messages_priority ON messages(priority);
-CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id);
-CREATE INDEX IF NOT EXISTS idx_polls_active ON polls(agent_id, channel_id, poll_dismissed_at);
-"""
-
-_db.register("bridge", "bridge.db", SCHEMA)
-_db.add_migrations("bridge", migrations.MIGRATIONS)
-
-
-def __getattr__(name):
-    if name == "db":
-        import importlib
-        import sys
-
-        spec = importlib.util.find_spec(".db", "space.os.core.bridge")
-        if spec and spec.loader:
-            module = importlib.util.module_from_spec(spec)
-            sys.modules["space.os.core.bridge.db"] = module
-            spec.loader.exec_module(module)
-            return module
-    if name == "spawn":
-        from space.os.core import spawn
-
-        return spawn
-    if name == "bridge":
-        from .commands.cli import bridge as bridge_app
-
-        return bridge_app
-    if name == "spawning":
-        from .ops import spawning
-
-        return spawning
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+__all__ = [
+    "api",
+    "db",
+    "active_channels",
+    "add_note",
+    "all_channels",
+    "archive_channel",
+    "create_channel",
+    "delete_channel",
+    "get_alerts",
+    "get_all_messages",
+    "get_channel_id",
+    "get_channel_name",
+    "get_export_data",
+    "get_new_messages",
+    "get_notes",
+    "get_participants",
+    "get_sender_history",
+    "get_topic",
+    "inbox_channels",
+    "pin_channel",
+    "recv_updates",
+    "rename_channel",
+    "resolve_channel_id",
+    "send_message",
+    "set_bookmark",
+    "spawn_agents_from_mentions",
+    "unpin_channel",
+    "bridge",
+]

@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from space.os import config, spawn
 
 
@@ -41,12 +39,3 @@ def test_resolve_model_alias(test_space):
     assert haiku
     assert sonnet
     assert haiku != sonnet
-
-
-def test_get_constitution_path(test_space):
-    """Test resolving constitution file path."""
-    config.init_config()
-
-    path = spawn.get_constitution_path("sentinel")
-    assert isinstance(path, Path)
-    assert path.name.endswith(".md")

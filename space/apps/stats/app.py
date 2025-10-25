@@ -57,9 +57,6 @@ overview"""
         for a in sorted_agents:
             parts = [a.agent_name]
             parts.append(f"{a.events}-{a.spawns}-{a.msgs}-{a.mems}-{a.knowledge}")
-            if a.active_polls:
-                poll_str = ", ".join([f"🔴 {ch}" for ch in a.active_polls])
-                parts.append(poll_str)
             lines.append("  " + " · ".join(parts))
 
     typer.echo("\n".join(lines) + "\n")

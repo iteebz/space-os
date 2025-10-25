@@ -6,16 +6,9 @@ import sqlite3
 import pytest
 
 from space.os import config, db
-from space.os.core import bridge as bridge_module
-from space.os.core.bridge.migrations import MIGRATIONS as BRIDGE_MIGRATIONS
-from space.os.core.knowledge import db as knowledge_db
-from space.os.core.knowledge.migrations import MIGRATIONS as KNOWLEDGE_MIGRATIONS
-from space.os.core.memory import db as memory_db
-from space.os.core.memory.migrations import MIGRATIONS as MEMORY_MIGRATIONS
-from space.os.core.spawn import db as spawn_db
-from space.os.core.spawn.migrations import MIGRATIONS as SPAWN_MIGRATIONS
-from space.os.db import sqlite as sqlite_db
+from space.os.core import bridge, knowledge, memory, spawn
 from space.os.lib import paths
+from space.os.lib.db import sqlite as sqlite_db
 
 
 @pytest.fixture(scope="session")
@@ -24,14 +17,14 @@ def _seed_dbs(tmp_path_factory):
 
     db.ensure_schema(
         seed_dir / config.registry_db().name,
-        spawn_db.schema(),
-        SPAWN_MIGRATIONS,
+        spawn.schema(),
+        spawn.migrations.MIGRATIONS,
     )
 
     for db_name, schema_str, mig in [
-        ("memory.db", memory_db.schema(), MEMORY_MIGRATIONS),
-        ("knowledge.db", knowledge_db.schema(), KNOWLEDGE_MIGRATIONS),
-        ("bridge.db", bridge_module.SCHEMA, BRIDGE_MIGRATIONS),
+        ("memory.db", memory.schema(), memory.migrations.MIGRATIONS),
+        ("knowledge.db", knowledge.schema(), knowledge.migrations.MIGRATIONS),
+        ("bridge.db", bridge.schema(), bridge.migrations.MIGRATIONS),
     ]:
         db.ensure_schema(seed_dir / db_name, schema_str, mig)
 
@@ -41,7 +34,9 @@ def _seed_dbs(tmp_path_factory):
 @pytest.fixture
 def test_space(monkeypatch, tmp_path, _seed_dbs):
     from space.os import events
+    from space.os.lib import chats
 
+    monkeypatch.setattr(chats, "sync", lambda identity: None)
     config.clear_cache()
 
     workspace = tmp_path / "workspace"
@@ -71,7 +66,7 @@ def test_space(monkeypatch, tmp_path, _seed_dbs):
                 if wal.exists():
                     shutil.copy2(wal, workspace / ".space" / wal.name)
 
-    spawn_db.clear_role_cache()
+    spawn.clear_cache()
 
     yield workspace
 

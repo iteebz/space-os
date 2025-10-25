@@ -4,12 +4,11 @@ import logging
 import sqlite3
 from pathlib import Path
 
-from space.os import db
-from space.os.core.spawn import db as spawn_db
-from space.os.db import query_builders as qb
-from space.os.db.registries import DB_REGISTRY_MAP
+from space.os.core import spawn
+from space.os.lib import db, paths
 from space.os.lib import format as fmt
-from space.os.lib import paths
+from space.os.lib.db import query_builders as qb
+from space.os.lib.db.registries import DB_REGISTRY_MAP
 
 from .models import (
     AgentStats,
@@ -50,7 +49,7 @@ def _get_columns_safe(conn: sqlite3.Connection, table: str) -> list[str]:
 
 def _get_agent_names_map() -> dict[str, str]:
     try:
-        with spawn_db.connect() as reg_conn:
+        with spawn.connect() as reg_conn:
             return {row[0]: row[1] for row in reg_conn.execute("SELECT agent_id, name FROM agents")}
     except Exception as exc:
         logger.error(f"Failed to fetch agent names: {exc}")
@@ -59,13 +58,13 @@ def _get_agent_names_map() -> dict[str, str]:
 
 def _discover_all_agent_ids(registered_ids: set[str], include_archived: bool = False) -> set[str]:
     """Discover all unique agent_ids across all activity tables and spawn_db."""
-    from space.os.core.spawn import db as spawn_db
+    from space.os.core import spawn
 
     all_agent_ids = set(registered_ids)
 
     if include_archived:
         try:
-            with spawn_db.connect() as reg_conn:
+            with spawn.connect() as reg_conn:
                 for row in reg_conn.execute(
                     "SELECT agent_id FROM agents WHERE archived_at IS NOT NULL"
                 ):
@@ -253,7 +252,7 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
 
 def agent_stats(limit: int = None, include_archived: bool = False) -> list[AgentStats] | None:
     try:
-        with spawn_db.connect() as reg_conn:
+        with spawn.connect() as reg_conn:
             where_clause = "" if include_archived else "WHERE archived_at IS NULL"
             agent_ids = {
                 row[0] for row in reg_conn.execute(f"SELECT agent_id FROM agents {where_clause}")
@@ -352,23 +351,6 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
         except Exception as exc:
             logger.warning(f"Failed to connect to {db_path.name}: {exc}")
 
-    active_polls_map = {}
-    try:
-        from space.os.core.bridge import db as bridge_db
-
-        polls = bridge_db.get_active_polls()
-        for poll in polls:
-            agent_id = poll.get("agent_id")
-            channel_id = poll.get("channel_id")
-            if agent_id and channel_id:
-                channel_name = bridge_db.get_channel_name(channel_id)
-                if agent_id not in active_polls_map:
-                    active_polls_map[agent_id] = []
-                if channel_name:
-                    active_polls_map[agent_id].append(channel_name)
-    except Exception as exc:
-        logger.warning(f"Failed to fetch active polls: {exc}")
-
     agents = [
         AgentStats(
             agent_id=agent_id,
@@ -383,7 +365,6 @@ def agent_stats(limit: int = None, include_archived: bool = False) -> list[Agent
             last_active_human=fmt.humanize_timestamp(data.get("last_active"))
             if data.get("last_active")
             else None,
-            active_polls=active_polls_map.get(agent_id),
         )
         for agent_id, data in agent_stats_map.items()
     ]

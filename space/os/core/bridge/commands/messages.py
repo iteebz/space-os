@@ -12,7 +12,7 @@ from space.os import events
 from space.os.core import spawn
 from space.os.lib.identity import emit_constitution_invoked
 
-from ..ops import channels, messaging, spawning
+from ..api import channels, messaging, spawning
 
 app = typer.Typer()
 

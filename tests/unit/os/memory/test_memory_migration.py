@@ -52,7 +52,7 @@ def test_memory_migration_idempotent():
     import tempfile
     from pathlib import Path
 
-    from space.os import db, memory
+    from space.os.lib import db, memory
 
     tmpdir = tempfile.mkdtemp()
     try:
@@ -60,7 +60,7 @@ def test_memory_migration_idempotent():
 
         conn = db.connect(db_path)
         conn.execute("PRAGMA journal_mode=WAL")
-        conn.executescript(memory.db.schema())
+        conn.executescript(memory.ops.schema())
         conn.commit()
 
         # Test that migration idempotency—running same migrations twice

@@ -7,6 +7,7 @@ from .core.bridge import bridge as bridge_app
 from .core.knowledge import knowledge as knowledge_app
 from .core.memory import memory as memory_app
 from .core.spawn.cli import spawn as spawn_app
+from .lib import db
 
 bridge = bridge_module
 knowledge = knowledge_module
@@ -19,6 +20,7 @@ __all__ = [
     "memory",
     "spawn",
     "core",
+    "db",
     "bridge_app",
     "knowledge_app",
     "memory_app",

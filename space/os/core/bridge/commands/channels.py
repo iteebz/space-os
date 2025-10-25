@@ -7,8 +7,8 @@ import typer
 
 from space.os.core import spawn
 
+from ..api import channels as ch
 from ..lib.format import format_channel_row
-from ..ops import channels as ch
 
 app = typer.Typer()
 

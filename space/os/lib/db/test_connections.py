@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from space.os import db
-from space.os.db import sqlite as db_sqlite
+from space.os.lib import db
+from space.os.lib.db import sqlite as db_sqlite
 
 
 @pytest.fixture

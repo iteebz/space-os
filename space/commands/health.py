@@ -2,8 +2,7 @@ import sqlite3
 
 import typer
 
-from space.os import db
-from space.os.lib import paths
+from space.os.lib import db, paths
 
 app = typer.Typer(invoke_without_command=True)
 

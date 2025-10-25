@@ -7,9 +7,9 @@ import typer
 from space.os import events
 from space.os.core import spawn
 
+from ..api import channels
+from ..api import notes as nt
 from ..lib.format import format_local_time
-from ..ops import channels
-from ..ops import notes as nt
 
 app = typer.Typer()
 

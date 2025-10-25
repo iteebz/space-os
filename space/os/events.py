@@ -6,7 +6,7 @@ from collections.abc import Callable
 from enum import Enum
 from typing import Any, TypeVar
 
-from space.os import db
+from space.os.lib import db
 from space.os.models import Event
 
 from .lib import paths

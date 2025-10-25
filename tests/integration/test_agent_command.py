@@ -1,6 +1,6 @@
 from typer.testing import CliRunner
 
-from space.os.core.memory import db
+from space.os.core import memory
 from space.os.core.spawn import db as spawn_db
 from space.os.core.spawn.cli import spawn as spawn_app
 
@@ -25,15 +25,15 @@ def test_agent_merge(test_space):
     agent_id_1 = spawn_db.ensure_agent("agent-source")
     agent_id_2 = spawn_db.ensure_agent("agent-target")
 
-    db.add_entry(agent_id_1, "topic-a", "memory from source 1")
-    db.add_entry(agent_id_1, "topic-b", "memory from source 2")
-    db.add_entry(agent_id_2, "topic-c", "memory from target")
+    memory.add_entry(agent_id_1, "topic-a", "memory from source 1")
+    memory.add_entry(agent_id_1, "topic-b", "memory from source 2")
+    memory.add_entry(agent_id_2, "topic-c", "memory from target")
 
     result = runner.invoke(spawn_app, ["merge", "agent-source", "agent-target"])
     assert result.exit_code == 0
     assert "Merged" in result.stdout
 
-    target_memories = db.get_memories("agent-target")
+    target_memories = memory.get_memories("agent-target")
 
     assert len(target_memories) == 3
     assert any("memory from source 1" in m.message for m in target_memories)

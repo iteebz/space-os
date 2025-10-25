@@ -1,11 +1,11 @@
-from space.os.core.spawn import db
+from space.os.core import spawn as db
 
 
 def test_create_task(test_space):
-    db.ensure_agent("hailot")
+    db.ensure_agent("zealot")
 
     task_id = db.create_task(
-        role="hailot",
+        role="zealot",
         input="list repos",
         channel_id="ch-123",
     )
@@ -23,8 +23,8 @@ def test_create_task(test_space):
 
 
 def test_update_task_status(test_space):
-    db.ensure_agent("hailot")
-    task_id = db.create_task(role="hailot", input="test task")
+    db.ensure_agent("zealot")
+    task_id = db.create_task(role="zealot", input="test task")
 
     db.update_task(task_id, status="running", mark_started=True)
     task = db.get_task(task_id)
@@ -33,8 +33,8 @@ def test_update_task_status(test_space):
 
 
 def test_complete_task(test_space):
-    db.ensure_agent("hailot")
-    task_id = db.create_task(role="hailot", input="test task")
+    db.ensure_agent("zealot")
+    task_id = db.create_task(role="zealot", input="test task")
     db.update_task(task_id, status="running", mark_started=True)
 
     db.update_task(task_id, status="completed", output="success", mark_completed=True)
@@ -46,8 +46,8 @@ def test_complete_task(test_space):
 
 
 def test_fail_task(test_space):
-    db.ensure_agent("hailot")
-    task_id = db.create_task(role="hailot", input="test task")
+    db.ensure_agent("zealot")
+    task_id = db.create_task(role="zealot", input="test task")
 
     db.update_task(task_id, status="failed", stderr="error message", mark_completed=True)
     task = db.get_task(task_id)
@@ -56,11 +56,11 @@ def test_fail_task(test_space):
 
 
 def test_list_tasks(test_space):
-    db.ensure_agent("hailot")
     db.ensure_agent("zealot")
+    db.ensure_agent("sentinel")
 
-    t1 = db.create_task(role="hailot", input="task 1")
-    t2 = db.create_task(role="zealot", input="task 2")
+    t1 = db.create_task(role="zealot", input="task 1")
+    t2 = db.create_task(role="sentinel", input="task 2")
     db.update_task(t1, status="completed")
 
     all_tasks = db.list_tasks()
@@ -70,6 +70,6 @@ def test_list_tasks(test_space):
     assert len(pending) == 1
     assert pending[0].task_id == t2
 
-    hailot_tasks = db.list_tasks(role="hailot")
-    assert len(hailot_tasks) == 1
-    assert hailot_tasks[0].task_id == t1
+    zealot_tasks = db.list_tasks(role="zealot")
+    assert len(zealot_tasks) == 1
+    assert zealot_tasks[0].task_id == t1

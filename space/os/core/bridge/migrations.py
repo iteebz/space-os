@@ -1,95 +1,47 @@
-import sqlite3
-
-
-def _migrate_bridge_messages_id_to_message_id(conn: sqlite3.Connection):
-    cursor = conn.execute("PRAGMA table_info(messages)")
-    cols = {row[1] for row in cursor.fetchall()}
-    if "id" not in cols:
-        return
-    conn.executescript(
-        """
-        CREATE TABLE messages_new (
-            message_id TEXT PRIMARY KEY,
-            channel_id TEXT NOT NULL,
-            agent_id TEXT NOT NULL,
-            content TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            priority TEXT DEFAULT 'normal'
-        );
-        INSERT INTO messages_new SELECT id, channel_id, agent_id, content, created_at, priority FROM messages;
-        DROP TABLE messages;
-        ALTER TABLE messages_new RENAME TO messages;
-        CREATE INDEX idx_messages_channel_time ON messages(channel_id, created_at);
-        CREATE INDEX idx_messages_priority ON messages(priority);
-        CREATE INDEX idx_messages_agent ON messages(agent_id);
-    """
-    )
-
-
-def _migrate_bridge_channels_id_to_channel_id(conn: sqlite3.Connection):
-    cursor = conn.execute("PRAGMA table_info(channels)")
-    cols = {row[1] for row in cursor.fetchall()}
-    if "channel_id" in cols:
-        return
-    if "id" not in cols:
-        return
-
-    has_pinned = "pinned_at" in cols
-    pinned_col = "pinned_at" if has_pinned else "NULL as pinned_at"
-
-    conn.executescript(
-        f"""
-        DROP TABLE IF EXISTS channels_tmp;
-        CREATE TABLE channels_tmp (
-            channel_id TEXT PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE,
-            topic TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            notes TEXT,
-            archived_at TIMESTAMP,
-            pinned_at TIMESTAMP
-        );
-        INSERT INTO channels_tmp SELECT id, name, topic, created_at, notes, archived_at, {pinned_col} FROM channels;
-        DROP TABLE channels;
-        ALTER TABLE channels_tmp RENAME TO channels;
-    """
-    )
-
-
-def _remove_duplicate_channels(conn: sqlite3.Connection):
-    cursor = conn.execute("PRAGMA table_info(channels)")
-    cols = {row[1] for row in cursor.fetchall()}
-    if "channel_id" not in cols:
-        return
-    conn.execute(
-        "DELETE FROM channels WHERE channel_id NOT IN (SELECT MIN(channel_id) FROM channels GROUP BY name)"
-    )
-
-
-def _add_polls_table(conn: sqlite3.Connection):
-    cursor = conn.execute("PRAGMA table_info(sqlite_master)")
-    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='polls'")
-    if cursor.fetchone():
-        return
-
-    conn.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS polls (
-            poll_id TEXT PRIMARY KEY,
-            agent_id TEXT NOT NULL,
-            channel_id TEXT NOT NULL,
-            poll_started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            poll_dismissed_at TIMESTAMP,
-            created_by TEXT
-        );
-        CREATE INDEX IF NOT EXISTS idx_polls_active ON polls(agent_id, channel_id, poll_dismissed_at);
-    """
-    )
-
-
 MIGRATIONS = [
-    ("migrate_bridge_messages_id_to_message_id", _migrate_bridge_messages_id_to_message_id),
-    ("migrate_bridge_channels_id_to_channel_id", _migrate_bridge_channels_id_to_channel_id),
-    ("remove_duplicate_channels", _remove_duplicate_channels),
-    ("add_polls_table", _add_polls_table),
+    (
+        "schema_v1",
+        """
+CREATE TABLE IF NOT EXISTS messages (
+    message_id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    priority TEXT DEFAULT 'normal'
+);
+
+CREATE TABLE IF NOT EXISTS bookmarks (
+    agent_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    last_seen_id TEXT,
+    PRIMARY KEY (agent_id, channel_id)
+);
+
+CREATE TABLE IF NOT EXISTS channels (
+    channel_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    topic TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT,
+    archived_at TIMESTAMP,
+    pinned_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS notes (
+    note_id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (channel_id) REFERENCES channels(channel_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_messages_channel_time ON messages(channel_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_bookmarks ON bookmarks(agent_id, channel_id);
+CREATE INDEX IF NOT EXISTS idx_notes ON notes(channel_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_priority ON messages(priority);
+CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id);
+    """,
+    )
 ]

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from space.os import db
+from space.os.lib import db
 
 _VALID_TABLES = {"agents", "channels", "memories", "knowledge", "messages", "events", "memory"}
 _VALID_COLUMNS = {
