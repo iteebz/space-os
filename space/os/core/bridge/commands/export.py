@@ -1,3 +1,5 @@
+"""Export command."""
+
 import json
 from dataclasses import asdict
 from datetime import datetime
@@ -6,25 +8,27 @@ import typer
 
 from space.os import events
 from space.os.core import spawn
+from .. import channels, export as ex
 
-from . import db
+app = typer.Typer()
 
 
-def export(
+@app.command("export")
+def export_cmd(
+    ctx: typer.Context,
     channel: str = typer.Argument(...),
     identity: str = typer.Option(None, "--as", help="Agent identity"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
 ):
-    """Export channel transcript with interleaved notes."""
+    """Export channel transcript."""
+    json_output = ctx.obj.get("json_output")
+    quiet_output = ctx.obj.get("quiet_output")
+    
     agent_id = spawn.db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     try:
         if agent_id:
             events.emit("bridge", "export_starting", agent_id, json.dumps({"channel": channel}))
-        channel_id = db.resolve_channel_id(channel)
-        data = db.get_export_data(channel_id)
+        channel_id = channels.resolve_channel_id(channel)
+        data = ex.get_export_data(channel_id)
 
         if json_output:
             export_data_dict = asdict(data)

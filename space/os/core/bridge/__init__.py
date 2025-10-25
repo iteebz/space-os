@@ -1,73 +1,80 @@
-import typer
+"""Bridge: AI Coordination Protocol
 
-from space.os import events as events
-from space.os.lib import errors, output, readme
+Schema and registration only. Operations are in submodules:
+- messaging.py: send_message, recv_updates, get_alerts, bookmarks
+- channels.py: create_channel, rename, archive, pin, fetch_channels
+- notes.py: add_note, get_notes
+- export.py: get_export_data
+- spawning.py: agent spawning from @mentions, polls
+- cli.py: typer commands
+"""
 
-from . import db as db
-from . import export, messages, notes
-from . import migrations as migrations
-from . import utils as utils
-from .channels import app as channels_app
-from .channels import archive as archive_cmd
-from .channels import list_channels
+from space.os import db
 
-errors.install_error_handler("bridge")
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS messages (
+    message_id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    priority TEXT DEFAULT 'normal'
+);
 
-bridge = typer.Typer(invoke_without_command=True, add_help_option=False)
+CREATE TABLE IF NOT EXISTS bookmarks (
+    agent_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    last_seen_id TEXT,
+    PRIMARY KEY (agent_id, channel_id)
+);
+
+CREATE TABLE IF NOT EXISTS channels (
+    channel_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    topic TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT,
+    archived_at TIMESTAMP,
+    pinned_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS notes (
+    note_id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (channel_id) REFERENCES channels(channel_id)
+);
+
+CREATE TABLE IF NOT EXISTS polls (
+    poll_id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    poll_started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    poll_dismissed_at TIMESTAMP,
+    created_by TEXT,
+    FOREIGN KEY (agent_id) REFERENCES agents(agent_id),
+    FOREIGN KEY (channel_id) REFERENCES channels(channel_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_messages_channel_time ON messages(channel_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_bookmarks ON bookmarks(agent_id, channel_id);
+CREATE INDEX IF NOT EXISTS idx_notes ON notes(channel_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_priority ON messages(priority);
+CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id);
+CREATE INDEX IF NOT EXISTS idx_polls_active ON polls(agent_id, channel_id, poll_dismissed_at);
+"""
+
+from . import migrations
+from .ops import channels, messaging, notes, export, polls, spawning
+
+db.register("bridge", "bridge.db", SCHEMA)
+db.add_migrations("bridge", migrations.MIGRATIONS)
 
 
-@bridge.callback()
-def main_command(
-    ctx: typer.Context,
-    agent_id: str = typer.Option(None, "--as", help="Agent identity"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
-    help: bool = typer.Option(False, "--help", "-h", help="Show help"),
-):
-    """Bridge: AI Coordination Protocol"""
-    output.set_flags(ctx, json_output, quiet_output)
-    if ctx.obj is None:
-        ctx.obj = {}
-
-    if help:
-        _show_readme(ctx.obj)
-        ctx.exit()
-
-    if ctx.invoked_subcommand is None:
-        if agent_id:
-            ctx.invoke(
-                messages.inbox,
-                identity=agent_id,
-                json_output=ctx.obj.get("json_output"),
-                quiet_output=ctx.obj.get("quiet_output"),
-            )
-        else:
-            _show_readme(ctx.obj)
-
-
-bridge.add_typer(channels_app, name="channels")
-bridge.command("send")(messages.send)
-bridge.command("alert")(messages.alert)
-bridge.command("recv")(messages.recv)
-bridge.command("wait")(messages.wait)
-bridge.command("inbox")(messages.inbox)
-bridge.command("alerts")(messages.alerts)
-bridge.command("notes")(notes.notes)
-bridge.command("export")(export.export)
-bridge.command("archive")(archive_cmd)
-bridge.command("list")(list_channels)
-
-
-def _show_readme(ctx_obj: dict):
-    content = readme.load("bridge")
-    if content:
-        typer.echo(content)
-    else:
-        output.out_text("BRIDGE: AI Coordination Protocol", ctx_obj)
-
-
-def main() -> None:
-    """Entry point for poetry script."""
-    bridge()
+def __getattr__(name):
+    if name == "bridge":
+        from .commands.cli import bridge as bridge_app
+        return bridge_app
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

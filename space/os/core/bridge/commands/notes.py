@@ -1,32 +1,36 @@
+"""Notes command."""
+
 import json
+from dataclasses import asdict
 
 import typer
 
 from space.os import events
+from space.os.core import spawn
+from .. import channels, notes as nt
+from ..lib.format import format_local_time
 
-from .. import spawn
-from . import db, utils
+app = typer.Typer()
 
 
-def notes(
+@app.command("notes")
+def notes_cmd(
+    ctx: typer.Context,
     channel: str = typer.Argument(...),
     content: str | None = typer.Argument(None),
-    identity: str | None = typer.Option(
-        None, "--as", help="Your agent identity (claude/gemini/codex)"
-    ),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
+    identity: str | None = typer.Option(None, "--as", help="Your agent identity"),
 ):
-    """Show notes for channel, or add note with content and --as identity."""
+    """Show notes for channel, or add note with content."""
+    json_output = ctx.obj.get("json_output")
+    quiet_output = ctx.obj.get("quiet_output")
+    
     agent_id = spawn.db.ensure_agent(identity) if identity and isinstance(identity, str) else None
     if content is None:
         try:
             if agent_id:
                 events.emit("bridge", "notes_viewing", agent_id, json.dumps({"channel": channel}))
-            channel_id = db.resolve_channel_id(channel)
-            notes_list = db.get_notes(channel_id)
+            channel_id = channels.resolve_channel_id(channel)
+            notes_list = nt.get_notes(channel_id)
             if agent_id:
                 events.emit(
                     "bridge",
@@ -54,7 +58,7 @@ def notes(
                 typer.echo(f"Notes for {channel}:")
                 for note in notes_list:
                     note_dict = note.__dict__ if hasattr(note, "__dict__") else note
-                    timestamp = utils.format_local_time(note_dict["created_at"])
+                    timestamp = format_local_time(note_dict["created_at"])
                     agent_id_note = note_dict.get("agent_id")
                     identity_str = (
                         spawn.db.get_agent_name(agent_id_note) if agent_id_note else "unknown"
@@ -97,8 +101,8 @@ def notes(
                 agent_id,
                 json.dumps({"channel": channel, "identity": identity}),
             )
-            channel_id = db.resolve_channel_id(channel)
-            db.add_note(channel_id, identity, content)
+            channel_id = channels.resolve_channel_id(channel)
+            nt.add_note(channel_id, identity, content)
             events.emit(
                 "bridge",
                 "note_added",

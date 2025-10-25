@@ -1,29 +1,14 @@
+"""Channel commands: list, create, rename, archive, pin, unpin, delete."""
+
 import json
-from typing import Annotated
 
 import typer
 
-from space.os import events
 from space.os.core import spawn
-from space.os.lib import output
+from .. import channels as ch
+from ..lib.format import format_channel_row
 
-from . import db, utils
-
-app = typer.Typer(invoke_without_command=True)
-
-
-@app.callback()
-def channels_root(
-    ctx: typer.Context,
-    all_channels_flag: bool = typer.Option(False, "--all", help="Include archived channels"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
-):
-    output.set_flags(ctx, json_output, quiet_output)
-    if ctx.invoked_subcommand is None:
-        list_channels(ctx, all_channels_flag=all_channels_flag)
+app = typer.Typer()
 
 
 @app.command("list")
@@ -32,6 +17,7 @@ def list_channels(
     identity: str = typer.Option(None, "--as", help="Agent identity"),
     all_channels_flag: bool = typer.Option(False, "--all", help="Include archived channels"),
 ):
+    """List channels."""
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
@@ -39,9 +25,9 @@ def list_channels(
         spawn.db.ensure_agent(identity)
 
     all_chans = (
-        db.all_channels()
+        ch.all_channels(include_archived=True)
         if all_channels_flag
-        else [c for c in db.all_channels() if not c.archived_at]
+        else ch.all_channels()
     )
 
     if not all_chans:
@@ -75,23 +61,26 @@ def list_channels(
         if active:
             typer.echo(f"ACTIVE CHANNELS ({len(active)}):")
             for channel in active:
-                last_activity, description = utils.format_channel_row(channel)
+                last_activity, description = format_channel_row(channel)
                 typer.echo(f"  {last_activity}: {description}")
 
         if all_channels_flag and archived:
             typer.echo(f"\nARCHIVED ({len(archived)}):")
             for channel in archived:
-                last_activity, description = utils.format_channel_row(channel)
+                last_activity, description = format_channel_row(channel)
                 typer.echo(f"  {last_activity}: {description}")
 
 
-@app.command()
-def create(
+@app.command("create")
+def create_channel_cmd(
     ctx: typer.Context,
     channel_name: str = typer.Argument(..., help="The name of the channel to create."),
-    topic: Annotated[str, typer.Option(..., help="The initial topic for the channel.")] = None,
+    topic: str = typer.Option(None, help="The initial topic for the channel."),
     identity: str = typer.Option(None, "--as", help="Agent identity"),
 ):
+    """Create channel."""
+    from space.os import events
+    
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
@@ -101,7 +90,7 @@ def create(
             events.emit(
                 "bridge", "channel_creating", agent_id, json.dumps({"channel_name": channel_name})
             )
-        channel_id = db.create_channel(channel_name, topic)
+        channel_id = ch.create_channel(channel_name, topic)
         if agent_id:
             events.emit(
                 "bridge",
@@ -128,13 +117,16 @@ def create(
             typer.echo(f"❌ Error creating channel: {e}")
 
 
-@app.command()
-def rename(
+@app.command("rename")
+def rename_channel_cmd(
     ctx: typer.Context,
     old_channel: str = typer.Argument(...),
     new_channel: str = typer.Argument(...),
     identity: str = typer.Option(None, "--as", help="Agent identity"),
 ):
+    """Rename channel."""
+    from space.os import events
+    
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
@@ -148,7 +140,7 @@ def rename(
             agent_id,
             json.dumps({"old_channel": old_channel, "new_channel": new_channel}),
         )
-    result = db.rename_channel(old_channel, new_channel)
+    result = ch.rename_channel(old_channel, new_channel)
     if agent_id:
         status = "success" if result is True else "failed"
         events.emit(
@@ -174,23 +166,26 @@ def rename(
             typer.echo(f"❌ Rename failed: {old_channel} not found or {new_channel} already exists")
 
 
-@app.command()
-def archive(
+@app.command("archive")
+def archive_channel_cmd(
     ctx: typer.Context,
-    channels: Annotated[list[str], typer.Argument(...)],
+    channels_arg: list[str] = typer.Argument(...),
     identity: str = typer.Option(None, "--as", help="Agent identity"),
     prefix: bool = typer.Option(False, "--prefix", help="Treat arguments as prefixes to match."),
 ):
+    """Archive channels."""
+    from space.os import events
+    
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
     agent_id = spawn.db.ensure_agent(identity) if identity else None
-    names = channels
+    names = channels_arg
     if prefix:
-        all_chans = db.all_channels()
+        all_chans = ch.all_channels()
         active = [c.name for c in all_chans if not c.archived_at]
         matched = []
-        for pattern in channels:
+        for pattern in channels_arg:
             matched.extend([name for name in active if name.startswith(pattern)])
         names = list(set(matched))
 
@@ -199,7 +194,7 @@ def archive(
         try:
             if agent_id:
                 events.emit("bridge", "channel_archiving", agent_id, json.dumps({"channel": name}))
-            db.archive_channel(name)
+            ch.archive_channel(name)
             if agent_id:
                 events.emit("bridge", "channel_archived", agent_id, json.dumps({"channel": name}))
             if json_output:
@@ -224,22 +219,25 @@ def archive(
         typer.echo(json.dumps(results))
 
 
-@app.command()
-def pin(
+@app.command("pin")
+def pin_channel_cmd(
     ctx: typer.Context,
-    channels: Annotated[list[str], typer.Argument(...)],
+    channels_arg: list[str] = typer.Argument(...),
     identity: str = typer.Option(None, "--as", help="Agent identity"),
 ):
+    """Pin channels."""
+    from space.os import events
+    
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
     agent_id = spawn.db.ensure_agent(identity) if identity else None
     results = []
-    for channel in channels:
+    for channel in channels_arg:
         try:
             if agent_id:
                 events.emit("bridge", "channel_pinning", agent_id, json.dumps({"channel": channel}))
-            db.pin_channel(channel)
+            ch.pin_channel(channel)
             if agent_id:
                 events.emit("bridge", "channel_pinned", agent_id, json.dumps({"channel": channel}))
             if json_output:
@@ -259,24 +257,27 @@ def pin(
         typer.echo(json.dumps(results))
 
 
-@app.command()
-def unpin(
+@app.command("unpin")
+def unpin_channel_cmd(
     ctx: typer.Context,
-    channels: Annotated[list[str], typer.Argument(...)],
+    channels_arg: list[str] = typer.Argument(...),
     identity: str = typer.Option(None, "--as", help="Agent identity"),
 ):
+    """Unpin channels."""
+    from space.os import events
+    
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
     agent_id = spawn.db.ensure_agent(identity) if identity else None
     results = []
-    for channel in channels:
+    for channel in channels_arg:
         try:
             if agent_id:
                 events.emit(
                     "bridge", "channel_unpinning", agent_id, json.dumps({"channel": channel})
                 )
-            db.unpin_channel(channel)
+            ch.unpin_channel(channel)
             if agent_id:
                 events.emit(
                     "bridge", "channel_unpinned", agent_id, json.dumps({"channel": channel})
@@ -298,12 +299,15 @@ def unpin(
         typer.echo(json.dumps(results))
 
 
-@app.command()
-def delete(
+@app.command("delete")
+def delete_channel_cmd(
     ctx: typer.Context,
     channel: str = typer.Argument(...),
     identity: str = typer.Option(None, "--as", help="Agent identity"),
 ):
+    """Delete channel."""
+    from space.os import events
+    
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
@@ -311,7 +315,7 @@ def delete(
     try:
         if agent_id:
             events.emit("bridge", "channel_deleting", agent_id, json.dumps({"channel": channel}))
-        db.delete_channel(channel)
+        ch.delete_channel(channel)
         if agent_id:
             events.emit("bridge", "channel_deleted", agent_id, json.dumps({"channel": channel}))
         if json_output:

@@ -1,4 +1,4 @@
-"""Worker for processing @mentions and spawning agents."""
+"""Agent spawning: @mentions, polls, and task orchestration."""
 
 import logging
 import re
@@ -6,8 +6,7 @@ import subprocess
 import sys
 
 from space.os import config
-from space.os.core.bridge import db
-from space.os.core.spawn import db as spawn_db
+from space.os.core import spawn
 from space.os.models import TaskStatus
 
 logging.basicConfig(level=logging.DEBUG, format="[worker] %(message)s")
@@ -108,14 +107,16 @@ def main():
     poll_cmd, poll_agents = _parse_poll_command(content)
     if poll_cmd == "poll" and poll_agents:
         log.info(f"Poll command detected for agents: {poll_agents}")
+        from . import messaging, channels as ch
         for identity in poll_agents:
             try:
-                agent_id = spawn_db.get_agent_id(identity)
+                agent_id = spawn.db.get_agent_id(identity)
                 if not agent_id:
-                    agent_id = spawn_db.ensure_agent(identity)
-                poll_id = db.create_poll(agent_id, channel_id, created_by="human")
+                    agent_id = spawn.db.ensure_agent(identity)
+                from . import polls as polls_mod
+                poll_id = polls_mod.create_poll(agent_id, channel_id, created_by="human")
                 log.info(f"Created poll {poll_id} for {identity} in {channel_name}")
-                db.send_message(channel_id, "system", f"🔴 Polling {identity}...")
+                messaging.send_message(channel_id, "system", f"🔴 Polling {identity}...")
             except Exception as e:
                 log.error(f"Poll creation failed for {identity}: {e}")
         return
@@ -123,14 +124,16 @@ def main():
     dismiss_cmd, dismiss_agents = _parse_dismiss_command(content)
     if dismiss_cmd == "dismiss" and dismiss_agents:
         log.info(f"Dismiss command detected for agents: {dismiss_agents}")
+        from . import messaging
+        from . import polls as polls_mod
         for identity in dismiss_agents:
             try:
-                agent_id = spawn_db.get_agent_id(identity)
+                agent_id = spawn.db.get_agent_id(identity)
                 if agent_id:
-                    dismissed = db.dismiss_poll(agent_id, channel_id)
+                    dismissed = polls_mod.dismiss_poll(agent_id, channel_id)
                     if dismissed:
                         log.info(f"Dismissed poll for {identity} in {channel_name}")
-                        db.send_message(channel_id, "system", f"⚪ Dismissed {identity}")
+                        messaging.send_message(channel_id, "system", f"⚪ Dismissed {identity}")
                     else:
                         log.info(f"No active poll for {identity}")
                 else:
@@ -153,10 +156,10 @@ def main():
             log.info(f"Got prompt, running spawn {identity}")
             timeout = _get_task_timeout(identity)
             try:
-                task_id = spawn_db.create_task(
+                task_id = spawn.db.create_task(
                     identity=identity, input=prompt, channel_id=channel_id
                 )
-                spawn_db.update_task(task_id, status=TaskStatus.RUNNING, mark_started=True)
+                spawn.db.update_task(task_id, status=TaskStatus.RUNNING, mark_started=True)
 
                 result = subprocess.run(
                     ["spawn", identity, prompt, "--channel", channel_name],
@@ -171,7 +174,7 @@ def main():
                 )
 
                 if result.returncode == 0 and result.stdout.strip():
-                    spawn_db.update_task(
+                    spawn.db.update_task(
                         task_id,
                         status=TaskStatus.COMPLETED,
                         output=result.stdout.strip(),
@@ -179,12 +182,12 @@ def main():
                     )
                     results.append((identity, result.stdout.strip()))
                 else:
-                    spawn_db.update_task(
+                    spawn.db.update_task(
                         task_id, status=TaskStatus.FAILED, stderr=result.stderr, mark_completed=True
                     )
                     log.error(f"Spawn failed: {result.stderr}")
             except subprocess.TimeoutExpired:
-                spawn_db.update_task(
+                spawn.db.update_task(
                     task_id,
                     status=TaskStatus.TIMEOUT,
                     stderr=f"Spawn timeout ({timeout}s)",
@@ -192,7 +195,7 @@ def main():
                 )
                 log.error(f"Spawn timeout for {identity}")
             except Exception as e:
-                spawn_db.update_task(
+                spawn.db.update_task(
                     task_id, status=TaskStatus.FAILED, stderr=str(e), mark_completed=True
                 )
                 log.error(f"Spawn error: {e}")
@@ -200,8 +203,9 @@ def main():
             log.warning(f"No prompt for {identity}")
 
     if results:
+        from . import messaging
         for identity, output in results:
-            db.send_message(channel_id, identity, output)
+            messaging.send_message(channel_id, identity, output)
     elif mentions:
         log.warning(f"No results from spawning {len(mentions)} agent(s))")
 
