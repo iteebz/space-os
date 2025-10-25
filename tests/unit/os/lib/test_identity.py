@@ -2,6 +2,7 @@ from space.os import spawn
 
 
 def test_inject_includes_constitution(test_space):
+    """Inject identity into constitution preamble."""
     const = "You are a test agent."
     result = spawn.inject_identity(const, "test", "test-1")
 
@@ -11,6 +12,7 @@ def test_inject_includes_constitution(test_space):
 
 
 def test_inject_with_model(test_space):
+    """Include model name in identity preamble."""
     const = "You are a test agent."
     result = spawn.inject_identity(const, "test", "test-1", "claude-opus")
 
@@ -18,6 +20,7 @@ def test_inject_with_model(test_space):
 
 
 def test_description_persist(test_space):
+    """Store and retrieve agent self-description."""
     spawn.db.set_self_description("agent-1", "Custom behavior")
     desc = spawn.db.get_self_description("agent-1")
 
@@ -25,6 +28,7 @@ def test_description_persist(test_space):
 
 
 def test_description_update(test_space):
+    """Replace agent self-description on update."""
     spawn.db.set_self_description("agent-1", "First description")
     spawn.db.set_self_description("agent-1", "Updated description")
     desc = spawn.db.get_self_description("agent-1")
