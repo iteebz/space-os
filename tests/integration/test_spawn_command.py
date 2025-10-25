@@ -23,44 +23,6 @@ def test_constitution_injection_with_model(test_space):
     assert "Self: You are zealot-v2. Your model is claude-3-sonnet." in injected
 
 
-def test_constitution_hash(test_space):
-    """Test content hashing for constitution versioning."""
-    content1 = "constitution v1"
-    content2 = "constitution v2"
-
-    hash1 = spawn.hash_content(content1)
-    hash2 = spawn.hash_content(content2)
-
-    assert hash1 != hash2
-    assert len(hash1) == 64
-    assert all(c in "0123456789abcdef" for c in hash1)
-
-
-def test_save_and_load_constitution(test_space):
-    """Test saving and loading constitutions by hash."""
-
-    content = "Constitution for test agent"
-    content_hash = spawn.hash_content(content)
-
-    spawn.db.save_constitution(content_hash, content)
-    loaded = spawn.db.get_constitution(content_hash)
-
-    assert loaded == content
-
-
-def test_constitution_idempotent_save(test_space):
-    """Test that saving same constitution twice doesn't error."""
-
-    content = "Test constitution"
-    content_hash = spawn.hash_content(content)
-
-    spawn.db.save_constitution(content_hash, content)
-    spawn.db.save_constitution(content_hash, content)
-
-    loaded = spawn.db.get_constitution(content_hash)
-    assert loaded == content
-
-
 def test_get_base_identity(test_space):
     """Test resolving base identity from role config."""
     config.init_config()

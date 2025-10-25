@@ -17,11 +17,6 @@ from . import migrations
 def schema() -> str:
     """Spawn database schema."""
     return """
-CREATE TABLE IF NOT EXISTS constitutions (
-    hash TEXT PRIMARY KEY,
-    content TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
 CREATE TABLE IF NOT EXISTS agents (
     agent_id TEXT PRIMARY KEY,
     name TEXT UNIQUE,
@@ -64,28 +59,6 @@ def path() -> Path:
 def connect():
     """Return connection to spawn database via central registry."""
     return db.ensure("spawn")
-
-
-def save_constitution(constitution_hash: str, content: str):
-    """Save constitution content by hash (content-addressable store)."""
-    with db.ensure("spawn") as conn:
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO constitutions (hash, content)
-            VALUES (?, ?)
-            """,
-            (constitution_hash, content),
-        )
-
-
-def get_constitution(constitution_hash: str) -> str | None:
-    """Retrieve constitution content by hash."""
-    with db.ensure("spawn") as conn:
-        row = conn.execute(
-            "SELECT content FROM constitutions WHERE hash = ?",
-            (constitution_hash,),
-        ).fetchone()
-        return row["content"] if row else None
 
 
 def get_agent_ids(name: str, include_archived: bool = False) -> list[str]:

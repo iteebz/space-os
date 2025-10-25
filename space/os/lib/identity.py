@@ -52,19 +52,8 @@ def _get_role_and_config(identity: str) -> tuple[str, dict] | None:
     return role, cfg
 
 
-def _process_constitution(role: str) -> tuple[str, str]:
-    from ..core.spawn import db as spawn_db
-    from ..core.spawn.spawn import get_constitution_path, hash_content
-
-    const_path = get_constitution_path(role)
-    final_constitution_content = const_path.read_text()
-    const_hash = hash_content(final_constitution_content)
-    spawn_db.save_constitution(const_hash, final_constitution_content)
-    return const_hash, final_constitution_content
-
-
 def constitute_identity(identity: str):
-    """Hash constitution and emit provenance event."""
+    """Emit constitution invoked event (versioning via git)."""
     from .. import events
     from ..core.spawn import db as spawn_db
 
@@ -73,15 +62,13 @@ def constitute_identity(identity: str):
         return
     role, cfg = result
 
-    const_hash, _ = _process_constitution(role)
-
     agent_id = spawn_db.ensure_agent(identity)
     model = extract_model_from_identity(identity, cfg)
     events.emit(
         "bridge",
         "constitution_invoked",
         agent_id,
-        json.dumps({"constitution_hash": const_hash, "role": role, "model": model}),
+        json.dumps({"role": role, "model": model}),
     )
 
 

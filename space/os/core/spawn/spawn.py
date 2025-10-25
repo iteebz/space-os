@@ -1,4 +1,3 @@
-import hashlib
 import os
 import shlex
 import shutil
@@ -7,16 +6,6 @@ from pathlib import Path
 
 from space.os import config
 from space.os.lib import paths
-
-from . import db
-
-
-def hash_content(content: str) -> str:
-    """Hash final injected identity (constitution + self-description).
-
-    Constitution versioning via git commits. This hashes what actually runs.
-    """
-    return hashlib.sha256(content.encode()).hexdigest()
 
 
 def get_constitution_path(role: str) -> Path:
@@ -125,8 +114,6 @@ def launch_agent(
     const_path = get_constitution_path(role)
     base_content = const_path.read_text()
     full_identity = inject_identity(base_content, role, actual_identity, actual_model)
-    const_hash = hash_content(full_identity)
-    db.save_constitution(const_hash, full_identity)
 
     _write_identity_file(actual_base_identity, actual_identity, full_identity)
 

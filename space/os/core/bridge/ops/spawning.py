@@ -95,6 +95,7 @@ def spawn_agents_from_mentions(channel_id: str, content: str) -> None:
     """Spawn agents from @mentions in message content."""
     try:
         from . import channels
+
         channel_name = channels.get_channel_name(channel_id)
         subprocess.run(
             [sys.argv[0], channel_id, channel_name, content],

@@ -21,7 +21,6 @@ from space.os import (
 )
 from space.os.lib import readme
 from space.os.lib.aliasing import Aliasing
-from space.os.lib.invocation import Invocation
 
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False, add_help_option=False)
 
@@ -49,14 +48,6 @@ def main_command(
     ctx: typer.Context,
     help: bool = typer.Option(False, "--help", "-h", help="Show help"),
 ):
-    invocation = ctx.obj
-    if not invocation:
-        invocation = Invocation.from_args(sys.argv[1:])
-        ctx.obj = invocation
-    cmd = ctx.invoked_subcommand or "(no command)"
-    if invocation:
-        invocation.emit_invocation(cmd)
-
     if help:
         typer.echo(readme.root())
         ctx.exit()
@@ -71,14 +62,9 @@ def main() -> None:
     rewritten_argv = Aliasing.rewrite(argv_orig)
     sys.argv = [sys.argv[0]] + rewritten_argv
 
-    invocation = Invocation.from_args(rewritten_argv)
-
     try:
-        app(obj=invocation)
-    except SystemExit as e:
-        if e.code and e.code != 0:
-            invocation.emit_error(f"CLI command (exit={e.code})")
+        app()
+    except SystemExit:
         raise
     except BaseException as e:
-        invocation.emit_error(f"CLI command: {str(e)}")
         raise SystemExit(1) from e

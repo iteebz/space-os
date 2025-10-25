@@ -3,7 +3,10 @@
 Provides a unified interface to bridge operations from ops/ modules.
 """
 
+from pathlib import Path
+
 from space.os import db as _db
+from space.os.lib import paths
 from space.os.lib.uuid7 import uuid7
 
 from .. import bridge as _bridge
@@ -35,6 +38,10 @@ from .ops.messaging import (
 )
 from .ops.notes import add_note, get_notes
 from .ops.polls import create_poll, dismiss_poll, get_active_polls, is_polling
+
+
+def path() -> Path:
+    return paths.space_data() / "bridge.db"
 
 
 def schema():
@@ -108,4 +115,5 @@ __all__ = [
     "schema",
     "connect",
     "create_message",
+    "path",
 ]

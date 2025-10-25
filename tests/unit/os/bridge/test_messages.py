@@ -74,10 +74,12 @@ def test_create_channel_without_topic(test_space):
 
 
 def test_active_channels_filter_unreads(test_space):
+    from space.os.core import spawn
+
     channel1 = db.create_channel("active-1")
     channel2 = db.create_channel("active-2")
     channel3 = db.create_channel("active-3")
-    agent_id = "test-agent"
+    agent_id = spawn.db.ensure_agent("test-agent")
 
     db.send_message(channel1, "sender", "msg1")
     db.send_message(channel2, "sender", "msg2")
@@ -86,7 +88,7 @@ def test_active_channels_filter_unreads(test_space):
     active = db.active_channels(agent_id=agent_id)
     assert len(active) == 3
 
-    db.recv_updates(channel1, agent_id)
+    db.recv_updates(channel1, "test-agent")
 
     active = db.active_channels(agent_id=agent_id)
     assert len(active) == 2
@@ -104,7 +106,9 @@ def test_active_channels_limit_five(test_space):
 
 
 def test_inbox_channels_all_unreads(test_space):
-    agent_id = "test-agent"
+    from space.os.core import spawn
+
+    agent_id = spawn.db.ensure_agent("test-agent")
     for i in range(7):
         channel_id = db.create_channel(f"inbox-{i}")
         db.send_message(channel_id, "sender", f"msg-{i}")
@@ -113,7 +117,7 @@ def test_inbox_channels_all_unreads(test_space):
     assert len(inbox) == 7
 
     first_channel = db.resolve_channel_id("inbox-0")
-    db.recv_updates(first_channel, agent_id)
+    db.recv_updates(first_channel, "test-agent")
 
     inbox = db.inbox_channels(agent_id=agent_id)
     assert len(inbox) == 6
