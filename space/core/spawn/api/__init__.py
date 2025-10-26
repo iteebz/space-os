@@ -11,6 +11,7 @@ from .agents import (
     unarchive_agent,
     update_agent,
 )
+from .launch import launch_agent
 from .stats import agent_identities, archived_agents, stats
 from .tasks import complete_task, create_task, fail_task, get_task, list_tasks, start_task
 
@@ -26,6 +27,7 @@ __all__ = [
     "unarchive_agent",
     "list_agents",
     "merge_agents",
+    "launch_agent",
     "create_task",
     "get_task",
     "list_tasks",

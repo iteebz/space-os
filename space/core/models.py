@@ -106,18 +106,6 @@ class ChatMessage:
     text: str
 
 
-@dataclass
-class Event:
-    """An event for provenance tracking."""
-
-    event_id: str
-    source: str
-    agent_id: str | None
-    event_type: str
-    data: str | None = None
-    timestamp: int | None = None
-    chat_id: str | None = None
-
 
 @dataclass
 class Knowledge:
