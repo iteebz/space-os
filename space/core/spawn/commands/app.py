@@ -1,13 +1,38 @@
 """Spawn CLI commands: typer entry point."""
 
+import click
 import typer
+from typer.core import TyperGroup
 
 from space.core.spawn import api
 from space.lib import errors, output, readme
 
 errors.install_error_handler("spawn")
 
-app = typer.Typer(invoke_without_command=True)
+
+class AgentSpawnGroup(TyperGroup):
+    """Typer group that dynamically spawns tasks for agent names."""
+
+    def get_command(self, ctx, cmd_name):
+        """Get command by name, or spawn agent if not found."""
+        cmd = super().get_command(ctx, cmd_name)
+        if cmd is not None:
+            return cmd
+
+        agent = api.get_agent(cmd_name)
+        if agent is None:
+            return None
+
+        @click.command(name=cmd_name)
+        @click.argument("task_input", required=False, nargs=-1)
+        def spawn_agent(task_input):
+            input_list = list(task_input) if task_input else []
+            api.launch_agent(agent.identity, extra_args=input_list)
+
+        return spawn_agent
+
+
+app = typer.Typer(invoke_without_command=True, cls=AgentSpawnGroup)
 
 from . import agents, tasks  # noqa: E402
 

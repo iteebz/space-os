@@ -25,6 +25,10 @@ def launch_agent(identity: str, extra_args: list[str] | None = None):
         identity: Agent identity from registry
         extra_args: Additional CLI arguments forwarded to provider
     """
+    from space.core import chats
+
+    chats.db.register()
+
     agent = agents.get_agent(identity)
     if not agent:
         raise ValueError(f"Agent '{identity}' not found in registry")
@@ -83,11 +87,11 @@ def _run_wake_sequence(identity: str) -> str | None:
     import io
     from contextlib import redirect_stdout
 
-    from ...commands import wake
+    from space.commands import wake
 
     output = io.StringIO()
     with redirect_stdout(output):
-        wake.wake(role=identity, quiet=False)
+        wake.wake(identity=identity, quiet=False)
 
     return output.getvalue() if output.getvalue() else None
 

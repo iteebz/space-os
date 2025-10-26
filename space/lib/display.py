@@ -116,7 +116,8 @@ def show_context(identity: str):
 def show_wake_summary(
     identity: str, quiet_output: bool, spawn_count: int, wakes_this_spawn: int = 0
 ):
-    import space.apps.lifecycle.commands.wake as wake_module
+    from space.commands import wake as wake_module
+    from space.core import bridge, spawn
 
     agent = spawn.get_agent(identity)
     self_desc = agent.description if agent else None
