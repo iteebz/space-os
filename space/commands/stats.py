@@ -1,13 +1,13 @@
 import typer
 
-from space.lib import stats as stats_lib
+from space.apps import stats as stats_app
 
 stats = typer.Typer(invoke_without_command=True)
 
 
 def overview():
     """Show space overview."""
-    s = stats_lib.collect(agent_limit=10)
+    s = stats_app.collect(agent_limit=10)
 
     lines = [
         """
@@ -70,7 +70,7 @@ def memory(
     json_output: bool = typer.Option(False, "--json", "-j"),
 ):
     """Memory lattice health analytics."""
-    s = stats_lib.collect()
+    s = stats_app.collect()
 
     if not s.memory.available:
         typer.echo("memory not initialized")
@@ -107,7 +107,7 @@ def knowledge(
     json_output: bool = typer.Option(False, "--json", "-j"),
 ):
     """Knowledge graph health analytics."""
-    s = stats_lib.collect()
+    s = stats_app.collect()
 
     if not s.knowledge.available:
         typer.echo("knowledge not initialized")
@@ -144,7 +144,7 @@ def bridge(
     json_output: bool = typer.Option(False, "--json", "-j"),
 ):
     """Bridge channel health analytics."""
-    s = stats_lib.collect()
+    s = stats_app.collect()
 
     if not s.bridge.available:
         typer.echo("bridge not initialized")

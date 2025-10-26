@@ -4,7 +4,8 @@ import logging
 
 from space.core import bridge, knowledge, memory, spawn
 from space.lib import format as fmt
-from space.lib.models import (
+
+from .models import (
     AgentStats,
     BridgeStats,
     KnowledgeStats,

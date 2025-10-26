@@ -2,13 +2,13 @@
 
 import typer
 
+from space.apps.stats import agent_stats
 from space.core.spawn import api
-from space.lib import stats as stats_lib
 
 
 def list_agents(show_all: bool = typer.Option(False, "--all", help="Show archived agents")):
     """List all agents (registered and orphaned across universe)."""
-    stats = stats_lib.agent_stats(show_all=show_all) or []
+    stats = agent_stats(show_all=show_all) or []
 
     if not stats:
         typer.echo("No agents found.")
