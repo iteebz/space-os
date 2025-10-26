@@ -76,7 +76,12 @@ class Gemini:
 
         if task:
             result = subprocess.run(
-                [command, "-p", task],
+                [
+                    command,
+                    "-p",
+                    task,
+                    "--yolo",
+                ],
                 capture_output=True,
                 text=True,
             )

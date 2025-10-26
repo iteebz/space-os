@@ -75,7 +75,13 @@ class Codex:
 
         if task:
             result = subprocess.run(
-                [command, "exec", task, "--skip-git-repo-check"],
+                [
+                    command,
+                    "exec",
+                    task,
+                    "--dangerously-bypass-approvals-and-sandbox",
+                    "--skip-git-repo-check",
+                ],
                 capture_output=True,
                 text=True,
             )
