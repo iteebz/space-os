@@ -36,6 +36,7 @@ def send_message(channel: str | Channel, identity: str, content: str) -> str:
             "INSERT INTO messages (message_id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
             (message_id, channel_id, agent_id, content),
         )
+    spawn.api.touch_agent(agent_id)
     return agent_id
 
 

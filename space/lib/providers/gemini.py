@@ -80,13 +80,40 @@ class Gemini:
 
     def parse_messages(self, file_path: Path, from_offset: int = 0) -> list[dict]:
         """
-        Parse messages from Gemini JSONL (normalized in vault).
-        
-        Reads from ~/.space/chats/gemini/*.jsonl (converted from provider JSON by vault).
+        Parse messages from Gemini JSON or JSONL.
+
+        Handles both:
+        - Raw JSON format from provider (single JSON object with messages array)
+        - JSONL format from vault (one JSON object per line)
         from_offset is byte offset (like Claude/Codex).
         """
         messages = []
         try:
+            with open(file_path, "rb") as f:
+                f.seek(from_offset)
+                content = f.read().decode("utf-8")
+
+            if content.strip().startswith("[") or content.strip().startswith("{"):
+                try:
+                    data = json.loads(content)
+                    if isinstance(data, dict) and "messages" in data:
+                        for msg in data.get("messages", []):
+                            role = msg.get("role")
+                            if role not in ("user", "model"):
+                                continue
+                            messages.append(
+                                {
+                                    "message_id": None,
+                                    "role": "assistant" if role == "model" else "user",
+                                    "content": msg.get("content", ""),
+                                    "timestamp": msg.get("timestamp"),
+                                    "byte_offset": 0,
+                                }
+                            )
+                        return messages
+                except (json.JSONDecodeError, ValueError):
+                    pass
+
             with open(file_path, "rb") as f:
                 f.seek(from_offset)
                 for line in f:
@@ -97,7 +124,7 @@ class Gemini:
                     role = data.get("role")
                     if role not in ("user", "assistant"):
                         continue
-                    
+
                     messages.append(
                         {
                             "message_id": None,

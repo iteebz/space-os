@@ -20,8 +20,7 @@ def discover() -> dict[str, int]:
     provider_results = {}
     with ThreadPoolExecutor(max_workers=3) as executor:
         futures = {
-            executor.submit(_discover_provider, cli): cli
-            for cli in ("claude", "codex", "gemini")
+            executor.submit(_discover_provider, cli): cli for cli in ("claude", "codex", "gemini")
         }
         for future in as_completed(futures):
             cli_name, sessions = future.result()
@@ -33,9 +32,9 @@ def discover() -> dict[str, int]:
                 try:
                     session_id = session["session_id"]
                     file_path = session["file_path"]
-                    
+
                     vault_path = vault.copy_session_to_vault(cli_name, session_id, file_path)
-                    
+
                     conn.execute(
                         """
                         INSERT OR IGNORE INTO sessions

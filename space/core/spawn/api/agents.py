@@ -5,7 +5,6 @@ import uuid
 from datetime import datetime
 from functools import lru_cache
 
-from space.core import events
 from space.core.models import Agent
 from space.lib import store
 from space.lib.store import from_row
@@ -35,6 +34,17 @@ def _clear_cache():
     _get_agent_by_name_cached.cache_clear()
 
 
+def touch_agent(agent_id: str) -> None:
+    """Update last_active_at for an agent. Called after any agent operation."""
+    from datetime import datetime
+
+    with store.ensure("spawn") as conn:
+        conn.execute(
+            "UPDATE agents SET last_active_at = ? WHERE agent_id = ?",
+            (datetime.now().isoformat(), agent_id),
+        )
+
+
 def get_agent(identifier: str) -> Agent | None:
     """Resolve agent by name or ID. Returns Agent object or None."""
     with store.ensure("spawn") as conn:
@@ -59,7 +69,7 @@ def register_agent(identity: str, constitution: str, provider: str, model: str) 
             (agent_id, identity, constitution, provider, model, now_iso),
         )
     _clear_cache()
-    events.emit("spawn", "agent.register", agent_id, f"Identity '{identity}' registered")
+    touch_agent(agent_id)
     return agent_id
 
 
@@ -245,4 +255,5 @@ __all__ = [
     "unarchive_agent",
     "list_agents",
     "merge_agents",
+    "touch_agent",
 ]

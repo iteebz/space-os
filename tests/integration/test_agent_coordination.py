@@ -1,4 +1,4 @@
-from space.core import bridge, events, spawn
+from space.core import bridge, spawn
 
 
 def test_agent_posts_mid_execution(test_space, default_agents):
@@ -99,13 +99,3 @@ def test_full_spawn_task_events_flow(test_space, default_agents):
     updated_task = spawn.get_task(task_id)
     assert updated_task.status == "completed"
     assert updated_task.agent_id == agent_id
-
-
-def test_emit_valid_agent_id(test_space, default_agents):
-    """Agent ID from ensure_agent is safe for events.emit()."""
-    agent_id = default_agents["zealot"]
-
-    events.emit("spawn", "agent.test", agent_id, "test data")
-
-    queried_events = events.query(source="spawn")
-    assert len(queried_events) > 0

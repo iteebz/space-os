@@ -8,20 +8,17 @@ from __future__ import annotations
 
 import time
 
-from space.core import events
+from space.core import spawn
 from space.core.models import Knowledge
 from space.lib import store
 from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
-
-_track_knowledge = events.track("knowledge")
 
 
 def _row_to_knowledge(row: dict) -> Knowledge:
     return from_row(row, Knowledge)
 
 
-@_track_knowledge
 def add_entry(domain: str, agent_id: str, content: str, confidence: float | None = None) -> str:
     """Add new knowledge entry. Returns entry_id."""
     knowledge_id = uuid7()
@@ -30,6 +27,7 @@ def add_entry(domain: str, agent_id: str, content: str, confidence: float | None
             "INSERT INTO knowledge (knowledge_id, domain, agent_id, content, confidence) VALUES (?, ?, ?, ?, ?)",
             (knowledge_id, domain, agent_id, content, confidence),
         )
+    spawn.api.touch_agent(agent_id)
     return knowledge_id
 
 

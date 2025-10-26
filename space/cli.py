@@ -3,7 +3,6 @@ import typer
 from space.commands.backup import backup
 from space.commands.context import context
 from space.commands.council import council
-from space.commands.events import events
 from space.commands.health import health
 from space.commands.init import init
 from space.commands.launch import launch
@@ -37,7 +36,6 @@ app.command()(launch)
 app.command()(backup)
 app.command()(health)
 app.command()(init)
-app.command()(events)
 
 
 @app.callback(invoke_without_command=True)

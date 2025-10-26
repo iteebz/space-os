@@ -8,7 +8,7 @@ from dataclasses import asdict
 
 import typer
 
-from space.core import events, spawn
+from space.core import spawn
 
 from ..api import channels, mentions, messaging
 
@@ -41,22 +41,9 @@ def send_cmd(
         agent = spawn.get_agent(identity)
         if not agent:
             raise typer.Exit(f"Identity '{identity}' not registered.")
-        agent_id = agent.agent_id
         channel_id = channels.resolve_channel(channel).channel_id
-        events.emit(
-            "bridge",
-            "message_sending",
-            agent_id,
-            json.dumps({"channel": channel, "identity": identity, "content": content}),
-        )
         messaging.send_message(channel_id, identity, content)
         mentions.spawn_from_mentions(channel_id, content)
-        events.emit(
-            "bridge",
-            "message_sent",
-            agent_id,
-            json.dumps({"channel": channel, "identity": identity}),
-        )
         if json_output:
             typer.echo(json.dumps({"status": "success", "channel": channel, "identity": identity}))
         elif not quiet_output:
@@ -64,12 +51,6 @@ def send_cmd(
                 f"Sent to {channel}" if identity == "human" else f"Sent to {channel} as {identity}"
             )
     except ValueError as exc:
-        events.emit(
-            "bridge",
-            "error",
-            agent_id,
-            json.dumps({"command": "send", "details": str(exc)}),
-        )
         if json_output:
             typer.echo(
                 json.dumps({"status": "error", "message": f"Channel '{channel}' not found."})
@@ -93,24 +74,8 @@ def recv_cmd(
         agent = spawn.get_agent(identity)
         if not agent:
             raise typer.Exit(f"Identity '{identity}' not registered.")
-        agent_id = agent.agent_id
         channel_id = channels.resolve_channel(channel).channel_id
         msgs, count, context, participants = messaging.recv_messages(channel_id, identity)
-
-        for msg in msgs:
-            events.emit(
-                "bridge",
-                "message_received",
-                agent_id,
-                json.dumps(
-                    {
-                        "channel": channel,
-                        "identity": identity,
-                        "agent_id": msg.agent_id,
-                        "content": msg.content,
-                    }
-                ),
-            )
 
         if json_output:
             typer.echo(
@@ -130,12 +95,6 @@ def recv_cmd(
                 typer.echo(f"[{sender_name}] {msg.content}")
                 typer.echo()
     except ValueError as e:
-        events.emit(
-            "bridge",
-            "error",
-            agent_id,
-            json.dumps({"command": "recv", "details": str(e)}),
-        )
         if json_output:
             typer.echo(
                 json.dumps({"status": "error", "message": f"Channel '{channel}' not found."})
@@ -177,21 +136,6 @@ def wait_cmd(
             other_messages = [msg for msg in msgs if msg.agent_id != agent_id]
 
             if other_messages:
-                for msg in other_messages:
-                    events.emit(
-                        "bridge",
-                        "message_received",
-                        agent_id,
-                        json.dumps(
-                            {
-                                "channel": channel,
-                                "identity": identity,
-                                "agent_id": msg.agent_id,
-                                "content": msg.content,
-                            }
-                        ),
-                    )
-
                 if json_output:
                     typer.echo(
                         json.dumps(
@@ -214,12 +158,6 @@ def wait_cmd(
             time.sleep(poll_interval)
 
     except ValueError as e:
-        events.emit(
-            "bridge",
-            "error",
-            agent_id,
-            json.dumps({"command": "wait", "details": str(e)}),
-        )
         if json_output:
             typer.echo(json.dumps({"status": "error", "message": str(e)}))
         elif not quiet_output:
@@ -263,13 +201,6 @@ def inbox(
                 last_activity, description = format_channel_row(channel)
                 typer.echo(f"  {last_activity}: {description}")
     except Exception as exc:
-        if agent_id:
-            events.emit(
-                "bridge",
-                "error",
-                agent_id,
-                json.dumps({"command": "inbox", "details": str(exc)}),
-            )
         if json_output:
             typer.echo(json.dumps({"status": "error", "message": str(exc)}))
         elif not quiet_output:

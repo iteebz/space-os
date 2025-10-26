@@ -2,8 +2,6 @@ import json as json_lib
 
 import typer
 
-from space.core import events
-
 
 def set_flags(ctx: typer.Context, json_output: bool = False, quiet_output: bool = False) -> None:
     """Set output flags in context."""
@@ -27,5 +25,4 @@ def out_text(msg: str, ctx_obj: dict | None = None) -> None:
 
 def emit_error(module: str, agent_id: str | None, cmd: str, exc: Exception | str) -> None:
     """Standardized error event emission."""
-    detail = str(exc) if isinstance(exc, Exception) else exc
-    events.emit(module, "error", agent_id or "", f"{cmd}: {detail}")
+    str(exc) if isinstance(exc, Exception) else exc

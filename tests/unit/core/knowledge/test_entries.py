@@ -25,7 +25,19 @@ def mock_db():
 
 def test_add_entry_inserts_record(mock_db):
     knowledge.add_entry("ml", "agent-1", "content")
-    assert mock_db.execute.called
+    assert mock_db.execute.call_count == 2
+
+    # Check the first call (INSERT)
+    insert_args = mock_db.execute.call_args_list[0][0]
+    assert "INSERT INTO knowledge" in insert_args[0]
+    assert insert_args[1][1] == "ml"
+    assert insert_args[1][2] == "agent-1"
+    assert insert_args[1][3] == "content"
+
+    # Check the second call (UPDATE for touch_agent)
+    update_args = mock_db.execute.call_args_list[1][0]
+    assert "UPDATE agents SET last_active_at" in update_args[0]
+    assert update_args[1][1] == "agent-1"
 
 
 def test_add_entry_returns_id(mock_db):
@@ -35,7 +47,7 @@ def test_add_entry_returns_id(mock_db):
 
 def test_add_entry_with_confidence(mock_db):
     knowledge.add_entry("ml", "agent-1", "content", confidence=0.95)
-    call_args = mock_db.execute.call_args_list[1]
+    call_args = mock_db.execute.call_args_list[0]
     params = call_args[0][1]
     assert params[4] == 0.95
 

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from space import config
-from space.core import bridge, knowledge, memory, spawn
+from space.core import bridge, chats, knowledge, memory, spawn
 from space.lib import paths, store
 
 
@@ -29,8 +29,6 @@ def _seed_dbs(tmp_path_factory):
 
 @pytest.fixture
 def test_space(monkeypatch, tmp_path, _seed_dbs):
-    from space.core import chats, events
-
     monkeypatch.setattr(chats, "sync", lambda identity=None, session_id=None: 0)
     config.load_config.cache_clear()
     store.close_all()
@@ -52,16 +50,12 @@ def test_space(monkeypatch, tmp_path, _seed_dbs):
     memory.db._initialized = False
     knowledge.db._initialized = False
     bridge.db._initialized = False
-    events.db._initialized = False
 
     spawn.db.register()
     chats.db.register()
     memory.db.register()
     knowledge.db.register()
     bridge.db.register()
-    events.db.register()
-
-    events.DB_PATH = workspace / ".space" / "events.db"
 
     for subdir in ["", "bridge", "knowledge"]:
         (workspace / ".space" / subdir).mkdir(parents=True, exist_ok=True)
@@ -96,13 +90,6 @@ def mock_db():
         mock_ensure.return_value.__enter__.return_value = mock_conn
         mock_ensure.return_value.__exit__.return_value = None
         yield mock_conn
-
-
-@pytest.fixture
-def mock_events():
-    """Mock events.emit for unit tests."""
-    with patch("space.core.events.emit") as mock_emit:
-        yield mock_emit
 
 
 @pytest.fixture

@@ -76,9 +76,6 @@ def create_channel_cmd(
     topic: str = typer.Option(None, help="The initial topic for the channel."),
     identity: str = typer.Option(None, "--as", help="Agent identity"),
 ):
-    """Create channel."""
-    from space.core import events
-
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
@@ -86,17 +83,10 @@ def create_channel_cmd(
     agent_id = agent.agent_id if agent else None
     try:
         if agent_id:
-            events.emit(
-                "bridge", "channel_creating", agent_id, json.dumps({"channel_name": channel_name})
-            )
+            pass
         channel_id = ch.create_channel(channel_name, topic)
         if agent_id:
-            events.emit(
-                "bridge",
-                "channel_created",
-                agent_id,
-                json.dumps({"channel_name": channel_name, "channel_id": channel_id}),
-            )
+            pass
         if json_output:
             typer.echo(
                 json.dumps(
@@ -107,9 +97,7 @@ def create_channel_cmd(
             typer.echo(f"Created channel: {channel_name} (ID: {channel_id})")
     except ValueError as e:
         if agent_id:
-            events.emit(
-                "bridge", "error", agent_id, json.dumps({"command": "create", "details": str(e)})
-            )
+            pass
         if json_output:
             typer.echo(json.dumps({"status": "error", "message": str(e)}))
         elif not quiet_output:
@@ -124,8 +112,6 @@ def rename_channel_cmd(
     identity: str = typer.Option(None, "--as", help="Agent identity"),
 ):
     """Rename channel."""
-    from space.core import events
-
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
@@ -134,21 +120,10 @@ def rename_channel_cmd(
     old_channel = old_channel.lstrip("#")
     new_channel = new_channel.lstrip("#")
     if agent_id:
-        events.emit(
-            "bridge",
-            "channel_renaming",
-            agent_id,
-            json.dumps({"old_channel": old_channel, "new_channel": new_channel}),
-        )
+        pass
     result = ch.rename_channel(old_channel, new_channel)
     if agent_id:
-        status = "success" if result is True else "failed"
-        events.emit(
-            "bridge",
-            f"channel_rename_{status}",
-            agent_id,
-            json.dumps({"old_channel": old_channel, "new_channel": new_channel}),
-        )
+        pass
     if json_output:
         typer.echo(
             json.dumps(
@@ -174,8 +149,6 @@ def archive_channel_cmd(
     prefix: bool = typer.Option(False, "--prefix", help="Treat arguments as prefixes to match."),
 ):
     """Archive channels."""
-    from space.core import events
-
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
@@ -194,22 +167,17 @@ def archive_channel_cmd(
     for name in names:
         try:
             if agent_id:
-                events.emit("bridge", "channel_archiving", agent_id, json.dumps({"channel": name}))
+                pass
             ch.archive_channel(name)
             if agent_id:
-                events.emit("bridge", "channel_archived", agent_id, json.dumps({"channel": name}))
+                pass
             if json_output:
                 results.append({"channel": name, "status": "archived"})
             elif not quiet_output:
                 typer.echo(f"Archived channel: {name}")
-        except ValueError as e:
+        except ValueError:
             if agent_id:
-                events.emit(
-                    "bridge",
-                    "error",
-                    agent_id,
-                    json.dumps({"command": "archive", "details": str(e)}),
-                )
+                pass
             if json_output:
                 results.append(
                     {"channel": name, "status": "error", "message": f"Channel '{name}' not found."}
@@ -227,8 +195,6 @@ def pin_channel_cmd(
     identity: str = typer.Option(None, "--as", help="Agent identity"),
 ):
     """Pin channels."""
-    from space.core import events
-
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
@@ -238,19 +204,17 @@ def pin_channel_cmd(
     for channel in channels_arg:
         try:
             if agent_id:
-                events.emit("bridge", "channel_pinning", agent_id, json.dumps({"channel": channel}))
+                pass
             ch.pin_channel(channel)
             if agent_id:
-                events.emit("bridge", "channel_pinned", agent_id, json.dumps({"channel": channel}))
+                pass
             if json_output:
                 results.append({"channel": channel, "status": "pinned"})
             elif not quiet_output:
                 typer.echo(f"Pinned channel: {channel}")
         except (ValueError, TypeError) as e:
             if agent_id:
-                events.emit(
-                    "bridge", "error", agent_id, json.dumps({"command": "pin", "details": str(e)})
-                )
+                pass
             if json_output:
                 results.append({"channel": channel, "status": "error", "message": str(e)})
             elif not quiet_output:
@@ -266,8 +230,6 @@ def unpin_channel_cmd(
     identity: str = typer.Option(None, "--as", help="Agent identity"),
 ):
     """Unpin channels."""
-    from space.core import events
-
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
@@ -277,23 +239,17 @@ def unpin_channel_cmd(
     for channel in channels_arg:
         try:
             if agent_id:
-                events.emit(
-                    "bridge", "channel_unpinning", agent_id, json.dumps({"channel": channel})
-                )
+                pass
             ch.unpin_channel(channel)
             if agent_id:
-                events.emit(
-                    "bridge", "channel_unpinned", agent_id, json.dumps({"channel": channel})
-                )
+                pass
             if json_output:
                 results.append({"channel": channel, "status": "unpinned"})
             elif not quiet_output:
                 typer.echo(f"Unpinned channel: {channel}")
         except (ValueError, TypeError) as e:
             if agent_id:
-                events.emit(
-                    "bridge", "error", agent_id, json.dumps({"command": "unpin", "details": str(e)})
-                )
+                pass
             if json_output:
                 results.append({"channel": channel, "status": "error", "message": str(e)})
             elif not quiet_output:
@@ -309,8 +265,6 @@ def delete_channel_cmd(
     identity: str = typer.Option(None, "--as", help="Agent identity"),
 ):
     """Delete channel."""
-    from space.core import events
-
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
@@ -318,19 +272,17 @@ def delete_channel_cmd(
     agent_id = agent.agent_id if agent else None
     try:
         if agent_id:
-            events.emit("bridge", "channel_deleting", agent_id, json.dumps({"channel": channel}))
+            pass
         ch.delete_channel(channel)
         if agent_id:
-            events.emit("bridge", "channel_deleted", agent_id, json.dumps({"channel": channel}))
+            pass
         if json_output:
             typer.echo(json.dumps({"status": "deleted", "channel": channel}))
         elif not quiet_output:
             typer.echo(f"Deleted channel: {channel}")
-    except ValueError as e:
+    except ValueError:
         if agent_id:
-            events.emit(
-                "bridge", "error", agent_id, json.dumps({"command": "delete", "details": str(e)})
-            )
+            pass
         if json_output:
             typer.echo(
                 json.dumps({"status": "error", "message": f"Channel '{channel}' not found."})

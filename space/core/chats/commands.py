@@ -2,9 +2,7 @@
 
 import typer
 
-from space.lib import store
-
-from . import api
+from . import api, db
 
 app = typer.Typer(help="Chat session management")
 
@@ -12,7 +10,7 @@ app = typer.Typer(help="Chat session management")
 @app.command()
 def sync():
     """Discover and sync all chat sessions from providers into chats.db."""
-    store.register()
+    db.register()
     typer.echo("Scanning providers for chat sessions...")
 
     discovery = api.discover()
@@ -37,11 +35,11 @@ def sync():
 @app.command()
 def stats():
     """Show chat ingestion statistics."""
-    store.register()
+    db.register()
 
     typer.echo("Chat Statistics\n")
 
-    with store.ensure("chats") as conn:
+    with db.connect() as conn:
         # Sessions per provider
         providers_data = conn.execute(
             "SELECT cli, COUNT(*) as count FROM sessions GROUP BY cli ORDER BY cli"

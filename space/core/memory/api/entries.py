@@ -2,14 +2,12 @@ import time
 import uuid
 from datetime import datetime
 
-from space.core import events
+from space.core import spawn
 from space.core.models import Memory
 from space.lib import store
 from space.lib.ids import resolve_id
 from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
-
-_track_memory = events.track("memory")
 
 
 def _row_to_memory(row: store.Row) -> Memory:
@@ -29,9 +27,7 @@ def add_entry(
             "INSERT INTO memories (memory_id, agent_id, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (memory_id, agent_id, topic, message, ts, now, 1 if core else 0, source),
         )
-    events.emit(
-        "memory", "note_add", agent_id, f"{topic}:{message[:50]}" + (" [CORE]" if core else "")
-    )
+    spawn.api.touch_agent(agent_id)
     return memory_id
 
 
@@ -89,7 +85,7 @@ def edit_entry(memory_id: str, new_message: str) -> None:
             "UPDATE memories SET message = ?, timestamp = ? WHERE memory_id = ? ",
             (new_message, ts, full_id),
         )
-    events.emit("memory", "note_edit", entry.agent_id, f"{full_id[-8:]}")
+    spawn.api.touch_agent(entry.agent_id)
 
 
 def delete_entry(memory_id: str) -> None:
@@ -99,7 +95,6 @@ def delete_entry(memory_id: str) -> None:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
     with store.ensure("memory") as conn:
         conn.execute("DELETE FROM memories WHERE memory_id = ?", (full_id,))
-    events.emit("memory", "note_delete", entry.agent_id, f"{full_id[-8:]}")
 
 
 def archive_entry(memory_id: str) -> None:
@@ -113,10 +108,8 @@ def archive_entry(memory_id: str) -> None:
             "UPDATE memories SET archived_at = ? WHERE memory_id = ?",
             (now, full_id),
         )
-    events.emit("memory", "note_archive", entry.agent_id, f"{full_id[-8:]}")
 
 
-@_track_memory
 def restore_entry(memory_id: str, agent_id: str | None = None) -> None:
     full_id = resolve_id("memory", "memory_id", memory_id)
     entry = get_by_id(full_id)
@@ -131,7 +124,6 @@ def restore_entry(memory_id: str, agent_id: str | None = None) -> None:
         )
 
 
-@_track_memory
 def mark_core(memory_id: str, core: bool = True, agent_id: str | None = None) -> None:
     full_id = resolve_id("memory", "memory_id", memory_id)
     entry = get_by_id(full_id)
@@ -164,7 +156,9 @@ def find_related(entry: Memory, limit: int = 5, show_all: bool = False) -> list[
             conn.executemany("INSERT INTO keywords VALUES (?)", [(k,) for k in keywords])
 
             query = f"""
-                SELECT m.memory_id, m.agent_id, m.topic, m.message, m.timestamp, m.created_at, m.archived_at, m.core, m.source, m.bridge_channel, m.code_anchors, m.synthesis_note, m.supersedes, m.superseded_by, COUNT(k.keyword) as score
+                SELECT m.memory_id, m.agent_id, m.topic, m.message, m.timestamp,
+                       m.created_at, m.archived_at, m.core, m.source, m.bridge_channel,
+                       m.code_anchors, m.synthesis_note, m.supersedes, m.superseded_by, COUNT(k.keyword) as score
                 FROM memories m, keywords k
                 WHERE m.agent_id = ? AND m.memory_id != ? AND (m.message LIKE '%' || k.keyword || '%' OR m.topic LIKE '%' || k.keyword || '%') {archive_filter}
                 GROUP BY m.memory_id
@@ -228,7 +222,6 @@ def replace_entry(
                     (now, new_id, full_old_id),
                 )
 
-    events.emit("memory", "note_replace", agent_id, f"{len(old_ids)} archived, new: {new_id[-8:]}")
     return new_id
 
 

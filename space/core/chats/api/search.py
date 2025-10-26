@@ -35,7 +35,7 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
                         continue
                     msg = json.loads(line)
                     content = msg.get("content", "")
-                    
+
                     if query.lower() in content.lower():
                         results.append(
                             {

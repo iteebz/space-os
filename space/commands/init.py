@@ -2,7 +2,7 @@ from pathlib import Path
 
 import typer
 
-from space.core import chats, spawn
+from space.core import spawn
 from space.lib import paths, store
 
 
@@ -33,8 +33,6 @@ def init():
     with store.ensure("memory"):
         pass
     with store.ensure("knowledge"):
-        pass
-    with store.ensure("events"):
         pass
 
     typer.echo(f"✓ Initialized workspace at {root}")

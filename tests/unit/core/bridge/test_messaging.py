@@ -38,12 +38,19 @@ def mock_get_channel():
 def test_send_message_inserts_record(mock_db, mock_get_agent):
     bridge.send_message("ch-1", "sender", "hello")
 
-    mock_db.execute.assert_called_once()
-    args = mock_db.execute.call_args[0]
-    assert "INSERT INTO messages" in args[0]
-    assert args[1][1] == "ch-1"
-    assert args[1][2] == "agent-123"
-    assert args[1][3] == "hello"
+    assert mock_db.execute.call_count == 2
+
+    # Check the first call (INSERT)
+    insert_args = mock_db.execute.call_args_list[0][0]
+    assert "INSERT INTO messages" in insert_args[0]
+    assert insert_args[1][1] == "ch-1"
+    assert insert_args[1][2] == "agent-123"
+    assert insert_args[1][3] == "hello"
+
+    # Check the second call (UPDATE for touch_agent)
+    update_args = mock_db.execute.call_args_list[1][0]
+    assert "UPDATE agents SET last_active_at" in update_args[0]
+    assert update_args[1][1] == "agent-123"
 
 
 def test_send_message_returns_agent_id(mock_db, mock_get_agent):

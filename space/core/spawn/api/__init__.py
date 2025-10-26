@@ -8,6 +8,7 @@ from .agents import (
     merge_agents,
     register_agent,
     rename_agent,
+    touch_agent,
     unarchive_agent,
     update_agent,
 )
@@ -27,6 +28,7 @@ __all__ = [
     "unarchive_agent",
     "list_agents",
     "merge_agents",
+    "touch_agent",
     "launch_agent",
     "create_task",
     "get_task",

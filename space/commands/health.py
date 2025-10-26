@@ -20,7 +20,6 @@ DEFS = {
     "bridge.db": ["channels", "messages", "notes", "bookmarks"],
     "memory.db": ["memories", "links"],
     "knowledge.db": ["knowledge"],
-    "events.db": ["events"],
 }
 
 
@@ -79,7 +78,6 @@ def _check_db(db_name: str, tables: list[str]) -> tuple[bool, list[str], dict]:
         "bridge.db": "bridge",
         "memory.db": "memory",
         "knowledge.db": "knowledge",
-        "events.db": "events",
     }
     registry_name = registry_map.get(db_name)
     if not registry_name:

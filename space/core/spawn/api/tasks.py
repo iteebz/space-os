@@ -2,7 +2,6 @@
 
 from datetime import datetime
 
-from space.core import events
 from space.core.models import Task, TaskStatus
 from space.lib import store
 from space.lib.store import from_row
@@ -34,7 +33,6 @@ def create_task(
             """,
             (task_id, agent_id, channel_id, input, "pending", now_iso),
         )
-    events.emit("spawn", "task.create", agent_id, f"Task created for {ident}")
     return task_id
 
 

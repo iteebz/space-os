@@ -132,6 +132,7 @@ class Agent:
     description: str | None = None
     archived_at: int | None = None
     created_at: str | None = None
+    last_active_at: str | None = None  # NEW
 
 
 @dataclass
@@ -165,16 +166,3 @@ class Task:
                 logger.warning(
                     f"Could not calculate task duration due to malformed timestamps: {e}"
                 )
-
-
-@dataclass
-class Event:
-    """An event for provenance tracking."""
-
-    event_id: str
-    source: str
-    agent_id: str | None
-    event_type: str
-    data: str | None = None
-    timestamp: int | None = None
-    chat_id: str | None = None

@@ -6,7 +6,7 @@ from datetime import datetime
 
 import typer
 
-from space.core import events, spawn
+from space.core import spawn
 
 from ..api import channels
 from ..api import export as ex
@@ -26,15 +26,11 @@ def export_cmd(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent_id = None
     if identity and isinstance(identity, str):  # identity optional for plain exports
         agent = spawn.get_agent(identity)
         if not agent:
             raise typer.Exit(f"Identity '{identity}' not registered.")
-        agent_id = agent.agent_id
     try:
-        if agent_id:
-            events.emit("bridge", "export_starting", agent_id, json.dumps({"channel": channel}))
         channel_id = channels.resolve_channel(channel).channel_id
         data = ex.get_export_data(channel_id)
 
@@ -86,22 +82,8 @@ def export_cmd(
                     typer.echo(f"[NOTE: {author_name} | {timestamp}]")
                     typer.echo(item.content)
                     typer.echo()
-        if agent_id:
-            events.emit(
-                "bridge",
-                "export_completed",
-                agent_id,
-                json.dumps({"channel": channel, "message_count": data.message_count}),
-            )
 
     except ValueError as e:
-        if agent_id:
-            events.emit(
-                "bridge",
-                "error",
-                agent_id,
-                json.dumps({"command": "export", "details": str(e)}),
-            )
         if json_output:
             typer.echo(
                 json.dumps({"status": "error", "message": f"Channel '{channel}' not found."})

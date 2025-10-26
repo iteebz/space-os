@@ -33,4 +33,11 @@ CREATE INDEX IF NOT EXISTS idx_tasks_agent ON tasks(agent_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_channel ON tasks(channel_id);
 """,
     ),
+    (
+        "add_last_active_at",
+        """
+ALTER TABLE agents ADD COLUMN last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+UPDATE agents SET last_active_at = created_at WHERE last_active_at IS NULL;
+""",
+    ),
 ]

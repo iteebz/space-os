@@ -26,10 +26,10 @@ def export(session_id: str, cli: str, include_tools: bool = False) -> list[dict]
                 if not line.strip():
                     continue
                 msg = json.loads(line)
-                
+
                 if not include_tools and msg.get("role") == "tool":
                     continue
-                
+
                 messages.append(msg)
     except Exception:
         return None

@@ -91,88 +91,65 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
 
 def agent_stats(limit: int = None, show_all: bool = False) -> list[AgentStats] | None:
     try:
-        agent_names = spawn.api.agent_identities()
-        archived_agents = spawn.api.archived_agents()
+        agent_identities_map = spawn.api.agent_identities()
+        archived_set = spawn.api.archived_agents()
+
+        agent_map = {
+            agent_id: {
+                "identity": identity,
+                "msgs": 0,
+                "mems": 0,
+                "knowledge": 0,
+                "events": 0,
+                "spawns": 0,
+                "last_active": None,
+            }
+            for agent_id, identity in agent_identities_map.items()
+        }
 
         bridge_data = bridge.api.stats()
         memory_data = memory.api.stats()
         knowledge_data = knowledge.api.stats()
 
-        agent_map = {
-            agent_id: {
-                "identity": name,
-                "msgs": 0,
-                "mems": 0,
-                "knowledge": 0,
-            }
-            for agent_id, name in agent_names.items()
-        }
-
         for item in bridge_data.get("messages", {}).get("by_agent", []):
             agent_id = item["agent_id"]
-            if agent_id not in agent_map:
-                agent_map[agent_id] = {
-                    "identity": agent_names.get(agent_id, agent_id),
-                    "msgs": 0,
-                    "mems": 0,
-                    "knowledge": 0,
-                }
-            agent_map[agent_id]["msgs"] = item["count"]
+            if agent_id in agent_map:
+                agent_map[agent_id]["msgs"] = item["count"]
+
+        for item in bridge_data.get("events", {}).get("by_agent", []):
+            agent_id = item["agent_id"]
+            if agent_id in agent_map:
+                agent_map[agent_id]["events"] = item.get("events", 0)
+                agent_map[agent_id]["spawns"] = item.get("spawns", 0)
+                agent_map[agent_id]["last_active"] = item.get("last_active")
 
         for item in memory_data.get("mem_by_agent", []):
             agent_id = item["agent_id"]
-            if agent_id not in agent_map:
-                agent_map[agent_id] = {
-                    "identity": agent_names.get(agent_id, agent_id),
-                    "msgs": 0,
-                    "mems": 0,
-                    "knowledge": 0,
-                }
-            agent_map[agent_id]["mems"] = item["count"]
+            if agent_id in agent_map:
+                agent_map[agent_id]["mems"] = item["count"]
 
         for item in knowledge_data.get("know_by_agent", []):
             agent_id = item["agent_id"]
-            if agent_id not in agent_map:
-                agent_map[agent_id] = {
-                    "identity": agent_names.get(agent_id, agent_id),
-                    "msgs": 0,
-                    "mems": 0,
-                    "knowledge": 0,
-                }
-            agent_map[agent_id]["knowledge"] = item["count"]
-
-        events_by_agent = {
-            item["agent_id"]: item for item in bridge_data.get("events", {}).get("by_agent", [])
-        }
-
-        for agent_id in events_by_agent:
-            if agent_id not in agent_map:
-                agent_map[agent_id] = {
-                    "identity": agent_names.get(agent_id, agent_id),
-                    "msgs": 0,
-                    "mems": 0,
-                    "knowledge": 0,
-                }
+            if agent_id in agent_map:
+                agent_map[agent_id]["knowledge"] = item["count"]
 
         result = [
             AgentStats(
                 agent_id=agent_id,
                 identity=data["identity"],
-                events=events_by_agent.get(agent_id, {}).get("events", 0),
-                spawns=events_by_agent.get(agent_id, {}).get("spawns", 0),
+                events=data["events"],
+                spawns=data["spawns"],
                 msgs=data["msgs"],
                 mems=data["mems"],
                 knowledge=data["knowledge"],
                 channels=[],
-                last_active=events_by_agent.get(agent_id, {}).get("last_active"),
-                last_active_human=fmt.humanize_timestamp(
-                    events_by_agent.get(agent_id, {}).get("last_active")
-                )
-                if events_by_agent.get(agent_id, {}).get("last_active")
+                last_active=data["last_active"],
+                last_active_human=fmt.humanize_timestamp(data["last_active"])
+                if data["last_active"]
                 else None,
             )
             for agent_id, data in agent_map.items()
-            if show_all or agent_id not in archived_agents
+            if show_all or agent_id not in archived_set
         ]
 
         result.sort(key=lambda a: a.last_active or "0", reverse=True)
