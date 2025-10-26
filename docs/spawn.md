@@ -19,7 +19,7 @@ Spawn is a **pure primitive** for launching constitutional agents. It owns ident
 
 ### Identity Registry
 ```python
-from space.core import spawn
+from space.os import spawn
 
 # Register a new agent
 agent_id = spawn.register_agent("hailot", "hailot.md", "claude-haiku-4-5")

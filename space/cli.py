@@ -1,22 +1,17 @@
 import typer
 
-from space.commands.backup import backup
-from space.commands.context import context
-from space.commands.council import council
-from space.commands.health import health
-from space.commands.init import init
-from space.commands.launch import launch
-from space.commands.sleep import sleep
-from space.commands.stats import stats
-from space.commands.wake import wake
-from space.core import (
+from space.apps.chats import app as chats
+from space.apps.context.commands import context
+from space.apps.council.commands import council
+from space.apps.stats.commands import stats
+from space.apps.system.commands import system
+from space.lib import readme
+from space.os import (
     bridge,
-    chats,
     knowledge,
     memory,
 )
-from space.core.spawn import commands as spawn_commands
-from space.lib import readme
+from space.os.spawn import commands as spawn_commands
 
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False)
 
@@ -29,13 +24,7 @@ app.add_typer(chats.app, name="chats")
 app.add_typer(context, name="context")
 app.add_typer(council, name="council")
 app.add_typer(stats, name="stats")
-
-app.add_typer(sleep, name="sleep")
-app.command()(wake)
-app.command()(launch)
-app.command()(backup)
-app.command()(health)
-app.command()(init)
+app.add_typer(system, name="system")
 
 
 @app.callback(invoke_without_command=True)

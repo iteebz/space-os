@@ -1,7 +1,7 @@
 import tempfile
 from pathlib import Path
 
-from space.lib import canon
+from space.apps.context.lib import canon
 
 
 def test_canon_search_finds_matching_documents():

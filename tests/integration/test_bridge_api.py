@@ -1,4 +1,4 @@
-from space.core import bridge, spawn
+from space.os import bridge, spawn
 
 
 def test_create_channel_with_topic(test_space):
@@ -77,7 +77,7 @@ def test_inbox_channels_all_unreads(test_space, default_agents):
 
 
 def test_fetch_sender_history(test_space, default_agents):
-    from space.core import spawn
+    from space.os import spawn
 
     channel_id1 = bridge.create_channel("history-channel-1")
     channel_id2 = bridge.create_channel("history-channel-2")

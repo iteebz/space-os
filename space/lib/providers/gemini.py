@@ -153,7 +153,7 @@ class Gemini:
             )
             return result.stdout
 
-        from space.core.spawn.api import launch_agent
+        from space.os.spawn.api import launch_agent
 
         launch_agent(identity)
         return ""
@@ -161,7 +161,7 @@ class Gemini:
     def ping(self, identity: str) -> bool:
         """Check if Gemini agent is alive."""
         try:
-            from space.core.spawn import api as spawn_api
+            from space.os.spawn import api as spawn_api
 
             return spawn_api.get_agent(identity) is not None
         except Exception:
@@ -170,7 +170,7 @@ class Gemini:
     def list_agents(self) -> list[str]:
         """List all active agents."""
         try:
-            from space.core.spawn import api as spawn_api
+            from space.os.spawn import api as spawn_api
 
             return spawn_api.list_agents()
         except Exception:

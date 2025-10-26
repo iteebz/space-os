@@ -4,8 +4,8 @@ from datetime import datetime
 
 import typer
 
-from space.core import memory
 from space.lib.format import format_duration
+from space.os import memory
 
 
 def fmt_entry_header(entry, agent_identity: str = None) -> str:
@@ -24,7 +24,7 @@ def fmt_entry_msg(msg: str, max_len: int = 100) -> str:
 
 
 def show_memory_entry(entry, ctx_obj, related=None):
-    from space.core import spawn
+    from space.os import spawn
 
     agent = spawn.get_agent(entry.agent_id)
     agent_identity = agent.identity if agent else None
@@ -89,7 +89,7 @@ def display_context(timeline, current_state, lattice_docs, canon_docs):
 
 
 def show_context(identity: str):
-    from space.core import knowledge, spawn
+    from space.os import knowledge, spawn
 
     typer.echo("\n" + "─" * 60)
 
@@ -116,8 +116,8 @@ def show_context(identity: str):
 def show_wake_summary(
     identity: str, quiet_output: bool, spawn_count: int, wakes_this_spawn: int = 0
 ):
-    from space.commands import wake as wake_module
-    from space.core import bridge, spawn
+    from space.os import bridge, spawn
+    from space.os.spawn.commands import wake as wake_module
 
     agent = spawn.get_agent(identity)
     self_desc = agent.description if agent else None
@@ -175,7 +175,8 @@ def show_wake_summary(
             channel_names = {}
             for msg in sent_msgs:
                 if msg.channel_id not in channel_names:
-                    channel_names[msg.channel_id] = bridge.get_channel_name(msg.channel_id)
+                    channel_obj = bridge.get_channel(msg.channel_id)
+                    channel_names[msg.channel_id] = channel_obj.name if channel_obj else None
                 channel = channel_names[msg.channel_id]
                 ts = datetime.strptime(msg.created_at, "%Y-%m-%d %H:%M:%S").strftime("%m-%d %H:%M")
                 first_line = msg.content.split("\n")[0]
@@ -187,7 +188,7 @@ def show_wake_summary(
 def show_smart_memory(identity: str, json_output: bool, quiet_output: bool):
     from dataclasses import asdict
 
-    from space.core import memory, spawn
+    from space.os import memory, spawn
 
     agent = spawn.get_agent(identity)
     self_desc = agent.description if agent else None

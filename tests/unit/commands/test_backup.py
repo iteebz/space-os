@@ -1,7 +1,7 @@
 import sqlite3
 from unittest.mock import patch
 
-from space.commands.backup import _get_backup_stats, backup
+from space.apps.system.commands import _get_backup_stats, backup
 
 
 def test_backup_creates_timestamped_dir(tmp_path):
@@ -12,8 +12,8 @@ def test_backup_creates_timestamped_dir(tmp_path):
 
     backup_dir = tmp_path / "backups"
 
-    with patch("space.commands.backup.paths.dot_space", return_value=src_dir):
-        with patch("space.commands.backup.paths.backups_dir", return_value=backup_dir):
+    with patch("space.apps.system.commands.paths.dot_space", return_value=src_dir):
+        with patch("space.apps.system.commands.paths.backups_dir", return_value=backup_dir):
             backup(quiet_output=True)
 
     assert backup_dir.exists()
@@ -35,8 +35,8 @@ def test_backup_copies_db_files(tmp_path):
 
     backup_dir = tmp_path / "backups"
 
-    with patch("space.commands.backup.paths.dot_space", return_value=src_dir):
-        with patch("space.commands.backup.paths.backups_dir", return_value=backup_dir):
+    with patch("space.apps.system.commands.paths.dot_space", return_value=src_dir):
+        with patch("space.apps.system.commands.paths.backups_dir", return_value=backup_dir):
             backup(quiet_output=True)
 
     backups = list(backup_dir.glob("*"))

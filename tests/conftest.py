@@ -7,8 +7,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from space import config
-from space.core import bridge, chats, knowledge, memory, spawn
+from space.apps import chats
 from space.lib import paths, store
+from space.os import bridge, knowledge, memory, spawn
 
 
 @pytest.fixture(scope="session")
@@ -32,7 +33,7 @@ def test_space(monkeypatch, tmp_path, _seed_dbs):
     monkeypatch.setattr(chats, "sync", lambda identity=None, session_id=None: 0)
     config.load_config.cache_clear()
     store.close_all()
-    spawn.db.clear_caches()
+    spawn.api.agents._clear_cache()
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -73,7 +74,7 @@ def test_space(monkeypatch, tmp_path, _seed_dbs):
     yield workspace
 
     config.load_config.cache_clear()
-    spawn.db.clear_caches()
+    spawn.api.agents._clear_cache()
     store.close_all()
     gc.collect()
     for obj in gc.get_objects():
@@ -95,7 +96,7 @@ def mock_db():
 @pytest.fixture
 def default_agents(test_space):
     """Registers a set of default agents for tests and returns their identities."""
-    from space.core import spawn
+    from space.os import spawn
 
     agents = {
         "zealot": "zealot",

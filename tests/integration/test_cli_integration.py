@@ -1,6 +1,6 @@
 from typer.testing import CliRunner
 
-from space.core import bridge, memory, spawn
+from space.os import bridge, memory, spawn
 
 runner = CliRunner()
 

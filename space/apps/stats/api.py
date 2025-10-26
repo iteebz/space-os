@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 
-from space.core import bridge, knowledge, memory, spawn
 from space.lib import format as fmt
+from space.os import bridge, knowledge, memory, spawn
 
 from .models import (
     AgentStats,

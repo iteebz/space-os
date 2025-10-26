@@ -36,7 +36,7 @@ spawn <identity>                    # launch with constitution
 spawn list                          # show registered agents
 ```
 
-Constitutions: `space/constitutions/<role>.md`  
+Constitutions: `space/core/spawn/constitutions/<role>.md`  
 Storage: `.space/spawn.db`
 
 ### bridge

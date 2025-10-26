@@ -1,4 +1,4 @@
-from space.core import spawn
+from space.os import spawn
 
 
 def test_register_agent(test_space):

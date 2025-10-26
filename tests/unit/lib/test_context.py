@@ -2,7 +2,7 @@
 
 from unittest.mock import patch
 
-from space.lib import context
+from space.apps.context.lib import api as context
 
 
 def test_validate_search_term_valid():
@@ -24,11 +24,11 @@ def test_validate_search_term_too_long():
 def test_collect_timeline_deduplicates():
     """Timeline deduplicates by source and ID."""
     with (
-        patch("space.lib.context.memory.search") as m_mem,
-        patch("space.lib.context.knowledge.search") as m_know,
-        patch("space.lib.context.bridge.search") as m_bridge,
-        patch("space.lib.context.chats.search") as m_chat,
-        patch("space.lib.context.canon.search") as m_canon,
+        patch("space.apps.context.lib.api.memory.search") as m_mem,
+        patch("space.apps.context.lib.api.knowledge.search") as m_know,
+        patch("space.apps.context.lib.api.bridge.search") as m_bridge,
+        patch("space.apps.context.lib.api.chats.search") as m_chat,
+        patch("space.apps.context.lib.api.canon.search") as m_canon,
     ):
         m_mem.return_value = [
             {
@@ -55,11 +55,11 @@ def test_collect_timeline_deduplicates():
 def test_collect_timeline_sorted_by_timestamp():
     """Timeline entries sorted by timestamp."""
     with (
-        patch("space.lib.context.memory.search") as m_mem,
-        patch("space.lib.context.knowledge.search") as m_know,
-        patch("space.lib.context.bridge.search") as m_bridge,
-        patch("space.lib.context.chats.search") as m_chat,
-        patch("space.lib.context.canon.search") as m_canon,
+        patch("space.apps.context.lib.api.memory.search") as m_mem,
+        patch("space.apps.context.lib.api.knowledge.search") as m_know,
+        patch("space.apps.context.lib.api.bridge.search") as m_bridge,
+        patch("space.apps.context.lib.api.chats.search") as m_chat,
+        patch("space.apps.context.lib.api.canon.search") as m_canon,
     ):
         m_mem.return_value = [
             {
@@ -93,11 +93,11 @@ def test_collect_timeline_sorted_by_timestamp():
 def test_collect_timeline_returns_last_10():
     """Timeline returns max 10 entries."""
     with (
-        patch("space.lib.context.memory.search") as m_mem,
-        patch("space.lib.context.knowledge.search") as m_know,
-        patch("space.lib.context.bridge.search") as m_bridge,
-        patch("space.lib.context.chats.search") as m_chat,
-        patch("space.lib.context.canon.search") as m_canon,
+        patch("space.apps.context.lib.api.memory.search") as m_mem,
+        patch("space.apps.context.lib.api.knowledge.search") as m_know,
+        patch("space.apps.context.lib.api.bridge.search") as m_bridge,
+        patch("space.apps.context.lib.api.chats.search") as m_chat,
+        patch("space.apps.context.lib.api.canon.search") as m_canon,
     ):
         m_mem.return_value = [
             {
@@ -124,11 +124,11 @@ def test_collect_timeline_returns_last_10():
 def test_collect_current_state_all_sources():
     """Current state collects from all sources."""
     with (
-        patch("space.lib.context.memory.search") as m_mem,
-        patch("space.lib.context.knowledge.search") as m_know,
-        patch("space.lib.context.bridge.search") as m_bridge,
-        patch("space.lib.context.chats.search") as m_chat,
-        patch("space.lib.context.canon.search") as m_canon,
+        patch("space.apps.context.lib.api.memory.search") as m_mem,
+        patch("space.apps.context.lib.api.knowledge.search") as m_know,
+        patch("space.apps.context.lib.api.bridge.search") as m_bridge,
+        patch("space.apps.context.lib.api.chats.search") as m_chat,
+        patch("space.apps.context.lib.api.canon.search") as m_canon,
     ):
         m_mem.return_value = [
             {"identity": "alice", "topic": "t1", "message": "m1", "reference": "r1"}

@@ -8,7 +8,7 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 
-from space.core.bridge.api import (
+from space.os.bridge.api import (
     get_channel,
     get_messages,
     resolve_channel,

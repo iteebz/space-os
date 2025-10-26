@@ -12,8 +12,8 @@ packages = [
     { include = "space" }
 ]
 include = [
-    "space/os/config.yaml",
-    "space/os/constitutions/*.md"
+    "space/config.yaml",
+    "space/os/spawn/constitutions/*.md"
 ]
 
 [tool.poetry.dependencies]
@@ -23,15 +23,15 @@ pyyaml = "^6.0"
 prompt-toolkit = "^3.0.47"
 
 [tool.poetry.scripts]
-bridge = "space.core.bridge.commands:app"
-spawn = "space.core.spawn.commands:app"
-memory = "space.core.memory.commands:app"
-knowledge = "space.core.knowledge.commands:app"
-chats = "space.core.chats.commands:app"
-context = "space.commands.context:app"
+bridge = "space.os.bridge.commands:app"
+spawn = "space.os.spawn.commands:app"
+memory = "space.os.memory.commands:app"
+knowledge = "space.os.knowledge.commands:app"
+chats = "space.apps.chats.commands:app"
+context = "space.apps.context.commands:context"
 space = "space.cli:main"
-wake = "space.commands.wake:main"
-sleep = "space.commands.sleep:main"
+wake = "space.os.spawn.commands.wake:main"
+sleep = "space.os.spawn.commands.sleep:main"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.13.0"

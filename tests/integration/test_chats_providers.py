@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from space.core import chats
+from space.apps import chats
 
 
 @pytest.fixture
@@ -147,7 +147,7 @@ def test_gemini_provider_parse_messages(mock_gemini_chats):
 
 def test_vault_copy_claude(mock_claude_chats, tmp_path, monkeypatch):
     """Test copying Claude JSONL to vault as-is."""
-    from space.core.chats.api import vault
+    from space.apps.chats.api import vault
     from space.lib import paths
 
     monkeypatch.setattr(paths, "chats_dir", lambda: tmp_path / "vaults")
@@ -162,7 +162,7 @@ def test_vault_copy_gemini_json_to_jsonl(mock_gemini_chats, tmp_path, monkeypatc
     """Test converting Gemini JSON to JSONL in vault."""
     import json as stdlib_json
 
-    from space.core.chats.api import vault
+    from space.apps.chats.api import vault
     from space.lib import paths
 
     monkeypatch.setattr(paths, "chats_dir", lambda: tmp_path / "vaults")
@@ -188,7 +188,7 @@ def test_search_in_vault_jsonl(test_space, tmp_path, monkeypatch):
     """Test searching raw JSONL files in vault."""
     import json as stdlib_json
 
-    from space.core.chats.api import search
+    from space.apps.chats.api import search
     from space.lib import paths, store
 
     vault_dir = tmp_path / "vault"
@@ -217,7 +217,7 @@ def test_export_session(test_space, tmp_path, monkeypatch):
     """Test exporting session messages with tool filtering."""
     import json as stdlib_json
 
-    from space.core.chats.api import export
+    from space.apps.chats.api import export
     from space.lib import paths, store
 
     vault_dir = tmp_path / "vault"

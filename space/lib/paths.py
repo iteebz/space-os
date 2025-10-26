@@ -31,7 +31,7 @@ def constitution(filename: str) -> Path:
     canon = canon_path() / "constitutions" / filename
     if canon.exists():
         return canon
-    return package_root().parent / "constitutions" / filename
+    return package_root() / "core" / "spawn" / "constitutions" / filename
 
 
 def canon_path() -> Path:

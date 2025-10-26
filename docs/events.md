@@ -96,7 +96,7 @@ recent = events.query(limit=20)
 
 ```python
 from space import events
-from space.core import spawn
+from space.os import spawn
 
 agent = spawn.get_agent("zealot-1")
 events.emit(
@@ -155,7 +155,7 @@ bridge send research "proposal" --as zealot-1
 No explicit sender column in bridge.messages — resolve via:
 
 ```python
-from space.core import spawn
+from space.os import spawn
 
 message = bridge.get_messages(channel_id)[0]
 sender_name = spawn.get_agent(message.agent_id).identity  # lookup from registry

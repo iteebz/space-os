@@ -1,4 +1,4 @@
-from space.core import bridge, spawn
+from space.os import bridge, spawn
 
 
 def test_agent_posts_mid_execution(test_space, default_agents):

@@ -1,4 +1,4 @@
-from space.core import memory, spawn
+from space.os import memory, spawn
 
 
 def test_memory_replace_single(test_space, default_agents):
