@@ -17,7 +17,7 @@ from .api import (
     unarchive_agent,
 )
 from .commands import app
-from .spawn import get_base_agent, inject_role, resolve_model_alias
+from .spawn import get_base_agent, build_identity_prompt, resolve_model_alias
 
 db.register()
 
@@ -26,7 +26,7 @@ __all__ = [
     "db",
     "app",
     "get_base_agent",
-    "inject_role",
+    "build_identity_prompt",
     "resolve_model_alias",
     "get_agent",
     "register_agent",

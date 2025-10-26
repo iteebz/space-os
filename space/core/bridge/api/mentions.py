@@ -4,9 +4,12 @@ import logging
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 from space import config
-from space.core.spawn.api.tasks import create_task, start_task
+from space.core.spawn import build_identity_prompt
+from space.core.spawn.api.tasks import create_task, start_task, complete_task, fail_task
+from space.lib import paths
 
 logging.basicConfig(level=logging.DEBUG, format="[worker] %(message)s")
 log = logging.getLogger(__name__)
@@ -19,6 +22,30 @@ AGENT_PROMPT_TEMPLATE = """{context}
 Infer the actual task from bridge context. If ambiguous, ask for clarification."""
 
 
+def _write_role_file(base_agent: str, constitution: str) -> None:
+    """Write pure constitution to agent home dir file."""
+    filename_map = {
+        "sonnet": "CLAUDE.md",
+        "haiku": "CLAUDE.md",
+        "gemini": "GEMINI.md",
+        "codex": "AGENTS.md",
+    }
+    agent_dir_map = {
+        "sonnet": ".claude",
+        "haiku": ".claude",
+        "gemini": ".gemini",
+        "codex": ".codex",
+    }
+    filename = filename_map.get(base_agent)
+    agent_dir = agent_dir_map.get(base_agent)
+    if not filename or not agent_dir:
+        raise ValueError(f"Unknown base_agent: {base_agent}")
+
+    target = Path.home() / agent_dir / filename
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(constitution)
+
+
 def _parse_mentions(content: str) -> list[str]:
     """Extract @identity mentions from content."""
     pattern = r"@([\w-]+)"
@@ -27,13 +54,23 @@ def _parse_mentions(content: str) -> list[str]:
 
 
 def _build_prompt(identity: str, channel: str, content: str) -> str | None:
-    """Build agent prompt with channel context and task."""
+    """Build agent prompt with channel context and task, write constitution."""
     cfg = config.load_config()
     if identity not in cfg.get("roles", {}):
         log.warning(f"Identity {identity} not in config roles")
         return None
 
     try:
+        role_cfg = cfg["roles"][identity]
+        base_agent = role_cfg.get("base_agent")
+        const_filename = role_cfg["constitution"]
+        const_path = paths.constitution(const_filename)
+        constitution = const_path.read_text()
+        
+        _write_role_file(base_agent, constitution)
+        
+        identity_prompt = build_identity_prompt(identity)
+        
         export = subprocess.run(
             ["bridge", "export", channel],
             capture_output=True,
@@ -46,7 +83,8 @@ def _build_prompt(identity: str, channel: str, content: str) -> str | None:
                 f"returncode={export.returncode}, stderr={export.stderr[:200]}"
             )
             return None
-        return AGENT_PROMPT_TEMPLATE.format(context=export.stdout, task=content)
+        return (identity_prompt + "\n\n" + 
+                AGENT_PROMPT_TEMPLATE.format(context=export.stdout, task=content))
     except subprocess.TimeoutExpired:
         log.error(f"bridge export timed out for {channel}")
         return None
@@ -127,22 +165,22 @@ def main():
                 )
 
                 if result.returncode == 0 and result.stdout.strip():
-                    spawn.complete_task(
+                    complete_task(
                         task_id,
                         output=result.stdout.strip(),
                     )
                     results.append((identity, result.stdout.strip()))
                 else:
-                    spawn.fail_task(task_id, stderr=result.stderr)
+                    fail_task(task_id, stderr=result.stderr)
                     log.error(f"Spawn failed: {result.stderr}")
             except subprocess.TimeoutExpired:
-                spawn.fail_task(
+                fail_task(
                     task_id,
                     stderr=f"Spawn timeout ({timeout}s)",
                 )
                 log.error(f"Spawn timeout for {identity}")
             except Exception as e:
-                spawn.fail_task(task_id, stderr=str(e))
+                fail_task(task_id, stderr=str(e))
                 log.error(f"Spawn error: {e}")
         else:
             log.warning(f"No prompt for {identity}")
