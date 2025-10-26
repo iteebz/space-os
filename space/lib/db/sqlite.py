@@ -3,6 +3,7 @@
 import contextlib
 import logging
 import sqlite3
+import threading
 from collections.abc import Callable
 from pathlib import Path
 
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 _registry: dict[str, tuple[str, str]] = {}
 _migrations: dict[str, list[tuple[str, str | Callable]]] = {}
 
-_connections: dict[str, sqlite3.Connection] = {}
+_connections = threading.local()
 
 
 def connect(db_path: Path) -> sqlite3.Connection:
@@ -61,7 +62,7 @@ def ensure(name: str) -> sqlite3.Connection:
     if name not in _registry:
         raise ValueError(f"Database '{name}' not registered. Call db.register() first.")
 
-    if name not in _connections:
+    if not hasattr(_connections, name):
         db_file, schema = _registry[name]
         db_path = paths.space_data() / db_file
         db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -69,9 +70,9 @@ def ensure(name: str) -> sqlite3.Connection:
         # Always ensure schema and migrations for the initial connection
         ensure_schema(db_path, schema, migs)
 
-        _connections[name] = connect(db_path)
+        setattr(_connections, name, connect(db_path))
 
-    return _connections[name]
+    return getattr(_connections, name)
 
 
 def migrate(conn: sqlite3.Connection, migs: list[tuple[str, str | Callable]]) -> None:
@@ -147,13 +148,15 @@ def _reset_for_testing() -> None:
     """Reset registry and migrations state (test-only)."""
     _registry.clear()
     _migrations.clear()
-    for conn in _connections.values():
-        conn.close()
-    _connections.clear()
+    if hasattr(_connections, "__dict__"):
+        for conn in _connections.__dict__.values():
+            conn.close()
+        _connections.__dict__.clear()
 
 
 def close_all():
     """Close all managed database connections."""
-    for conn in _connections.values():
-        conn.close()
-    _connections.clear()
+    if hasattr(_connections, "__dict__"):
+        for conn in _connections.__dict__.values():
+            conn.close()
+        _connections.__dict__.clear()

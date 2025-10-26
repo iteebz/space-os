@@ -13,7 +13,7 @@ from . import api
 
 errors.install_error_handler("spawn")
 
-app = typer.Typer()
+app = typer.Typer(invoke_without_command=True)
 
 
 @app.command("agents")
@@ -206,6 +206,41 @@ def rename(old_name: str, new_name: str):
         else:
             typer.echo(f"❌ Agent not found: {old_name}. Run `spawn` to list agents.", err=True)
             raise typer.Exit(1)
+    except ValueError as e:
+        typer.echo(f"❌ {e}", err=True)
+        raise typer.Exit(1) from e
+
+
+@app.callback(invoke_without_command=True)
+def main(
+    ctx: typer.Context,
+    identity: str = typer.Argument(None, help="Agent identity"),
+    task_input: str = typer.Argument(None, help="Optional task input"),
+):
+    """Spawn agents as a standalone primitive.
+
+    Examples:
+        spawn zealot
+        spawn zealot "debug the login flow"
+        spawn agents
+        spawn describe --as zealot
+    """
+    if ctx.invoked_subcommand is not None:
+        return
+
+    if identity is None:
+        typer.echo(app.get_help(ctx))
+        raise typer.Exit(0)
+
+    try:
+        agent_id = api.ensure_agent(identity)
+
+        if task_input:
+            task_id = api.create_task(identity, task_input)
+            typer.echo(f"✓ Agent: {identity} ({agent_id[:8]})")
+            typer.echo(f"✓ Task: {task_id[:8]}")
+        else:
+            typer.echo(f"✓ Agent: {identity} ({agent_id[:8]})")
     except ValueError as e:
         typer.echo(f"❌ {e}", err=True)
         raise typer.Exit(1) from e

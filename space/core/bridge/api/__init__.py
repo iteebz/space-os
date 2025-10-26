@@ -17,6 +17,7 @@ from .channels import (
     resolve_channel,
     unpin_channel,
 )
+from .mentions import spawn_from_mentions
 from .messaging import (
     get_messages,
     get_sender_history,
@@ -26,7 +27,6 @@ from .messaging import (
 )
 from .notes import add_note, get_notes
 from .search import search
-from .mentions import spawn_from_mentions
 from .stats import stats
 
 __all__ = [

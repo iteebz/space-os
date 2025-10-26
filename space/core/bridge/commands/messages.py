@@ -10,7 +10,7 @@ import typer
 
 from space.core import events, spawn
 
-from ..api import channels, messaging, mentions
+from ..api import channels, mentions, messaging
 
 app = typer.Typer()
 
