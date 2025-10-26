@@ -11,10 +11,18 @@ from space.lib.uuid7 import uuid7
 from .agents import get_agent
 
 
-def create_task(role: str, input: str, channel_id: str | None = None) -> str:
-    agent = get_agent(role)
+def create_task(
+    identity: str | None = None,
+    input: str = "",
+    channel_id: str | None = None,
+    role: str | None = None,
+) -> str:
+    ident = role or identity
+    if not ident:
+        raise ValueError("Either identity or role must be provided")
+    agent = get_agent(ident)
     if not agent:
-        raise ValueError(f"Agent '{role}' not found")
+        raise ValueError(f"Agent '{ident}' not found")
     agent_id = agent.agent_id
     task_id = uuid7()
     now_iso = datetime.now().isoformat()
@@ -26,7 +34,7 @@ def create_task(role: str, input: str, channel_id: str | None = None) -> str:
             """,
             (task_id, agent_id, channel_id, input, "pending", now_iso),
         )
-    events.emit("spawn", "task.create", agent_id, f"Task created for {role}")
+    events.emit("spawn", "task.create", agent_id, f"Task created for {ident}")
     return task_id
 
 
@@ -90,7 +98,9 @@ def fail_task(task_id: str, stderr: str | None = None):
         conn.execute(query, params)
 
 
-def list_tasks(status: str | None = None, role: str | None = None) -> list[Task]:
+def list_tasks(
+    status: str | None = None, identity: str | None = None, role: str | None = None
+) -> list[Task]:
     """List tasks with optional filters."""
     query = "SELECT * FROM tasks WHERE 1 = 1"
     params = []
@@ -98,8 +108,9 @@ def list_tasks(status: str | None = None, role: str | None = None) -> list[Task]
     if status is not None:
         query += " AND status = ?"
         params.append(status)
-    if role is not None:
-        agent = get_agent(role)
+    ident = role or identity
+    if ident is not None:
+        agent = get_agent(ident)
         if not agent:
             return []
         query += " AND agent_id = ?"

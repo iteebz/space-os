@@ -4,7 +4,7 @@ from space.lib import errors
 from space.lib.paths import canon_path
 
 
-def search(query: str) -> list[dict]:
+def search(query: str, max_content_length: int = 500) -> list[dict]:
     """Search canon documents for relevant sections."""
     matches = []
     try:
@@ -23,7 +23,8 @@ def search(query: str) -> list[dict]:
                         {
                             "source": "canon",
                             "path": str(md_file.relative_to(canon_root)),
-                            "content": content,  # Consider truncating for very long files
+                            "content": content[:max_content_length]
+                            + ("..." if len(content) > max_content_length else ""),
                             "reference": f"canon:{md_file.relative_to(canon_root)}",
                         }
                     )

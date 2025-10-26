@@ -8,7 +8,7 @@ from dataclasses import fields
 from pathlib import Path
 from typing import Any, TypeVar
 
-from space.lib import paths
+from space.lib import paths, sqlite
 
 logger = logging.getLogger(__name__)
 
@@ -217,8 +217,6 @@ def ensure(name: str) -> sqlite3.Connection:
 
     This is the main entry point - imports sqlite to establish connection.
     """
-    from space.lib import sqlite
-
     if name not in _registry:
         raise ValueError(f"Database '{name}' not registered. Call store.register() first.")
 

@@ -3,16 +3,16 @@
 import os
 import shlex
 import shutil
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 import click
 
-from space import config
 from space.lib import paths
-from . import agents
+
 from ..spawn import build_identity_prompt
+from . import agents
 
 
 def launch_agent(identity: str, extra_args: list[str] | None = None):

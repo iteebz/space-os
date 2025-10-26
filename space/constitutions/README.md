@@ -41,10 +41,10 @@ Each agent personality defines behavior, values, and execution style.
 
 ## Using a Constitution
 
-Register an agent with a constitution:
+Register an identity with a constitution:
 ```bash
-spawn zealot --model claude-opus
-spawn coordinator --model haiku
+spawn register zealot zealot.md claude claude-opus
+spawn register coordinator prime.md gemini gemini-2.5-pro
 ```
 
 The agent loads the constitution file and uses it as system context.
@@ -73,4 +73,4 @@ api.send_message(channel_id, "zealot-1", "Found issue. @harbinger assessment?")
 messages, count, _, _ = api.recv_updates(channel_id, "zealot-1")
 ```
 
-This emerges from constitutional identity, not special roles. Zealot, Sentinel, Harbinger all use bridge naturally.
+This emerges from constitutional identity. Zealot, Sentinel, Harbinger all use bridge naturally.

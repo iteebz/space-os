@@ -6,7 +6,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-from space import config
 from space.core.spawn import build_identity_prompt
 from space.core.spawn.api import agents as spawn_agents
 from space.core.spawn.api.tasks import complete_task, create_task, fail_task, start_task
@@ -93,14 +92,8 @@ def _build_prompt(identity: str, channel: str, content: str) -> str | None:
 
 
 def _get_task_timeout(identity: str) -> int:
-    """Get task timeout for identity from config."""
-    try:
-        cfg = config.load_config()
-        role_cfg = cfg.get("roles", {}).get(identity, {})
-        return role_cfg.get("task_timeout", cfg.get("timeouts", {}).get("task_default", 120))
-    except Exception as exc:
-        log.warning(f"Failed to load config for {identity}, using default timeout: {exc}")
-        return 120
+    """Get task timeout for identity. Uses default since config is gone."""
+    return 120
 
 
 def spawn_from_mentions(channel_id: str, content: str) -> None:
@@ -132,8 +125,6 @@ def main():
 
     log.info(f"Processing channel={channel_name}, content={content[:50]}")
 
-    config.init_config()
-
     mentions = _parse_mentions(content)
     log.info(f"Found mentions: {mentions}")
     if not mentions:
@@ -148,7 +139,7 @@ def main():
             log.info(f"Got prompt, running spawn {identity}")
             timeout = _get_task_timeout(identity)
             try:
-                task_id = create_task(role=identity, input=prompt, channel_id=channel_id)
+                task_id = create_task(identity=identity, input=prompt, channel_id=channel_id)
                 start_task(task_id)
 
                 result = subprocess.run(

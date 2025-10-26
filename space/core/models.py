@@ -1,6 +1,7 @@
 """Shared data models and types."""
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 
 
@@ -106,7 +107,6 @@ class ChatMessage:
     text: str
 
 
-
 @dataclass
 class Knowledge:
     """A knowledge artifact."""
@@ -154,11 +154,27 @@ class Task:
     def __post_init__(self):
         """Calculate duration from timestamps if not provided."""
         if self.duration is None and self.started_at and self.completed_at:
-            from datetime import datetime
-
             try:
                 start = datetime.fromisoformat(self.started_at)
                 end = datetime.fromisoformat(self.completed_at)
                 self.duration = (end - start).total_seconds()
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.warning(
+                    f"Could not calculate task duration due to malformed timestamps: {e}"
+                )
+
+
+@dataclass
+class Event:
+    """An event for provenance tracking."""
+
+    event_id: str
+    source: str
+    agent_id: str | None
+    event_type: str
+    data: str | None = None
+    timestamp: int | None = None
+    chat_id: str | None = None

@@ -1,6 +1,6 @@
 """Stats aggregation API tests."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -11,10 +11,12 @@ from space.apps.stats.models import BridgeStats, KnowledgeStats, MemoryStats, Sp
 @pytest.fixture
 def mock_apis():
     """Mock all core APIs."""
-    with patch("space.apps.stats.api.bridge") as mock_bridge, \
-         patch("space.apps.stats.api.memory") as mock_memory, \
-         patch("space.apps.stats.api.knowledge") as mock_knowledge, \
-         patch("space.apps.stats.api.spawn") as mock_spawn:
+    with (
+        patch("space.apps.stats.api.bridge") as mock_bridge,
+        patch("space.apps.stats.api.memory") as mock_memory,
+        patch("space.apps.stats.api.knowledge") as mock_knowledge,
+        patch("space.apps.stats.api.spawn") as mock_spawn,
+    ):
         yield {
             "bridge": mock_bridge,
             "memory": mock_memory,

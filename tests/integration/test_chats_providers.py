@@ -122,11 +122,12 @@ def test_codex_provider_parse_messages(mock_codex_chats):
     assert messages[1]["role"] == "assistant"
 
 
-def test_gemini_provider_discover(mock_gemini_chats):
+def test_gemini_provider_discover(mock_gemini_chats, monkeypatch):
     """Test Gemini provider discovers sessions."""
     from space.lib.providers import Gemini
 
     provider = Gemini()
+    monkeypatch.setattr(provider, "tmp_dir", mock_gemini_chats["dir"] / "gemini" / "tmp")
 
     sessions = provider.discover_sessions()
     assert isinstance(sessions, list)

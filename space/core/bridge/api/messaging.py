@@ -1,5 +1,7 @@
 """Message operations: send, receive, alerts, bookmarks."""
 
+import sqlite3
+
 from space.core.models import Channel, Message
 from space.lib import store
 from space.lib.store import from_row
@@ -37,6 +39,36 @@ def send_message(channel: str | Channel, identity: str, content: str) -> str:
     return agent_id
 
 
+def _build_pagination_query_and_params(
+    conn: sqlite3.Connection, channel_id: str, last_seen_id: str | None, base_query: str
+) -> tuple[str, tuple]:
+    """Builds the SQL query and parameters for message pagination."""
+    if last_seen_id is None:
+        # If no last_seen_id, fetch all messages for the channel, ordered by creation time.
+        query = f"{base_query} ORDER BY m.created_at"
+        params = (channel_id,)
+    else:
+        # If last_seen_id is provided, find the message it refers to to get its created_at and rowid.
+        last_seen_row = conn.execute(
+            "SELECT created_at, rowid FROM messages WHERE message_id = ?", (last_seen_id,)
+        ).fetchone()
+        if last_seen_row:
+            # Fetch messages created after the last seen message,
+            # or messages created at the same time but with a greater rowid (for stable ordering).
+            query = f"{base_query} AND (m.created_at > ? OR (m.created_at = ? AND m.rowid > ?)) ORDER BY m.created_at, m.rowid"
+            params = (
+                channel_id,
+                last_seen_row["created_at"],
+                last_seen_row["created_at"],
+                last_seen_row["rowid"],
+            )
+        else:
+            # If last_seen_id is invalid or not found, fall back to fetching all messages.
+            query = f"{base_query} ORDER BY m.created_at"
+            params = (channel_id,)
+    return query, params
+
+
 def get_messages(channel: str | Channel, agent_id: str | None = None) -> list[Message]:
     """Get messages, optionally filtering for new messages for a given agent."""
     channel_id = _to_channel_id(channel)
@@ -62,24 +94,9 @@ def get_messages(channel: str | Channel, agent_id: str | None = None) -> list[Me
             WHERE m.channel_id = ? AND c.archived_at IS NULL
         """
 
-        if last_seen_id is None:
-            query = f"{base_query} ORDER BY m.created_at"
-            params = (channel_id,)
-        else:
-            last_seen_row = conn.execute(
-                "SELECT created_at, rowid FROM messages WHERE message_id = ?", (last_seen_id,)
-            ).fetchone()
-            if last_seen_row:
-                query = f"{base_query} AND (m.created_at > ? OR (m.created_at = ? AND m.rowid > ?)) ORDER BY m.created_at, m.rowid"
-                params = (
-                    channel_id,
-                    last_seen_row["created_at"],
-                    last_seen_row["created_at"],
-                    last_seen_row["rowid"],
-                )
-            else:
-                query = f"{base_query} ORDER BY m.created_at"
-                params = (channel_id,)
+        query, params = _build_pagination_query_and_params(
+            conn, channel_id, last_seen_id, base_query
+        )
 
         cursor = conn.execute(query, params)
         return [_row_to_message(row) for row in cursor.fetchall()]

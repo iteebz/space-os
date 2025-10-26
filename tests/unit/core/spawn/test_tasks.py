@@ -32,7 +32,7 @@ def mock_resolve_agent():
 
 
 def test_create_task_inserts_record(mock_db, mock_resolve_agent):
-    spawn.create_task(role="test-role", input="do work")
+    spawn.create_task(identity="test-role", input="do work")
 
     calls = [call[0][0] for call in mock_db.execute.call_args_list]
     task_call = [call for call in calls if "INSERT INTO tasks" in call][0]
@@ -40,7 +40,7 @@ def test_create_task_inserts_record(mock_db, mock_resolve_agent):
 
 
 def test_create_task_with_channel_id(mock_db, mock_resolve_agent):
-    spawn.create_task(role="test-role", input="work", channel_id="ch-123")
+    spawn.create_task(identity="test-role", input="work", channel_id="ch-123")
 
     calls = [
         call[0] for call in mock_db.execute.call_args_list if "INSERT INTO tasks" in call[0][0]
@@ -51,7 +51,7 @@ def test_create_task_with_channel_id(mock_db, mock_resolve_agent):
 
 
 def test_create_task_returns_id(mock_db, mock_resolve_agent):
-    result = spawn.create_task(role="test-role", input="work")
+    result = spawn.create_task(identity="test-role", input="work")
     assert result is not None
 
 
@@ -59,7 +59,7 @@ def test_create_task_unknown_role_raises(mock_resolve_agent):
     mock_resolve_agent.return_value = None
 
     with pytest.raises(ValueError, match="not found"):
-        spawn.create_task(role="unknown", input="work")
+        spawn.create_task(identity="unknown", input="work")
 
 
 def test_get_task_returns_task(mock_db):

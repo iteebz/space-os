@@ -4,8 +4,6 @@ import json
 import subprocess
 from pathlib import Path
 
-from space import config
-
 
 class Codex:
     """Codex provider: chat discovery + message parsing + spawning."""
@@ -91,25 +89,12 @@ class Codex:
             pass
         return messages
 
-    def spawn(self, role: str, task: str | None = None) -> str:
+    def spawn(self, identity: str, task: str | None = None) -> str:
         """Spawn Codex agent."""
         if task:
-            config.init_config()
-            cfg = config.load_config()
-
-            if role not in cfg["roles"]:
-                raise ValueError(f"Unknown role: {role}")
-
-            role_cfg = cfg["roles"][role]
-            base_agent = role_cfg["base_agent"]
-            agent_cfg = cfg.get("agents", {}).get(base_agent)
-            if not agent_cfg:
-                raise ValueError(f"Agent not configured: {base_agent}")
-
-            command = agent_cfg.get("command")
             result = subprocess.run(
                 [
-                    command,
+                    "codex",
                     "exec",
                     task,
                     "--dangerously-bypass-approvals-and-sandbox",
@@ -122,7 +107,7 @@ class Codex:
 
         from space.core.spawn.api import launch_agent
 
-        launch_agent(role)
+        launch_agent(identity)
         return ""
 
     def ping(self, identity: str) -> bool:
