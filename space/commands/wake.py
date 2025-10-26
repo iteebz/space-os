@@ -99,7 +99,7 @@ def wake(
 ):
     """Load your context. Resume where you left off."""
     typer.echo(f"Waking up {identity}")
-    from space.core import memory, spawn
+    from space.core import chats, memory, spawn
 
     agent = spawn.get_agent(identity)
     if not agent:
@@ -107,9 +107,7 @@ def wake(
             f"Identity '{identity}' not registered. Run 'space init' or register with 'spawn register'."
         )
 
-    from space.lib import chats
-
-    chats.sync(identity)
+    chats.sync(identity=identity)
 
     journal_entries = memory.list_entries(identity, topic="journal")
     spawn_count = len(journal_entries)

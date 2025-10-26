@@ -39,10 +39,9 @@ def _seed_dbs(tmp_path_factory):
 
 @pytest.fixture
 def test_space(monkeypatch, tmp_path, _seed_dbs):
-    from space.core import events
-    from space.lib import chats
+    from space.core import chats, events
 
-    monkeypatch.setattr(chats, "sync", lambda identity: None)
+    monkeypatch.setattr(chats, "sync", lambda identity=None, session_id=None: 0)
     config.load_config.cache_clear()
     sqlite_db.close_all()
     spawn.db.clear_caches()
@@ -60,11 +59,13 @@ def test_space(monkeypatch, tmp_path, _seed_dbs):
     monkeypatch.setattr(sqlite_db, "paths", paths)
 
     spawn.db._initialized = False
+    chats.db._initialized = False
     memory.db._initialized = False
     knowledge.db._initialized = False
     bridge.db._initialized = False
 
     spawn.db.register()
+    chats.db.register()
     memory.db.register()
     knowledge.db.register()
     bridge.db.register()

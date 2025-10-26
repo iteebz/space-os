@@ -2,7 +2,7 @@ from pathlib import Path
 
 import typer
 
-from space.core import spawn
+from space.core import chats, spawn
 from space.lib import db, paths
 
 
@@ -15,6 +15,8 @@ def init():
     (root / "projects").mkdir(parents=True, exist_ok=True)
 
     with spawn.db.connect():
+        pass
+    with chats.db.connect():
         pass
     with db.ensure("bridge"):
         pass

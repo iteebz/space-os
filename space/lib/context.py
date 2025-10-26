@@ -3,8 +3,8 @@
 import logging
 
 from space import config
-from space.core import bridge, knowledge, memory
-from space.lib import canon, chats
+from space.core import bridge, chats, knowledge, memory
+from space.lib import canon
 
 log = logging.getLogger(__name__)
 
