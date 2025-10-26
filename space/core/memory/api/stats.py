@@ -1,11 +1,11 @@
 """Memory stats aggregation."""
 
-from space.lib import db
+from space.lib import store
 
 
 def stats() -> dict:
     """Get memory statistics."""
-    with db.ensure("memory") as conn:
+    with store.ensure("memory") as conn:
         total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
         active = conn.execute("SELECT COUNT(*) FROM memories WHERE archived_at IS NULL").fetchone()[
             0

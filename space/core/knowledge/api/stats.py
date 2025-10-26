@@ -1,11 +1,11 @@
 """Knowledge stats aggregation."""
 
-from space.lib import db
+from space.lib import store
 
 
 def stats() -> dict:
     """Get knowledge statistics."""
-    with db.ensure("knowledge") as conn:
+    with store.ensure("knowledge") as conn:
         total = conn.execute("SELECT COUNT(*) FROM knowledge").fetchone()[0]
         active = conn.execute(
             "SELECT COUNT(*) FROM knowledge WHERE archived_at IS NULL"

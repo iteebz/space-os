@@ -4,8 +4,8 @@ from datetime import datetime
 
 from space.core import events
 from space.core.models import Task, TaskStatus
-from space.lib import db
-from space.lib.db.conversions import from_row
+from space.lib import store
+from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
 
 from .agents import get_agent
@@ -18,7 +18,7 @@ def create_task(role: str, input: str, channel_id: str | None = None) -> str:
     agent_id = agent.agent_id
     task_id = uuid7()
     now_iso = datetime.now().isoformat()
-    with db.ensure("spawn") as conn:
+    with store.ensure("spawn") as conn:
         conn.execute(
             """
             INSERT INTO tasks (task_id, agent_id, channel_id, input, status, created_at)
@@ -32,7 +32,7 @@ def create_task(role: str, input: str, channel_id: str | None = None) -> str:
 
 def get_task(task_id: str) -> Task | None:
     """Get task by ID."""
-    with db.ensure("spawn") as conn:
+    with store.ensure("spawn") as conn:
         row = conn.execute(
             "SELECT * FROM tasks WHERE task_id = ?",
             (task_id,),
@@ -53,7 +53,7 @@ def start_task(task_id: str, pid: int | None = None):
 
     params.append(task_id)
     query = f"UPDATE tasks SET {', '.join(updates)} WHERE task_id = ?"
-    with db.ensure("spawn") as conn:
+    with store.ensure("spawn") as conn:
         conn.execute(query, params)
 
 
@@ -71,7 +71,7 @@ def complete_task(task_id: str, output: str | None = None, stderr: str | None = 
 
     params.append(task_id)
     query = f"UPDATE tasks SET {', '.join(updates)} WHERE task_id = ?"
-    with db.ensure("spawn") as conn:
+    with store.ensure("spawn") as conn:
         conn.execute(query, params)
 
 
@@ -86,7 +86,7 @@ def fail_task(task_id: str, stderr: str | None = None):
 
     params.append(task_id)
     query = f"UPDATE tasks SET {', '.join(updates)} WHERE task_id = ?"
-    with db.ensure("spawn") as conn:
+    with store.ensure("spawn") as conn:
         conn.execute(query, params)
 
 
@@ -107,6 +107,6 @@ def list_tasks(status: str | None = None, role: str | None = None) -> list[Task]
 
     query += " ORDER BY created_at DESC"
 
-    with db.ensure("spawn") as conn:
+    with store.ensure("spawn") as conn:
         rows = conn.execute(query, params).fetchall()
         return [from_row(row, Task) for row in rows]

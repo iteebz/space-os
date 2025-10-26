@@ -3,7 +3,7 @@ from pathlib import Path
 import typer
 
 from space.core import chats, spawn
-from space.lib import db, paths
+from space.lib import paths
 
 
 def init():
@@ -18,13 +18,13 @@ def init():
         pass
     with chats.db.connect():
         pass
-    with db.ensure("bridge"):
+    with store.ensure("bridge"):
         pass
-    with db.ensure("memory"):
+    with store.ensure("memory"):
         pass
-    with db.ensure("knowledge"):
+    with store.ensure("knowledge"):
         pass
-    with db.ensure("events"):
+    with store.ensure("events"):
         pass
 
     typer.echo(f"✓ Initialized workspace at {root}")

@@ -20,12 +20,14 @@ class Claude:
             return sessions
 
         for jsonl in self.chats_dir.rglob("*.jsonl"):
-            sessions.append({
-                "cli": "claude",
-                "session_id": jsonl.stem,
-                "file_path": str(jsonl),
-                "created_at": jsonl.stat().st_ctime,
-            })
+            sessions.append(
+                {
+                    "cli": "claude",
+                    "session_id": jsonl.stem,
+                    "file_path": str(jsonl),
+                    "created_at": jsonl.stat().st_ctime,
+                }
+            )
         return sessions
 
     def parse_messages(self, file_path: Path, from_offset: int = 0) -> list[dict]:
@@ -48,14 +50,15 @@ class Claude:
                         content_raw = message_obj.get("content", "")
                         if isinstance(content_raw, list):
                             content = "\n".join(
-                                item.get("text", "") for item in content_raw
+                                item.get("text", "")
+                                for item in content_raw
                                 if isinstance(item, dict) and item.get("type") == "text"
                             )
                         else:
                             content = content_raw
                     else:
                         content = message_obj
-                    
+
                     msg = {
                         "message_id": data.get("uuid"),
                         "role": role,

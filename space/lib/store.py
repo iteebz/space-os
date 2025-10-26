@@ -1,10 +1,36 @@
-"""Migration and backup safeguards to prevent data loss."""
+"""Generic storage abstraction - database registry and lifecycle management."""
 
 import logging
 import sqlite3
+import threading
+from collections.abc import Callable
+from dataclasses import fields
 from pathlib import Path
+from typing import Any, TypeVar
+
+from space.lib import paths
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+_registry: dict[str, tuple[str, str]] = {}
+_migrations: dict[str, list[tuple[str, str | Callable]]] = {}
+_connections = threading.local()
+
+Row = sqlite3.Row
+
+
+def from_row(row: dict[str, Any] | Any, dataclass_type: type[T]) -> T:
+    """Convert dict-like row to dataclass instance.
+
+    Matches row keys to dataclass field names. Works with any dict-like object
+    (sqlite3.Row, dict, etc.) allowing backend-agnostic conversions.
+    """
+    field_names = {f.name for f in fields(dataclass_type)}
+    row_dict = dict(row) if not isinstance(row, dict) else row
+    kwargs = {key: row_dict[key] for key in field_names if key in row_dict}
+    return dataclass_type(**kwargs)
 
 
 def _get_table_count(conn: sqlite3.Connection, table: str) -> int:
@@ -22,7 +48,9 @@ def _get_table_count(conn: sqlite3.Connection, table: str) -> int:
         return 0
 
 
-def check(conn: sqlite3.Connection, table: str, before: int, allow_loss: int = 0) -> None:
+def _check_migration_safety(
+    conn: sqlite3.Connection, table: str, before: int, allow_loss: int = 0
+) -> None:
     """Verify row count after migration, raise if data loss exceeds threshold.
 
     Args:
@@ -167,3 +195,62 @@ class DatabaseHealthCheck:
                 warnings.append(f"{db_name}: completely emptied ({before_count} → 0 rows)")
 
         return warnings
+
+
+def register(name: str, db_file: str) -> None:
+    """Register database in global registry.
+
+    Args:
+        name: Database identifier
+        db_file: Filename for database
+    """
+    _registry[name] = db_file
+
+
+def add_migrations(name: str, migs: list[tuple[str, str | Callable]]) -> None:
+    """Register migrations for database."""
+    _migrations[name] = migs
+
+
+def ensure(name: str) -> sqlite3.Connection:
+    """Ensure registered database exists and return connection.
+
+    This is the main entry point - imports sqlite to establish connection.
+    """
+    from space.lib import sqlite
+
+    if name not in _registry:
+        raise ValueError(f"Database '{name}' not registered. Call store.register() first.")
+
+    if not hasattr(_connections, name):
+        db_file = _registry[name]
+        db_path = paths.space_data() / db_file
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        migs = _migrations.get(name)
+        sqlite.ensure_schema(db_path, migs)
+        setattr(_connections, name, sqlite.connect(db_path))
+
+    return getattr(_connections, name)
+
+
+def registry() -> dict[str, tuple[str, str]]:
+    """Return registry of all registered databases."""
+    return _registry.copy()
+
+
+def _reset_for_testing() -> None:
+    """Reset registry and migrations state (test-only)."""
+    _registry.clear()
+    _migrations.clear()
+    if hasattr(_connections, "__dict__"):
+        for conn in _connections.__dict__.values():
+            conn.close()
+        _connections.__dict__.clear()
+
+
+def close_all():
+    """Close all managed database connections."""
+    if hasattr(_connections, "__dict__"):
+        for conn in _connections.__dict__.values():
+            conn.close()
+        _connections.__dict__.clear()

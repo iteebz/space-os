@@ -1,7 +1,6 @@
 from pathlib import Path
 
-from space.lib import db as db_lib
-from space.lib import paths
+from space.lib import paths, store
 
 from . import migrations
 
@@ -61,10 +60,10 @@ def register() -> None:
         return
     _initialized = True
 
-    db_lib.register("bridge", "bridge.db", schema())
-    db_lib.add_migrations("bridge", migrations.MIGRATIONS)
+    store.register("bridge", "bridge.db", schema())
+    store.add_migrations("bridge", migrations.MIGRATIONS)
 
 
 def connect():
     """Return connection to bridge database via central registry."""
-    return db_lib.ensure("bridge")
+    return store.ensure("bridge")

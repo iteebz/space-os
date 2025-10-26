@@ -2,7 +2,7 @@ import sqlite3
 
 import typer
 
-from space.lib import db, paths
+from space.lib import paths
 
 app = typer.Typer(invoke_without_command=True)
 
@@ -50,7 +50,7 @@ def _check_orphans() -> list[str]:
             continue
 
         try:
-            with db.ensure(registry_name) as conn:
+            with store.ensure(registry_name) as conn:
                 query = f"""
                 SELECT COUNT(*) FROM {src_table}
                 WHERE {src_col} IS NOT NULL
@@ -87,7 +87,7 @@ def _check_db(db_name: str, tables: list[str]) -> tuple[bool, list[str], dict]:
         return False, issues, {}
 
     try:
-        with db.ensure(registry_name) as conn:
+        with store.ensure(registry_name) as conn:
             # Schema check
             actual = {
                 row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")

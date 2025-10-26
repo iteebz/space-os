@@ -1,6 +1,6 @@
 """Memory search: unified query interface."""
 
-from space.lib import db
+from space.lib import store
 
 
 def search(query: str, identity: str | None, all_agents: bool) -> list[dict]:
@@ -8,7 +8,7 @@ def search(query: str, identity: str | None, all_agents: bool) -> list[dict]:
     from space.core import spawn
 
     results = []
-    with db.ensure("memory") as conn:
+    with store.ensure("memory") as conn:
         sql_query = (
             "SELECT memory_id, agent_id, topic, message, timestamp, created_at FROM memories "
             "WHERE (message LIKE ? OR topic LIKE ?)"

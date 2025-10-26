@@ -5,7 +5,7 @@ This module has been migrated to space.core.chats as a first-class primitive.
 Migration path:
     OLD: from space.lib import chats
     NEW: from space.core import chats
-    
+
 New features:
     - sessions/syncs table for offset-based sync
     - Provider abstraction (Claude, Codex, Gemini)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from space.lib import db
+from space.lib import store
 
 _VALID_TABLES = {"agents", "channels", "memories", "knowledge", "messages", "events", "memory"}
 _VALID_COLUMNS = {
@@ -39,7 +39,7 @@ def resolve_id(table: str, id_col: str, partial_id: str, *, error_context: str =
     actual_table = table_map.get(table, table)
     registry_map = {"memory": "memory", "memories": "memory"}
     registry_name = registry_map.get(table, table)
-    with db.ensure(registry_name) as conn:
+    with store.ensure(registry_name) as conn:
         rows = conn.execute(
             f"SELECT {id_col} FROM {actual_table} WHERE {id_col} LIKE ?",
             (f"%{partial_id}",),

@@ -3,7 +3,7 @@
 import sqlite3
 from typing import Any
 
-from space.lib import db
+from space.lib import store
 
 
 def agent_by_name(conn: sqlite3.Connection, name: str, show_all: bool = False) -> list[str]:
@@ -53,7 +53,7 @@ def select_with_filter(
     order_by: str = "",
     limit: int | None = None,
     show_all: bool = False,
-) -> list[db.Row]:
+) -> list[store.Row]:
     """Build SELECT with archive filter, WHERE, ORDER BY, and LIMIT."""
     query = f"SELECT {columns} FROM {table}"
 

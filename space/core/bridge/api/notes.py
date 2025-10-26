@@ -1,12 +1,12 @@
 """Note operations: add, get, list."""
 
 from space.core.models import Channel, Note
-from space.lib import db
-from space.lib.db import from_row
+from space.lib import store
+from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
 
 
-def _row_to_note(row: db.Row) -> Note:
+def _row_to_note(row: store.Row) -> Note:
     return from_row(row, Note)
 
 
@@ -32,7 +32,7 @@ def add_note(channel_id: str | Channel, identity: str, content: str) -> str:
     agent_id = agent.agent_id
     note_id = uuid7()
 
-    with db.ensure("bridge") as conn:
+    with store.ensure("bridge") as conn:
         conn.execute(
             "INSERT INTO notes (note_id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
             (note_id, channel_id, agent_id, content),
@@ -43,7 +43,7 @@ def add_note(channel_id: str | Channel, identity: str, content: str) -> str:
 def get_notes(channel_id: str | Channel) -> list[Note]:
     """Get all notes for channel ordered by creation."""
     channel_id = _to_channel_id(channel_id)
-    with db.ensure("bridge") as conn:
+    with store.ensure("bridge") as conn:
         cursor = conn.execute(
             "SELECT note_id, channel_id, agent_id, content, created_at FROM notes WHERE channel_id = ? ORDER BY created_at ASC",
             (channel_id,),

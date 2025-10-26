@@ -10,8 +10,8 @@ import time
 
 from space.core import events
 from space.core.models import Knowledge
-from space.lib import db
-from space.lib.db import from_row
+from space.lib import store
+from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
 
 _track_knowledge = events.track("knowledge")
@@ -25,7 +25,7 @@ def _row_to_knowledge(row: dict) -> Knowledge:
 def add_entry(domain: str, agent_id: str, content: str, confidence: float | None = None) -> str:
     """Add new knowledge entry. Returns entry_id."""
     knowledge_id = uuid7()
-    with db.ensure("knowledge") as conn:
+    with store.ensure("knowledge") as conn:
         conn.execute(
             "INSERT INTO knowledge (knowledge_id, domain, agent_id, content, confidence) VALUES (?, ?, ?, ?, ?)",
             (knowledge_id, domain, agent_id, content, confidence),
@@ -36,7 +36,7 @@ def add_entry(domain: str, agent_id: str, content: str, confidence: float | None
 def list_entries(show_all: bool = False) -> list[Knowledge]:
     """List all knowledge entries."""
     archive_filter = "" if show_all else "WHERE archived_at IS NULL"
-    with db.ensure("knowledge") as conn:
+    with store.ensure("knowledge") as conn:
         rows = conn.execute(
             f"SELECT knowledge_id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge {archive_filter} ORDER BY created_at DESC"
         ).fetchall()
@@ -46,7 +46,7 @@ def list_entries(show_all: bool = False) -> list[Knowledge]:
 def query_by_domain(domain: str, show_all: bool = False) -> list[Knowledge]:
     """Query knowledge entries by domain."""
     archive_filter = "" if show_all else "AND archived_at IS NULL"
-    with db.ensure("knowledge") as conn:
+    with store.ensure("knowledge") as conn:
         rows = conn.execute(
             f"SELECT knowledge_id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE domain = ? {archive_filter} ORDER BY created_at DESC",
             (domain,),
@@ -57,7 +57,7 @@ def query_by_domain(domain: str, show_all: bool = False) -> list[Knowledge]:
 def query_by_agent(agent_id: str, show_all: bool = False) -> list[Knowledge]:
     """Query knowledge entries by agent."""
     archive_filter = "" if show_all else "AND archived_at IS NULL"
-    with db.ensure("knowledge") as conn:
+    with store.ensure("knowledge") as conn:
         rows = conn.execute(
             f"SELECT knowledge_id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE agent_id = ? {archive_filter} ORDER BY created_at DESC",
             (agent_id,),
@@ -67,7 +67,7 @@ def query_by_agent(agent_id: str, show_all: bool = False) -> list[Knowledge]:
 
 def get_by_id(entry_id: str) -> Knowledge | None:
     """Get knowledge entry by its UUID."""
-    with db.ensure("knowledge") as conn:
+    with store.ensure("knowledge") as conn:
         row = conn.execute(
             "SELECT knowledge_id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE knowledge_id = ?",
             (entry_id,),
@@ -88,7 +88,7 @@ def find_related(
         return []
 
     archive_filter = "" if show_all else "AND archived_at IS NULL"
-    with db.ensure("knowledge") as conn:
+    with store.ensure("knowledge") as conn:
         all_entries = conn.execute(
             f"SELECT knowledge_id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE knowledge_id != ? {archive_filter}",
             (entry.knowledge_id,),
@@ -115,7 +115,7 @@ def find_related(
 def archive_entry(entry_id: str) -> None:
     """Archive a knowledge entry."""
     now = int(time.time())
-    with db.ensure("knowledge") as conn:
+    with store.ensure("knowledge") as conn:
         conn.execute(
             "UPDATE knowledge SET archived_at = ? WHERE knowledge_id = ?",
             (now, entry_id),
@@ -124,7 +124,7 @@ def archive_entry(entry_id: str) -> None:
 
 def restore_entry(entry_id: str) -> None:
     """Restore an archived knowledge entry."""
-    with db.ensure("knowledge") as conn:
+    with store.ensure("knowledge") as conn:
         conn.execute(
             "UPDATE knowledge SET archived_at = NULL WHERE knowledge_id = ?",
             (entry_id,),

@@ -1,11 +1,11 @@
 """Bridge stats aggregation: messages, channels, notes, and events."""
 
-from space.lib import db
+from space.lib import store
 
 
 def stats() -> dict:
     """Get bridge statistics: messages, channels, notes, and events by agent."""
-    with db.ensure("bridge") as conn:
+    with store.ensure("bridge") as conn:
         total_msgs = conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
         archived_msgs = conn.execute(
             "SELECT COUNT(*) FROM messages WHERE channel_id IN (SELECT channel_id FROM channels WHERE archived_at IS NOT NULL)"
@@ -29,7 +29,7 @@ def stats() -> dict:
         ).fetchall()
 
     try:
-        with db.ensure("events") as conn:
+        with store.ensure("events") as conn:
             rows = conn.execute(
                 "SELECT agent_id, event_type, timestamp FROM events ORDER BY timestamp"
             ).fetchall()

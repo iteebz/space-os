@@ -1,9 +1,9 @@
-"""Tests for space.db.utils."""
+"""Tests for space.lib.store utilities."""
 
 import sqlite3
 from dataclasses import dataclass
 
-from space.lib.db.conversions import from_row
+from space.lib.store import from_row
 
 
 @dataclass

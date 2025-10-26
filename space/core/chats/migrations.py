@@ -54,5 +54,5 @@ CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);
 CREATE INDEX IF NOT EXISTS idx_messages_cwd ON messages(cwd);
 CREATE INDEX IF NOT EXISTS idx_messages_role ON messages(role);
         """,
-    )
+    ),
 ]

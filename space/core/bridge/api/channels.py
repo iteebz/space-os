@@ -4,13 +4,13 @@ import sqlite3
 import uuid
 
 from space.core.models import Channel, Export
-from space.lib import db
-from space.lib.db import from_row
+from space.lib import store
+from space.lib.store import from_row
 
 from . import messaging, notes
 
 
-def _row_to_channel(row: db.Row) -> Channel:
+def _row_to_channel(row: store.Row) -> Channel:
     return from_row(row, Channel)
 
 
@@ -25,7 +25,7 @@ def create_channel(name: str, topic: str | None = None) -> Channel:
         raise ValueError("Channel name is required")
 
     channel_id = uuid.uuid4().hex
-    with db.ensure("bridge") as conn:
+    with store.ensure("bridge") as conn:
         conn.execute(
             "INSERT INTO channels (channel_id, name, topic) VALUES (?, ?, ?)",
             (channel_id, name, topic),
@@ -35,7 +35,7 @@ def create_channel(name: str, topic: str | None = None) -> Channel:
 
 def resolve_channel(identifier: str) -> Channel:
     """Resolve channel by name or ID. Creates if not exists. Returns Channel object."""
-    with db.ensure("bridge") as conn:
+    with store.ensure("bridge") as conn:
         row = conn.execute(
             "SELECT channel_id, name, topic, created_at, archived_at FROM channels WHERE name = ? OR channel_id = ? LIMIT 1",
             (identifier, identifier),
@@ -57,7 +57,7 @@ def resolve_channel(identifier: str) -> Channel:
 
 def rename_channel(old_name: str, new_name: str) -> bool:
     """Rename channel. Returns True if successful."""
-    with db.ensure("bridge") as conn:
+    with store.ensure("bridge") as conn:
         row = conn.execute(
             "SELECT channel_id FROM channels WHERE name = ?",
             (old_name,),
@@ -77,7 +77,7 @@ def rename_channel(old_name: str, new_name: str) -> bool:
 
 def archive_channel(name: str) -> None:
     """Archive channel by setting archived_at. Raises ValueError if not found."""
-    with db.ensure("bridge") as conn:
+    with store.ensure("bridge") as conn:
         cursor = conn.execute(
             "UPDATE channels SET archived_at = CURRENT_TIMESTAMP WHERE name = ? AND archived_at IS NULL",
             (name,),
@@ -88,7 +88,7 @@ def archive_channel(name: str) -> None:
 
 def pin_channel(name: str) -> None:
     """Pin channel. Raises ValueError if not found."""
-    with db.ensure("bridge") as conn:
+    with store.ensure("bridge") as conn:
         cursor = conn.execute(
             "UPDATE channels SET pinned_at = CURRENT_TIMESTAMP WHERE name = ? AND pinned_at IS NULL",
             (name,),
@@ -99,7 +99,7 @@ def pin_channel(name: str) -> None:
 
 def unpin_channel(name: str) -> None:
     """Unpin channel. Raises ValueError if not found."""
-    with db.ensure("bridge") as conn:
+    with store.ensure("bridge") as conn:
         cursor = conn.execute(
             "UPDATE channels SET pinned_at = NULL WHERE name = ? AND pinned_at IS NOT NULL",
             (name,),
@@ -110,7 +110,7 @@ def unpin_channel(name: str) -> None:
 
 def delete_channel(name: str) -> None:
     """Hard delete channel and all messages/bookmarks. Raises ValueError if not found."""
-    with db.ensure("bridge") as conn:
+    with store.ensure("bridge") as conn:
         row = conn.execute(
             "SELECT channel_id FROM channels WHERE name = ?",
             (name,),
@@ -128,7 +128,7 @@ def delete_channel(name: str) -> None:
 
 def list_channels(all: bool = False, agent_id: str | None = None) -> list[Channel]:
     """Get channels. With agent_id, returns active (unread) channels; otherwise all channels."""
-    with db.ensure("bridge") as conn:
+    with store.ensure("bridge") as conn:
         if agent_id:
             query = """
                 WITH last_seen AS (
@@ -188,7 +188,7 @@ def list_channels(all: bool = False, agent_id: str | None = None) -> list[Channe
 
 def fetch_inbox(agent_id: str) -> list[Channel]:
     """Get all channels with unread messages for agent."""
-    with db.ensure("bridge") as conn:
+    with store.ensure("bridge") as conn:
         query = """
             WITH last_seen AS (
                 SELECT b.channel_id, m.created_at, m.rowid
@@ -226,7 +226,7 @@ def fetch_inbox(agent_id: str) -> list[Channel]:
 def get_channel(channel: str | Channel) -> Channel | None:
     """Get a channel by its ID, including members."""
     channel_id = _to_channel_id(channel)
-    with db.ensure("bridge") as conn:
+    with store.ensure("bridge") as conn:
         row = conn.execute(
             "SELECT channel_id, name, topic, created_at, archived_at FROM channels WHERE channel_id = ?",
             (channel_id,),

@@ -20,12 +20,14 @@ class Codex:
             return sessions
 
         for jsonl in self.sessions_dir.rglob("*.jsonl"):
-            sessions.append({
-                "cli": "codex",
-                "session_id": jsonl.stem,
-                "file_path": str(jsonl),
-                "created_at": jsonl.stat().st_ctime,
-            })
+            sessions.append(
+                {
+                    "cli": "codex",
+                    "session_id": jsonl.stem,
+                    "file_path": str(jsonl),
+                    "created_at": jsonl.stat().st_ctime,
+                }
+            )
         return sessions
 
     def parse_messages(self, file_path: Path, from_offset: int = 0) -> list[dict]:
@@ -41,20 +43,21 @@ class Codex:
                     data = json.loads(line)
                     msg_type = data.get("type")
                     payload = data.get("payload", {})
-                    
+
                     if msg_type == "response_item":
                         role = payload.get("role")
                         if role not in ("user", "assistant"):
                             continue
-                        
+
                         content_list = payload.get("content", [])
                         content = ""
                         if isinstance(content_list, list):
                             content = "\n".join(
-                                item.get("text", "") for item in content_list 
+                                item.get("text", "")
+                                for item in content_list
                                 if isinstance(item, dict) and item.get("type") == "input_text"
                             )
-                        
+
                         msg = {
                             "message_id": payload.get("id"),
                             "role": role,
@@ -69,10 +72,11 @@ class Codex:
                         content = ""
                         if isinstance(content_list, list):
                             content = "\n".join(
-                                item.get("text", "") for item in content_list 
+                                item.get("text", "")
+                                for item in content_list
                                 if isinstance(item, dict) and item.get("type") == "input_text"
                             )
-                        
+
                         msg = {
                             "message_id": payload.get("id"),
                             "role": "tool",

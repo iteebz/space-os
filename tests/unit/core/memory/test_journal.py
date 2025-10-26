@@ -17,7 +17,7 @@ def make_mock_row(data):
 @pytest.fixture
 def mock_db():
     conn = MagicMock()
-    with patch("space.lib.db.ensure") as mock_ensure:
+    with patch("space.lib.store.ensure") as mock_ensure:
         mock_ensure.return_value.__enter__.return_value = conn
         mock_ensure.return_value.__exit__.return_value = None
         yield conn

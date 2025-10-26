@@ -8,16 +8,13 @@ def export(session_id: str, cli: str) -> str | None:
     provider = getattr(providers, cli, None)
     if not provider:
         return None
-    
+
     sessions = provider.discover_sessions()
-    file_path = next(
-        (s["file_path"] for s in sessions if s["session_id"] == session_id),
-        None
-    )
-    
+    file_path = next((s["file_path"] for s in sessions if s["session_id"] == session_id), None)
+
     if not file_path or not Path(file_path).exists():
         return None
-    
+
     try:
         with open(file_path) as f:
             return f.read()

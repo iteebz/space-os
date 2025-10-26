@@ -1,11 +1,11 @@
 """Spawn stats aggregation."""
 
-from space.lib import db
+from space.lib import store
 
 
 def stats() -> dict:
     """Get spawn statistics."""
-    with db.ensure("spawn") as conn:
+    with store.ensure("spawn") as conn:
         total_agents = conn.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
         active_agents = conn.execute(
             "SELECT COUNT(*) FROM agents WHERE archived_at IS NULL"
@@ -24,21 +24,21 @@ def stats() -> dict:
 
 def agent_identities() -> dict[str, str]:
     """Get agent_id -> identity mapping."""
-    with db.ensure("spawn") as conn:
+    with store.ensure("spawn") as conn:
         rows = conn.execute("SELECT agent_id, identity FROM agents").fetchall()
         return {row[0]: row[1] for row in rows}
 
 
 def archived_agents() -> set[str]:
     """Get set of archived agent IDs."""
-    with db.ensure("spawn") as conn:
+    with store.ensure("spawn") as conn:
         rows = conn.execute("SELECT agent_id FROM agents WHERE archived_at IS NOT NULL").fetchall()
         return {row[0] for row in rows}
 
 
 def agent_stats(agent_id: str) -> dict:
     """Get task stats for a specific agent."""
-    with db.ensure("spawn") as conn:
+    with store.ensure("spawn") as conn:
         total = conn.execute(
             "SELECT COUNT(*) FROM tasks WHERE agent_id = ?", (agent_id,)
         ).fetchone()[0]

@@ -24,7 +24,9 @@ MIGRATIONS = [
         """
 CREATE TABLE IF NOT EXISTS agents (
     agent_id TEXT PRIMARY KEY,
-    name TEXT UNIQUE,
+    identity TEXT UNIQUE NOT NULL,
+    constitution TEXT NOT NULL,
+    base_agent TEXT NOT NULL,
     self_description TEXT,
     archived_at INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -48,7 +50,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_agent ON tasks(agent_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_channel ON tasks(channel_id);
-    """,
+""",
     ),
     (
         "rename_name_to_identity",

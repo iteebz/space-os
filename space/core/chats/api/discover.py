@@ -1,22 +1,22 @@
 from datetime import datetime
 
-from space.lib import db, providers
+from space.lib import providers, store
 
 
 def discover() -> dict[str, int]:
     """Scan all providers for chat sessions. Returns {cli: count_discovered}."""
     results = {"claude": 0, "codex": 0, "gemini": 0}
 
-    with db.ensure("chats") as conn:
+    with store.ensure("chats") as conn:
         for cli_name in ("claude", "codex", "gemini"):
             provider = getattr(providers, cli_name)
             sessions = provider.discover_sessions()
-            
+
             for session in sessions:
                 try:
                     conn.execute(
                         """
-                        INSERT OR IGNORE INTO sessions 
+                        INSERT OR IGNORE INTO sessions
                         (cli, session_id, file_path, discovered_at)
                         VALUES (?, ?, ?, ?)
                         """,
@@ -27,10 +27,10 @@ def discover() -> dict[str, int]:
                             datetime.now().isoformat(),
                         ),
                     )
-                    
+
                     conn.execute(
                         """
-                        INSERT OR IGNORE INTO syncs 
+                        INSERT OR IGNORE INTO syncs
                         (cli, session_id)
                         VALUES (?, ?)
                         """,

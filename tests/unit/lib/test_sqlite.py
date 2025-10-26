@@ -1,4 +1,4 @@
-"""Tests for space.db.sqlite backend."""
+"""Tests for space.lib.sqlite backend."""
 
 import sqlite3
 import tempfile
@@ -6,8 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from space.lib import db
-from space.lib.db import sqlite
+from space.lib import sqlite, store
 
 
 @pytest.fixture
@@ -20,9 +19,9 @@ def temp_db_dir():
 @pytest.fixture
 def clean_registry():
     """Clear registry before and after each test."""
-    sqlite._reset_for_testing()
+    store._reset_for_testing()
     yield
-    sqlite._reset_for_testing()
+    store._reset_for_testing()
 
 
 def test_connect_basic(temp_db_dir):
@@ -31,7 +30,7 @@ def test_connect_basic(temp_db_dir):
     conn = sqlite.connect(db_path)
 
     assert isinstance(conn, sqlite3.Connection)
-    assert conn.row_factory == db.Row
+    assert conn.row_factory == sqlite3.Row
     conn.close()
     assert db_path.exists()
 
@@ -39,19 +38,19 @@ def test_connect_basic(temp_db_dir):
 def test_register_database(clean_registry):
     """Test registering a database."""
     schema = "CREATE TABLE test (id TEXT PRIMARY KEY)"
-    sqlite.register("test_db", "test.db", schema)
+    store.register("test_db", "test.db", schema)
 
-    assert "test_db" in sqlite._registry
-    assert sqlite._registry["test_db"] == ("test.db", schema)
+    assert "test_db" in store._registry
+    assert store._registry["test_db"] == ("test.db", schema)
 
 
 def test_register_migrations(clean_registry):
     """Test registering migrations."""
     migs = [("v1", "CREATE TABLE test (id TEXT)")]
-    sqlite.add_migrations("test_db", migs)
+    store.add_migrations("test_db", migs)
 
-    assert "test_db" in sqlite._migrations
-    assert sqlite._migrations["test_db"] == migs
+    assert "test_db" in store._migrations
+    assert store._migrations["test_db"] == migs
 
 
 def test_ensure_unregistered_raises(clean_registry, temp_db_dir, monkeypatch):
@@ -59,7 +58,7 @@ def test_ensure_unregistered_raises(clean_registry, temp_db_dir, monkeypatch):
     monkeypatch.setattr("space.lib.paths.dot_space", lambda: temp_db_dir)
 
     with pytest.raises(ValueError, match="not registered"):
-        sqlite.ensure("nonexistent")
+        store.ensure("nonexistent")
 
 
 def test_ensure_creates_schema(clean_registry, temp_db_dir, monkeypatch):
@@ -67,9 +66,9 @@ def test_ensure_creates_schema(clean_registry, temp_db_dir, monkeypatch):
     monkeypatch.setattr("space.lib.paths.dot_space", lambda: temp_db_dir)
 
     schema = "CREATE TABLE test (id TEXT PRIMARY KEY, value TEXT)"
-    sqlite.register("test_db", "test.db", schema)
+    store.register("test_db", "test.db", schema)
 
-    conn = sqlite.ensure("test_db")
+    conn = store.ensure("test_db")
 
     cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
     tables = {row[0] for row in cursor.fetchall()}
@@ -84,10 +83,10 @@ def test_migrate_basic(clean_registry, temp_db_dir, monkeypatch):
 
     schema = "CREATE TABLE test (id TEXT PRIMARY KEY)"
     migs = [("add_value", "ALTER TABLE test ADD COLUMN value TEXT")]
-    sqlite.register("test_db", "test.db", schema)
-    sqlite.add_migrations("test_db", migs)
+    store.register("test_db", "test.db", schema)
+    store.add_migrations("test_db", migs)
 
-    conn = sqlite.ensure("test_db")
+    conn = store.ensure("test_db")
 
     cursor = conn.execute("PRAGMA table_info(test)")
     columns = {row[1] for row in cursor.fetchall()}
@@ -105,10 +104,10 @@ def test_migrate_callable(clean_registry, temp_db_dir, monkeypatch):
 
     schema = "CREATE TABLE test (id TEXT PRIMARY KEY)"
     migs = [("add_computed", add_column)]
-    sqlite.register("test_db", "test.db", schema)
-    sqlite.add_migrations("test_db", migs)
+    store.register("test_db", "test.db", schema)
+    store.add_migrations("test_db", migs)
 
-    conn = sqlite.ensure("test_db")
+    conn = store.ensure("test_db")
 
     cursor = conn.execute("PRAGMA table_info(test)")
     columns = {row[1] for row in cursor.fetchall()}
@@ -129,13 +128,13 @@ def test_migrate_skips_applied(clean_registry, temp_db_dir, monkeypatch):
 
     schema = "CREATE TABLE test (id TEXT PRIMARY KEY)"
     migs = [("track", track_call)]
-    sqlite.register("test_db", "test.db", schema)
-    sqlite.add_migrations("test_db", migs)
+    store.register("test_db", "test.db", schema)
+    store.add_migrations("test_db", migs)
 
-    sqlite.ensure("test_db")
+    store.ensure("test_db")
     assert call_count == 1
 
-    sqlite.ensure("test_db")
+    store.ensure("test_db")
     assert call_count == 1
 
 

@@ -5,7 +5,7 @@ from collections.abc import Callable
 from enum import Enum
 from typing import Any, TypeVar
 
-from space.lib import db
+from space.lib import store
 
 from ..lib import paths
 from ..lib.uuid7 import uuid7
@@ -53,7 +53,7 @@ CREATE INDEX IF NOT EXISTS idx_event_id ON events(event_id);
 """
 
 
-db.register("events", "events.db", SCHEMA)
+store.register("events", "events.db", SCHEMA)
 
 
 def path():
@@ -75,7 +75,7 @@ def emit(
     event_id = uuid7()
     event_timestamp = int(time.time())
 
-    with db.ensure("events") as conn:
+    with store.ensure("events") as conn:
         conn.execute(
             "INSERT INTO events (event_id, source, event_type, data, timestamp, agent_id) VALUES (?, ?, ?, ?, ?, ?)",
             (event_id, source, event_type, data, event_timestamp, agent_id),
@@ -87,7 +87,7 @@ def query(source: str | None = None, agent_id: str | None = None, limit: int = 1
     if not DB_PATH.exists():
         return []
 
-    with db.ensure("events") as conn:
+    with store.ensure("events") as conn:
         query_parts = []
         params = []
 

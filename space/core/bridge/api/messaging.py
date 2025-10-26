@@ -1,12 +1,12 @@
 """Message operations: send, receive, alerts, bookmarks."""
 
 from space.core.models import Channel, Message
-from space.lib import db
-from space.lib.db import from_row
+from space.lib import store
+from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
 
 
-def _row_to_message(row: db.Row) -> Message:
+def _row_to_message(row: store.Row) -> Message:
     return from_row(row, Message)
 
 
@@ -29,7 +29,7 @@ def send_message(channel: str | Channel, identity: str, content: str) -> str:
         raise ValueError(f"Identity '{identity}' not registered.")
     agent_id = agent.agent_id
     message_id = uuid7()
-    with db.ensure("bridge") as conn:
+    with store.ensure("bridge") as conn:
         conn.execute(
             "INSERT INTO messages (message_id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
             (message_id, channel_id, agent_id, content),
@@ -40,7 +40,7 @@ def send_message(channel: str | Channel, identity: str, content: str) -> str:
 def get_messages(channel: str | Channel, agent_id: str | None = None) -> list[Message]:
     """Get messages, optionally filtering for new messages for a given agent."""
     channel_id = _to_channel_id(channel)
-    with db.ensure("bridge") as conn:
+    with store.ensure("bridge") as conn:
         from . import channels
 
         channel = channels.get_channel(channel_id)
@@ -92,7 +92,7 @@ def get_sender_history(identity: str, limit: int = 5) -> list[Message]:
     if not agent:
         raise ValueError(f"Identity '{identity}' not registered.")
     agent_id = agent.agent_id
-    with db.ensure("bridge") as conn:
+    with store.ensure("bridge") as conn:
         cursor = conn.execute(
             """
             SELECT m.message_id, m.channel_id, m.agent_id, m.content, m.created_at
@@ -109,7 +109,7 @@ def get_sender_history(identity: str, limit: int = 5) -> list[Message]:
 def set_bookmark(agent_id: str, channel: str | Channel, last_seen_id: str) -> None:
     """Mark message as read for agent."""
     channel_id = _to_channel_id(channel)
-    with db.ensure("bridge") as conn:
+    with store.ensure("bridge") as conn:
         conn.execute(
             "INSERT OR REPLACE INTO bookmarks (agent_id, channel_id, last_seen_id) VALUES (?, ?, ?)",
             (agent_id, channel_id, last_seen_id),

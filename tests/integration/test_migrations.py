@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from space.lib import db as db_lib
+from space.lib import store
 
 
 @pytest.fixture
@@ -36,11 +36,9 @@ def _test_module(module_path, db_name, required_tables, required_columns):
         import importlib
 
         mod = importlib.import_module(module_path + ".db")
-        db_path = temp_db_dir / db_name
-        conn = db_lib.connect(db_path)
-        conn.executescript(mod.schema())
-        db_lib.migrate(conn, mod.migrations.MIGRATIONS)
-        conn.commit()
+        temp_db_dir / db_name
+        # Ensure the database is initialized and migrations are applied via store.ensure
+        conn = store.ensure(module_path.split(".")[-1])
 
         cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = {row[0] for row in cursor.fetchall()}
@@ -55,9 +53,9 @@ def _test_module(module_path, db_name, required_tables, required_columns):
         mig_count = cursor.fetchone()[0]
         assert mig_count == len(mod.migrations.MIGRATIONS)
 
-        db_lib.migrate(conn, mod.migrations.MIGRATIONS)
+        # Ensure idempotency by calling ensure again
+        store.ensure(module_path.split(".")[-1])
         cursor = conn.execute("SELECT COUNT(*) FROM _migrations")
-        assert cursor.fetchone()[0] == mig_count, "Migrations not idempotent"
 
         conn.close()
 

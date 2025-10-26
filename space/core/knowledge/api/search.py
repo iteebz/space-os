@@ -1,6 +1,6 @@
 """Knowledge search: unified query interface."""
 
-from space.lib import db
+from space.lib import store
 
 
 def search(query: str, identity: str | None, all_agents: bool) -> list[dict]:
@@ -8,7 +8,7 @@ def search(query: str, identity: str | None, all_agents: bool) -> list[dict]:
     from space.core import spawn
 
     results = []
-    with db.ensure("knowledge") as conn:
+    with store.ensure("knowledge") as conn:
         sql_query = (
             "SELECT knowledge_id, domain, agent_id, content, created_at FROM knowledge "
             "WHERE (content LIKE ? OR domain LIKE ?)"

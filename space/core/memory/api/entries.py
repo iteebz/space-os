@@ -4,15 +4,15 @@ from datetime import datetime
 
 from space.core import events
 from space.core.models import Memory
-from space.lib import db
-from space.lib.db import from_row
+from space.lib import store
 from space.lib.ids import resolve_id
+from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
 
 _track_memory = events.track("memory")
 
 
-def _row_to_memory(row: db.Row) -> Memory:
+def _row_to_memory(row: store.Row) -> Memory:
     data = dict(row)
     data["core"] = bool(data["core"])
     return from_row(data, Memory)
@@ -24,7 +24,7 @@ def add_entry(
     memory_id = uuid7()
     now = int(time.time())
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-    with db.ensure("memory") as conn:
+    with store.ensure("memory") as conn:
         conn.execute(
             "INSERT INTO memories (memory_id, agent_id, topic, message, timestamp, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (memory_id, agent_id, topic, message, ts, now, 1 if core else 0, source),
@@ -50,7 +50,7 @@ def list_entries(
         raise ValueError(f"Agent '{identity}' not found.")
     agent_id = agent.agent_id
 
-    with db.ensure("memory") as conn:
+    with store.ensure("memory") as conn:
         params = [agent_id]
         query = "SELECT memory_id, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors, synthesis_note, supersedes, superseded_by FROM memories WHERE agent_id = ?"
 
@@ -84,7 +84,7 @@ def edit_entry(memory_id: str, new_message: str) -> None:
     if not entry:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-    with db.ensure("memory") as conn:
+    with store.ensure("memory") as conn:
         conn.execute(
             "UPDATE memories SET message = ?, timestamp = ? WHERE memory_id = ? ",
             (new_message, ts, full_id),
@@ -97,7 +97,7 @@ def delete_entry(memory_id: str) -> None:
     entry = get_by_id(full_id)
     if not entry:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
-    with db.ensure("memory") as conn:
+    with store.ensure("memory") as conn:
         conn.execute("DELETE FROM memories WHERE memory_id = ?", (full_id,))
     events.emit("memory", "note_delete", entry.agent_id, f"{full_id[-8:]}")
 
@@ -108,7 +108,7 @@ def archive_entry(memory_id: str) -> None:
     if not entry:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
     now = int(time.time())
-    with db.ensure("memory") as conn:
+    with store.ensure("memory") as conn:
         conn.execute(
             "UPDATE memories SET archived_at = ? WHERE memory_id = ?",
             (now, full_id),
@@ -124,7 +124,7 @@ def restore_entry(memory_id: str, agent_id: str | None = None) -> None:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
     if agent_id is None:
         agent_id = entry.agent_id
-    with db.ensure("memory") as conn:
+    with store.ensure("memory") as conn:
         conn.execute(
             "UPDATE memories SET archived_at = NULL WHERE memory_id = ?",
             (full_id,),
@@ -139,7 +139,7 @@ def mark_core(memory_id: str, core: bool = True, agent_id: str | None = None) ->
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
     if agent_id is None:
         agent_id = entry.agent_id
-    with db.ensure("memory") as conn:
+    with store.ensure("memory") as conn:
         conn.execute(
             "UPDATE memories SET core = ? WHERE memory_id = ?",
             (1 if core else 0, full_id),
@@ -158,7 +158,7 @@ def find_related(entry: Memory, limit: int = 5, show_all: bool = False) -> list[
     agent_id = entry.agent_id
 
     archive_filter = "" if show_all else "AND archived_at IS NULL"
-    with db.ensure("memory") as conn:
+    with store.ensure("memory") as conn:
         try:
             conn.execute("CREATE TEMPORARY TABLE keywords (keyword TEXT)")
             conn.executemany("INSERT INTO keywords VALUES (?)", [(k,) for k in keywords])
@@ -180,7 +180,7 @@ def find_related(entry: Memory, limit: int = 5, show_all: bool = False) -> list[
 
 def get_by_id(memory_id: str) -> Memory | None:
     full_id = resolve_id("memory", "memory_id", memory_id)
-    with db.ensure("memory") as conn:
+    with store.ensure("memory") as conn:
         row = conn.execute(
             "SELECT memory_id, agent_id, topic, message, timestamp, created_at, archived_at, core, source, bridge_channel, code_anchors, synthesis_note, supersedes, superseded_by FROM memories WHERE memory_id = ?",
             (full_id,),
@@ -199,7 +199,7 @@ def replace_entry(
     now = int(time.time())
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    with db.ensure("memory") as conn:
+    with store.ensure("memory") as conn:
         with conn:
             conn.execute(
                 "INSERT INTO memories (memory_id, agent_id, topic, message, timestamp, created_at, core, source, synthesis_note, supersedes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -242,7 +242,7 @@ def get_chain(memory_id: str) -> dict[str, Memory | list[Memory]]:
         if current_id in visited:
             return
         visited.add(current_id)
-        with db.ensure("memory") as conn:
+        with store.ensure("memory") as conn:
             rows = conn.execute(
                 """
                 SELECT m.memory_id, m.agent_id, m.topic, m.message, m.timestamp,
@@ -263,7 +263,7 @@ def get_chain(memory_id: str) -> dict[str, Memory | list[Memory]]:
         if current_id in visited:
             return
         visited.add(current_id)
-        with db.ensure("memory") as conn:
+        with store.ensure("memory") as conn:
             rows = conn.execute(
                 """
                 SELECT m.memory_id, m.agent_id, m.topic, m.message, m.timestamp,
@@ -291,7 +291,7 @@ def get_chain(memory_id: str) -> dict[str, Memory | list[Memory]]:
 def add_link(memory_id: str, parent_id: str, kind: str = "supersedes") -> str:
     link_id = str(uuid.uuid4())
     now = int(time.time())
-    with db.ensure("memory") as conn:
+    with store.ensure("memory") as conn:
         conn.execute(
             "INSERT OR IGNORE INTO links (link_id, memory_id, parent_id, kind, created_at) VALUES (?, ?, ?, ?, ?)",
             (link_id, memory_id, parent_id, kind, now),

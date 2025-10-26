@@ -57,20 +57,22 @@ class Gemini:
                         if not session_id:
                             continue
 
-                        sessions.append({
-                            "cli": "gemini",
-                            "session_id": session_id,
-                            "file_path": str(chat_file),
-                            "project_hash": project_hash,
-                            "created_at": chat_file.stat().st_ctime,
-                            "start_time": chat_data.get("startTime"),
-                            "last_updated": chat_data.get("lastUpdated"),
-                            "message_count": len(chat_data.get("messages", [])),
-                            "file_size": file_size,
-                            "first_message": session_metadata.get(session_id, {}).get(
-                                "first_message", ""
-                            ),
-                        })
+                        sessions.append(
+                            {
+                                "cli": "gemini",
+                                "session_id": session_id,
+                                "file_path": str(chat_file),
+                                "project_hash": project_hash,
+                                "created_at": chat_file.stat().st_ctime,
+                                "start_time": chat_data.get("startTime"),
+                                "last_updated": chat_data.get("lastUpdated"),
+                                "message_count": len(chat_data.get("messages", [])),
+                                "file_size": file_size,
+                                "first_message": session_metadata.get(session_id, {}).get(
+                                    "first_message", ""
+                                ),
+                            }
+                        )
                     except (OSError, json.JSONDecodeError, MemoryError):
                         # Gracefully skip malformed/huge files; they'll work on retry
                         # or with streaming parser in future
@@ -92,25 +94,27 @@ class Gemini:
             for i, msg in enumerate(data.get("messages", [])):
                 if i < from_offset:
                     continue
-                role = msg.get("type")  # "user" or "gemini"
-                if role not in ("user", "gemini"):
+                role = msg.get("role")  # "user" or "model"
+                if role not in ("user", "gemini", "model"):
                     continue
                 # Normalize role to "assistant" for consistency
-                if role == "gemini":
+                if role == "gemini" or role == "model":
                     role = "assistant"
-                
+
                 metadata_json = None
                 if msg.get("thoughts"):
                     metadata_json = json.dumps({"thoughts": msg.get("thoughts")})
-                
-                messages.append({
-                    "message_id": msg.get("id"),
-                    "role": role,
-                    "content": msg.get("content", ""),
-                    "timestamp": msg.get("timestamp"),
-                    "byte_offset": i,
-                    "metadata_json": metadata_json,
-                })
+
+                messages.append(
+                    {
+                        "message_id": msg.get("id"),
+                        "role": role,
+                        "content": msg.get("content", ""),
+                        "timestamp": msg.get("timestamp"),
+                        "byte_offset": i,
+                        "metadata_json": metadata_json,
+                    }
+                )
         except (OSError, json.JSONDecodeError):
             pass
         return messages

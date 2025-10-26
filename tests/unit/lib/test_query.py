@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock
 
-from space.lib.db import query
+from space.lib import query
 
 
 def test_agent_by_name_active_only():

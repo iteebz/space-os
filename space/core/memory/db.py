@@ -1,7 +1,6 @@
 from pathlib import Path
 
-from space.lib import db as db_lib
-from space.lib import paths
+from space.lib import paths, store
 
 from . import migrations
 
@@ -58,10 +57,10 @@ def register() -> None:
         return
     _initialized = True
 
-    db_lib.register("memory", "memory.db", schema())
-    db_lib.add_migrations("memory", migrations.MIGRATIONS)
+    store.register("memory", "memory.db", schema())
+    store.add_migrations("memory", migrations.MIGRATIONS)
 
 
 def connect():
     """Return connection to memory database via central registry."""
-    return db_lib.ensure("memory")
+    return store.ensure("memory")

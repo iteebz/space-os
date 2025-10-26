@@ -46,13 +46,13 @@ class Storage(Protocol):
 @runtime_checkable
 class Provider(Protocol):
     """External LLM provider (Claude, Codex, Gemini).
-    
+
     Unified interface for both chat discovery and agent spawning.
     """
 
     def discover_sessions(self) -> list[dict]:
         """Discover chat sessions.
-        
+
         Returns:
             List of {cli, session_id, file_path, created_at}
         """
@@ -60,11 +60,11 @@ class Provider(Protocol):
 
     def parse_messages(self, file_path: Path, from_offset: int = 0) -> list[dict]:
         """Parse messages from chat session file.
-        
+
         Args:
             file_path: Path to chat file (JSONL or JSON)
             from_offset: Byte offset or message index to start from
-        
+
         Returns:
             List of {role, content, timestamp, byte_offset/message_index}
         """
@@ -72,11 +72,11 @@ class Provider(Protocol):
 
     def spawn(self, role: str, task: str | None = None) -> str:
         """Spawn agent instance with role.
-        
+
         Args:
             role: Identity/role to spawn
             task: Optional task to execute
-        
+
         Returns:
             Command output
         """
@@ -84,10 +84,10 @@ class Provider(Protocol):
 
     def ping(self, identity: str) -> bool:
         """Check if agent is alive.
-        
+
         Args:
             identity: Agent identity
-        
+
         Returns:
             True if agent is responsive
         """
@@ -95,7 +95,7 @@ class Provider(Protocol):
 
     def list_agents(self) -> list[str]:
         """List all active agents.
-        
+
         Returns:
             List of agent identities
         """

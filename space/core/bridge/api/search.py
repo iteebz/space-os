@@ -1,6 +1,6 @@
 """Bridge search: unified query interface."""
 
-from space.lib import db
+from space.lib import store
 
 
 def search(query: str, identity: str | None, all_agents: bool) -> list[dict]:
@@ -9,7 +9,7 @@ def search(query: str, identity: str | None, all_agents: bool) -> list[dict]:
 
     results = []
 
-    with db.ensure("bridge") as conn:
+    with store.ensure("bridge") as conn:
         sql_query = (
             "SELECT m.message_id, m.channel_id, m.agent_id, m.content, m.created_at, c.name as channel_name "
             "FROM messages m JOIN channels c ON m.channel_id = c.channel_id "
