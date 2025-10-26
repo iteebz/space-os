@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 from space.core import bridge, spawn
-from space.core.bridge.api import spawning
+from space.core.bridge.api import mentions
 
 
 def test_channel_groups_tasks(test_space):
@@ -89,15 +89,15 @@ def test_spawn_logs_metadata(test_space):
 def test_mention_spawns_worker():
     """Bridge detects @mention and returns prompt for spawning."""
     with (
-        patch("space.core.bridge.api.spawning.subprocess.run") as mock_run,
-        patch("space.core.bridge.api.spawning.config.load_config") as mock_config,
+        patch("space.core.bridge.api.mentions.subprocess.run") as mock_run,
+        patch("space.core.bridge.api.mentions.config.load_config") as mock_config,
     ):
         mock_config.return_value = {"roles": {"zealot": {}}}
         mock_run.return_value = MagicMock(
             returncode=0, stdout="# subagents-test\n\n[alice] hello\n"
         )
 
-        result = spawning._build_prompt("zealot", "subagents-test", "@zealot question")
+        result = mentions._build_prompt("zealot", "subagents-test", "@zealot question")
 
         assert result is not None
         assert "[SPACE INSTRUCTIONS]" in result

@@ -26,7 +26,7 @@ from .messaging import (
 )
 from .notes import add_note, get_notes
 from .search import search
-from .spawning import spawn_from_mentions
+from .mentions import spawn_from_mentions
 from .stats import stats
 
 __all__ = [

@@ -10,7 +10,7 @@ import typer
 
 from space.core import events, spawn
 
-from ..api import channels, messaging, spawning
+from ..api import channels, messaging, mentions
 
 app = typer.Typer()
 
@@ -48,7 +48,7 @@ def send_cmd(
             json.dumps({"channel": channel, "identity": identity, "content": content}),
         )
         messaging.send_message(channel_id, identity, content)
-        spawning.spawn_from_mentions(channel_id, content)
+        mentions.spawn_from_mentions(channel_id, content)
         events.emit(
             "bridge",
             "message_sent",
