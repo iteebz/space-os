@@ -15,7 +15,7 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
             sql += " AND identity = ?"
             params.append(identity)
         
-        sessions = conn.execute(sql).fetchall()
+        sessions = conn.execute(sql, params).fetchall()
     
     for session_row in sessions:
         cli = session_row["cli"]

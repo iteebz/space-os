@@ -33,20 +33,18 @@ def update_sync_state(cli: str, session_id: str, byte_offset: int, is_complete: 
         )
 
 
-def sync(session_id: str | None = None, identity: str | None = None) -> int:
+def sync(session_id: str | None = None, identity: str | None = None, cli: str | None = None) -> int:
     """
     Sync chat(s) from offset. Returns number of messages synced.
     
     Args:
         session_id: Sync specific session
         identity: Sync all sessions linked to identity
+        cli: Sync all sessions for specific provider (claude, codex, gemini)
     
     Returns:
         Total messages synced
     """
-    if not session_id and not identity:
-        raise ValueError("Must provide session_id or identity")
-    
     total_synced = 0
     
     with db.ensure("chats") as conn:
@@ -55,36 +53,69 @@ def sync(session_id: str | None = None, identity: str | None = None) -> int:
                 "SELECT cli, session_id, file_path FROM sessions WHERE session_id = ?",
                 (session_id,),
             ).fetchall()
-        else:
+        elif identity:
             sessions = conn.execute(
                 "SELECT cli, session_id, file_path FROM sessions WHERE identity = ?",
                 (identity,),
             ).fetchall()
+        elif cli:
+            sessions = conn.execute(
+                "SELECT cli, session_id, file_path FROM sessions WHERE cli = ?",
+                (cli,),
+            ).fetchall()
+        else:
+            sessions = conn.execute(
+                "SELECT cli, session_id, file_path FROM sessions"
+            ).fetchall()
         
         for session_row in sessions:
-            cli = session_row["cli"]
+            cli_name = session_row["cli"]
             sess_id = session_row["session_id"]
             file_path = session_row["file_path"]
             
-            sync_state = get_sync_state(cli, sess_id)
-            if not sync_state or not Path(file_path).exists():
+            if not Path(file_path).exists():
                 continue
             
-            provider = getattr(providers, cli, None)
+            sync_state = get_sync_state(cli_name, sess_id)
+            offset = sync_state["last_byte_offset"] if sync_state else 0
+            
+            provider = getattr(providers, cli_name, None)
             if not provider:
                 continue
             
             try:
                 messages = provider.parse_messages(
                     Path(file_path),
-                    from_offset=sync_state["last_byte_offset"]
+                    from_offset=offset
                 )
                 
                 if messages:
-                    final_offset = messages[-1].get("byte_offset", sync_state["last_byte_offset"])
-                    update_sync_state(cli, sess_id, final_offset)
+                    for msg in messages:
+                        conn.execute(
+                            """
+                            INSERT OR IGNORE INTO messages 
+                            (cli, session_id, message_id, role, content, timestamp, cwd, tool_type, metadata_json)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (
+                                cli_name,
+                                sess_id,
+                                msg.get("message_id"),
+                                msg.get("role"),
+                                msg.get("content"),
+                                msg.get("timestamp"),
+                                msg.get("cwd"),
+                                msg.get("tool_type"),
+                                msg.get("metadata_json"),
+                            ),
+                        )
+                    
+                    final_offset = messages[-1].get("byte_offset", offset)
+                    update_sync_state(cli_name, sess_id, final_offset)
                     total_synced += len(messages)
-            except Exception:
+            except Exception as e:
+                import logging
+                logging.error(f"Sync error {cli_name}/{sess_id}: {e}")
                 pass
     
     return total_synced

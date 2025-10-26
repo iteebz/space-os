@@ -12,6 +12,7 @@ from space.commands.stats import stats
 from space.commands.wake import wake
 from space.core import (
     bridge,
+    chats,
     knowledge,
     memory,
 )
@@ -24,6 +25,7 @@ app.add_typer(bridge.app, name="bridge")
 app.add_typer(spawn_commands.app, name="spawn")
 app.add_typer(memory.app, name="memory")
 app.add_typer(knowledge.app, name="knowledge")
+app.add_typer(chats.app, name="chats")
 
 app.add_typer(context, name="context")
 app.add_typer(council, name="council")

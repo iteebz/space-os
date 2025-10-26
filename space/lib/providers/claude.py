@@ -40,14 +40,33 @@ class Claude:
                     offset = f.tell() - len(line)
                     data = json.loads(line)
                     role = data.get("type")
-                    if role not in ("user", "assistant"):
+                    if role not in ("user", "assistant", "tool"):
                         continue
-                    messages.append({
+                    message_obj = data.get("message", {})
+                    content = ""
+                    if isinstance(message_obj, dict):
+                        content_raw = message_obj.get("content", "")
+                        if isinstance(content_raw, list):
+                            content = "\n".join(
+                                item.get("text", "") for item in content_raw
+                                if isinstance(item, dict) and item.get("type") == "text"
+                            )
+                        else:
+                            content = content_raw
+                    else:
+                        content = message_obj
+                    
+                    msg = {
+                        "message_id": data.get("uuid"),
                         "role": role,
-                        "content": data.get("message", ""),
+                        "content": content,
                         "timestamp": data.get("timestamp"),
+                        "cwd": data.get("cwd"),
                         "byte_offset": offset,
-                    })
+                    }
+                    if role == "tool":
+                        msg["tool_type"] = "tool_result"
+                    messages.append(msg)
         except (OSError, json.JSONDecodeError):
             pass
         return messages

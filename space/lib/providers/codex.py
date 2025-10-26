@@ -39,18 +39,50 @@ class Codex:
                         continue
                     offset = f.tell() - len(line)
                     data = json.loads(line)
-                    if data.get("type") != "response_item":
-                        continue
+                    msg_type = data.get("type")
                     payload = data.get("payload", {})
-                    role = payload.get("role")
-                    if role not in ("user", "assistant"):
-                        continue
-                    messages.append({
-                        "role": role,
-                        "content": payload.get("content", ""),
-                        "timestamp": data.get("timestamp"),
-                        "byte_offset": offset,
-                    })
+                    
+                    if msg_type == "response_item":
+                        role = payload.get("role")
+                        if role not in ("user", "assistant"):
+                            continue
+                        
+                        content_list = payload.get("content", [])
+                        content = ""
+                        if isinstance(content_list, list):
+                            content = "\n".join(
+                                item.get("text", "") for item in content_list 
+                                if isinstance(item, dict) and item.get("type") == "input_text"
+                            )
+                        
+                        msg = {
+                            "message_id": payload.get("id"),
+                            "role": role,
+                            "content": content,
+                            "timestamp": data.get("timestamp"),
+                            "cwd": payload.get("cwd"),
+                            "byte_offset": offset,
+                        }
+                        messages.append(msg)
+                    elif msg_type in ("tool_call", "tool_result"):
+                        content_list = payload.get("content", [])
+                        content = ""
+                        if isinstance(content_list, list):
+                            content = "\n".join(
+                                item.get("text", "") for item in content_list 
+                                if isinstance(item, dict) and item.get("type") == "input_text"
+                            )
+                        
+                        msg = {
+                            "message_id": payload.get("id"),
+                            "role": "tool",
+                            "content": content,
+                            "timestamp": data.get("timestamp"),
+                            "cwd": payload.get("cwd"),
+                            "tool_type": msg_type,
+                            "byte_offset": offset,
+                        }
+                        messages.append(msg)
         except (OSError, json.JSONDecodeError):
             pass
         return messages

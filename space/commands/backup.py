@@ -9,8 +9,22 @@ from pathlib import Path
 import typer
 
 from space.lib import db, paths
+from space.lib.db import sqlite
 
 logger = logging.getLogger(__name__)
+
+
+def _copytree_exclude_chats(src: Path, dst: Path) -> None:
+    """Copy tree excluding chats.db + WAL artifacts (queryable from provider dirs, not backed up)."""
+    def ignore(directory: str, contents: list) -> set:
+        excluded = set()
+        if "chats.db" in contents:
+            excluded.add("chats.db")
+            excluded.add("chats.db-shm")
+            excluded.add("chats.db-wal")
+        return excluded
+    
+    shutil.copytree(src, dst, ignore=ignore, dirs_exist_ok=False)
 
 
 def backup(
@@ -19,7 +33,11 @@ def backup(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    """Backup ~/.space to ~/.space_backups/ (immutable, timestamped)"""
+    """Backup ~/.space to ~/.space_backups/ (immutable, timestamped).
+    
+    Excludes chats.db: queryable from provider dirs anytime. Only backup primitives
+    that can't be rebuilt (memory, knowledge, spawn state). Prevents 50MB+ backup bloat.
+    """
 
     src = paths.dot_space()
     if not src.exists():
@@ -37,8 +55,9 @@ def backup(
         typer.echo("ERROR: Backup path validation failed (possible path traversal)", err=True)
         raise typer.Exit(code=1)
 
+    sqlite.close_all()
     db.resolve(src)
-    shutil.copytree(src, backup_path, dirs_exist_ok=False)
+    _copytree_exclude_chats(src, backup_path)
     db.resolve(backup_path)
 
     os.chmod(backup_path, 0o555)
