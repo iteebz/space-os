@@ -59,6 +59,57 @@ def merge(id_from: str, id_to: str):
     typer.echo("✓ Merged")
 
 
+@app.command("register")
+def register(
+    identity: str,
+    constitution: str = typer.Option(
+        ..., "--constitution", "-c", help="Constitution filename (e.g., zealot.md)"
+    ),
+    provider: str = typer.Option(
+        ..., "--provider", "-p", help="Provider: claude, gemini, or codex"
+    ),
+    model: str = typer.Option(
+        ..., "--model", "-m", help="Full model name (e.g., claude-haiku-4-5)"
+    ),
+):
+    """Register a new agent."""
+    try:
+        agent_id = api.register_agent(identity, constitution, provider, model)
+        typer.echo(f"✓ Registered {identity} ({agent_id[:8]})")
+    except ValueError as e:
+        typer.echo(f"❌ {e}", err=True)
+        raise typer.Exit(1) from e
+
+
+@app.command("update")
+def update(
+    identity: str,
+    constitution: str = typer.Option(None, "--constitution", "-c", help="Constitution filename"),
+    provider: str = typer.Option(
+        None, "--provider", "-p", help="Provider: claude, gemini, or codex"
+    ),
+    model: str = typer.Option(None, "--model", "-m", help="Full model name"),
+):
+    """Update agent fields."""
+    try:
+        api.update_agent(identity, constitution, provider, model)
+        typer.echo(f"✓ Updated {identity}")
+    except ValueError as e:
+        typer.echo(f"❌ {e}", err=True)
+        raise typer.Exit(1) from e
+
+
+@app.command("clone")
+def clone(src: str, dst: str):
+    """Clone an agent with new identity."""
+    try:
+        agent_id = api.clone_agent(src, dst)
+        typer.echo(f"✓ Cloned {src} → {dst} ({agent_id[:8]})")
+    except ValueError as e:
+        typer.echo(f"❌ {e}", err=True)
+        raise typer.Exit(1) from e
+
+
 @app.command("rename")
 def rename(old_name: str, new_name: str):
     """Rename an agent."""

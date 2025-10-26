@@ -117,5 +117,5 @@ def default_agents(test_space):
     }
     for identity in agents:
         with contextlib.suppress(ValueError):
-            spawn.register_agent(identity, f"{identity}.md", "test-model")
+            spawn.register_agent(identity, f"{identity}.md", "claude", "claude-haiku-4-5")
     return agents

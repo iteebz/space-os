@@ -28,7 +28,8 @@ def test_get_agent_finds_by_identity(mock_db):
             "agent_id": "a-1",
             "identity": "agent1",
             "constitution": "c.md",
-            "base_agent": "m1",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
             "self_description": None,
             "archived_at": None,
             "created_at": "2024-01-01",
@@ -40,7 +41,8 @@ def test_get_agent_finds_by_identity(mock_db):
     assert result.agent_id == "a-1"
     assert result.identity == "agent1"
     assert result.constitution == "c.md"
-    assert result.base_agent == "m1"
+    assert result.provider == "claude"
+    assert result.model == "claude-haiku-4-5"
 
 
 def test_get_agent_finds_by_id(mock_db):
@@ -49,7 +51,8 @@ def test_get_agent_finds_by_id(mock_db):
             "agent_id": "a-1",
             "identity": "agent1",
             "constitution": "c.md",
-            "base_agent": "m1",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
             "self_description": None,
             "archived_at": None,
             "created_at": "2024-01-01",
@@ -71,7 +74,7 @@ def test_register_agent_success(mock_db):
     mock_db.execute.return_value.fetchone.return_value = None  # Agent not found
     with patch("space.core.spawn.api.agents.uuid.uuid4") as mock_uuid:
         mock_uuid.return_value = "new-uuid"
-        agent_id = spawn.register_agent("newagent", "c.md", "m1")
+        agent_id = spawn.register_agent("newagent", "c.md", "claude", "claude-haiku-4-5")
 
     assert agent_id == "new-uuid"
     # Check that the agents table was called (not the events table)
@@ -79,10 +82,10 @@ def test_register_agent_success(mock_db):
     agents_call = next((call for call in calls if "INSERT INTO agents" in call[0][0]), None)
     assert agents_call is not None
     assert (
-        "INSERT INTO agents (agent_id, identity, constitution, base_agent, created_at) VALUES (?, ?, ?, ?, ?)"
+        "INSERT INTO agents (agent_id, identity, constitution, provider, model, created_at) VALUES (?, ?, ?, ?, ?, ?)"
         in agents_call[0][0]
     )
-    assert agents_call[0][1][:4] == ("new-uuid", "newagent", "c.md", "m1")
+    assert agents_call[0][1][:5] == ("new-uuid", "newagent", "c.md", "claude", "claude-haiku-4-5")
 
 
 def test_register_agent_already_exists(mock_db):
@@ -91,7 +94,8 @@ def test_register_agent_already_exists(mock_db):
             "agent_id": "a-1",
             "identity": "agent1",
             "constitution": "c.md",
-            "base_agent": "m1",
+            "provider": "claude",
+            "model": "claude-haiku-4-5",
             "self_description": None,
             "archived_at": None,
             "created_at": "2024-01-01",
@@ -100,7 +104,7 @@ def test_register_agent_already_exists(mock_db):
     mock_db.execute.return_value.fetchone.return_value = mock_row  # Agent found
 
     with pytest.raises(ValueError, match="Identity 'agent1' already registered"):
-        spawn.register_agent("agent1", "c.md", "m1")
+        spawn.register_agent("agent1", "c.md", "claude", "claude-haiku-4-5")
 
 
 def test_describe_self_updates(mock_db):
@@ -108,7 +112,8 @@ def test_describe_self_updates(mock_db):
         agent_id="a-1",
         identity="agent1",
         constitution="c.md",
-        base_agent="m1",
+        provider="claude",
+        model="claude-haiku-4-5",
         description=None,
         created_at="2024-01-01",
     )
@@ -131,7 +136,8 @@ def test_rename_agent_updates(mock_db):
         agent_id="a-1",
         identity="old",
         constitution="c.md",
-        base_agent="m1",
+        provider="claude",
+        model="claude-haiku-4-5",
         description=None,
         created_at="2024-01-01",
     )
@@ -155,7 +161,8 @@ def test_rename_agent_new_exists_returns_false(mock_db):
         agent_id="a-1",
         identity="old",
         constitution="c.md",
-        base_agent="m1",
+        provider="claude",
+        model="claude-haiku-4-5",
         description=None,
         created_at="2024-01-01",
     )
@@ -163,7 +170,8 @@ def test_rename_agent_new_exists_returns_false(mock_db):
         agent_id="a-2",
         identity="new",
         constitution="c.md",
-        base_agent="m1",
+        provider="claude",
+        model="claude-haiku-4-5",
         description=None,
         created_at="2024-01-01",
     )
@@ -178,7 +186,8 @@ def test_archive_agent_updates(mock_db):
         agent_id="a-1",
         identity="agent1",
         constitution="c.md",
-        base_agent="m1",
+        provider="claude",
+        model="claude-haiku-4-5",
         description=None,
         created_at="2024-01-01",
     )
@@ -227,7 +236,8 @@ def test_merge_agents_updates_all_dbs(mock_db):
         agent_id="a-1",
         identity="from",
         constitution="c.md",
-        base_agent="m1",
+        provider="claude",
+        model="claude-haiku-4-5",
         description=None,
         created_at="2024-01-01",
     )
@@ -235,7 +245,8 @@ def test_merge_agents_updates_all_dbs(mock_db):
         agent_id="a-2",
         identity="to",
         constitution="c.md",
-        base_agent="m1",
+        provider="claude",
+        model="claude-haiku-4-5",
         description=None,
         created_at="2024-01-01",
     )

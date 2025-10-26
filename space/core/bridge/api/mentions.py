@@ -8,7 +8,8 @@ from pathlib import Path
 
 from space import config
 from space.core.spawn import build_identity_prompt
-from space.core.spawn.api.tasks import create_task, start_task, complete_task, fail_task
+from space.core.spawn.api import agents as spawn_agents
+from space.core.spawn.api.tasks import complete_task, create_task, fail_task, start_task
 from space.lib import paths
 
 logging.basicConfig(level=logging.DEBUG, format="[worker] %(message)s")
@@ -22,24 +23,22 @@ AGENT_PROMPT_TEMPLATE = """{context}
 Infer the actual task from bridge context. If ambiguous, ask for clarification."""
 
 
-def _write_role_file(base_agent: str, constitution: str) -> None:
+def _write_role_file(provider: str, constitution: str) -> None:
     """Write pure constitution to agent home dir file."""
     filename_map = {
-        "sonnet": "CLAUDE.md",
-        "haiku": "CLAUDE.md",
+        "claude": "CLAUDE.md",
         "gemini": "GEMINI.md",
         "codex": "AGENTS.md",
     }
     agent_dir_map = {
-        "sonnet": ".claude",
-        "haiku": ".claude",
+        "claude": ".claude",
         "gemini": ".gemini",
         "codex": ".codex",
     }
-    filename = filename_map.get(base_agent)
-    agent_dir = agent_dir_map.get(base_agent)
+    filename = filename_map.get(provider)
+    agent_dir = agent_dir_map.get(provider)
     if not filename or not agent_dir:
-        raise ValueError(f"Unknown base_agent: {base_agent}")
+        raise ValueError(f"Unknown provider: {provider}")
 
     target = Path.home() / agent_dir / filename
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -55,22 +54,19 @@ def _parse_mentions(content: str) -> list[str]:
 
 def _build_prompt(identity: str, channel: str, content: str) -> str | None:
     """Build agent prompt with channel context and task, write constitution."""
-    cfg = config.load_config()
-    if identity not in cfg.get("roles", {}):
-        log.warning(f"Identity {identity} not in config roles")
-        return None
-
     try:
-        role_cfg = cfg["roles"][identity]
-        base_agent = role_cfg.get("base_agent")
-        const_filename = role_cfg["constitution"]
-        const_path = paths.constitution(const_filename)
+        agent = spawn_agents.get_agent(identity)
+        if not agent:
+            log.warning(f"Identity {identity} not found in registry")
+            return None
+
+        const_path = paths.constitution(agent.constitution)
         constitution = const_path.read_text()
-        
-        _write_role_file(base_agent, constitution)
-        
-        identity_prompt = build_identity_prompt(identity)
-        
+
+        _write_role_file(agent.provider, constitution)
+
+        identity_prompt = build_identity_prompt(identity, agent.model)
+
         export = subprocess.run(
             ["bridge", "export", channel],
             capture_output=True,
@@ -83,8 +79,11 @@ def _build_prompt(identity: str, channel: str, content: str) -> str | None:
                 f"returncode={export.returncode}, stderr={export.stderr[:200]}"
             )
             return None
-        return (identity_prompt + "\n\n" + 
-                AGENT_PROMPT_TEMPLATE.format(context=export.stdout, task=content))
+        return (
+            identity_prompt
+            + "\n\n"
+            + AGENT_PROMPT_TEMPLATE.format(context=export.stdout, task=content)
+        )
     except subprocess.TimeoutExpired:
         log.error(f"bridge export timed out for {channel}")
         return None

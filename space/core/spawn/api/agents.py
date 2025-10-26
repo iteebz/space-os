@@ -24,7 +24,7 @@ def _get_agent_by_name_cached(name: str) -> Agent | None:
     """Cached agent lookup by name."""
     with store.ensure("spawn") as conn:
         row = conn.execute(
-            "SELECT agent_id, identity, constitution, base_agent, self_description, archived_at, created_at FROM agents WHERE identity = ? AND archived_at IS NULL LIMIT 1",
+            "SELECT agent_id, identity, constitution, provider, model, self_description, archived_at, created_at FROM agents WHERE identity = ? AND archived_at IS NULL LIMIT 1",
             (name,),
         ).fetchone()
         return _row_to_agent(row) if row else None
@@ -39,13 +39,13 @@ def get_agent(identifier: str) -> Agent | None:
     """Resolve agent by name or ID. Returns Agent object or None."""
     with store.ensure("spawn") as conn:
         row = conn.execute(
-            "SELECT agent_id, identity, constitution, base_agent, self_description, archived_at, created_at FROM agents WHERE (identity = ? OR agent_id = ?) AND archived_at IS NULL LIMIT 1",
+            "SELECT agent_id, identity, constitution, provider, model, self_description, archived_at, created_at FROM agents WHERE (identity = ? OR agent_id = ?) AND archived_at IS NULL LIMIT 1",
             (identifier, identifier),
         ).fetchone()
         return _row_to_agent(row) if row else None
 
 
-def register_agent(identity: str, constitution: str, base_agent: str) -> str:
+def register_agent(identity: str, constitution: str, provider: str, model: str) -> str:
     """Explicitly register an identity. Fails if identity already exists."""
     agent = get_agent(identity)
     if agent:
@@ -55,8 +55,8 @@ def register_agent(identity: str, constitution: str, base_agent: str) -> str:
     now_iso = datetime.now().isoformat()
     with store.ensure("spawn") as conn:
         conn.execute(
-            "INSERT INTO agents (agent_id, identity, constitution, base_agent, created_at) VALUES (?, ?, ?, ?, ?)",
-            (agent_id, identity, constitution, base_agent, now_iso),
+            "INSERT INTO agents (agent_id, identity, constitution, provider, model, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (agent_id, identity, constitution, provider, model, now_iso),
         )
     _clear_cache()
     events.emit("spawn", "agent.register", agent_id, f"Identity '{identity}' registered")
@@ -68,6 +68,53 @@ def ensure_agent(name: str) -> str:
     raise NotImplementedError(
         "ensure_agent is deprecated. All agents must be explicitly registered via `space init` or `spawn register`."
     )
+
+
+def update_agent(
+    identity: str,
+    constitution: str | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+) -> bool:
+    """Update agent fields. Only specified fields are modified."""
+    agent = get_agent(identity)
+    if not agent:
+        raise ValueError(f"Agent '{identity}' not found")
+
+    updates = []
+    values = []
+    if constitution is not None:
+        updates.append("constitution = ?")
+        values.append(constitution)
+    if provider is not None:
+        updates.append("provider = ?")
+        values.append(provider)
+    if model is not None:
+        updates.append("model = ?")
+        values.append(model)
+
+    if not updates:
+        return True
+
+    values.append(agent.agent_id)
+    sql = f"UPDATE agents SET {', '.join(updates)} WHERE agent_id = ?"
+    with store.ensure("spawn") as conn:
+        conn.execute(sql, values)
+    _clear_cache()
+    return True
+
+
+def clone_agent(src_identity: str, dst_identity: str) -> str:
+    """Clone an agent: new agent_id, copied constitution/provider/model."""
+    src_agent = get_agent(src_identity)
+    if not src_agent:
+        raise ValueError(f"Source agent '{src_identity}' not found")
+
+    dst_agent = get_agent(dst_identity)
+    if dst_agent:
+        raise ValueError(f"Target identity '{dst_identity}' already exists")
+
+    return register_agent(dst_identity, src_agent.constitution, src_agent.provider, src_agent.model)
 
 
 def describe_self(name: str, content: str) -> None:
@@ -189,6 +236,8 @@ def merge_agents(from_name: str, to_name: str) -> bool:
 __all__ = [
     "get_agent",
     "register_agent",
+    "update_agent",
+    "clone_agent",
     "ensure_agent",
     "describe_self",
     "rename_agent",

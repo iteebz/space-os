@@ -1,5 +1,6 @@
 from .agents import (
     archive_agent,
+    clone_agent,
     describe_self,
     ensure_agent,
     get_agent,
@@ -8,6 +9,7 @@ from .agents import (
     register_agent,
     rename_agent,
     unarchive_agent,
+    update_agent,
 )
 from .stats import agent_identities, archived_agents, stats
 from .tasks import complete_task, create_task, fail_task, get_task, list_tasks, start_task
@@ -15,6 +17,8 @@ from .tasks import complete_task, create_task, fail_task, get_task, list_tasks, 
 __all__ = [
     "get_agent",
     "register_agent",
+    "update_agent",
+    "clone_agent",
     "ensure_agent",
     "describe_self",
     "rename_agent",

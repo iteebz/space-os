@@ -9,7 +9,7 @@ runner = CliRunner()
 def test_spawn_list_agents(test_space, default_agents):
     """Listing agents via CLI."""
     zealot_id = default_agents["zealot"]
-    spawn.register_agent("agent-2", "a.md", "m")
+    spawn.register_agent("agent-2", "a.md", "claude", "claude-haiku-4-5")
 
     result = runner.invoke(spawn.app, ["agents"])
     assert result.exit_code == 0
@@ -21,7 +21,7 @@ def test_spawn_merge_agents(test_space, default_agents):
     """Merging agent memories via CLI."""
     zealot = spawn.get_agent(default_agents["zealot"])
     agent_id_1 = zealot.agent_id
-    agent_id_2 = spawn.register_agent("agent-target", "a.md", "m")
+    agent_id_2 = spawn.register_agent("agent-target", "a.md", "claude", "claude-haiku-4-5")
 
     memory.add_entry(agent_id_1, "topic-a", "memory from source 1")
     memory.add_entry(agent_id_1, "topic-b", "memory from source 2")

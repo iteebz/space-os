@@ -85,7 +85,7 @@ def test_fetch_sender_history(test_space, default_agents):
 
     bridge.send_message(channel_id1, agent_name, "message1")
     bridge.send_message(channel_id2, agent_name, "message2")
-    spawn.register_agent("other-sender", "other.md", "test-model")
+    spawn.register_agent("other-sender", "other.md", "claude", "claude-haiku-4-5")
     bridge.send_message(channel_id1, "other-sender", "message3")
 
     history = bridge.get_sender_history(agent_name)

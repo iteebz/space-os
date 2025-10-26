@@ -1,6 +1,7 @@
 from . import api, db
 from .api import (
     archive_agent,
+    clone_agent,
     complete_task,
     create_task,
     describe_self,
@@ -15,9 +16,10 @@ from .api import (
     rename_agent,
     start_task,
     unarchive_agent,
+    update_agent,
 )
 from .commands import app
-from .spawn import get_base_agent, build_identity_prompt, resolve_model_alias
+from .spawn import build_identity_prompt, resolve_model_alias
 
 db.register()
 
@@ -25,11 +27,12 @@ __all__ = [
     "api",
     "db",
     "app",
-    "get_base_agent",
     "build_identity_prompt",
     "resolve_model_alias",
     "get_agent",
     "register_agent",
+    "update_agent",
+    "clone_agent",
     "ensure_agent",
     "describe_self",
     "rename_agent",

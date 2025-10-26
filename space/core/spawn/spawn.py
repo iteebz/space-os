@@ -8,12 +8,17 @@ from space import config
 from space.lib import paths
 
 
-def get_base_agent(role: str) -> str:
-    config.init_config()
-    cfg = config.load_config()
-    if role not in cfg["roles"]:
-        raise ValueError(f"Unknown role: {role}")
-    return cfg["roles"][role]["base_agent"]
+def get_provider_command(provider: str) -> str:
+    """Map provider name to CLI command."""
+    provider_map = {
+        "claude": "claude",
+        "gemini": "gemini",
+        "codex": "codex",
+    }
+    cmd = provider_map.get(provider)
+    if not cmd:
+        raise ValueError(f"Unknown provider: {provider}")
+    return cmd
 
 
 def resolve_model_alias(alias: str) -> str:
@@ -51,13 +56,10 @@ def _run_wake_sequence(role: str) -> str | None:
 
 
 def launch_agent(
-    constitution: str,
-    role: str | None = None,
-    base_agent: str | None = None,
+    identity: str,
     extra_args: list[str] | None = None,
-    model: str | None = None,
 ):
-    """Launch an agent with a specific constitutional role.
+    """Launch an agent by identity from registry.
 
     Writes pure constitution to agent home dir, injects identity via stdin.
 
@@ -65,55 +67,44 @@ def launch_agent(
     command. These are sourced from inline spawn invocations like
     `spawn sentinel --resume` where `--resume` configures the agent itself
     rather than selecting a different role.
-
-    model: Model override (e.g., 'claude-4.5-sonnet', 'gpt-5-codex')
     """
     import subprocess
 
     import click
 
-    config.init_config()
-    cfg = config.load_config()
+    from space.core.spawn import api
 
-    actual_role = role or get_base_agent(constitution)
-    actual_base_agent = base_agent or get_base_agent(constitution)
-    agent_cfg = cfg.get("agents", {}).get(actual_base_agent)
+    agent = api.get_agent(identity)
+    if not agent:
+        raise ValueError(f"Agent '{identity}' not found in registry")
 
-    if not agent_cfg or "command" not in agent_cfg:
-        raise ValueError(f"Agent '{actual_base_agent}' is not configured for launching.")
-
-    actual_model = model or agent_cfg.get("model")
-
-    role_cfg = cfg["roles"][constitution]
-    const_filename = role_cfg["constitution"]
-    const_path = paths.constitution(const_filename)
+    const_path = paths.constitution(agent.constitution)
     constitution_text = const_path.read_text()
 
-    _write_role_file(actual_base_agent, constitution_text)
+    provider_cmd = get_provider_command(agent.provider)
+    _write_role_file(agent.provider, constitution_text)
 
-    command_tokens = _parse_command(agent_cfg["command"])
+    command_tokens = _parse_command(provider_cmd)
     env = _build_launch_env()
     workspace_root = paths.space_root()
     env["PWD"] = str(workspace_root)
     command_tokens[0] = _resolve_executable(command_tokens[0], env)
 
     passthrough = extra_args or []
-    model_args = ["--model", actual_model] if actual_model else []
+    model_args = ["--model", agent.model]
 
     wake_output = None
-    if role_cfg.get("wake_on_spawn"):
-        click.echo(f"Waking {actual_role}...\n")
-        wake_output = _run_wake_sequence(actual_role)
+    click.echo(f"Waking {identity}...\n")
+    wake_output = _run_wake_sequence(identity)
 
-    identity_prompt = build_identity_prompt(actual_role, actual_model)
+    identity_prompt = build_identity_prompt(identity, agent.model)
     stdin_content = identity_prompt
     if wake_output:
         stdin_content = identity_prompt + "\n\n" + wake_output
 
     full_command = command_tokens + model_args + passthrough
 
-    model_suffix = f" --model {actual_model}" if actual_model else ""
-    click.echo(f"Spawning {constitution} with {const_filename}{model_suffix}")
+    click.echo(f"Spawning {identity} with {agent.constitution} --model {agent.model}")
     click.echo(f"Executing: {' '.join(full_command)}")
 
     proc = subprocess.Popen(
@@ -124,24 +115,22 @@ def launch_agent(
     proc.wait()
 
 
-def _write_role_file(base_agent: str, constitution: str) -> None:
+def _write_role_file(provider: str, constitution: str) -> None:
     """Write pure constitution to agent home dir file."""
     filename_map = {
-        "sonnet": "CLAUDE.md",
-        "haiku": "CLAUDE.md",
+        "claude": "CLAUDE.md",
         "gemini": "GEMINI.md",
         "codex": "AGENTS.md",
     }
     agent_dir_map = {
-        "sonnet": ".claude",
-        "haiku": ".claude",
+        "claude": ".claude",
         "gemini": ".gemini",
         "codex": ".codex",
     }
-    filename = filename_map.get(base_agent)
-    agent_dir = agent_dir_map.get(base_agent)
+    filename = filename_map.get(provider)
+    agent_dir = agent_dir_map.get(provider)
     if not filename or not agent_dir:
-        raise ValueError(f"Unknown base_agent: {base_agent}")
+        raise ValueError(f"Unknown provider: {provider}")
 
     target = Path.home() / agent_dir / filename
     target.parent.mkdir(parents=True, exist_ok=True)
