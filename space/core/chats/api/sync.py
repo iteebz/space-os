@@ -37,7 +37,7 @@ def update_sync_state(
 
 def sync(session_id: str | None = None, identity: str | None = None, cli: str | None = None) -> int:
     """
-    Sync chat(s) from offset. Returns number of messages synced.
+    Sync chat(s) from offset. Track sync state only (raw JSONL is source of truth).
 
     Args:
         session_id: Sync specific session
@@ -87,26 +87,6 @@ def sync(session_id: str | None = None, identity: str | None = None, cli: str | 
                 messages = provider.parse_messages(Path(file_path), from_offset=offset)
 
                 if messages:
-                    for msg in messages:
-                        conn.execute(
-                            """
-                            INSERT OR IGNORE INTO messages
-                            (cli, session_id, message_id, role, content, timestamp, cwd, tool_type, metadata_json)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            """,
-                            (
-                                cli_name,
-                                sess_id,
-                                msg.get("message_id"),
-                                msg.get("role"),
-                                msg.get("content"),
-                                msg.get("timestamp"),
-                                msg.get("cwd"),
-                                msg.get("tool_type"),
-                                msg.get("metadata_json"),
-                            ),
-                        )
-
                     final_offset = messages[-1].get("byte_offset", offset)
                     update_sync_state(cli_name, sess_id, final_offset)
                     total_synced += len(messages)

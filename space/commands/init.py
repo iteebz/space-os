@@ -19,6 +19,11 @@ def init():
     paths.canon_path().mkdir(parents=True, exist_ok=True)
     (root / "projects").mkdir(parents=True, exist_ok=True)
 
+    chats = paths.chats_dir()
+    chats.mkdir(parents=True, exist_ok=True)
+    for cli in ["claude", "codex", "gemini"]:
+        (chats / cli).mkdir(exist_ok=True)
+
     with spawn.db.connect():
         pass
     with chats.db.connect():

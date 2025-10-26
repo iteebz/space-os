@@ -1,22 +1,37 @@
+import json
 from pathlib import Path
 
-from space.lib import providers
+from space.lib import store
 
 
-def export(session_id: str, cli: str) -> str | None:
-    """Export raw chat content. Returns raw JSONL/JSON as string."""
-    provider = getattr(providers, cli, None)
-    if not provider:
+def export(session_id: str, cli: str, include_tools: bool = False) -> list[dict] | None:
+    """Export chat messages as list. Optionally filter tool calls."""
+    with store.ensure("chats") as conn:
+        row = conn.execute(
+            "SELECT file_path FROM sessions WHERE cli = ? AND session_id = ?",
+            (cli, session_id),
+        ).fetchone()
+
+    if not row:
         return None
 
-    sessions = provider.discover_sessions()
-    file_path = next((s["file_path"] for s in sessions if s["session_id"] == session_id), None)
-
-    if not file_path or not Path(file_path).exists():
+    vault_path = Path(row["file_path"])
+    if not vault_path.exists():
         return None
 
+    messages = []
     try:
-        with open(file_path) as f:
-            return f.read()
+        with open(vault_path) as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                msg = json.loads(line)
+                
+                if not include_tools and msg.get("role") == "tool":
+                    continue
+                
+                messages.append(msg)
     except Exception:
         return None
+
+    return messages

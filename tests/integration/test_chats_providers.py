@@ -134,7 +134,7 @@ def test_gemini_provider_discover(mock_gemini_chats, monkeypatch):
 
 
 def test_gemini_provider_parse_messages(mock_gemini_chats):
-    """Test Gemini provider parses messages."""
+    """Test Gemini provider parses messages from JSON."""
     from space.lib.providers import Gemini
 
     provider = Gemini()
@@ -143,6 +143,103 @@ def test_gemini_provider_parse_messages(mock_gemini_chats):
     assert len(messages) == 2
     assert messages[0]["role"] == "user"
     assert messages[1]["role"] == "assistant"
+
+
+def test_vault_copy_claude(mock_claude_chats, tmp_path, monkeypatch):
+    """Test copying Claude JSONL to vault as-is."""
+    from space.core.chats.api import vault
+    from space.lib import paths
+
+    monkeypatch.setattr(paths, "chats_dir", lambda: tmp_path / "vaults")
+
+    vault_path = vault.copy_session_to_vault("claude", "session123", str(mock_claude_chats["file"]))
+
+    assert (tmp_path / "vaults" / "claude" / "session123.jsonl").exists()
+    assert vault_path == str(tmp_path / "vaults" / "claude" / "session123.jsonl")
+
+
+def test_vault_copy_gemini_json_to_jsonl(mock_gemini_chats, tmp_path, monkeypatch):
+    """Test converting Gemini JSON to JSONL in vault."""
+    from space.core.chats.api import vault
+    from space.lib import paths
+    import json as stdlib_json
+
+    monkeypatch.setattr(paths, "chats_dir", lambda: tmp_path / "vaults")
+
+    vault_path = vault.copy_session_to_vault("gemini", "session789", str(mock_gemini_chats["file"]))
+
+    assert (tmp_path / "vaults" / "gemini" / "session789.jsonl").exists()
+
+    vault_file = tmp_path / "vaults" / "gemini" / "session789.jsonl"
+    with open(vault_file) as f:
+        lines = f.readlines()
+    
+    assert len(lines) == 2
+    msg1 = stdlib_json.loads(lines[0])
+    msg2 = stdlib_json.loads(lines[1])
+    
+    assert msg1["role"] == "user"
+    assert msg2["role"] == "assistant"
+    assert msg1["_provider"] == "gemini"
+
+
+def test_search_in_vault_jsonl(test_space, tmp_path, monkeypatch):
+    """Test searching raw JSONL files in vault."""
+    from space.core.chats.api import search
+    from space.lib import paths, store
+    import json as stdlib_json
+
+    vault_dir = tmp_path / "vault"
+    monkeypatch.setattr(paths, "chats_dir", lambda: vault_dir)
+
+    chat_file = vault_dir / "claude" / "session123.jsonl"
+    chat_file.parent.mkdir(parents=True)
+
+    with open(chat_file, "w") as f:
+        f.write(stdlib_json.dumps({"role": "user", "content": "test query"}) + "\n")
+        f.write(stdlib_json.dumps({"role": "assistant", "content": "answer"}) + "\n")
+
+    with store.ensure("chats") as conn:
+        conn.execute(
+            "INSERT INTO sessions (cli, session_id, file_path) VALUES (?, ?, ?)",
+            ("claude", "session123", str(chat_file)),
+        )
+
+    results = search.search("test query")
+    assert len(results) == 1
+    assert results[0]["content"] == "test query"
+    assert results[0]["role"] == "user"
+
+
+def test_export_session(test_space, tmp_path, monkeypatch):
+    """Test exporting session messages with tool filtering."""
+    from space.core.chats.api import export
+    from space.lib import paths, store
+    import json as stdlib_json
+
+    vault_dir = tmp_path / "vault"
+    monkeypatch.setattr(paths, "chats_dir", lambda: vault_dir)
+
+    chat_file = vault_dir / "claude" / "session123.jsonl"
+    chat_file.parent.mkdir(parents=True)
+
+    with open(chat_file, "w") as f:
+        f.write(stdlib_json.dumps({"role": "user", "content": "help"}) + "\n")
+        f.write(stdlib_json.dumps({"role": "assistant", "content": "ok"}) + "\n")
+        f.write(stdlib_json.dumps({"role": "tool", "content": "tool result"}) + "\n")
+
+    with store.ensure("chats") as conn:
+        conn.execute(
+            "INSERT INTO sessions (cli, session_id, file_path) VALUES (?, ?, ?)",
+            ("claude", "session123", str(chat_file)),
+        )
+
+    msgs = export.export("session123", "claude", include_tools=False)
+    assert len(msgs) == 2
+    assert all(m["role"] != "tool" for m in msgs)
+
+    msgs_with_tools = export.export("session123", "claude", include_tools=True)
+    assert len(msgs_with_tools) == 3
 
 
 def test_offset_tracking(test_space):

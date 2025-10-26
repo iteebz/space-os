@@ -48,6 +48,11 @@ def chats_db() -> Path:
     return space_data() / "chats.db"
 
 
+def chats_dir() -> Path:
+    """Returns the chats directory, ~/.space/chats."""
+    return dot_space() / "chats"
+
+
 def backups_dir() -> Path:
     """Returns the backups directory, ~/.space_backups (read-only)."""
     return Path.home() / ".space_backups"

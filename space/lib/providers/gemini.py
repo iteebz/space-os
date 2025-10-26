@@ -80,39 +80,33 @@ class Gemini:
 
     def parse_messages(self, file_path: Path, from_offset: int = 0) -> list[dict]:
         """
-        Parse messages from Gemini JSON chat file.
-
-        from_offset is message index (since JSON files aren't streamed like JSONL).
+        Parse messages from Gemini JSONL (normalized in vault).
+        
+        Reads from ~/.space/chats/gemini/*.jsonl (converted from provider JSON by vault).
+        from_offset is byte offset (like Claude/Codex).
         """
         messages = []
         try:
-            with open(file_path) as f:
-                data = json.load(f)
-
-            for i, msg in enumerate(data.get("messages", [])):
-                if i < from_offset:
-                    continue
-                role = msg.get("role")  # "user" or "model"
-                if role not in ("user", "gemini", "model"):
-                    continue
-                # Normalize role to "assistant" for consistency
-                if role == "gemini" or role == "model":
-                    role = "assistant"
-
-                metadata_json = None
-                if msg.get("thoughts"):
-                    metadata_json = json.dumps({"thoughts": msg.get("thoughts")})
-
-                messages.append(
-                    {
-                        "message_id": msg.get("id"),
-                        "role": role,
-                        "content": msg.get("content", ""),
-                        "timestamp": msg.get("timestamp"),
-                        "byte_offset": i,
-                        "metadata_json": metadata_json,
-                    }
-                )
+            with open(file_path, "rb") as f:
+                f.seek(from_offset)
+                for line in f:
+                    if not line.strip():
+                        continue
+                    offset = f.tell() - len(line)
+                    data = json.loads(line)
+                    role = data.get("role")
+                    if role not in ("user", "assistant"):
+                        continue
+                    
+                    messages.append(
+                        {
+                            "message_id": None,
+                            "role": role,
+                            "content": data.get("content", ""),
+                            "timestamp": data.get("timestamp"),
+                            "byte_offset": offset,
+                        }
+                    )
         except (OSError, json.JSONDecodeError):
             pass
         return messages

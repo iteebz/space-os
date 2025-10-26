@@ -1,10 +1,11 @@
+import json
 from pathlib import Path
 
-from space.lib import providers, store
+from space.lib import store
 
 
 def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[dict]:
-    """Search chat sessions by query. Returns metadata + matched line count."""
+    """Search raw JSONL chats by query. Returns matching messages."""
     results = []
 
     with store.ensure("chats") as conn:
@@ -23,33 +24,31 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
         file_path = session_row["file_path"]
         sess_identity = session_row["identity"]
 
-        if not Path(file_path).exists():
-            continue
-
-        provider = getattr(providers, cli, None)
-        if not provider:
+        vault_path = Path(file_path)
+        if not vault_path.exists():
             continue
 
         try:
-            messages = provider.parse_messages(Path(file_path))
-            matched = 0
-
-            for msg in messages:
-                if query.lower() in (msg.get("content") or "").lower():
-                    matched += 1
-
-            if matched > 0:
-                results.append(
-                    {
-                        "source": "chats",
-                        "cli": cli,
-                        "session_id": session_id,
-                        "identity": sess_identity,
-                        "matches": matched,
-                        "timestamp": messages[-1].get("timestamp") if messages else None,
-                        "reference": f"chats:{cli}:{session_id}",
-                    }
-                )
+            with open(vault_path) as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    msg = json.loads(line)
+                    content = msg.get("content", "")
+                    
+                    if query.lower() in content.lower():
+                        results.append(
+                            {
+                                "source": "chats",
+                                "cli": cli,
+                                "session_id": session_id,
+                                "identity": sess_identity,
+                                "role": msg.get("role"),
+                                "content": content,
+                                "timestamp": msg.get("timestamp"),
+                                "reference": f"chats:{cli}:{session_id}",
+                            }
+                        )
         except Exception:
             pass
 
