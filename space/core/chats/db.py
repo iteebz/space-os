@@ -49,7 +49,7 @@ def register() -> None:
         return
     _initialized = True
 
-    store.register("chats", "chats.db", schema())
+    store.register("chats", "chats.db")
     store.add_migrations("chats", migrations.MIGRATIONS)
 
 

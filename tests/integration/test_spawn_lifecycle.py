@@ -84,8 +84,18 @@ def test_mention_spawns_worker():
     with (
         patch("space.core.bridge.api.mentions.subprocess.run") as mock_run,
         patch("space.core.bridge.api.mentions.config.load_config") as mock_config,
+        patch("space.core.bridge.api.mentions.paths.constitution") as mock_const_path,
+        patch("space.core.bridge.api.mentions._write_role_file") as mock_write,
     ):
-        mock_config.return_value = {"roles": {"zealot": {}}}
+        mock_config.return_value = {
+            "roles": {
+                "zealot": {
+                    "constitution": "zealot.md",
+                    "base_agent": "sonnet"
+                }
+            }
+        }
+        mock_const_path.return_value.read_text.return_value = "# ZEALOT\nCore principles."
         mock_run.return_value = MagicMock(
             returncode=0, stdout="# subagents-test\n\n[alice] hello\n"
         )
@@ -93,6 +103,7 @@ def test_mention_spawns_worker():
         result = mentions._build_prompt("zealot", "subagents-test", "@zealot question")
 
         assert result is not None
+        assert "You are zealot." in result
         assert "[SPACE INSTRUCTIONS]" in result
 
 

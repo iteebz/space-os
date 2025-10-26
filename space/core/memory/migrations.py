@@ -1,6 +1,6 @@
 MIGRATIONS = [
     (
-        "schema_v1",
+        "schema",
         """
 CREATE TABLE IF NOT EXISTS memories (
     memory_id TEXT PRIMARY KEY,

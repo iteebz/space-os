@@ -1,36 +1,28 @@
 from space.core import spawn
 
 
-def test_header_injection(tmp_path):
-    constitution = "Core rules."
-    result = spawn.inject_role(constitution, "test-role", "test-agent", model="test-model")
+def test_identity_prompt(tmp_path):
+    result = spawn.build_identity_prompt("test-agent", model="test-model")
 
-    expected_header = "# TEST-ROLE CONSTITUTION"
-    expected_self_desc = "Self: You are test-agent. Your model is test-model."
-
-    assert result.startswith(expected_header)
-    assert expected_self_desc in result
-    assert result.find(expected_header) < result.find(expected_self_desc)
+    assert "You are test-agent." in result
+    assert "Your model is test-model." in result
+    assert "space commands:" in result
+    assert "`space`" in result
+    assert "`memory --as test-agent`" in result
 
 
-def test_footer_injection(tmp_path):
-    constitution = "Core rules."
-    result = spawn.inject_role(constitution, "test-role", "test-agent")
+def test_identity_prompt_no_model(tmp_path):
+    result = spawn.build_identity_prompt("test-agent")
 
-    expected_footer = "run `space` for orientation (already in PATH).\nrun: `memory --as test-agent` to access memories."
+    assert "You are test-agent." in result
+    assert "space commands:" in result
+    assert "`memory --as test-agent`" in result
+    assert "Your model is" not in result
 
-    assert expected_footer in result
-    assert result.endswith(expected_footer)
 
+def test_identity_prompt_format(tmp_path):
+    result = spawn.build_identity_prompt("sentinel")
 
-def test_canon_injection_order(mocker, tmp_path):
-    canon_dir = tmp_path / "canon"
-    canon_dir.mkdir(parents=True, exist_ok=True)
-    (canon_dir / "test_canon.md").write_text("# CANON\n1. Truth")
-    mocker.patch("space.lib.paths.canon_path", return_value=canon_dir)
-
-    constitution = "Core rules."
-    result = spawn.inject_role(constitution, "test-role", "test-agent")
-
-    assert "# CANON" not in result
-    assert "1. Truth" not in result
+    lines = result.split("\n")
+    assert lines[0] == "You are sentinel."
+    assert "space commands:" in result

@@ -57,7 +57,7 @@ def register() -> None:
         return
     _initialized = True
 
-    store.register("memory", "memory.db", schema())
+    store.register("memory", "memory.db")
     store.add_migrations("memory", migrations.MIGRATIONS)
 
 

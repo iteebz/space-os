@@ -60,7 +60,7 @@ def register() -> None:
         return
     _initialized = True
 
-    store.register("bridge", "bridge.db", schema())
+    store.register("bridge", "bridge.db")
     store.add_migrations("bridge", migrations.MIGRATIONS)
 
 

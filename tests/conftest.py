@@ -52,12 +52,14 @@ def test_space(monkeypatch, tmp_path, _seed_dbs):
     memory.db._initialized = False
     knowledge.db._initialized = False
     bridge.db._initialized = False
+    events.db._initialized = False
 
     spawn.db.register()
     chats.db.register()
     memory.db.register()
     knowledge.db.register()
     bridge.db.register()
+    events.db.register()
 
     events.DB_PATH = workspace / ".space" / "events.db"
 

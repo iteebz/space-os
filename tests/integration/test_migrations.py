@@ -22,7 +22,7 @@ def temp_db_dir():
     shutil.rmtree(tmpdir, ignore_errors=True)
 
 
-def _test_module(module_path, db_name, required_tables, required_columns):
+def _test_module(module_path, db_name, required_tables, required_columns, expected_mig_count=None):
     """Helper to test a module's migration contract.
 
     Args:
@@ -30,6 +30,7 @@ def _test_module(module_path, db_name, required_tables, required_columns):
         db_name: Database filename like "memory.db"
         required_tables: Set of table names that must exist
         required_columns: Dict[table_name, set of column names]
+        expected_mig_count: Expected number of migrations to be applied.
     """
 
     def test_impl(temp_db_dir):
@@ -51,7 +52,10 @@ def _test_module(module_path, db_name, required_tables, required_columns):
 
         cursor = conn.execute("SELECT COUNT(*) FROM _migrations")
         mig_count = cursor.fetchone()[0]
-        assert mig_count == len(mod.migrations.MIGRATIONS)
+        if expected_mig_count is not None:
+            assert mig_count == expected_mig_count
+        else:
+            assert mig_count == len(mod.migrations.MIGRATIONS)
 
         # Ensure idempotency by calling ensure again
         store.ensure(module_path.split(".")[-1])
@@ -70,6 +74,7 @@ test_memory_migrations = _test_module(
         "memories": {"memory_id", "agent_id", "topic", "message", "created_at"},
         "links": {"link_id", "memory_id", "parent_id", "kind", "created_at"},
     },
+    expected_mig_count=1,
 )
 
 
@@ -78,6 +83,7 @@ test_bridge_migrations = _test_module(
     "bridge.db",
     {"messages", "channels", "bookmarks", "notes"},
     {"messages": {"message_id", "channel_id", "content"}},
+    expected_mig_count=1,
 )
 
 
@@ -94,4 +100,13 @@ test_knowledge_migrations = _test_module(
     "knowledge.db",
     {"knowledge"},
     {"knowledge": {"knowledge_id", "domain", "content"}},
+    expected_mig_count=1,
+)
+
+
+test_events_migrations = _test_module(
+    "space.core.events",
+    "events.db",
+    {"events"},
+    {"events": {"event_id", "source", "event_type", "timestamp"}},
 )

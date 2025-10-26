@@ -7,9 +7,10 @@ from typing import Any, TypeVar
 
 from space.lib import store
 
-from ..lib import paths
-from ..lib.uuid7 import uuid7
-from .models import Event
+from ...lib import paths
+from ...lib.uuid7 import uuid7
+from ..models import Event
+from . import db
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -37,10 +38,7 @@ DB_PATH = paths.space_data() / "events.db"
 
 
 def init():
-    from . import migrations
-
-    store.register("events", "events.db")
-    store.add_migrations("events", migrations.MIGRATIONS)
+    db.register()
 
 
 def path():

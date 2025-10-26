@@ -39,15 +39,27 @@ def test_build_prompt_success():
     with (
         patch("space.core.bridge.api.mentions.subprocess.run") as mock_run,
         patch("space.core.bridge.api.mentions.config.load_config") as mock_config,
+        patch("space.core.bridge.api.mentions.paths.constitution") as mock_const_path,
+        patch("space.core.bridge.api.mentions._write_role_file") as mock_write,
     ):
-        mock_config.return_value = {"roles": {"zealot": {}}}
+        mock_config.return_value = {
+            "roles": {
+                "zealot": {
+                    "constitution": "zealot.md",
+                    "base_agent": "sonnet"
+                }
+            }
+        }
+        mock_const_path.return_value.read_text.return_value = "# ZEALOT\nCore principles."
         mock_run.return_value = MagicMock(returncode=0, stdout="# test-channel\n\n[alice] hello\n")
 
         result = mentions._build_prompt("zealot", "test-channel", "@zealot test message")
 
         assert result is not None
+        assert "You are zealot." in result
         assert "[SPACE INSTRUCTIONS]" in result
         assert "test message" in result
+        mock_write.assert_called_once()
         mock_run.assert_called_once()
         call_args = mock_run.call_args[0][0]
         assert call_args == ["bridge", "export", "test-channel"]

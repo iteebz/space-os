@@ -37,11 +37,10 @@ def test_connect_basic(temp_db_dir):
 
 def test_register_database(clean_registry):
     """Test registering a database."""
-    schema = "CREATE TABLE test (id TEXT PRIMARY KEY)"
-    store.register("test_db", "test.db", schema)
+    store.register("test_db", "test.db")
 
     assert "test_db" in store._registry
-    assert store._registry["test_db"] == ("test.db", schema)
+    assert store._registry["test_db"] == "test.db"
 
 
 def test_register_migrations(clean_registry):
@@ -65,8 +64,9 @@ def test_ensure_creates_schema(clean_registry, temp_db_dir, monkeypatch):
     """Test ensure creates schema for new database."""
     monkeypatch.setattr("space.lib.paths.dot_space", lambda: temp_db_dir)
 
-    schema = "CREATE TABLE test (id TEXT PRIMARY KEY, value TEXT)"
-    store.register("test_db", "test.db", schema)
+    migs = [("init", "CREATE TABLE test (id TEXT PRIMARY KEY, value TEXT)")]
+    store.register("test_db", "test.db")
+    store.add_migrations("test_db", migs)
 
     conn = store.ensure("test_db")
 
@@ -81,9 +81,11 @@ def test_migrate_basic(clean_registry, temp_db_dir, monkeypatch):
     """Test basic migration."""
     monkeypatch.setattr("space.lib.paths.dot_space", lambda: temp_db_dir)
 
-    schema = "CREATE TABLE test (id TEXT PRIMARY KEY)"
-    migs = [("add_value", "ALTER TABLE test ADD COLUMN value TEXT")]
-    store.register("test_db", "test.db", schema)
+    migs = [
+        ("init", "CREATE TABLE test (id TEXT PRIMARY KEY)"),
+        ("add_value", "ALTER TABLE test ADD COLUMN value TEXT"),
+    ]
+    store.register("test_db", "test.db")
     store.add_migrations("test_db", migs)
 
     conn = store.ensure("test_db")
@@ -102,9 +104,8 @@ def test_migrate_callable(clean_registry, temp_db_dir, monkeypatch):
     def add_column(conn):
         conn.execute("ALTER TABLE test ADD COLUMN computed TEXT")
 
-    schema = "CREATE TABLE test (id TEXT PRIMARY KEY)"
-    migs = [("add_computed", add_column)]
-    store.register("test_db", "test.db", schema)
+    migs = [("init", "CREATE TABLE test (id TEXT PRIMARY KEY)"), ("add_computed", add_column)]
+    store.register("test_db", "test.db")
     store.add_migrations("test_db", migs)
 
     conn = store.ensure("test_db")
@@ -126,9 +127,8 @@ def test_migrate_skips_applied(clean_registry, temp_db_dir, monkeypatch):
         nonlocal call_count
         call_count += 1
 
-    schema = "CREATE TABLE test (id TEXT PRIMARY KEY)"
-    migs = [("track", track_call)]
-    store.register("test_db", "test.db", schema)
+    migs = [("init", "CREATE TABLE test (id TEXT PRIMARY KEY)"), ("track", track_call)]
+    store.register("test_db", "test.db")
     store.add_migrations("test_db", migs)
 
     store.ensure("test_db")
@@ -141,10 +141,12 @@ def test_migrate_skips_applied(clean_registry, temp_db_dir, monkeypatch):
 def test_ensure_schema_with_migrations(clean_registry, temp_db_dir):
     """Test ensure_schema applies migrations."""
     db_path = temp_db_dir / "test.db"
-    schema = "CREATE TABLE test (id TEXT PRIMARY KEY)"
-    migs = [("v1", "ALTER TABLE test ADD COLUMN value TEXT")]
+    migs = [
+        ("init", "CREATE TABLE test (id TEXT PRIMARY KEY)"),
+        ("v1", "ALTER TABLE test ADD COLUMN value TEXT"),
+    ]
 
-    sqlite.ensure_schema(db_path, schema, migs)
+    sqlite.ensure_schema(db_path, migs)
 
     conn = sqlite.connect(db_path)
     cursor = conn.execute("PRAGMA table_info(test)")

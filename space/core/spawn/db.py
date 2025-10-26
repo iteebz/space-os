@@ -1,6 +1,4 @@
-from pathlib import Path
-
-from space.lib import paths, store
+from space.lib import store
 
 from . import migrations
 
