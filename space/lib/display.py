@@ -26,7 +26,7 @@ def fmt_entry_msg(msg: str, max_len: int = 100) -> str:
 def show_memory_entry(entry, ctx_obj, related=None):
     from space.core import spawn
 
-    agent = spawn.resolve_agent(entry.agent_id)
+    agent = spawn.get_agent(entry.agent_id)
     agent_identity = agent.identity if agent else None
     typer.echo(fmt_entry_header(entry, agent_identity))
     typer.echo(f"Created: {entry.timestamp}\n")
@@ -93,7 +93,7 @@ def show_context(identity: str):
 
     typer.echo("\n" + "─" * 60)
 
-    agent = spawn.resolve_agent(identity)
+    agent = spawn.get_agent(identity)
     if not agent:
         typer.echo(f"\nNo agent found for identity: {identity}")
         return
@@ -118,7 +118,7 @@ def show_wake_summary(
 ):
     import space.apps.lifecycle.commands.wake as wake_module
 
-    agent = spawn.resolve_agent(identity)
+    agent = spawn.get_agent(identity)
     self_desc = agent.description if agent else None
     typer.echo(wake_module.IDENTITY_HEADER.format(identity=identity))
     if self_desc:
@@ -188,7 +188,7 @@ def show_smart_memory(identity: str, json_output: bool, quiet_output: bool):
 
     from space.core import memory, spawn
 
-    agent = spawn.resolve_agent(identity)
+    agent = spawn.get_agent(identity)
     self_desc = agent.description if agent else None
     journals = memory.list_entries(identity, topic="journal")
     core_entries = memory.list_entries(identity, filter="core")

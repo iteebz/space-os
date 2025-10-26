@@ -96,13 +96,13 @@ recent = events.query(limit=20)
 
 ```python
 from space import events
-from space.core.spawn import db as spawn_db
+from space.core import spawn
 
-agent_id = spawn_db.ensure_agent("zealot-1")
+agent = spawn.get_agent("zealot-1")
 events.emit(
     source="bridge",
     event_type="message_sent",
-    agent_id=agent_id,
+    agent_id=agent.agent_id,
     data="research:msg-abc123"
 )
 ```
@@ -131,7 +131,7 @@ identity invocation (CLI)
     ↓
 events.identify(identity, command)
     ↓
-spawn_db.ensure_agent(identity)  ← resolves name → agent_id
+spawn.get_agent(identity)  ← resolves name → agent_id
     ↓
 events.emit(source, event_type, agent_id, data)
     ↓
@@ -144,7 +144,7 @@ events.db record (immutable)
 bridge send research "proposal" --as zealot-1
 ```
 
-1. CLI resolves `zealot-1` to agent_id via `spawn_db.get_agent_id()`
+1. CLI resolves `zealot-1` to agent_id via `spawn.get_agent()`
 2. Bridge inserts message with `agent_id`
 3. Event emitted: `events.emit("bridge", "message_sent", agent_id, "research:msg-id")`
 4. Event stored immutably in events.db
@@ -155,10 +155,10 @@ bridge send research "proposal" --as zealot-1
 No explicit sender column in bridge.messages — resolve via:
 
 ```python
-from space.core.spawn import db as spawn_db
+from space.core import spawn
 
 message = bridge.get_messages(channel_id)[0]
-sender_name = spawn_db.get_agent_name(message.agent_id)  # lookup from registry
+sender_name = spawn.get_agent(message.agent_id).identity  # lookup from registry
 ```
 
 ## Analytics

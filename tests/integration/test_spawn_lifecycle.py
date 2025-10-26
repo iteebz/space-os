@@ -4,15 +4,13 @@ from space.core import bridge, spawn
 from space.core.bridge.api import mentions
 
 
-def test_channel_groups_tasks(test_space):
+def test_channel_groups_tasks(test_space, default_agents):
     """Tasks in same channel preserve agent references."""
     channel = bridge.create_channel("investigation-channel")
-    spawn.ensure_agent("zealot")
-    spawn.ensure_agent("sentinel")
 
-    t1_id = spawn.create_task("zealot", "test", channel_id=channel.channel_id)
-    t2_id = spawn.create_task("sentinel", "test", channel_id=channel.channel_id)
-    t3_id = spawn.create_task("zealot", "test", channel_id=channel.channel_id)
+    t1_id = spawn.create_task(default_agents["zealot"], "test", channel_id=channel.channel_id)
+    t2_id = spawn.create_task(default_agents["sentinel"], "test", channel_id=channel.channel_id)
+    t3_id = spawn.create_task(default_agents["zealot"], "test", channel_id=channel.channel_id)
 
     t1 = spawn.get_task(t1_id)
     t2 = spawn.get_task(t2_id)
@@ -22,20 +20,18 @@ def test_channel_groups_tasks(test_space):
     assert t2.channel_id == channel.channel_id
     assert t3.channel_id == channel.channel_id
 
-    assert spawn.resolve_agent(t1.agent_id).identity == "zealot"
-    assert spawn.resolve_agent(t2.agent_id).identity == "sentinel"
-    assert spawn.resolve_agent(t3.agent_id).identity == "zealot"
+    assert spawn.get_agent(t1.agent_id).identity == default_agents["zealot"]
+    assert spawn.get_agent(t2.agent_id).identity == default_agents["sentinel"]
+    assert spawn.get_agent(t3.agent_id).identity == default_agents["zealot"]
 
 
-def test_channel_isolation(test_space):
+def test_channel_isolation(test_space, default_agents):
     """Tasks from different channels isolated."""
     channel_a = bridge.create_channel("channel-a")
     channel_b = bridge.create_channel("channel-b")
-    spawn.ensure_agent("zealot")
-    spawn.ensure_agent("sentinel")
 
-    t_a = spawn.create_task("zealot", "test", channel_id=channel_a.channel_id)
-    t_b = spawn.create_task("sentinel", "test", channel_id=channel_b.channel_id)
+    t_a = spawn.create_task(default_agents["zealot"], "test", channel_id=channel_a.channel_id)
+    t_b = spawn.create_task(default_agents["sentinel"], "test", channel_id=channel_b.channel_id)
 
     task_a = spawn.get_task(t_a)
     task_b = spawn.get_task(t_b)
@@ -45,16 +41,14 @@ def test_channel_isolation(test_space):
     assert task_a.channel_id != task_b.channel_id
 
 
-def test_retrieve_channel_history(test_space):
+def test_retrieve_channel_history(test_space, default_agents):
     """Retrieve task history preserves agent and output."""
     channel = bridge.create_channel("investigation")
-    spawn.ensure_agent("zealot")
-    spawn.ensure_agent("sentinel")
 
     task_outputs = [
-        ("zealot", "started investigation"),
-        ("sentinel", "gathered data"),
-        ("zealot", "final report"),
+        (default_agents["zealot"], "started investigation"),
+        (default_agents["sentinel"], "gathered data"),
+        (default_agents["zealot"], "final report"),
     ]
 
     task_ids = []
@@ -65,22 +59,21 @@ def test_retrieve_channel_history(test_space):
 
     for task_id, (agent, output) in zip(task_ids, task_outputs, strict=False):
         task = spawn.get_task(task_id)
-        assert spawn.resolve_agent(task.agent_id).identity == agent
+        assert spawn.get_agent(task.agent_id).identity == agent
         assert task.output == output
 
 
-def test_spawn_logs_metadata(test_space):
+def test_spawn_logs_metadata(test_space, default_agents):
     """Spawn task stores all metadata (agent, channel, output, status)."""
     channel = bridge.create_channel("subagents-test")
-    spawn.ensure_agent("zealot")
     output = "response"
 
-    task_id = spawn.create_task("zealot", "test", channel_id=channel.channel_id)
+    task_id = spawn.create_task(default_agents["zealot"], "test", channel_id=channel.channel_id)
     spawn.complete_task(task_id, output=output)
 
     task = spawn.get_task(task_id)
 
-    assert spawn.resolve_agent(task.agent_id).identity == "zealot"
+    assert spawn.get_agent(task.agent_id).identity == default_agents["zealot"]
     assert task.channel_id == channel.channel_id
     assert task.output == output
     assert task.status == "completed"
@@ -103,19 +96,18 @@ def test_mention_spawns_worker():
         assert "[SPACE INSTRUCTIONS]" in result
 
 
-def test_task_provenance_chain(test_space):
+def test_task_provenance_chain(test_space, default_agents):
     """Task entry tracks full provenance: agent_id, channel_id, output, status, timestamps."""
     channel = bridge.create_channel("investigation")
-    spawn.ensure_agent("zealot")
     output = "findings"
 
-    task_id = spawn.create_task("zealot", "test", channel_id=channel.channel_id)
+    task_id = spawn.create_task(default_agents["zealot"], "test", channel_id=channel.channel_id)
     spawn.complete_task(task_id, output=output)
 
     task = spawn.get_task(task_id)
 
     assert task.task_id == task_id
-    assert spawn.resolve_agent(task.agent_id).identity == "zealot"
+    assert spawn.get_agent(task.agent_id).identity == default_agents["zealot"]
     assert task.channel_id == channel.channel_id
     assert task.output == output
     assert task.status == "completed"
@@ -123,9 +115,8 @@ def test_task_provenance_chain(test_space):
     assert task.completed_at is not None
 
 
-def test_task_pending_to_running(test_space):
-    spawn.ensure_agent("zealot")
-    task_id = spawn.create_task(role="zealot", input="list repos")
+def test_task_pending_to_running(test_space, default_agents):
+    task_id = spawn.create_task(role=default_agents["zealot"], input="list repos")
 
     task = spawn.get_task(task_id)
     assert task.status == "pending"
@@ -135,9 +126,8 @@ def test_task_pending_to_running(test_space):
     assert task.started_at is not None
 
 
-def test_task_running_to_completed(test_space):
-    spawn.ensure_agent("zealot")
-    task_id = spawn.create_task(role="zealot", input="list repos")
+def test_task_running_to_completed(test_space, default_agents):
+    task_id = spawn.create_task(role=default_agents["zealot"], input="list repos")
     spawn.start_task(task_id)
 
     output = "repo1\nrepo2\nrepo3"
@@ -151,9 +141,8 @@ def test_task_running_to_completed(test_space):
     assert task.duration >= 0
 
 
-def test_task_running_to_failed(test_space):
-    spawn.ensure_agent("zealot")
-    task_id = spawn.create_task(role="zealot", input="run command")
+def test_task_running_to_failed(test_space, default_agents):
+    task_id = spawn.create_task(role=default_agents["zealot"], input="run command")
     spawn.start_task(task_id)
 
     stderr = "command not found"
@@ -166,9 +155,8 @@ def test_task_running_to_failed(test_space):
     assert task.completed_at is not None
 
 
-def test_task_pending_to_timeout(test_space):
-    spawn.ensure_agent("zealot")
-    task_id = spawn.create_task(role="zealot", input="slow task")
+def test_task_pending_to_timeout(test_space, default_agents):
+    task_id = spawn.create_task(role=default_agents["zealot"], input="slow task")
 
     spawn.fail_task(task_id)
     task = spawn.get_task(task_id)

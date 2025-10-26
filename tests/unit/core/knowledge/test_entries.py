@@ -160,8 +160,8 @@ def test_find_related_returns_scores(mock_db):
 
 
 def test_search_returns_structured_results(mock_db):
-    with patch("space.core.spawn.resolve_agent") as mock_agent:
-        mock_agent.return_value = MagicMock(agent_id="a-1", name="agent1")
+    with patch("space.core.spawn.get_agent") as mock_agent:
+        mock_agent.return_value = MagicMock(agent_id="a-1", identity="agent1")
         mock_row = make_mock_row(
             {
                 "knowledge_id": "k-1",
@@ -178,8 +178,8 @@ def test_search_returns_structured_results(mock_db):
 
 
 def test_search_filters_by_identity(mock_db):
-    with patch("space.core.spawn.resolve_agent") as mock_agent:
-        mock_agent.return_value = MagicMock(agent_id="a-1", name="agent1")
+    with patch("space.core.spawn.get_agent") as mock_agent:
+        mock_agent.return_value = MagicMock(agent_id="a-1", identity="agent1")
         mock_db.execute.return_value.fetchall.return_value = []
         knowledge.search("test", "agent1", False)
         args = mock_db.execute.call_args[0]

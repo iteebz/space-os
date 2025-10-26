@@ -24,8 +24,8 @@ def mock_db():
 
 
 @pytest.fixture
-def mock_resolve_agent():
-    with patch("space.core.spawn.resolve_agent") as mock:
+def mock_get_agent():
+    with patch("space.core.spawn.get_agent") as mock:
         mock.return_value = MagicMock(agent_id="test-agent-id")
         yield mock
 
@@ -54,7 +54,7 @@ def test_add_entry_returns_id(mock_db):
     assert result is not None
 
 
-def test_list_entries_basic(mock_db, mock_resolve_agent):
+def test_list_entries_basic(mock_db, mock_get_agent):
     mock_row = make_mock_row(
         {
             "memory_id": "m-1",
@@ -79,7 +79,7 @@ def test_list_entries_basic(mock_db, mock_resolve_agent):
     assert len(result) == 1
 
 
-def test_list_entries_with_topic_filter(mock_db, mock_resolve_agent):
+def test_list_entries_with_topic_filter(mock_db, mock_get_agent):
     mock_db.execute.return_value.fetchall.return_value = []
 
     memory.list_entries("test-agent-id", topic="insights")
@@ -88,7 +88,7 @@ def test_list_entries_with_topic_filter(mock_db, mock_resolve_agent):
     assert "AND topic = ?" in args[0]
 
 
-def test_list_entries_with_core_filter(mock_db, mock_resolve_agent):
+def test_list_entries_with_core_filter(mock_db, mock_get_agent):
     mock_db.execute.return_value.fetchall.return_value = []
 
     memory.list_entries("test-agent-id", filter="core")
@@ -97,7 +97,7 @@ def test_list_entries_with_core_filter(mock_db, mock_resolve_agent):
     assert "AND core = 1" in args[0]
 
 
-def test_list_entries_excludes_archived_by_default(mock_db, mock_resolve_agent):
+def test_list_entries_excludes_archived_by_default(mock_db, mock_get_agent):
     mock_db.execute.return_value.fetchall.return_value = []
 
     memory.list_entries("test-agent-id")
@@ -106,7 +106,7 @@ def test_list_entries_excludes_archived_by_default(mock_db, mock_resolve_agent):
     assert "AND archived_at IS NULL" in args[0]
 
 
-def test_list_entries_shows_all_when_requested(mock_db, mock_resolve_agent):
+def test_list_entries_shows_all_when_requested(mock_db, mock_get_agent):
     mock_db.execute.return_value.fetchall.return_value = []
 
     memory.list_entries("test-agent-id", show_all=True)
@@ -115,8 +115,8 @@ def test_list_entries_shows_all_when_requested(mock_db, mock_resolve_agent):
     assert "AND archived_at IS NULL" not in args[0]
 
 
-def test_list_entries_agent_not_found_raises(mock_resolve_agent):
-    mock_resolve_agent.return_value = None
+def test_list_entries_agent_not_found_raises(mock_get_agent):
+    mock_get_agent.return_value = None
 
     with pytest.raises(ValueError, match="not found"):
         memory.list_entries("nonexistent")

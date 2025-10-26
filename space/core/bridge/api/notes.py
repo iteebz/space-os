@@ -26,7 +26,7 @@ def add_note(channel_id: str | Channel, identity: str, content: str) -> str:
 
     channel_id = _to_channel_id(channel_id)
 
-    agent = spawn.resolve_agent(identity)
+    agent = spawn.get_agent(identity)
     if not agent:
         raise ValueError(f"Agent '{identity}' not found")
     agent_id = agent.agent_id

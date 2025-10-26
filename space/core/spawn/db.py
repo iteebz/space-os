@@ -12,7 +12,9 @@ def schema() -> str:
     return """
 CREATE TABLE IF NOT EXISTS agents (
     agent_id TEXT PRIMARY KEY,
-    identity TEXT UNIQUE,
+    identity TEXT UNIQUE NOT NULL,
+    constitution TEXT NOT NULL,
+    base_agent TEXT NOT NULL,
     self_description TEXT,
     archived_at INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

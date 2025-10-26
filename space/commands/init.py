@@ -27,6 +27,27 @@ def init():
 
     typer.echo(f"✓ Initialized workspace at {root}")
     typer.echo(f"✓ User data at {Path.home() / '.space'}")
+
+    # Register identities from config
+    from space import config
+
+    config.init_config()
+    cfg = config.load_config()
+    roles = cfg.get("roles", {})
+    if roles:
+        typer.echo("\nRegistering identities...")
+        for role_name, role_cfg in roles.items():
+            try:
+                spawn.api.register_agent(
+                    identity=role_name,
+                    constitution=role_cfg["constitution"],
+                    base_agent=role_cfg["base_agent"],
+                )
+                typer.echo(f"  + {role_name}")
+            except ValueError:
+                typer.echo(f"  = {role_name} (already registered)")
+        typer.echo(f"\n✓ Registered {len(roles)} identities from config.")
+
     typer.echo()
     typer.echo("  ~/space/")
     typer.echo("    ├── canon/      → your persistent context (edit here)")

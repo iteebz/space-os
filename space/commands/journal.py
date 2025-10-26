@@ -25,7 +25,7 @@ def journal(
         typer.echo("Identity must be provided with --as")
         raise typer.Exit(1)
 
-    agent = spawn.resolve_agent(identity)
+    agent = spawn.get_agent(identity)
     if not agent:
         if not quiet:
             typer.echo(f"No agent found for {identity}")

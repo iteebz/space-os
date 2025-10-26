@@ -6,7 +6,7 @@ import subprocess
 import sys
 
 from space import config
-from space.core import spawn
+from space.core.spawn.api.tasks import create_task, start_task
 
 logging.basicConfig(level=logging.DEBUG, format="[worker] %(message)s")
 log = logging.getLogger(__name__)
@@ -111,8 +111,8 @@ def main():
             log.info(f"Got prompt, running spawn {identity}")
             timeout = _get_task_timeout(identity)
             try:
-                task_id = spawn.create_task(role=identity, input=prompt, channel_id=channel_id)
-                spawn.start_task(task_id)
+                task_id = create_task(role=identity, input=prompt, channel_id=channel_id)
+                start_task(task_id)
 
                 result = subprocess.run(
                     ["spawn", identity, prompt, "--channel", channel_name],

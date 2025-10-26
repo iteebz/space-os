@@ -138,6 +138,8 @@ class Agent:
 
     agent_id: str
     identity: str
+    constitution: str
+    base_agent: str
     description: str | None = None
     archived_at: int | None = None
     created_at: str | None = None

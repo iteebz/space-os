@@ -23,7 +23,7 @@ def add(
     confidence: float = typer.Option(None, help="Confidence score (0.0-1.0)"),
 ):
     """Add a new knowledge entry."""
-    agent = spawn.resolve_agent(contributor)
+    agent = spawn.get_agent(contributor)
     agent_id = agent.agent_id if agent else None
     if not agent_id:
         output.out_text(f"Agent not found: {contributor}", ctx.obj)
@@ -56,15 +56,8 @@ def list_entries(
         return
 
     output.out_text("Knowledge entries:", ctx.obj)
-    domain = None
     for e in entries:
-        if e.domain != domain:
-            if domain is not None:
-                typer.echo()
-            output.out_text(f"# {e.domain}", ctx.obj)
-            domain = e.domain
-        mark = " [ARCHIVED]" if e.archived_at else ""
-        agent = spawn.resolve_agent(e.agent_id)
+        agent = spawn.get_agent(e.agent_id)
         contributor = agent.identity if agent else e.agent_id[:8]
         output.out_text(
             f"[{e.knowledge_id[-8:]}] {e.content[:50]}... ({contributor}){mark}", ctx.obj
@@ -90,7 +83,7 @@ def query_domain(
     output.out_text(f"Domain: {domain} ({len(entries)} entries)", ctx.obj)
     for e in entries:
         mark = " [ARCHIVED]" if e.archived_at else ""
-        agent = spawn.resolve_agent(e.agent_id)
+        agent = spawn.get_agent(e.agent_id)
         contributor = agent.identity if agent else e.agent_id[:8]
         conf = f" [confidence: {e.confidence:.2f}]" if e.confidence else ""
         output.out_text(
@@ -113,7 +106,7 @@ def inspect(
         typer.echo(output.out_json(asdict(entry)))
         return
 
-    agent = spawn.resolve_agent(entry.agent_id)
+    agent = spawn.get_agent(entry.agent_id)
     contributor = agent.identity if agent else entry.agent_id
     output.out_text(f"ID: {entry.knowledge_id}", ctx.obj)
     output.out_text(f"Domain: {entry.domain}", ctx.obj)

@@ -44,7 +44,7 @@ def test_list_journal_entries(mock_db):
     )
     mock_db.execute.return_value.fetchall.return_value = [mock_row]
 
-    with patch("space.core.spawn.resolve_agent") as mock_agent:
+    with patch("space.core.spawn.get_agent") as mock_agent:
         mock_agent.return_value = MagicMock(agent_id="a-1")
         result = memory.list_entries("agent1", topic="journal", limit=1)
         assert len(result) == 1

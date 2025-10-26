@@ -37,9 +37,11 @@ def send_cmd(
             else:
                 raise typer.BadParameter("Invalid base64 payload", param_hint="content") from exc
 
-    agent_id = spawn.ensure_agent(identity)
-
     try:
+        agent = spawn.get_agent(identity)
+        if not agent:
+            raise typer.Exit(f"Identity '{identity}' not registered.")
+        agent_id = agent.agent_id
         channel_id = channels.resolve_channel(channel).channel_id
         events.emit(
             "bridge",
@@ -88,7 +90,10 @@ def recv_cmd(
     quiet_output = ctx.obj.get("quiet_output")
 
     try:
-        agent_id = spawn.resolve_agent(identity).agent_id
+        agent = spawn.get_agent(identity)
+        if not agent:
+            raise typer.Exit(f"Identity '{identity}' not registered.")
+        agent_id = agent.agent_id
         channel_id = channels.resolve_channel(channel).channel_id
         msgs, count, context, participants = messaging.recv_messages(channel_id, identity)
 
@@ -120,7 +125,9 @@ def recv_cmd(
             )
         elif not quiet_output:
             for msg in msgs:
-                typer.echo(f"[{spawn.resolve_agent(msg.agent_id).name}] {msg.content}")
+                sender = spawn.get_agent(msg.agent_id)
+                sender_name = sender.identity if sender else msg.agent_id[:8]
+                typer.echo(f"[{sender_name}] {msg.content}")
                 typer.echo()
     except ValueError as e:
         events.emit(
@@ -150,7 +157,10 @@ def wait_cmd(
     quiet_output = ctx.obj.get("quiet_output")
 
     try:
-        agent_id = spawn.resolve_agent(identity).agent_id
+        agent = spawn.get_agent(identity)
+        if not agent:
+            raise typer.Exit(f"Identity '{identity}' not registered.")
+        agent_id = agent.agent_id
         channel_id = channels.resolve_channel(channel).channel_id
     except (ValueError, TypeError):
         if json_output:
@@ -195,7 +205,9 @@ def wait_cmd(
                     )
                 elif not quiet_output:
                     for msg in other_messages:
-                        typer.echo(f"[{spawn.resolve_agent(msg.agent_id).name}] {msg.content}")
+                        sender = spawn.get_agent(msg.agent_id)
+                        sender_name = sender.identity if sender else msg.agent_id[:8]
+                        typer.echo(f"[{sender_name}] {msg.content}")
                         typer.echo()
                 break
 
@@ -230,7 +242,10 @@ def inbox(
 
     agent_id = None
     try:
-        agent_id = spawn.ensure_agent(identity)
+        agent = spawn.get_agent(identity)
+        if not agent:
+            raise typer.Exit(f"Identity '{identity}' not registered.")
+        agent_id = agent.agent_id
         chans = channels.fetch_inbox(agent_id)
         if not chans:
             if json_output:

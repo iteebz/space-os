@@ -25,7 +25,7 @@ def notes_cmd(
     quiet_output = ctx.obj.get("quiet_output")
 
     agent_id = (
-        spawn.resolve_agent(identity).agent_id if identity and isinstance(identity, str) else None
+        spawn.get_agent(identity).agent_id if identity and isinstance(identity, str) else None
     )
     if content is None:
         try:
@@ -63,7 +63,7 @@ def notes_cmd(
                     timestamp = format_local_time(note_dict["created_at"])
                     agent_id_note = note_dict.get("agent_id")
                     identity_str = (
-                        spawn.resolve_agent(agent_id_note).name if agent_id_note else "unknown"
+                        spawn.get_agent(agent_id_note).identity if agent_id_note else "unknown"
                     )
                     typer.echo(f"[{timestamp}] {identity_str}: {note_dict['content']}")
                     typer.echo()

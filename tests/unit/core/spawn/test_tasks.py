@@ -26,7 +26,7 @@ def mock_db():
 
 @pytest.fixture
 def mock_resolve_agent():
-    with patch("space.core.spawn.api.tasks.resolve_agent") as mock:
+    with patch("space.core.spawn.api.tasks.get_agent") as mock:
         mock.return_value = MagicMock(agent_id="agent-123")
         yield mock
 

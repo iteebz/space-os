@@ -8,12 +8,11 @@ from space.lib import db
 from space.lib.db.conversions import from_row
 from space.lib.uuid7 import uuid7
 
-from .agents import resolve_agent
+from .agents import get_agent
 
 
 def create_task(role: str, input: str, channel_id: str | None = None) -> str:
-    """Create task record. Returns task_id."""
-    agent = resolve_agent(role)
+    agent = get_agent(role)
     if not agent:
         raise ValueError(f"Agent '{role}' not found")
     agent_id = agent.agent_id
@@ -100,7 +99,7 @@ def list_tasks(status: str | None = None, role: str | None = None) -> list[Task]
         query += " AND status = ?"
         params.append(status)
     if role is not None:
-        agent = resolve_agent(role)
+        agent = get_agent(role)
         if not agent:
             return []
         query += " AND agent_id = ?"

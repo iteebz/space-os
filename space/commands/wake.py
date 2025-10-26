@@ -101,7 +101,11 @@ def wake(
     typer.echo(f"Waking up {identity}")
     from space.core import memory, spawn
 
-    spawn.ensure_agent(identity)
+    agent = spawn.get_agent(identity)
+    if not agent:
+        raise typer.Exit(
+            f"Identity '{identity}' not registered. Run 'space init' or register with 'spawn register'."
+        )
 
     from space.lib import chats
 
@@ -134,7 +138,7 @@ def _show_orientation(identity: str, quiet: bool, spawn_count: int, wakes_this_s
         typer.echo("  sleep — persist state, hand off to next self")
         typer.echo()
 
-    agent = spawn.resolve_agent(identity)
+    agent = spawn.get_agent(identity)
     channels = bridge.fetch_inbox(agent.agent_id) if agent else []
     if channels:
         total_msgs = sum(ch.unread_count for ch in channels)

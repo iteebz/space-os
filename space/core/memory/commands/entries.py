@@ -43,7 +43,10 @@ def add(
     ident = ident or ctx.obj.get("identity")
     if not ident:
         raise typer.BadParameter("--as required")
-    agent_id = spawn.ensure_agent(ident)
+    agent = spawn.get_agent(ident)
+    if not agent:
+        raise typer.BadParameter(f"Identity '{ident}' not registered.")
+    agent_id = agent.agent_id
     entry_id = api.add_entry(agent_id, topic, message)
     if ctx.obj.get("json_output"):
         typer.echo(output.out_json({"entry_id": entry_id}))
@@ -156,7 +159,10 @@ def inspect(
     identity_name = identity_name or ctx.obj.get("identity")
     if not identity_name:
         raise typer.BadParameter("--as required")
-    agent_id = spawn.ensure_agent(identity_name)
+    agent = spawn.get_agent(identity_name)
+    if not agent:
+        raise typer.BadParameter(f"Identity '{identity_name}' not registered.")
+    agent_id = agent.agent_id
     try:
         entry = api.get_by_id(uuid)
     except ValueError as e:
@@ -168,8 +174,8 @@ def inspect(
         return
 
     if entry.agent_id != agent_id:
-        agent = spawn.resolve_agent(entry.agent_id)
-        name = agent.name if agent else entry.agent_id
+        agent = spawn.get_agent(entry.agent_id)
+        name = agent.identity if agent else entry.agent_id
         output.out_text(f"Belongs to {name}", ctx.obj)
         return
 
@@ -197,7 +203,10 @@ def replace(
     id = id or ctx.obj.get("identity")
     if not id:
         raise typer.BadParameter("--as required")
-    agent_id = spawn.ensure_agent(id)
+    agent = spawn.get_agent(id)
+    if not agent:
+        raise typer.BadParameter(f"Identity '{id}' not registered.")
+    agent_id = agent.agent_id
 
     if supersedes:
         old_ids = [x.strip() for x in supersedes.split(",")]

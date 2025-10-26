@@ -19,7 +19,7 @@ def search(query: str, identity: str | None, all_agents: bool) -> list[dict]:
         params = [f"%{query}%", f"%{query}%"]
 
         if identity and not all_agents:
-            agent = spawn.resolve_agent(identity)
+            agent = spawn.get_agent(identity)
 
             if not agent:
                 raise ValueError(f"Agent '{identity}' not found")
@@ -33,14 +33,14 @@ def search(query: str, identity: str | None, all_agents: bool) -> list[dict]:
         rows = conn.execute(sql_query, params).fetchall()
 
         for row in rows:
-            agent = spawn.resolve_agent(row["agent_id"])
+            agent = spawn.get_agent(row["agent_id"])
 
             results.append(
                 {
                     "source": "bridge",
                     "channel_name": row["channel_name"],
                     "message_id": row["message_id"],
-                    "sender": agent.name if agent else row["agent_id"],
+                    "sender": agent.identity if agent else row["agent_id"],
                     "content": row["content"],
                     "timestamp": row["created_at"],
                     "reference": f"bridge:{row['channel_name']}:{row['message_id']}",

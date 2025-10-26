@@ -24,7 +24,10 @@ def journal(
     ident = ident or ctx.obj.get("identity")
     if not ident:
         raise typer.BadParameter("--as required")
-    agent_id = spawn.ensure_agent(ident)
+    agent = spawn.get_agent(ident)
+    if not agent:
+        raise typer.BadParameter(f"Identity '{ident}' not registered.")
+    agent_id = agent.agent_id
 
     if message:
         existing = api.list_entries(ident, topic="journal", limit=1)

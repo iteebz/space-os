@@ -62,7 +62,7 @@ def sleep_callback(
 
     from space.core import memory, spawn
 
-    agent = spawn.resolve_agent(identity)
+    agent = spawn.get_agent(identity)
     if not agent:
         if not quiet:
             typer.echo(f"No active session for {identity}")

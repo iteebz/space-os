@@ -13,7 +13,7 @@ from ..api import export as ex
 
 
 def _display_name(agent_id: str) -> str:
-    agent = spawn.resolve_agent(agent_id)
+    agent = spawn.get_agent(agent_id)
     return agent.identity if agent else agent_id
 
 
@@ -28,8 +28,10 @@ def export_cmd(
 
     agent_id = None
     if identity and isinstance(identity, str):  # identity optional for plain exports
-        agent = spawn.resolve_agent(identity)
-        agent_id = agent.agent_id if agent else spawn.ensure_agent(identity)
+        agent = spawn.get_agent(identity)
+        if not agent:
+            raise typer.Exit(f"Identity '{identity}' not registered.")
+        agent_id = agent.agent_id
     try:
         if agent_id:
             events.emit("bridge", "export_starting", agent_id, json.dumps({"channel": channel}))

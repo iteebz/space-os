@@ -1,13 +1,11 @@
-"""Agent coordination: multi-agent bridge interaction patterns."""
-
 from space.core import bridge, events, spawn
 
 
-def test_agent_posts_mid_execution(test_space):
+def test_agent_posts_mid_execution(test_space, default_agents):
     """Agents post autonomously mid-execution and wait for responses."""
     dev_channel_id = bridge.create_channel("space-dev", "Development coordination")
-    zealot_1_id = "zealot-1"
-    zealot_2_id = "zealot-2"
+    zealot_1_id = default_agents["zealot"]
+    zealot_2_id = default_agents["sentinel"]
 
     agent_z1_uuid = bridge.send_message(
         dev_channel_id, zealot_1_id, "Starting analysis of spawn.py:42"
@@ -19,11 +17,11 @@ def test_agent_posts_mid_execution(test_space):
     bridge.send_message(
         dev_channel_id,
         zealot_1_id,
-        "Found potential bug at line 42. @zealot-2 please review before merge",
+        "Found potential bug at line 42. @sentinel please review before merge",
     )
     messages = bridge.get_messages(dev_channel_id)
     assert len(messages) >= 2
-    assert "@zealot-2" in messages[1].content
+    assert "@sentinel" in messages[1].content
 
     new_for_zealot2, count, _, participants = bridge.recv_messages(dev_channel_id, zealot_2_id)
     assert count >= 2
@@ -47,18 +45,18 @@ def test_agent_posts_mid_execution(test_space):
     assert len(messages) >= 4
 
 
-def test_agent_bookmark_isolation(test_space):
+def test_agent_bookmark_isolation(test_space, default_agents):
     """Each agent maintains independent bookmark; doesn't see other reads."""
     channel_id = bridge.create_channel("shared-channel")
-    zealot_1_id = "zealot-1"
-    zealot_2_id = "zealot-2"
+    zealot_1_id = default_agents["zealot"]
+    zealot_2_id = default_agents["sentinel"]
 
-    bridge.send_message(channel_id, "system", "message 1")
+    bridge.send_message(channel_id, "zealot", "message 1")
 
     new_z1, count_z1, _, _ = bridge.recv_messages(channel_id, zealot_1_id)
     assert count_z1 == 1
 
-    bridge.send_message(channel_id, "system", "message 2")
+    bridge.send_message(channel_id, "zealot", "message 2")
 
     new_z2, count_z2, _, _ = bridge.recv_messages(channel_id, zealot_2_id)
     assert count_z2 == 2
@@ -66,7 +64,7 @@ def test_agent_bookmark_isolation(test_space):
     new_z1_again, count_z1_again, _, _ = bridge.recv_messages(channel_id, zealot_1_id)
     assert count_z1_again == 1
 
-    bridge.send_message(channel_id, "system", "message 3")
+    bridge.send_message(channel_id, "zealot", "message 3")
 
     new_z1_final, count_z1_final, _, _ = bridge.recv_messages(channel_id, zealot_1_id)
     assert count_z1_final == 1
@@ -77,14 +75,19 @@ def test_agent_bookmark_isolation(test_space):
     assert "message 3" in new_z2_final[0].content
 
 
-def test_full_spawn_task_events_flow(test_space):
+def test_full_spawn_task_events_flow(test_space, default_agents):
     """Agent creation → task creation → events emission data flow."""
-    agent_id = spawn.ensure_agent("test_agent")
-    assert agent_id is not None
-    assert isinstance(agent_id, str)
-    assert len(agent_id) > 0
+    agent_identity = default_agents["zealot"]
+    assert agent_identity is not None
+    assert isinstance(agent_identity, str)
+    assert len(agent_identity) > 0
 
-    task_id = spawn.create_task("test_agent", "test input")
+    # Get the actual agent object to get the real agent_id (UUID)
+    agent = spawn.get_agent(agent_identity)
+    assert agent is not None
+    agent_id = agent.agent_id
+
+    task_id = spawn.create_task(agent_identity, "test input")
     assert task_id is not None
 
     task = spawn.get_task(task_id)
@@ -98,9 +101,9 @@ def test_full_spawn_task_events_flow(test_space):
     assert updated_task.agent_id == agent_id
 
 
-def test_emit_valid_agent_id(test_space):
+def test_emit_valid_agent_id(test_space, default_agents):
     """Agent ID from ensure_agent is safe for events.emit()."""
-    agent_id = spawn.ensure_agent("valid_agent")
+    agent_id = default_agents["zealot"]
 
     events.emit("spawn", "agent.test", agent_id, "test data")
 

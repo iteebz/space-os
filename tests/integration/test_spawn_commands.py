@@ -3,13 +3,13 @@ import time
 from space.core import spawn
 
 
-def test_wait_blocks_until_completion(test_space):
+def test_wait_blocks_until_completion(test_space, default_agents):
     import threading
 
     from space.core.spawn.commands.tasks import wait
 
-    spawn.ensure_agent("zealot")
-    task_id = spawn.create_task(role="zealot", input="test")
+    zealot_id = default_agents["zealot"]
+    task_id = spawn.create_task(role=zealot_id, input="test")
 
     spawn.start_task(task_id)
 
@@ -25,24 +25,24 @@ def test_wait_blocks_until_completion(test_space):
     thread.join()
 
 
-def test_wait_exit_code(test_space):
+def test_wait_exit_code(test_space, default_agents):
     from space.core.spawn.commands.tasks import wait
 
-    spawn.ensure_agent("zealot")
-    task_id = spawn.create_task(role="zealot", input="test")
+    zealot_id = default_agents["zealot"]
+    task_id = spawn.create_task(role=zealot_id, input="test")
     spawn.fail_task(task_id)
 
     exit_code = wait(task_id)
     assert exit_code != 0
 
 
-def test_wait_timeout(test_space):
+def test_wait_timeout(test_space, default_agents):
     import typer
 
     from space.core.spawn.commands.tasks import wait
 
-    spawn.ensure_agent("zealot")
-    task_id = spawn.create_task(role="zealot", input="test")
+    zealot_id = default_agents["zealot"]
+    task_id = spawn.create_task(role=zealot_id, input="test")
     spawn.start_task(task_id)
 
     try:
@@ -52,11 +52,11 @@ def test_wait_timeout(test_space):
         assert e.exit_code == 124
 
 
-def test_wait_pending(test_space):
+def test_wait_pending(test_space, default_agents):
     from space.core.spawn.commands.tasks import wait
 
-    spawn.ensure_agent("zealot")
-    task_id = spawn.create_task(role="zealot", input="test")
+    zealot_id = default_agents["zealot"]
+    task_id = spawn.create_task(role=zealot_id, input="test")
 
     spawn.start_task(task_id)
     spawn.complete_task(task_id, output="result")
@@ -68,11 +68,11 @@ def test_wait_pending(test_space):
     assert task.output == "result"
 
 
-def test_kill_running_task(test_space):
+def test_kill_running_task(test_space, default_agents):
     from space.core.spawn.commands.tasks import kill
 
-    spawn.ensure_agent("zealot")
-    task_id = spawn.create_task(role="zealot", input="long task")
+    zealot_id = default_agents["zealot"]
+    task_id = spawn.create_task(role=zealot_id, input="long task")
     spawn.start_task(task_id, pid=12345)
 
     kill(task_id)
@@ -96,11 +96,11 @@ def test_kill_nonexistent_task(test_space, capsys):
         assert "not found" in captured.err.lower()
 
 
-def test_kill_completed_task_no_op(test_space):
+def test_kill_completed_task_no_op(test_space, default_agents):
     from space.core.spawn.commands.tasks import kill
 
-    spawn.ensure_agent("zealot")
-    task_id = spawn.create_task(role="zealot", input="test")
+    zealot_id = default_agents["zealot"]
+    task_id = spawn.create_task(role=zealot_id, input="test")
     spawn.complete_task(task_id, output="done")
 
     kill(task_id)
@@ -117,11 +117,11 @@ def test_tasks_list_empty(test_space, capsys):
     assert "No tasks" in captured.out or len(captured.out) == 0
 
 
-def test_tasks_list_shows_running(test_space, capsys):
+def test_tasks_list_shows_running(test_space, capsys, default_agents):
     from space.core.spawn.commands.tasks import list as list_tasks
 
-    spawn.ensure_agent("zealot")
-    t1 = spawn.create_task(role="zealot", input="task 1", channel_id="ch-1")
+    zealot_id = default_agents["zealot"]
+    t1 = spawn.create_task(role=zealot_id, input="task 1", channel_id="ch-1")
     spawn.start_task(t1)
 
     list_tasks(None, None)
@@ -130,12 +130,12 @@ def test_tasks_list_shows_running(test_space, capsys):
     assert "running" in captured.out
 
 
-def test_tasks_list_filter_by_status(test_space, capsys):
+def test_tasks_list_filter_by_status(test_space, capsys, default_agents):
     from space.core.spawn.commands.tasks import list as list_tasks
 
-    spawn.ensure_agent("zealot")
-    t1 = spawn.create_task(role="zealot", input="task 1")
-    t2 = spawn.create_task(role="zealot", input="task 2")
+    zealot_id = default_agents["zealot"]
+    t1 = spawn.create_task(role=zealot_id, input="task 1")
+    t2 = spawn.create_task(role=zealot_id, input="task 2")
     spawn.complete_task(t1)
 
     list_tasks(status="pending", role=None)
@@ -144,15 +144,15 @@ def test_tasks_list_filter_by_status(test_space, capsys):
     assert "task 1" not in captured.out or t1[:8] not in captured.out
 
 
-def test_tasks_list_filter_by_identity(test_space, capsys):
+def test_tasks_list_filter_by_identity(test_space, capsys, default_agents):
     from space.core.spawn.commands.tasks import list as list_tasks
 
-    spawn.ensure_agent("zealot")
-    spawn.ensure_agent("sentinel")
-    spawn.create_task(role="zealot", input="zealot task")
-    spawn.create_task(role="sentinel", input="sentinel task")
+    sentinel_id = default_agents["sentinel"]
+    zealot_id = default_agents["zealot"]
+    spawn.create_task(role=zealot_id, input="zealot task")
+    spawn.create_task(role=sentinel_id, input="sentinel task")
 
-    list_tasks(status=None, role="zealot")
+    list_tasks(status=None, role=zealot_id)
     captured = capsys.readouterr()
     lines = [
         line
@@ -162,11 +162,11 @@ def test_tasks_list_filter_by_identity(test_space, capsys):
     assert len(lines) == 1
 
 
-def test_logs_shows_full_task_detail(test_space, capsys):
+def test_logs_shows_full_task_detail(test_space, capsys, default_agents):
     from space.core.spawn.commands.tasks import logs
 
-    spawn.ensure_agent("zealot")
-    task_id = spawn.create_task(role="zealot", input="list repos")
+    zealot_id = default_agents["zealot"]
+    task_id = spawn.create_task(role=zealot_id, input="list repos")
     spawn.start_task(task_id)
     time.sleep(0.01)
     spawn.complete_task(task_id, output="repo1\nrepo2")
@@ -178,11 +178,11 @@ def test_logs_shows_full_task_detail(test_space, capsys):
     assert "completed" in captured.out
 
 
-def test_logs_shows_failed_task_stderr(test_space, capsys):
+def test_logs_shows_failed_task_stderr(test_space, capsys, default_agents):
     from space.core.spawn.commands.tasks import logs
 
-    spawn.ensure_agent("zealot")
-    task_id = spawn.create_task(role="zealot", input="bad command")
+    zealot_id = default_agents["zealot"]
+    task_id = spawn.create_task(role=zealot_id, input="bad command")
     spawn.fail_task(task_id, stderr="error: not found")
 
     logs(task_id)

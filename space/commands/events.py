@@ -10,7 +10,7 @@ from space.core import spawn
 def _identity_name(agent_id: str | None) -> str | None:
     if not agent_id:
         return None
-    agent = spawn.resolve_agent(agent_id)
+    agent = spawn.get_agent(agent_id)
     return agent.name if agent else agent_id
 
 
@@ -25,7 +25,7 @@ def events(
     ),
 ):
     """Show recent events from append-only log."""
-    agent = spawn.resolve_agent(identity) if identity else None
+    agent = spawn.get_agent(identity) if identity else None
     agent_id = agent.agent_id if agent else None
     rows = events_db.query(source=source, agent_id=agent_id, limit=1000 if errors else limit)
 

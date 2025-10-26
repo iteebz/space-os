@@ -1,5 +1,3 @@
-"""Bridge messaging API contract tests."""
-
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -24,9 +22,9 @@ def mock_db():
 
 
 @pytest.fixture
-def mock_ensure_agent():
-    with patch("space.core.spawn.ensure_agent") as mock:
-        mock.return_value = "agent-123"
+def mock_get_agent():
+    with patch("space.core.spawn.get_agent") as mock:
+        mock.return_value = MagicMock(agent_id="agent-123", identity="test-agent")
         yield mock
 
 
@@ -37,7 +35,7 @@ def mock_get_channel():
         yield mock
 
 
-def test_send_message_inserts_record(mock_db, mock_ensure_agent):
+def test_send_message_inserts_record(mock_db, mock_get_agent):
     bridge.send_message("ch-1", "sender", "hello")
 
     mock_db.execute.assert_called_once()
@@ -48,25 +46,19 @@ def test_send_message_inserts_record(mock_db, mock_ensure_agent):
     assert args[1][3] == "hello"
 
 
-def test_send_message_ensures_agent(mock_db, mock_ensure_agent):
-    bridge.send_message("ch-1", "test-sender", "msg")
-
-    mock_ensure_agent.assert_called_once_with("test-sender")
-
-
-def test_send_message_returns_agent_id(mock_db, mock_ensure_agent):
+def test_send_message_returns_agent_id(mock_db, mock_get_agent):
     result = bridge.send_message("ch-1", "sender", "msg")
 
     assert result == "agent-123"
 
 
 def test_send_message_requires_identity(mock_db):
-    with pytest.raises(ValueError, match="identity"):
+    with pytest.raises(ValueError, match="identity is required"):
         bridge.send_message("ch-1", "", "msg")
 
 
-def test_send_message_requires_channel_id(mock_db, mock_ensure_agent):
-    with pytest.raises(ValueError, match="channel_id"):
+def test_send_message_requires_channel_id(mock_db, mock_get_agent):
+    with pytest.raises(ValueError, match="channel_id is required"):
         bridge.send_message("", "sender", "msg")
 
 
@@ -108,7 +100,7 @@ def test_get_messages_missing_channel_raises(mock_db, mock_get_channel):
         bridge.get_messages("missing")
 
 
-def test_recv_messages_returns_new(mock_db, mock_get_channel):
+def test_recv_messages_returns_new(mock_db, mock_get_channel, mock_get_agent):
     mock_row = make_mock_row(
         {
             "message_id": "m-1",
@@ -127,7 +119,7 @@ def test_recv_messages_returns_new(mock_db, mock_get_channel):
     assert count == 1
 
 
-def test_recv_messages_updates_bookmark(mock_db, mock_get_channel):
+def test_recv_messages_updates_bookmark(mock_db, mock_get_channel, mock_get_agent):
     mock_row = make_mock_row(
         {
             "message_id": "m-1",
@@ -146,7 +138,7 @@ def test_recv_messages_updates_bookmark(mock_db, mock_get_channel):
     assert any("bookmark" in call.lower() for call in calls)
 
 
-def test_recv_messages_count_zero_when_none(mock_db, mock_get_channel):
+def test_recv_messages_count_zero_when_none(mock_db, mock_get_channel, mock_get_agent):
     mock_db.execute.return_value.fetchall.return_value = []
     mock_db.execute.return_value.fetchone.return_value = None
 

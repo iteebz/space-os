@@ -28,10 +28,10 @@ def test_format_message_user():
     msg.created_at = "2025-10-25T12:30:45"
     msg.content = "hello"
 
-    with patch("space.lib.council.spawn.resolve_agent") as m_resolve:
+    with patch("space.lib.council.spawn.get_agent") as m_get_agent:
         m_agent = MagicMock()
-        m_agent.name = "alice"
-        m_resolve.return_value = m_agent
+        m_agent.identity = "alice"
+        m_get_agent.return_value = m_agent
 
         result = council.format_message(msg, is_user=True)
         assert ">" in result
@@ -47,10 +47,10 @@ def test_format_message_agent():
     msg.created_at = "2025-10-25T12:30:45"
     msg.content = "response"
 
-    with patch("space.lib.council.spawn.resolve_agent") as m_resolve:
+    with patch("space.lib.council.spawn.get_agent") as m_get_agent:
         m_agent = MagicMock()
-        m_agent.name = "zealot"
-        m_resolve.return_value = m_agent
+        m_agent.identity = "zealot"
+        m_get_agent.return_value = m_agent
 
         result = council.format_message(msg, is_user=False)
         assert ">" not in result
@@ -66,7 +66,7 @@ def test_format_message_unknown_agent():
     msg.created_at = "2025-10-25T12:30:45"
     msg.content = "text"
 
-    with patch("space.lib.council.spawn.resolve_agent", return_value=None):
+    with patch("space.lib.council.spawn.get_agent", return_value=None):
         result = council.format_message(msg, is_user=False)
         assert "unknown-id" in result
 

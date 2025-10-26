@@ -14,14 +14,14 @@ from space.core import (
     bridge,
     knowledge,
     memory,
-    spawn,
 )
+from space.core.spawn import commands as spawn_commands
 from space.lib import readme
 
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False)
 
 app.add_typer(bridge.app, name="bridge")
-app.add_typer(spawn.app, name="spawn")
+app.add_typer(spawn_commands.app, name="spawn")
 app.add_typer(memory.app, name="memory")
 app.add_typer(knowledge.app, name="knowledge")
 

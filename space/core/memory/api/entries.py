@@ -45,7 +45,7 @@ def list_entries(
     """List memory entries. filter='core' or 'recent:days' (e.g., 'recent:7')."""
     from space.core import spawn
 
-    agent = spawn.resolve_agent(identity)
+    agent = spawn.get_agent(identity)
     if not agent:
         raise ValueError(f"Agent '{identity}' not found.")
     agent_id = agent.agent_id

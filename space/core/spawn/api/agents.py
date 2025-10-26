@@ -14,11 +14,9 @@ def _row_to_agent(row: db.Row) -> Agent:
     from space.lib.db import from_row
 
     data = dict(row)
-    data["archived_at"] = int(data["archived_at"]) if data["archived_at"] else None
+    data["archived_at"] = int(data.get("archived_at", 0)) if data.get("archived_at") else None
     if "self_description" in data:
         data["description"] = data.pop("self_description")
-    if "name" in data:
-        data["identity"] = data.pop("name")
     return from_row(data, Agent)
 
 
@@ -27,7 +25,7 @@ def _get_agent_by_name_cached(name: str) -> Agent | None:
     """Cached agent lookup by name."""
     with db.ensure("spawn") as conn:
         row = conn.execute(
-            "SELECT agent_id, identity, self_description, archived_at, created_at FROM agents WHERE identity = ? AND archived_at IS NULL LIMIT 1",
+            "SELECT agent_id, identity, constitution, base_agent, self_description, archived_at, created_at FROM agents WHERE identity = ? AND archived_at IS NULL LIMIT 1",
             (name,),
         ).fetchone()
         return _row_to_agent(row) if row else None
@@ -38,86 +36,76 @@ def _clear_cache():
     _get_agent_by_name_cached.cache_clear()
 
 
-def resolve_agent(identifier: str) -> Agent | None:
+def get_agent(identifier: str) -> Agent | None:
     """Resolve agent by name or ID. Returns Agent object or None."""
     with db.ensure("spawn") as conn:
         row = conn.execute(
-            "SELECT agent_id, identity, self_description, archived_at, created_at FROM agents WHERE (identity = ? OR agent_id = ?) AND archived_at IS NULL LIMIT 1",
+            "SELECT agent_id, identity, constitution, base_agent, self_description, archived_at, created_at FROM agents WHERE (identity = ? OR agent_id = ?) AND archived_at IS NULL LIMIT 1",
             (identifier, identifier),
         ).fetchone()
         return _row_to_agent(row) if row else None
 
 
-def ensure_agent(name: str) -> str:
-    """Get agent by name, restore if archived, create if missing. Returns agent_id."""
-    agent = resolve_agent(name)
+def register_agent(identity: str, constitution: str, base_agent: str) -> str:
+    """Explicitly register an identity. Fails if identity already exists."""
+    agent = get_agent(identity)
     if agent:
-        return agent.agent_id
-
-    with db.ensure("spawn") as conn:
-        row = conn.execute(
-            "SELECT agent_id FROM agents WHERE identity = ? LIMIT 1", (name,)
-        ).fetchone()
-        agent_id = row["agent_id"] if row else None
-
-    if agent_id:
-        unarchive_agent(name)
-        return agent_id
+        raise ValueError(f"Identity '{identity}' already registered")
 
     agent_id = str(uuid.uuid4())
     now_iso = datetime.now().isoformat()
     with db.ensure("spawn") as conn:
         conn.execute(
-            "INSERT INTO agents (agent_id, identity, created_at) VALUES (?, ?, ?)",
-            (agent_id, name, now_iso),
+            "INSERT INTO agents (agent_id, identity, constitution, base_agent, created_at) VALUES (?, ?, ?, ?, ?)",
+            (agent_id, identity, constitution, base_agent, now_iso),
         )
     _clear_cache()
-    events.emit("spawn", "agent.create", agent_id, f"Agent '{name}' created")
+    events.emit("spawn", "agent.register", agent_id, f"Identity '{identity}' registered")
     return agent_id
+
+
+def ensure_agent(name: str) -> str:
+    """DEPRECATED: Use register_agent or get_agent."""
+    raise NotImplementedError(
+        "ensure_agent is deprecated. All agents must be explicitly registered via `space init` or `spawn register`."
+    )
 
 
 def describe_self(name: str, content: str) -> None:
     """Set self-description for agent."""
-    with db.ensure("spawn") as conn:
-        row = conn.execute(
-            "SELECT agent_id FROM agents WHERE identity = ? LIMIT 1", (name,)
-        ).fetchone()
+    agent = get_agent(name)
+    if not agent:
+        raise ValueError(f"Agent '{name}' not found.")
 
-        if row:
-            conn.execute(
-                "UPDATE agents SET self_description = ? WHERE agent_id = ?",
-                (content, row["agent_id"]),
-            )
-        else:
-            agent_id = str(uuid.uuid4())
-            conn.execute(
-                "INSERT INTO agents (agent_id, identity, self_description) VALUES (?, ?, ?)",
-                (agent_id, name, content),
-            )
+    with db.ensure("spawn") as conn:
+        conn.execute(
+            "UPDATE agents SET self_description = ? WHERE agent_id = ?",
+            (content, agent.agent_id),
+        )
     _clear_cache()
 
 
 def rename_agent(old_name: str, new_name: str) -> bool:
-    """Rename an agent. Merges histories if new_name exists."""
-    old_agent = resolve_agent(old_name)
+    """Rename an agent. Fails if new_name exists."""
+    old_agent = get_agent(old_name)
     if not old_agent:
         return False
-    old_agent_id = old_agent.agent_id
+
+    new_agent = get_agent(new_name)
+    if new_agent:
+        return False
 
     with db.ensure("spawn") as conn:
-        existing_agent = conn.execute(
-            "SELECT agent_id FROM agents WHERE identity = ?", (new_name,)
-        ).fetchone()
-        if existing_agent:
-            return False
-        conn.execute("UPDATE agents SET identity = ? WHERE agent_id = ?", (new_name, old_agent_id))
+        conn.execute(
+            "UPDATE agents SET identity = ? WHERE agent_id = ?", (new_name, old_agent.agent_id)
+        )
     _clear_cache()
     return True
 
 
 def archive_agent(name: str) -> bool:
     """Archive an agent. Returns True if archived, False if not found."""
-    agent = resolve_agent(name)
+    agent = get_agent(name)
     if not agent:
         return False
     agent_id = agent.agent_id
@@ -158,8 +146,8 @@ def list_agents() -> list[str]:
 
 def merge_agents(from_name: str, to_name: str) -> bool:
     """Merge agent histories. Migrates all references from source to target."""
-    from_agent = resolve_agent(from_name)
-    to_agent = resolve_agent(to_name)
+    from_agent = get_agent(from_name)
+    to_agent = get_agent(to_name)
 
     if not from_agent or not to_agent:
         return False
@@ -200,7 +188,8 @@ def merge_agents(from_name: str, to_name: str) -> bool:
 
 
 __all__ = [
-    "resolve_agent",
+    "get_agent",
+    "register_agent",
     "ensure_agent",
     "describe_self",
     "rename_agent",

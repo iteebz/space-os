@@ -16,7 +16,7 @@ def search(query: str, identity: str | None, all_agents: bool) -> list[dict]:
         params = [f"%{query}%", f"%{query}%"]
 
         if identity and not all_agents:
-            agent = spawn.resolve_agent(identity)
+            agent = spawn.get_agent(identity)
             if not agent:
                 raise ValueError(f"Agent '{identity}' not found")
             sql_query += " AND agent_id = ?"
@@ -26,14 +26,14 @@ def search(query: str, identity: str | None, all_agents: bool) -> list[dict]:
 
         rows = conn.execute(sql_query, params).fetchall()
         for row in rows:
-            agent = spawn.resolve_agent(row["agent_id"])
+            agent = spawn.get_agent(row["agent_id"])
             results.append(
                 {
                     "source": "memory",
                     "memory_id": row["memory_id"],
                     "topic": row["topic"],
                     "message": row["message"],
-                    "identity": agent.name if agent else row["agent_id"],
+                    "identity": agent.identity if agent else row["agent_id"],
                     "timestamp": row["created_at"],
                     "reference": f"memory:{row['memory_id']}",
                 }

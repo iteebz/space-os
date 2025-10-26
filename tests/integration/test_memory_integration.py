@@ -1,11 +1,9 @@
-"""Memory integration tests - lineage, graph traversal, relationship chains."""
-
 from space.core import memory, spawn
 
 
-def test_memory_replace_single(test_space):
-    identity = "replacer"
-    agent_id = spawn.ensure_agent(identity)
+def test_memory_replace_single(test_space, default_agents):
+    identity = default_agents["zealot"]
+    agent_id = spawn.get_agent(identity).agent_id
     memory.add_entry(agent_id, "insight", "initial thought")
 
     entries = memory.list_entries(identity, topic="insight")
@@ -27,9 +25,9 @@ def test_memory_replace_single(test_space):
     assert archived_entries[0].message == "initial thought"
 
 
-def test_replace_merge(test_space):
-    identity = "merger"
-    agent_id = spawn.ensure_agent(identity)
+def test_replace_merge(test_space, default_agents):
+    identity = default_agents["sentinel"]
+    agent_id = spawn.get_agent(identity).agent_id
     memory.add_entry(agent_id, "idea", "thought one")
     memory.add_entry(agent_id, "idea", "thought two")
     memory.add_entry(agent_id, "idea", "thought three")
@@ -51,9 +49,9 @@ def test_replace_merge(test_space):
     assert len(archived_entries) == 3
 
 
-def test_memory_chain_query(test_space):
-    identity = "tracer"
-    agent_id = spawn.ensure_agent(identity)
+def test_memory_chain_query(test_space, default_agents):
+    identity = default_agents["crucible"]
+    agent_id = spawn.get_agent(identity).agent_id
     memory.add_entry(agent_id, "evolution", "version 1")
 
     memories = memory.list_entries(identity, topic="evolution")
@@ -68,9 +66,9 @@ def test_memory_chain_query(test_space):
     assert chain["start_entry"].synthesis_note == "iteration"
 
 
-def test_memory_lineage_upward_traversal(test_space):
-    identity = "lineage"
-    agent_id = spawn.ensure_agent(identity)
+def test_memory_lineage_upward_traversal(test_space, default_agents):
+    identity = default_agents["zealot"]
+    agent_id = spawn.get_agent(identity).agent_id
 
     v1_id = memory.add_entry(agent_id, "thought", "version 1")
     v2_id = memory.replace_entry([v1_id], agent_id, "thought", "version 2")
@@ -84,9 +82,9 @@ def test_memory_lineage_upward_traversal(test_space):
     assert "version 2" in preds
 
 
-def test_lineage_downward(test_space):
-    identity = "descend"
-    agent_id = spawn.ensure_agent(identity)
+def test_lineage_downward(test_space, default_agents):
+    identity = default_agents["sentinel"]
+    agent_id = spawn.get_agent(identity).agent_id
 
     v1_id = memory.add_entry(agent_id, "idea", "original")
     memory.replace_entry([v1_id], agent_id, "idea", "evolved")
@@ -97,9 +95,9 @@ def test_lineage_downward(test_space):
     assert chain["successors"][0].message == "evolved"
 
 
-def test_lineage_merge(test_space):
-    identity = "merger"
-    agent_id = spawn.ensure_agent(identity)
+def test_lineage_merge(test_space, default_agents):
+    identity = default_agents["crucible"]
+    agent_id = spawn.get_agent(identity).agent_id
 
     id_a = memory.add_entry(agent_id, "notes", "idea A")
     id_b = memory.add_entry(agent_id, "notes", "idea B")
@@ -119,9 +117,9 @@ def test_lineage_merge(test_space):
     assert chain_a["successors"][0].message == "unified synthesis"
 
 
-def test_lineage_bidirectional(test_space):
-    identity = "bidir"
-    agent_id = spawn.ensure_agent(identity)
+def test_lineage_bidirectional(test_space, default_agents):
+    identity = default_agents["zealot"]
+    agent_id = spawn.get_agent(identity).agent_id
 
     v1_id = memory.add_entry(agent_id, "stream", "gen1")
     v2_id = memory.replace_entry([v1_id], agent_id, "stream", "gen2")

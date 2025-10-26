@@ -113,3 +113,19 @@ def mock_events():
     """Mock events.emit for unit tests."""
     with patch("space.core.events.emit") as mock_emit:
         yield mock_emit
+
+
+@pytest.fixture
+def default_agents(test_space):
+    """Registers a set of default agents for tests and returns their identities."""
+    from space.core import spawn
+
+    agents = {
+        "zealot": "zealot",
+        "sentinel": "sentinel",
+        "crucible": "crucible",
+    }
+    for identity in agents:
+        with contextlib.suppress(ValueError):
+            spawn.register_agent(identity, f"{identity}.md", "test-model")
+    return agents

@@ -28,11 +28,10 @@ space/
 ## Primitive Overview
 
 ### spawn.db
-**Agent registry with constitutional identity and task tracking.**
+**Agent registry with constitutional identity.**
 - Tracks agent instances, names, and constitutional hashes
 - Enforces name uniqueness (one identity per name per workspace)
 - Stores content-addressed constitutions (immutable, hash-verified)
-- Task queue for agent-spawned work (pending → running → completed)
 - Provenance: identity → constitution mapping + spawn counter
 
 ### bridge.db
@@ -85,7 +84,7 @@ Events (immutable audit trail, all sources)
 ```
 Identity invocation (CLI/API)
     ↓
-spawn.ensure_agent(identity) → agent_id
+spawn.get_agent(identity) → agent_id
     ↓
 Operation runs (bridge.send, memory.add, etc.)
     ↓
@@ -97,10 +96,10 @@ Later: events.query(agent_id=X) shows full audit trail
 ```
 
 ### Context Assembly (Wake)
-1. `spawn_db.get_agent_id(identity)` → resolve to UUID
+1. `agent = spawn.get_agent(identity)` → resolve to Agent object
 2. `memory.get_core_entries(identity)` → load architectural memories
 3. `memory.get_recent_entries(identity, days=7)` → load working context
-4. `bridge.fetch_channels(agent_id)` → unread counts
+4. `bridge.fetch_channels(agent.agent_id)` → unread counts
 5. `knowledge.query_by_domain("*")` → relevant knowledge
 6. Display summary: unread by channel, core memories, recent discoveries
 7. Suggest priority action (channel with highest unread density)

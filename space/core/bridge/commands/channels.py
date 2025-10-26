@@ -24,7 +24,7 @@ def list_channels_cmd(
     quiet_output = ctx.obj.get("quiet_output")
 
     if identity:
-        spawn.resolve_agent(identity)
+        spawn.get_agent(identity)
 
     chans = ch.list_channels(all=all)
 
@@ -82,7 +82,7 @@ def create_channel_cmd(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent = spawn.resolve_agent(identity) if identity else None
+    agent = spawn.get_agent(identity) if identity else None
     agent_id = agent.agent_id if agent else None
     try:
         if agent_id:
@@ -129,7 +129,7 @@ def rename_channel_cmd(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent = spawn.resolve_agent(identity) if identity else None
+    agent = spawn.get_agent(identity) if identity else None
     agent_id = agent.agent_id if agent else None
     old_channel = old_channel.lstrip("#")
     new_channel = new_channel.lstrip("#")
@@ -179,7 +179,7 @@ def archive_channel_cmd(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent = spawn.resolve_agent(identity) if identity else None
+    agent = spawn.get_agent(identity) if identity else None
     agent_id = agent.agent_id if agent else None
     names = channels_arg
     if prefix:
@@ -232,7 +232,7 @@ def pin_channel_cmd(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent = spawn.resolve_agent(identity) if identity else None
+    agent = spawn.get_agent(identity) if identity else None
     agent_id = agent.agent_id if agent else None
     results = []
     for channel in channels_arg:
@@ -271,7 +271,7 @@ def unpin_channel_cmd(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent = spawn.resolve_agent(identity) if identity else None
+    agent = spawn.get_agent(identity) if identity else None
     agent_id = agent.agent_id if agent else None
     results = []
     for channel in channels_arg:
@@ -314,7 +314,7 @@ def delete_channel_cmd(
     json_output = ctx.obj.get("json_output")
     quiet_output = ctx.obj.get("quiet_output")
 
-    agent = spawn.resolve_agent(identity) if identity else None
+    agent = spawn.get_agent(identity) if identity else None
     agent_id = agent.agent_id if agent else None
     try:
         if agent_id:

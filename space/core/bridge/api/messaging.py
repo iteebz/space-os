@@ -24,8 +24,10 @@ def send_message(channel: str | Channel, identity: str, content: str) -> str:
         raise ValueError("identity is required")
     if not channel_id:
         raise ValueError("channel_id is required")
-
-    agent_id = spawn.ensure_agent(identity)
+    agent = spawn.get_agent(identity)
+    if not agent:
+        raise ValueError(f"Identity '{identity}' not registered.")
+    agent_id = agent.agent_id
     message_id = uuid7()
     with db.ensure("bridge") as conn:
         conn.execute(
@@ -84,10 +86,12 @@ def get_messages(channel: str | Channel, agent_id: str | None = None) -> list[Me
 
 
 def get_sender_history(identity: str, limit: int = 5) -> list[Message]:
-    """Get recent messages from agent."""
     from space.core import spawn
 
-    agent_id = spawn.ensure_agent(identity)
+    agent = spawn.get_agent(identity)
+    if not agent:
+        raise ValueError(f"Identity '{identity}' not registered.")
+    agent_id = agent.agent_id
     with db.ensure("bridge") as conn:
         cursor = conn.execute(
             """
@@ -123,7 +127,10 @@ def recv_messages(
 
     channel_id = _to_channel_id(channel)
 
-    agent_id = spawn.ensure_agent(identity)
+    agent = spawn.get_agent(identity)
+    if not agent:
+        raise ValueError(f"Identity '{identity}' not registered.")
+    agent_id = agent.agent_id
 
     messages = get_messages(channel_id, agent_id)
 
