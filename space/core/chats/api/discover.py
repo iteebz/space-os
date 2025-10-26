@@ -1,8 +1,6 @@
 from datetime import datetime
 
-from space.lib import db
-
-from . import providers
+from space.lib import db, providers
 
 
 def discover() -> dict[str, int]:
@@ -10,7 +8,8 @@ def discover() -> dict[str, int]:
     results = {"claude": 0, "codex": 0, "gemini": 0}
 
     with db.ensure("chats") as conn:
-        for cli_name, provider in providers.PROVIDERS.items():
+        for cli_name in ("claude", "codex", "gemini"):
+            provider = getattr(providers, cli_name)
             sessions = provider.discover_sessions()
             
             for session in sessions:

@@ -1,8 +1,6 @@
 from pathlib import Path
 
-from space.lib import db
-
-from . import providers
+from space.lib import db, providers
 
 
 def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[dict]:
@@ -28,7 +26,7 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
         if not Path(file_path).exists():
             continue
         
-        provider = providers.get_provider(cli)
+        provider = getattr(providers, cli, None)
         if not provider:
             continue
         

@@ -1,11 +1,11 @@
 from pathlib import Path
 
-from . import providers
+from space.lib import providers
 
 
 def export(session_id: str, cli: str) -> str | None:
     """Export raw chat content. Returns raw JSONL/JSON as string."""
-    provider = providers.get_provider(cli)
+    provider = getattr(providers, cli, None)
     if not provider:
         return None
     

@@ -1,9 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 
-from space.lib import db
-
-from . import providers
+from space.lib import db, providers
 
 
 def get_sync_state(cli: str, session_id: str) -> dict | None:
@@ -72,7 +70,7 @@ def sync(session_id: str | None = None, identity: str | None = None) -> int:
             if not sync_state or not Path(file_path).exists():
                 continue
             
-            provider = providers.get_provider(cli)
+            provider = getattr(providers, cli, None)
             if not provider:
                 continue
             

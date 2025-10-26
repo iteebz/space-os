@@ -79,9 +79,9 @@ def mock_gemini_chats(tmp_path):
 
 def test_claude_provider_discover(mock_claude_chats, monkeypatch):
     """Test Claude provider discovers sessions."""
-    from space.core.chats.api.providers import ClaudeProvider
+    from space.lib.providers import Claude
     
-    provider = ClaudeProvider()
+    provider = Claude()
     
     sessions = provider.discover_sessions()
     assert isinstance(sessions, list)
@@ -89,9 +89,9 @@ def test_claude_provider_discover(mock_claude_chats, monkeypatch):
 
 def test_claude_provider_parse_messages(mock_claude_chats):
     """Test Claude provider parses messages."""
-    from space.core.chats.api.providers import ClaudeProvider
+    from space.lib.providers import Claude
     
-    provider = ClaudeProvider()
+    provider = Claude()
     messages = provider.parse_messages(mock_claude_chats["file"])
     
     assert len(messages) == 3
@@ -103,9 +103,9 @@ def test_claude_provider_parse_messages(mock_claude_chats):
 
 def test_codex_provider_discover(mock_codex_chats):
     """Test Codex provider discovers sessions."""
-    from space.core.chats.api.providers import CodexProvider
+    from space.lib.providers import Codex
     
-    provider = CodexProvider()
+    provider = Codex()
     
     sessions = provider.discover_sessions()
     assert isinstance(sessions, list)
@@ -113,9 +113,9 @@ def test_codex_provider_discover(mock_codex_chats):
 
 def test_codex_provider_parse_messages(mock_codex_chats):
     """Test Codex provider parses messages."""
-    from space.core.chats.api.providers import CodexProvider
+    from space.lib.providers import Codex
     
-    provider = CodexProvider()
+    provider = Codex()
     messages = provider.parse_messages(mock_codex_chats["file"])
     
     assert len(messages) == 2
@@ -125,9 +125,9 @@ def test_codex_provider_parse_messages(mock_codex_chats):
 
 def test_gemini_provider_discover(mock_gemini_chats):
     """Test Gemini provider discovers sessions."""
-    from space.core.chats.api.providers import GeminiProvider
+    from space.lib.providers import Gemini
     
-    provider = GeminiProvider()
+    provider = Gemini()
     
     sessions = provider.discover_sessions()
     assert isinstance(sessions, list)
@@ -135,9 +135,9 @@ def test_gemini_provider_discover(mock_gemini_chats):
 
 def test_gemini_provider_parse_messages(mock_gemini_chats):
     """Test Gemini provider parses messages."""
-    from space.core.chats.api.providers import GeminiProvider
+    from space.lib.providers import Gemini
     
-    provider = GeminiProvider()
+    provider = Gemini()
     messages = provider.parse_messages(mock_gemini_chats["file"])
     
     assert len(messages) == 2
