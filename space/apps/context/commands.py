@@ -7,10 +7,10 @@ from space.lib import display, errors, output
 
 errors.install_error_handler("context")
 
-context = typer.Typer(invoke_without_command=True)
+app = typer.Typer(invoke_without_command=True)
 
 
-@context.callback()
+@app.callback()
 def main_command(
     ctx: typer.Context,
     query: str | None = typer.Argument(None, help="Query to retrieve context for"),

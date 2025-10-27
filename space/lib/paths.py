@@ -65,9 +65,18 @@ def backup_snapshot(timestamp: str) -> Path:
         timestamp: ISO format or YYYYMMDDhhmmss format
 
     Returns:
-        Path like ~/.space/backups/20251025_001530/
+        Path like ~/.space_backups/data/20251025_001530/
     """
-    return backups_dir() / timestamp
+    return backups_dir() / "data" / timestamp
+
+
+def backup_chats_latest() -> Path:
+    """Returns path to latest chat backup (single copy, overwrites).
+
+    Returns:
+        Path like ~/.space_backups/chats/latest/
+    """
+    return backups_dir() / "chats" / "latest"
 
 
 def validate_backup_path(backup_path: Path) -> bool:

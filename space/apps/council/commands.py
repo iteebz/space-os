@@ -6,10 +6,10 @@ import typer
 
 from space.apps.council.lib.formatting import Council
 
-council = typer.Typer()
+app = typer.Typer()
 
 
-@council.command()
+@app.command()
 def join(channel: str = typer.Argument(..., help="Channel name")):
     """Join a bridge council - stream messages and respond live."""
     c = Council(channel)

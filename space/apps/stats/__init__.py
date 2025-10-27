@@ -6,6 +6,7 @@ from .api import (
     memory_stats,
     spawn_stats,
 )
+from .commands import app
 from .models import (
     AgentStats,
     BridgeStats,
@@ -30,4 +31,5 @@ __all__ = [
     "MemoryStats",
     "SpaceStats",
     "SpawnStats",
+    "app",
 ]

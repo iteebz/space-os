@@ -31,6 +31,7 @@ context = "space.apps.context.commands:context"
 space = "space.cli:main"
 wake = "space.os.spawn.commands.wake:main"
 sleep = "space.os.spawn.commands.sleep:main"
+launch = "space.os.spawn.commands.dynamic:dispatch_agent_from_name"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.13.0"

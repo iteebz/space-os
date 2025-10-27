@@ -195,9 +195,7 @@ def launch_agent(identity: str, extra_args: list[str] | None = None):
     click.echo(f"Executing: {' '.join(display_command)}")
     click.echo("")
 
-    proc = subprocess.Popen(
-        full_command, env=env, cwd=str(workspace_root)
-    )
+    proc = subprocess.Popen(full_command, env=env, cwd=str(workspace_root))
 
     try:
         proc.wait()

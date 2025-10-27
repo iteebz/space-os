@@ -12,6 +12,7 @@ import typer
 
 from space.lib import paths, store
 from space.os import spawn
+from space.os.spawn.api import symlinks
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,48 @@ def _copytree_exclude_chats(src: Path, dst: Path) -> None:
         return excluded
 
     shutil.copytree(src, dst, ignore=ignore, dirs_exist_ok=False)
+
+
+def _backup_data_snapshot(timestamp: str, quiet_output: bool) -> dict:
+    """Backup ~/.space/data to timestamped snapshot."""
+    src = paths.space_data()
+    if not src.exists():
+        if not quiet_output:
+            typer.echo("No data directory found")
+        return {}
+
+    backup_path = paths.backup_snapshot(timestamp)
+    backup_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not paths.validate_backup_path(backup_path):
+        typer.echo("ERROR: Backup path validation failed (possible path traversal)", err=True)
+        raise typer.Exit(code=1)
+
+    store.close_all()
+    shutil.copytree(src, backup_path, dirs_exist_ok=False)
+    os.chmod(backup_path, 0o555)
+
+    return _get_backup_stats(backup_path)
+
+
+def _backup_chats_latest(quiet_output: bool) -> None:
+    """Backup ~/.space/chats to ~/.space_backups/chats/latest (overwrites)."""
+    src = paths.chats_dir()
+    if not src.exists():
+        return
+
+    backup_path = paths.backup_chats_latest()
+    backup_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not paths.validate_backup_path(backup_path):
+        typer.echo("ERROR: Backup path validation failed (possible path traversal)", err=True)
+        raise typer.Exit(code=1)
+
+    if backup_path.exists():
+        shutil.rmtree(backup_path)
+
+    shutil.copytree(src, backup_path, dirs_exist_ok=False)
+    os.chmod(backup_path, 0o555)
 
 
 def _check_orphans() -> list[str]:
@@ -208,7 +251,6 @@ def init_default_agents():
     """Auto-discover and register agents from canon/constitutions/.
 
     Agents are created with identity matching constitution filename (without .md).
-    User must manually assign provider/model via 'spawn update' after init.
     """
     constitutions_dir = paths.canon_path() / "constitutions"
     if not constitutions_dir.exists():
@@ -224,7 +266,7 @@ def init_default_agents():
             constitution = const_file.name
 
             with contextlib.suppress(ValueError):
-                spawn.register_agent(identity, "claude", "claude-haiku-4-5", constitution)
+                spawn.register_agent(identity, "claude-haiku-4-5", constitution)
 
 
 @system.command()
@@ -259,47 +301,31 @@ def backup(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    """Backup ~/.space to ~/.space_backups/ (immutable, timestamped).
+    """Backup ~/.space/data and ~/.space/chats to ~/.space_backups/.
 
-    Excludes chats.db: queryable from provider dirs anytime. Only backup primitives
-    that can't be rebuilt (memory, knowledge, spawn state). Prevents 50MB+ backup bloat.
+    Data backups are immutable and timestamped: ~/.space_backups/data/{timestamp}/
+    Chat backups are latest-only: ~/.space_backups/chats/latest/ (overwrites)
     """
 
-    src = paths.dot_space()
-    if not src.exists():
-        if not quiet_output:
-            typer.echo("No data directory found")
-        raise typer.Exit(code=1)
-
-    backup_dir = paths.backups_dir()
-    backup_dir.mkdir(parents=True, exist_ok=True)
-
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_path = paths.backup_snapshot(timestamp)
-
-    if not paths.validate_backup_path(backup_path):
-        typer.echo("ERROR: Backup path validation failed (possible path traversal)", err=True)
-        raise typer.Exit(code=1)
-
-    store.close_all()
-    _copytree_exclude_chats(src, backup_path)
-
-    os.chmod(backup_path, 0o555)
-
-    backup_stats = _get_backup_stats(backup_path)
+    backup_stats = _backup_data_snapshot(timestamp, quiet_output)
+    _backup_chats_latest(quiet_output)
 
     if json_output:
         typer.echo(
             json.dumps(
                 {
-                    "backup_path": str(backup_path),
+                    "data_backup": str(paths.backup_snapshot(timestamp)),
+                    "chats_backup": str(paths.backup_chats_latest()),
                     "stats": backup_stats,
                 }
             )
         )
     elif not quiet_output:
-        typer.echo(f"✓ Backed up to {backup_path}")
-        _show_backup_stats(backup_stats)
+        typer.echo(f"✓ Backed up data to {paths.backup_snapshot(timestamp)}")
+        typer.echo(f"✓ Backed up chats to {paths.backup_chats_latest()}")
+        if backup_stats:
+            _show_backup_stats(backup_stats)
 
 
 @system.command()
@@ -335,6 +361,13 @@ def init():
     archive_old_config()
     init_default_agents()
 
+    bin_dir = Path.home() / ".local" / "bin"
+    launch_script = paths.package_root().parent / "bin" / "launch"
+    if launch_script.exists():
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        if symlinks._setup_launch_symlink(launch_script):
+            typer.echo("✓ Agent launcher configured (~/.local/bin/launch)")
+
     typer.echo()
     typer.echo("  ~/space/")
     typer.echo("    ├── canon/      → your persistent context (edit here)")
@@ -342,7 +375,11 @@ def init():
     typer.echo()
     typer.echo("  ~/.space/")
     typer.echo("    ├── data/       → runtime databases")
-    typer.echo("    └── backups/    → snapshots")
+    typer.echo("    └── chats/      → chat history")
+    typer.echo()
+    typer.echo("  ~/.space_backups/")
+    typer.echo("    ├── data/{timestamp}/ → immutable data snapshots")
+    typer.echo("    └── chats/latest/     → latest chat backup (overwrites)")
     typer.echo()
     typer.echo("Next steps:")
     typer.echo("  space wake --as <identity>")
