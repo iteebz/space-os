@@ -1,5 +1,3 @@
-"""Task commands: CLI parsing & typer wiring."""
-
 import contextlib
 import os
 import signal
@@ -7,7 +5,6 @@ import time
 
 import typer
 
-from space import config
 from space.core.models import TaskStatus
 from space.os.spawn.api import tasks
 
@@ -104,7 +101,7 @@ def logs(task_id: str):
 def wait(task_id: str, timeout: float | None = None) -> int:
     """Block until task completes. Return exit code: 0=success, 1=failed, 124=timeout."""
     if timeout is None:
-        timeout = config.load_config().get("timeouts", {}).get("task_wait", 300)
+        timeout = 300
 
     task = tasks.get_task(task_id)
     if not task:

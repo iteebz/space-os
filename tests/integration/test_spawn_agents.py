@@ -2,7 +2,7 @@ from space.os import spawn
 
 
 def test_register_agent(test_space):
-    agent_id = spawn.register_agent("zealot", "claude", "claude-haiku-4-5", "zealot.md")
+    agent_id = spawn.register_agent("zealot", "claude-haiku-4-5", "zealot.md")
     assert agent_id is not None
     agent = spawn.get_agent(agent_id)
     assert agent is not None

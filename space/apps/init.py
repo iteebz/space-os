@@ -99,7 +99,7 @@ def init():
             typer.echo("✓ Agent launcher configured (~/.local/bin/launch)")
 
     default_constitutions = ["zealot.md", "sentinel.md", "crucible.md"]
-    
+
     typer.echo("✓ Default constitutions registered")
 
     typer.echo()

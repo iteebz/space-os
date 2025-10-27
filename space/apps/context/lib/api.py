@@ -5,7 +5,6 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from space import config
 from space.apps.context.lib import canon
 from space.lib import providers
 from space.os import bridge, knowledge, memory
@@ -15,18 +14,9 @@ log = logging.getLogger(__name__)
 _MAX_SEARCH_LEN = 256
 
 
-def _get_max_search_len() -> int:
-    """Get max search length from config with security warning if reduced."""
-    cfg = config.load_config()
-    max_len = cfg.get("search", {}).get("max_length", _MAX_SEARCH_LEN)
-    if max_len < _MAX_SEARCH_LEN:
-        log.warning(f"Search limit {max_len} below {_MAX_SEARCH_LEN} may allow ReDoS attacks")
-    return max_len
-
-
 def _validate_search_term(term: str) -> None:
     """Validate search term to prevent DoS via oversized patterns."""
-    max_len = _get_max_search_len()
+    max_len = _MAX_SEARCH_LEN
     if len(term) > max_len:
         raise ValueError(f"Search term too long (max {max_len} chars, got {len(term)})")
 

@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from space import config
 from space.lib import paths, store
 from space.os import bridge, knowledge, memory, spawn
 
@@ -29,7 +28,6 @@ def _seed_dbs(tmp_path_factory):
 
 @pytest.fixture
 def test_space(monkeypatch, tmp_path, _seed_dbs):
-    config.load_config.cache_clear()
     store.close_all()
     spawn.api.agents._clear_cache()
 
@@ -57,7 +55,7 @@ def test_space(monkeypatch, tmp_path, _seed_dbs):
     for subdir in ["", "bridge", "knowledge"]:
         (workspace / ".space" / subdir).mkdir(parents=True, exist_ok=True)
 
-    for db_name in [config.registry_db().name, "memory.db", "knowledge.db", "bridge.db"]:
+    for db_name in ["spawn.db", "memory.db", "knowledge.db", "bridge.db"]:
         src = _seed_dbs / db_name
         dst = workspace / ".space" / db_name
         if src.exists():
@@ -69,7 +67,6 @@ def test_space(monkeypatch, tmp_path, _seed_dbs):
 
     yield workspace
 
-    config.load_config.cache_clear()
     spawn.api.agents._clear_cache()
     store.close_all()
     gc.collect()
@@ -101,5 +98,5 @@ def default_agents(test_space):
     }
     for identity in agents:
         with contextlib.suppress(ValueError):
-            spawn.register_agent(identity, f"{identity}.md", "claude", "claude-haiku-4-5")
+            spawn.register_agent(identity, "claude-haiku-4-5", f"{identity}.md")
     return agents

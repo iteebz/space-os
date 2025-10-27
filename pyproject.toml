@@ -12,7 +12,6 @@ packages = [
     { include = "space" }
 ]
 include = [
-    "space/config.yaml",
     "space/os/spawn/constitutions/*.md"
 ]
 

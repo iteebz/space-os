@@ -1,7 +1,5 @@
 from pathlib import Path
 
-from space import config
-
 
 def space_root() -> Path:
     """Returns the space root directory, ~/space."""
@@ -36,10 +34,6 @@ def constitution(filename: str) -> Path:
 
 def canon_path() -> Path:
     """Returns path to human's canonical values, ~/space/canon."""
-    cfg = config.load_config()
-    configured_path = cfg.get("canon_path")
-    if configured_path:
-        return space_root() / configured_path
     return space_root() / "canon"
 
 

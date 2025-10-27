@@ -1,10 +1,16 @@
 import sqlite3
 from unittest.mock import patch
 
-from space.apps.system.commands import _get_backup_stats, backup
+from space.apps.backup import _get_backup_stats, backup
 
 
-def test_backup_creates_timestamped_data_dir(tmp_path):
+@patch("space.apps.backup.paths.backup_chats_latest")
+@patch("space.apps.backup.paths.backup_snapshot")
+@patch("space.apps.backup.paths.chats_dir")
+@patch("space.apps.backup.paths.space_data")
+def test_backup_creates_timestamped_data_dir(
+    mock_space_data, mock_chats_dir, mock_backup_snapshot, mock_backup_chats_latest, tmp_path
+):
     """Backup creates timestamped data directory."""
     src_data = tmp_path / "data"
     src_data.mkdir()
@@ -15,10 +21,12 @@ def test_backup_creates_timestamped_data_dir(tmp_path):
 
     backup_dir = tmp_path / "backups"
 
-    with patch("space.apps.system.commands.paths.space_data", return_value=src_data):
-        with patch("space.apps.system.commands.paths.chats_dir", return_value=src_chats):
-            with patch("space.apps.system.commands.paths.backups_dir", return_value=backup_dir):
-                backup(quiet_output=True)
+    mock_space_data.return_value = src_data
+    mock_chats_dir.return_value = src_chats
+    mock_backup_snapshot.side_effect = lambda ts: backup_dir / "data" / ts
+    mock_backup_chats_latest.return_value = backup_dir / "chats" / "latest"
+
+    backup(quiet_output=True)
 
     assert (backup_dir / "data").exists()
     data_backups = list((backup_dir / "data").glob("*"))
@@ -27,7 +35,13 @@ def test_backup_creates_timestamped_data_dir(tmp_path):
     assert (backup_dir / "chats" / "latest").exists()
 
 
-def test_backup_copies_db_files(tmp_path):
+@patch("space.apps.backup.paths.backup_chats_latest")
+@patch("space.apps.backup.paths.backup_snapshot")
+@patch("space.apps.backup.paths.chats_dir")
+@patch("space.apps.backup.paths.space_data")
+def test_backup_copies_db_files(
+    mock_space_data, mock_chats_dir, mock_backup_snapshot, mock_backup_chats_latest, tmp_path
+):
     """Backup copies all .db files to data snapshot."""
     src_data = tmp_path / "data"
     src_data.mkdir()
@@ -43,10 +57,12 @@ def test_backup_copies_db_files(tmp_path):
 
     backup_dir = tmp_path / "backups"
 
-    with patch("space.apps.system.commands.paths.space_data", return_value=src_data):
-        with patch("space.apps.system.commands.paths.chats_dir", return_value=src_chats):
-            with patch("space.apps.system.commands.paths.backups_dir", return_value=backup_dir):
-                backup(quiet_output=True)
+    mock_space_data.return_value = src_data
+    mock_chats_dir.return_value = src_chats
+    mock_backup_snapshot.side_effect = lambda ts: backup_dir / "data" / ts
+    mock_backup_chats_latest.return_value = backup_dir / "chats" / "latest"
+
+    backup(quiet_output=True)
 
     data_backups = list((backup_dir / "data").glob("*"))
     backup_db = data_backups[0] / "test.db"

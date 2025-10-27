@@ -11,7 +11,6 @@ from .api import (
     get_task,
     launch_agent,
     list_agents,
-    list_tasks,
     merge_agents,
     register_agent,
     rename_agent,
@@ -20,7 +19,6 @@ from .api import (
     update_agent,
 )
 from .commands import app
-from .spawn import resolve_model_alias
 
 db.register()
 
@@ -28,7 +26,6 @@ __all__ = [
     "api",
     "db",
     "app",
-    "resolve_model_alias",
     "get_agent",
     "register_agent",
     "update_agent",
