@@ -66,9 +66,7 @@ def main_command(ctx: typer.Context):
 
 
 @app.command()
-def memory(
-    json_output: bool = typer.Option(False, "--json", "-j"),
-):
+def memory():
     """Memory lattice health analytics."""
     s = stats_app.collect()
 
@@ -103,9 +101,7 @@ def memory(
 
 
 @app.command()
-def knowledge(
-    json_output: bool = typer.Option(False, "--json", "-j"),
-):
+def knowledge():
     """Knowledge graph health analytics."""
     s = stats_app.collect()
 
@@ -140,9 +136,7 @@ def knowledge(
 
 
 @app.command()
-def bridge(
-    json_output: bool = typer.Option(False, "--json", "-j"),
-):
+def bridge():
     """Bridge channel health analytics."""
     s = stats_app.collect()
 

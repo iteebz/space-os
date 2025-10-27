@@ -171,7 +171,7 @@ def show_wake_summary(
             typer.echo()
 
         typer.echo(
-            "📖 Read MANUAL.md: `spawn launch` for full instruction set on memory, bridge, knowledge, canon."
+            "📖 Read MANUAL.md for full instruction set on memory, bridge, knowledge, canon."
         )
 
 

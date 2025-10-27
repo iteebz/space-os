@@ -11,7 +11,7 @@ from space.os import bridge, knowledge, memory
 
 log = logging.getLogger(__name__)
 
-_MAX_SEARCH_LEN = 256
+MAX_SEARCH_LEN = 256
 
 
 def _canon_search(query: str, max_content_length: int = 500) -> list[dict]:

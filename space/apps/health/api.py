@@ -1,20 +1,16 @@
 import logging
 import sqlite3
 
-import typer
-
 from space.lib import paths, store
 
 logger = logging.getLogger(__name__)
 
-app = typer.Typer()
-
-
-@app.callback(invoke_without_command=True)
-def callback(ctx: typer.Context):
-    if ctx.invoked_subcommand is None:
-        ctx.invoke(health)
-
+REGISTRY_MAP = {
+    "spawn.db": "spawn",
+    "bridge.db": "bridge",
+    "memory.db": "memory",
+    "knowledge.db": "knowledge",
+}
 
 ORPHAN_CHECKS = [
     ("spawn.db", "tasks", "agent_id", "agents", "agent_id"),
@@ -22,10 +18,10 @@ ORPHAN_CHECKS = [
     ("bridge.db", "notes", "channel_id", "channels", "channel_id"),
     ("bridge.db", "bookmarks", "channel_id", "channels", "channel_id"),
     ("memory.db", "memories", "agent_id", None, None),
-    ("knowledge.db", "knowledge", "agent_id", None, None),
+    ("knowledge.db", "agent_id", "knowledge", None, None),
 ]
 
-DEFS = {
+DB_DEFINITIONS = {
     "spawn.db": ["constitutions", "agents", "tasks"],
     "bridge.db": ["channels", "messages", "notes", "bookmarks"],
     "memory.db": ["memories", "links"],
@@ -33,15 +29,9 @@ DEFS = {
 }
 
 
-def _check_orphans() -> list[str]:
+def check_orphans() -> list[str]:
     """Check for orphaned references across DBs."""
     issues = []
-    registry_map = {
-        "spawn.db": "spawn",
-        "bridge.db": "bridge",
-        "memory.db": "memory",
-        "knowledge.db": "knowledge",
-    }
 
     for src_db, src_table, src_col, ref_db, ref_col in ORPHAN_CHECKS:
         db_path = paths.space_data() / src_db
@@ -50,7 +40,7 @@ def _check_orphans() -> list[str]:
         if ref_db and not (paths.space_data() / ref_db).exists():
             continue
 
-        registry_name = registry_map.get(src_db)
+        registry_name = REGISTRY_MAP.get(src_db)
         if not registry_name:
             continue
 
@@ -74,7 +64,7 @@ def _check_orphans() -> list[str]:
     return issues
 
 
-def _check_db(db_name: str, tables: list[str]) -> tuple[bool, list[str], dict]:
+def check_db(db_name: str, tables: list[str]) -> tuple[bool, list[str], dict]:
     """Check single DB. Return (healthy, issues, counts)."""
     issues = []
     db_path = paths.space_data() / db_name
@@ -83,13 +73,7 @@ def _check_db(db_name: str, tables: list[str]) -> tuple[bool, list[str], dict]:
         issues.append(f"❌ {db_name} missing")
         return False, issues, {}
 
-    registry_map = {
-        "spawn.db": "spawn",
-        "bridge.db": "bridge",
-        "memory.db": "memory",
-        "knowledge.db": "knowledge",
-    }
-    registry_name = registry_map.get(db_name)
+    registry_name = REGISTRY_MAP.get(db_name)
     if not registry_name:
         issues.append(f"❌ {db_name}: unknown database")
         return False, issues, {}
@@ -123,32 +107,20 @@ def _check_db(db_name: str, tables: list[str]) -> tuple[bool, list[str], dict]:
         issues.append(f"❌ {db_name}: {e}")
         return False, issues, {}
 
+def run_all_checks() -> tuple[list[str], dict]:
+    """Run all health checks and return issues and counts."""
+    all_issues = []
+    all_counts = {}
 
-@app.command()
-def health():
-    """Verify space-os lattice integrity."""
-    issues = []
-
-    for db_name, tables in DEFS.items():
-        ok, db_issues, counts = _check_db(db_name, tables)
+    for db_name, tables in DB_DEFINITIONS.items():
+        ok, db_issues, counts = check_db(db_name, tables)
         if not ok:
-            issues.extend(db_issues)
+            all_issues.extend(db_issues)
         else:
-            for tbl, cnt in counts.items():
-                typer.echo(f"✓ {db_name}::{tbl} ({cnt} rows)")
+            all_counts[db_name] = counts
 
-    orphan_issues = _check_orphans()
+    orphan_issues = check_orphans()
     if orphan_issues:
-        issues.extend(orphan_issues)
-
-    if issues:
-        for issue in issues:
-            typer.echo(issue)
-        raise typer.Exit(1)
-
-    typer.echo("\n✓ Space infrastructure healthy")
-
-
-def main() -> None:
-    """Entry point for poetry script."""
-    app()
+        all_issues.extend(orphan_issues)
+    
+    return all_issues, all_counts

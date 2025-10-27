@@ -28,10 +28,10 @@ MCP uses **JSON-RPC over stdio** for local connections. Servers expose:
 ### 3. Integration Points
 
 #### Option A: Dynamic MCP Config in Launch Pipeline (Recommended)
-Modify `space/os/spawn/api/launch.py:launch_agent()`:
+Modify `space/os/spawn/api/main.py:spawn_agent()`:
 
 ```python
-def launch_agent(identity: str, extra_args: list[str] | None = None):
+def spawn_agent(identity: str, extra_args: list[str] | None = None):
     agent = agents.get_agent(identity)
     
     # Load MCP servers for this agent from config
@@ -41,7 +41,7 @@ def launch_agent(identity: str, extra_args: list[str] | None = None):
     mcp_args = ["--mcp-config", json.dumps(mcp_config)] if mcp_config else []
     
     full_command = command_tokens + model_args + mcp_args + passthrough
-    # ... rest of launch
+    # ... rest of spawn
 ```
 
 Agent config could specify:
@@ -165,7 +165,7 @@ Agents could query Notion → post results to bridge → other agents consume vi
 
 | Component | Effort | Notes |
 |-----------|--------|-------|
-| MCP config in launch pipeline | 2-3 hours | Modify `launch.py`, add agent metadata schema |
+| MCP config in spawn pipeline | 2-3 hours | Modify `main.py`, add agent metadata schema |
 | Notion MCP server (POC) | 4-6 hours | Basic CRUD, error handling, token management |
 | Agent constitution updates | 1 hour | Add Notion context to wedding planner agent |
 | Testing + multi-agent coordination | 2-3 hours | Test task creation, bridge messaging, consensus |
@@ -180,14 +180,14 @@ Agents could query Notion → post results to bridge → other agents consume vi
    - 3-4 core tools: query_tasks, create_task, update_task, list_vendors
    - Local test: `notion-mcp-server --api-key=... --db-id=...`
 
-2. **Patch launch.py** to pass `--mcp-config`
+2. **Patch main.py** to pass `--mcp-config`
    - Keep it simple: read from agent metadata or environment
    - No distributed state needed for MVP
 
 3. **Create wedding-planner agent**
    - Constitution: focuses on task coordination, vendor selection
    - Add to constitution: "You have access to wedding Notion database via MCP tools"
-   - Test: `spawn launch wedding-planner "Create task: confirm catering date"`
+   - Test: `spawn wedding-planner "Create task: confirm catering date"`
 
 4. **Build multi-agent workflow**
    - Agent A (planner): creates tasks via MCP
@@ -214,7 +214,7 @@ Agents could query Notion → post results to bridge → other agents consume vi
 ## Files to Modify
 
 ```
-space/os/spawn/api/launch.py          # Add --mcp-config support
+space/os/spawn/api/main.py          # Add --mcp-config support
 space/os/spawn/models.py              # Add mcp_servers field to Agent model
 space/os/spawn/constitutions/         # Add wedding-planner.md
 ```
@@ -240,4 +240,4 @@ claude \
 
 **MCP integration is low-friction and aligns with space-os philosophy** (composable primitives, no cloud dependencies, workspace sovereignty). The Notion wedding agent becomes a first-class citizen in your swarm, with access to both bridge coordination and external state via MCP tools.
 
-Ready to build? Start with the Notion MCP server, then patch launch.py.
+Ready to build? Start with the Notion MCP server, then patch main.py.

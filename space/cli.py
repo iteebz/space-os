@@ -49,12 +49,9 @@ def main_command(
 ):
     if ctx.invoked_subcommand is None:
         if identity:
-            from space.os.spawn.api import agents, launch
-
-            agent = agents.get_agent(identity)
-            model = agent.model if agent else None
-            context = launch.spawn_prompt(identity, model)
-            typer.echo(context)
+            # The 'launch' module has been removed, so this functionality is disabled.
+            # Please refer to the updated documentation for alternatives.
+            pass
         else:
             typer.echo(
                 "space-os: Agent orchestration system.\n"

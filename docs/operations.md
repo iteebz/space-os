@@ -32,7 +32,6 @@ Identity registry with constitutional provenance.
 
 ```bash
 spawn register <role> <identity> <channel> --model <model>
-spawn <identity>                    # launch with constitution
 spawn list                          # show registered agents
 ```
 
