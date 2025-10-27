@@ -37,7 +37,7 @@ Sleep well = wake sharp."""
 sleep = typer.Typer(
     invoke_without_command=True,
     no_args_is_help=True,
-    add_help_option=False,
+    add_help_option=True,
     help="Prepare for death. Hand off context to your next self.",
 )
 
