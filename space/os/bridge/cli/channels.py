@@ -117,7 +117,7 @@ def rename_cmd(
 @app.command("archive")
 def archive_cmd(
     ctx: typer.Context,
-    channels_arg: list[str] = typer.Argument(..., help="Channels to archive"),
+    channels_arg: list[str] = typer.Argument(..., help="Channels to archive"),  # noqa: B008
     identity: str = typer.Option(None, "--as", help="Agent identity"),
     prefix: bool = typer.Option(False, "--prefix", help="Match channels by prefix"),
 ):
@@ -153,7 +153,7 @@ def archive_cmd(
 @app.command("pin")
 def pin_cmd(
     ctx: typer.Context,
-    channels_arg: list[str] = typer.Argument(..., help="Channels to pin"),
+    channels_arg: list[str] = typer.Argument(..., help="Channels to pin"),  # noqa: B008
     identity: str = typer.Option(None, "--as", help="Agent identity"),
 ):
     """Pin channels to favorites."""
@@ -177,7 +177,7 @@ def pin_cmd(
 @app.command("unpin")
 def unpin_cmd(
     ctx: typer.Context,
-    channels_arg: list[str] = typer.Argument(..., help="Channels to unpin"),
+    channels_arg: list[str] = typer.Argument(..., help="Channels to unpin"),  # noqa: B008
     identity: str = typer.Option(None, "--as", help="Agent identity"),
 ):
     """Unpin channels from favorites."""
@@ -210,11 +210,11 @@ def delete_cmd(
         output_json({"status": "deleted", "channel": channel}, ctx) or echo_if_output(
             f"Deleted channel: {channel}", ctx
         )
-    except ValueError:
+    except ValueError as e:
         output_json(
             {"status": "error", "message": f"Channel '{channel}' not found."}, ctx
         ) or echo_if_output(f"❌ Channel '{channel}' not found.", ctx)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
     except Exception as e:
         output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
         raise typer.Exit(code=1) from e

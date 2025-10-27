@@ -4,9 +4,9 @@ from space.apps import backup, canon, context, council, daemons, health, init, s
 
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False)
 
+app.add_typer(init.app, name="init")
 app.add_typer(backup.app, name="backup")
 app.add_typer(health.app, name="health")
-app.add_typer(init.app, name="init")
 
 app.add_typer(canon.app, name="canon")
 app.add_typer(context.app, name="context")
