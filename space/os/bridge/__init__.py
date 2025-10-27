@@ -10,6 +10,7 @@ from .api import (
     spawn_from_mentions,
     stats,
 )
+from .cli import app
 from .ops import (
     add_note,
     archive_channel,
@@ -25,7 +26,6 @@ from .ops import (
     unpin_channel,
     wait_for_message,
 )
-from .cli import app
 
 db.register()
 

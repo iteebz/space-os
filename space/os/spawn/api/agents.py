@@ -56,12 +56,19 @@ def get_agent(identifier: str) -> Agent | None:
 
 
 def register_agent(
-    identity: str, provider: str, model: str, constitution: str | None = None
+    identity: str, model: str, constitution: str | None = None
 ) -> str:
-    """Explicitly register an identity. Fails if identity already exists."""
+    """Explicitly register an identity. Fails if identity already exists.
+    
+    Provider is inferred from model.
+    """
+    from space.os.spawn import models
+    
     agent = get_agent(identity)
     if agent:
         raise ValueError(f"Identity '{identity}' already registered")
+
+    provider = models.infer_provider(model)
 
     agent_id = str(uuid.uuid4())
     now_iso = datetime.now().isoformat()
@@ -85,10 +92,14 @@ def ensure_agent(name: str) -> str:
 def update_agent(
     identity: str,
     constitution: str | None = None,
-    provider: str | None = None,
     model: str | None = None,
 ) -> bool:
-    """Update agent fields. Only specified fields are modified."""
+    """Update agent fields. Only specified fields are modified.
+    
+    If model is specified, provider is inferred from it.
+    """
+    from space.os.spawn import models as models_module
+    
     agent = get_agent(identity)
     if not agent:
         raise ValueError(f"Agent '{identity}' not found")
@@ -98,12 +109,12 @@ def update_agent(
     if constitution is not None:
         updates.append("constitution = ?")
         values.append(constitution)
-    if provider is not None:
-        updates.append("provider = ?")
-        values.append(provider)
     if model is not None:
         updates.append("model = ?")
         values.append(model)
+        provider = models_module.infer_provider(model)
+        updates.append("provider = ?")
+        values.append(provider)
 
     if not updates:
         return True
@@ -117,7 +128,7 @@ def update_agent(
 
 
 def clone_agent(src_identity: str, dst_identity: str) -> str:
-    """Clone an agent: new agent_id, copied constitution/provider/model."""
+    """Clone an agent: new agent_id, copied constitution/model."""
     src_agent = get_agent(src_identity)
     if not src_agent:
         raise ValueError(f"Source agent '{src_identity}' not found")
@@ -126,7 +137,7 @@ def clone_agent(src_identity: str, dst_identity: str) -> str:
     if dst_agent:
         raise ValueError(f"Target identity '{dst_identity}' already exists")
 
-    return register_agent(dst_identity, src_agent.provider, src_agent.model, src_agent.constitution)
+    return register_agent(dst_identity, src_agent.model, src_agent.constitution)
 
 
 def describe_self(name: str, content: str) -> None:

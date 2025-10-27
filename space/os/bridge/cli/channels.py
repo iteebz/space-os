@@ -5,6 +5,7 @@ import json
 import typer
 
 from space.os.bridge import ops
+
 from .format import echo_if_output, format_channel_row, output_json, should_output
 
 app = typer.Typer(help="Manage channels")
@@ -24,7 +25,20 @@ def list_cmd(
             output_json([], ctx) or echo_if_output("No channels found", ctx)
             return
 
-        if output_json([{"name": c.name, "topic": c.topic, "message_count": c.message_count, "last_activity": c.last_activity, "unread_count": c.unread_count, "archived_at": c.archived_at} for c in chans], ctx):
+        if output_json(
+            [
+                {
+                    "name": c.name,
+                    "topic": c.topic,
+                    "message_count": c.message_count,
+                    "last_activity": c.last_activity,
+                    "unread_count": c.unread_count,
+                    "archived_at": c.archived_at,
+                }
+                for c in chans
+            ],
+            ctx,
+        ):
             return
 
         active = [c for c in chans if not c.archived_at]
@@ -61,9 +75,13 @@ def create_cmd(
     """Create a new channel."""
     try:
         channel_id = ops.create_channel(channel_name, topic)
-        output_json({"status": "success", "channel_name": channel_name, "channel_id": channel_id}, ctx) or echo_if_output(f"Created channel: {channel_name} (ID: {channel_id})", ctx)
+        output_json(
+            {"status": "success", "channel_name": channel_name, "channel_id": channel_id}, ctx
+        ) or echo_if_output(f"Created channel: {channel_name} (ID: {channel_id})", ctx)
     except ValueError as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ Error creating channel: {e}", ctx)
+        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(
+            f"❌ Error creating channel: {e}", ctx
+        )
         raise typer.Exit(code=1) from e
 
 
@@ -77,7 +95,20 @@ def rename_cmd(
     """Rename an existing channel."""
     try:
         result = ops.rename_channel(old_channel, new_channel)
-        output_json({"status": "success" if result else "failed", "old_channel": old_channel, "new_channel": new_channel}, ctx) or (echo_if_output(f"Renamed channel: {old_channel} -> {new_channel}", ctx) if result else echo_if_output(f"❌ Rename failed: {old_channel} not found or {new_channel} already exists", ctx))
+        output_json(
+            {
+                "status": "success" if result else "failed",
+                "old_channel": old_channel,
+                "new_channel": new_channel,
+            },
+            ctx,
+        ) or (
+            echo_if_output(f"Renamed channel: {old_channel} -> {new_channel}", ctx)
+            if result
+            else echo_if_output(
+                f"❌ Rename failed: {old_channel} not found or {new_channel} already exists", ctx
+            )
+        )
     except Exception as e:
         output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
         raise typer.Exit(code=1) from e
@@ -108,7 +139,9 @@ def archive_cmd(
                 results.append({"channel": name, "status": "archived"})
                 echo_if_output(f"Archived channel: {name}", ctx)
             except ValueError:
-                results.append({"channel": name, "status": "error", "message": f"Channel '{name}' not found."})
+                results.append(
+                    {"channel": name, "status": "error", "message": f"Channel '{name}' not found."}
+                )
                 echo_if_output(f"❌ Channel '{name}' not found.", ctx)
         if ctx.obj.get("json_output"):
             typer.echo(json.dumps(results))
@@ -174,9 +207,13 @@ def delete_cmd(
     """Delete a channel permanently."""
     try:
         ops.delete_channel(channel)
-        output_json({"status": "deleted", "channel": channel}, ctx) or echo_if_output(f"Deleted channel: {channel}", ctx)
+        output_json({"status": "deleted", "channel": channel}, ctx) or echo_if_output(
+            f"Deleted channel: {channel}", ctx
+        )
     except ValueError:
-        output_json({"status": "error", "message": f"Channel '{channel}' not found."}, ctx) or echo_if_output(f"❌ Channel '{channel}' not found.", ctx)
+        output_json(
+            {"status": "error", "message": f"Channel '{channel}' not found."}, ctx
+        ) or echo_if_output(f"❌ Channel '{channel}' not found.", ctx)
         raise typer.Exit(code=1)
     except Exception as e:
         output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)

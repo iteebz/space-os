@@ -183,7 +183,9 @@ def show_wake_summary(
                 typer.echo(f"  [{ts}] #{channel}: {preview}")
             typer.echo()
 
-        typer.echo("📖 Read MANUAL.md: `spawn launch` for full instruction set on memory, bridge, knowledge, canon.")
+        typer.echo(
+            "📖 Read MANUAL.md: `spawn launch` for full instruction set on memory, bridge, knowledge, canon."
+        )
 
 
 def show_smart_memory(identity: str, json_output: bool, quiet_output: bool):

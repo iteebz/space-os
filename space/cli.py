@@ -32,7 +32,9 @@ def main_command(
     ctx: typer.Context,
 ):
     if ctx.invoked_subcommand is None:
-        typer.echo("space-os: Agent orchestration system. Run 'space <command> --help' for commands.")
+        typer.echo(
+            "space-os: Agent orchestration system. Run 'space <command> --help' for commands."
+        )
 
 
 def main() -> None:

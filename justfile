@@ -13,7 +13,7 @@ install:
 ci: format fix test build
 
 test:
-    @PYTHONPATH=$(pwd) poetry run python -m pytest tests -v
+    @PYTHONPATH=$(pwd) poetry run python -m pytest tests -q
 
 format:
     @poetry run ruff format .

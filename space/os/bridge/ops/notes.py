@@ -6,13 +6,13 @@ from space.os.bridge.api import notes as nt
 
 def get_notes(channel: str):
     """Get all notes for a channel.
-    
+
     Args:
         channel: Channel name or ID.
-    
+
     Returns:
         List of note objects.
-    
+
     Raises:
         ValueError: If channel not found.
     """
@@ -22,12 +22,12 @@ def get_notes(channel: str):
 
 def add_note(channel: str, agent_id: str, content: str):
     """Add a note to a channel.
-    
+
     Args:
         channel: Channel name or ID.
         agent_id: Agent ID adding the note (caller responsible for validation).
         content: Note content.
-    
+
     Raises:
         ValueError: If channel not found.
     """

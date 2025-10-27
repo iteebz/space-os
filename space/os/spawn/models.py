@@ -73,6 +73,24 @@ GEMINI_MODELS = [
 ALL_MODELS = CLAUDE_MODELS + CODEX_MODELS + GEMINI_MODELS
 
 
+def infer_provider(model: str) -> str:
+    """Infer provider from model ID.
+
+    Args:
+        model: Model ID (e.g., "claude-haiku-4-5")
+
+    Returns:
+        Provider name (claude, codex, or gemini)
+
+    Raises:
+        ValueError: If model is not found
+    """
+    for model_obj in ALL_MODELS:
+        if model_obj.id == model:
+            return model_obj.provider
+    raise ValueError(f"Unknown model: {model}")
+
+
 def get_models_for_provider(provider: str) -> list[Model]:
     """Get available models for a provider.
 

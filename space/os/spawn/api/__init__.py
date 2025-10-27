@@ -13,7 +13,13 @@ from .agents import (
     update_agent,
 )
 from .launch import launch_agent
-from .sessions import create_session, end_session, get_spawn_count, get_wakes_this_spawn, increment_wakes
+from .sessions import (
+    create_session,
+    end_session,
+    get_spawn_count,
+    get_wakes_this_spawn,
+    increment_wakes,
+)
 from .stats import agent_identities, archived_agents, stats
 from .tasks import complete_task, create_task, fail_task, get_task, list_tasks, start_task
 

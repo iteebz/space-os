@@ -10,13 +10,13 @@ from space.os.bridge.api import mentions, messaging
 
 def send_message(channel: str, identity: str, content: str, decode_base64: bool = False):
     """Send a message to a channel.
-    
+
     Args:
         channel: Channel name or ID.
         identity: Sender identity (caller responsible for validation).
         content: Message content (or base64-encoded if decode_base64=True).
         decode_base64: If True, decode content from base64.
-    
+
     Raises:
         ValueError: If channel not found.
         ValueError: If base64 payload invalid.
@@ -35,14 +35,14 @@ def send_message(channel: str, identity: str, content: str, decode_base64: bool 
 
 def recv_messages(channel: str, agent_id: str):
     """Receive unread messages from a channel.
-    
+
     Args:
         channel: Channel name or ID.
         agent_id: Agent ID (caller responsible for validation).
-    
+
     Returns:
         Tuple of (messages, count, context, participants).
-    
+
     Raises:
         ValueError: If channel not found.
     """
@@ -52,15 +52,15 @@ def recv_messages(channel: str, agent_id: str):
 
 def wait_for_message(channel: str, agent_id: str, poll_interval: float = 0.1):
     """Wait for a new message from others in a channel (blocking).
-    
+
     Args:
         channel: Channel name or ID.
         agent_id: Agent ID (caller responsible for validation).
         poll_interval: Polling interval in seconds.
-    
+
     Returns:
         Tuple of (messages, count, context, participants) for messages from others.
-    
+
     Raises:
         ValueError: If channel not found.
         KeyboardInterrupt: If user interrupts.

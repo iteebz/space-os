@@ -25,7 +25,9 @@ def main_callback(
         ctx.obj = {}
 
     if ctx.resilient_parsing or ctx.invoked_subcommand is None:
-        typer.echo("knowledge [command]: Manage domain-specific knowledge. Run 'knowledge --help' for commands.")
+        typer.echo(
+            "knowledge [command]: Manage domain-specific knowledge. Run 'knowledge --help' for commands."
+        )
 
 
 def __getattr__(name):

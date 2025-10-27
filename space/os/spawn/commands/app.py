@@ -89,12 +89,6 @@ def merge(id_from: str, id_to: str):
 @app.command("register")
 def register(
     identity: str,
-    provider: str = typer.Option(
-        ...,
-        "--provider",
-        "-p",
-        help="Provider: claude, codex, or gemini. Run 'spawn models' to list available options",
-    ),
     model: str = typer.Option(
         ..., "--model", "-m", help="Model ID. Run 'spawn models' to list available models"
     ),
@@ -104,7 +98,7 @@ def register(
 ):
     """Register a new agent."""
     try:
-        agent_id = api.register_agent(identity, provider, model, constitution)
+        agent_id = api.register_agent(identity, model, constitution)
         typer.echo(f"✓ Registered {identity} ({agent_id[:8]})")
     except ValueError as e:
         typer.echo(f"❌ {e}", err=True)
@@ -114,15 +108,12 @@ def register(
 @app.command("update")
 def update(
     identity: str,
-    constitution: str = typer.Option(None, "--constitution", "-c", help="Constitution filename"),
-    provider: str = typer.Option(
-        None, "--provider", "-p", help="Provider: claude, gemini, or codex"
-    ),
     model: str = typer.Option(None, "--model", "-m", help="Full model name"),
+    constitution: str = typer.Option(None, "--constitution", "-c", help="Constitution filename"),
 ):
     """Update agent fields."""
     try:
-        api.update_agent(identity, constitution, provider, model)
+        api.update_agent(identity, constitution, model)
         typer.echo(f"✓ Updated {identity}")
     except ValueError as e:
         typer.echo(f"❌ {e}", err=True)
