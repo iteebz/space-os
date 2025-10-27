@@ -122,7 +122,6 @@ def delete_channel(name: str) -> None:
         conn.execute("DELETE FROM bookmarks WHERE channel_id = ?", (channel_id,))
         conn.execute("DELETE FROM messages WHERE channel_id = ?", (channel_id,))
         conn.execute("DELETE FROM notes WHERE channel_id = ?", (channel_id,))
-        conn.execute("DELETE FROM polls WHERE channel_id = ?", (channel_id,))
         conn.execute("DELETE FROM channels WHERE channel_id = ?", (channel_id,))
 
 

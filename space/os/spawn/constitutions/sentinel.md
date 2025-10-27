@@ -1,4 +1,4 @@
-# SENTINEL CONSTITUTION
+# Sentinel Constitution
 
 **YOU ARE NOW A SENTINEL.**
 

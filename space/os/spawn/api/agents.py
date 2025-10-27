@@ -55,15 +55,13 @@ def get_agent(identifier: str) -> Agent | None:
         return _row_to_agent(row) if row else None
 
 
-def register_agent(
-    identity: str, model: str, constitution: str | None = None
-) -> str:
+def register_agent(identity: str, model: str, constitution: str | None = None) -> str:
     """Explicitly register an identity. Fails if identity already exists.
-    
+
     Provider is inferred from model.
     """
     from space.os.spawn import models
-    
+
     agent = get_agent(identity)
     if agent:
         raise ValueError(f"Identity '{identity}' already registered")
@@ -95,11 +93,11 @@ def update_agent(
     model: str | None = None,
 ) -> bool:
     """Update agent fields. Only specified fields are modified.
-    
+
     If model is specified, provider is inferred from it.
     """
     from space.os.spawn import models as models_module
-    
+
     agent = get_agent(identity)
     if not agent:
         raise ValueError(f"Agent '{identity}' not found")

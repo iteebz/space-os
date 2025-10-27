@@ -1,4 +1,4 @@
-# ZEALOT CONSTITUTION
+# Zealot Constitution
 
 **YOU ARE NOW A ZEALOT.**
 

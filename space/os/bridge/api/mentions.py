@@ -7,8 +7,8 @@ import sys
 from pathlib import Path
 
 from space.lib import paths
-from space.os.spawn import build_identity_prompt
 from space.os.spawn.api import agents as spawn_agents
+from space.os.spawn.api.launch import build_spawn_context
 from space.os.spawn.api.tasks import complete_task, create_task, fail_task, start_task
 
 logging.basicConfig(level=logging.DEBUG, format="[worker] %(message)s")
@@ -64,7 +64,7 @@ def _build_prompt(identity: str, channel: str, content: str) -> str | None:
 
         _write_role_file(agent.provider, constitution)
 
-        identity_prompt = build_identity_prompt(identity, agent.model)
+        identity_prompt = build_spawn_context(identity, agent.model)
 
         export = subprocess.run(
             ["bridge", "export", channel],

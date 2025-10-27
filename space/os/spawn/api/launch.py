@@ -1,6 +1,7 @@
 """Agent launching: unified context injection, execute."""
 
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -11,6 +12,7 @@ from pathlib import Path
 import click
 
 from space.lib import paths
+from space.lib.constitution import write_constitution
 from space.lib.format import format_duration
 from space.os import bridge, knowledge, memory
 
@@ -18,71 +20,82 @@ from . import agents, sessions
 
 
 def build_spawn_context(identity: str, model: str | None = None) -> str:
-    """Build unified prompt context for agent spawn.
+    """Build unified prompt context from MANUAL.md template with agent context filled in.
 
-    Includes: identity, spawn state, space-os interface, agent context, inbox.
+    Replaces <identity> placeholders and inserts agent-specific context blocks.
     """
-
-    parts = []
-
     agent = agents.get_agent(identity)
     if not agent:
         return f"You are {identity}."
 
     agent_id = agent.agent_id
+    
+    manual_path = paths.package_root().parent / "MANUAL.md"
+    if not manual_path.exists():
+        return f"You are {identity}."
+    
+    manual_text = manual_path.read_text()
+    
     spawn_count = sessions.get_spawn_count(agent_id)
     wakes_this_spawn = sessions.get_wakes_this_spawn(agent_id)
-
-    parts.append(f"You are {identity}.")
-    if model:
-        parts[0] += f" Your model is {model}."
-
-    parts.append("")
-    parts.append(f"🔄 Spawn #{spawn_count} • Woke {wakes_this_spawn} times this spawn")
-
+    
     last_journal = memory.list_entries(identity, topic="journal", limit=1)
     if last_journal:
         e = last_journal[0]
         last_sleep_duration = format_duration(datetime.now().timestamp() - e.created_at)
-        parts.append(f"📝 Last session {last_sleep_duration} ago")
+        spawn_status = f"📝 Last session {last_sleep_duration} ago"
     else:
-        parts.append("📝 First spawn")
+        spawn_status = "📝 First spawn"
+    
+    template_vars = {
+        "identity": identity,
+        "spawn_count": spawn_count,
+        "wakes_this_spawn": wakes_this_spawn,
+        "spawn_status": spawn_status,
+        "model": f" Your model is {model}." if model else "",
+    }
+    
+    output = manual_text
+    for var, value in template_vars.items():
+        output = output.replace(f"<{var}>", str(value))
+    
+    agent_info_blocks = _build_agent_info_blocks(identity, agent, agent_id)
+    output = output.replace("{{AGENT_INFO}}", agent_info_blocks)
+    
+    return output
 
-    parts.append("")
-    parts.append("**space-os commands:**")
-    parts.append("  space              — system orientation")
-    parts.append("  spawn <agent>      — launch another agent")
-    parts.append(f"  memory --as {identity}  — view/search your memories")
-    parts.append(f"  bridge recv <channel> --as {identity}  — read channel messages")
 
+def _build_agent_info_blocks(identity: str, agent, agent_id: str) -> str:
+    """Build identity, memories, and bridge context blocks for template injection."""
+    parts = []
+    
     if agent.description:
-        parts.append("")
         parts.append(f"**Your identity:** {agent.description}")
-
+        parts.append("")
+    
     core_entries = memory.list_entries(identity, filter="core")
     if core_entries:
-        parts.append("")
         parts.append("⭐ **Core memories:**")
         for e in core_entries[:3]:
             parts.append(f"  [{e.memory_id[-8:]}] {e.message}")
-
+        parts.append("")
+    
     recent = memory.list_entries(identity, filter="recent:7", limit=3)
     non_journal = [e for e in recent if e.topic != "journal"]
     if non_journal:
-        parts.append("")
         parts.append("📋 **Recent work (7d):**")
         for e in non_journal:
             ts = datetime.fromtimestamp(e.created_at).strftime("%m-%d %H:%M")
             parts.append(f"  [{ts}] {e.topic}: {e.message[:100]}")
-
+        parts.append("")
+    
     critical = _get_critical_knowledge()
     if critical:
-        parts.append("")
         parts.append(f"💡 **Latest decision:** [{critical.domain}] {critical.content[:100]}")
-
+        parts.append("")
+    
     inbox_channels = bridge.fetch_inbox(agent_id)
     if inbox_channels:
-        parts.append("")
         total_msgs = sum(ch.unread_count for ch in inbox_channels)
         parts.append(f"📬 **{total_msgs} unread messages in {len(inbox_channels)} channels:**")
         priority_ch = _priority_channel(inbox_channels)
@@ -96,17 +109,8 @@ def build_spawn_context(identity: str, model: str | None = None) -> str:
                 parts.append(f"  #{ch.name} ({ch.unread_count} unread)")
         if len(inbox_channels) > 5:
             parts.append(f"  ... and {len(inbox_channels) - 5} more")
-
-    parts.append("")
-    parts.append("**When you finish work:**")
-    parts.append(f'  memory save "journal" "<summary>" --as {identity}')
-    parts.append(f'  Then: bridge send <channel> --as {identity} "<message>"')
-
-    parts.append("")
-    paths.space_root() / "MANUAL.md"
-    parts.append("**Full instruction set:** Read MANUAL.md")
-    parts.append(f"  As {identity}, consult @space-os/MANUAL.md for all commands and workflows.")
-
+        parts.append("")
+    
     return "\n".join(parts)
 
 
@@ -210,24 +214,7 @@ def _get_provider_command(provider: str) -> str:
 
 def _write_constitution(provider: str, constitution: str) -> None:
     """Write constitution to provider home dir."""
-    filename_map = {
-        "claude": "CLAUDE.md",
-        "gemini": "GEMINI.md",
-        "codex": "AGENTS.md",
-    }
-    agent_dir_map = {
-        "claude": ".claude",
-        "gemini": ".gemini",
-        "codex": ".codex",
-    }
-    filename = filename_map.get(provider)
-    agent_dir = agent_dir_map.get(provider)
-    if not filename or not agent_dir:
-        raise ValueError(f"Unknown provider: {provider}")
-
-    target = Path.home() / agent_dir / filename
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(constitution)
+    write_constitution(provider, constitution)
 
 
 def _parse_command(command: str | list[str]) -> list[str]:

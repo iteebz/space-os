@@ -14,8 +14,7 @@ def list_agents(show_all: bool = typer.Option(False, "--all", help="Show archive
         typer.echo("No agents found.")
         return
 
-    typer.echo(f"{'IDENTITY':<20} {'AGENT_ID':<10} {'S-B-M-K':<20} {'DESCRIPTION'}")
-    typer.echo("-" * 100)
+    typer.echo(f"{'IDENTITY':<20} {'AGENT_ID':<10} {'MODEL':<25} {'DESCRIPTION'}")
 
     for s in sorted(stats, key=lambda a: a.identity or ""):
         name = s.identity or ""
@@ -30,10 +29,10 @@ def list_agents(show_all: bool = typer.Option(False, "--all", help="Show archive
                 name = agent.identity
 
         agent = api.get_agent(agent_id)
+        model = agent.model if agent and agent.model else "-"
         desc = agent.description if agent and agent.description else "-"
-        sbmk = f"{s.spawns}-{s.msgs}-{s.mems}-{s.knowledge}"
 
-        typer.echo(f"{name:<20} {short_id:<10} {sbmk:<20} {desc}")
+        typer.echo(f"{name:<20} {short_id:<10} {model:<25} {desc}")
 
     typer.echo()
     typer.echo(f"Total: {len(stats)}")

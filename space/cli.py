@@ -30,11 +30,19 @@ app.add_typer(system, name="system")
 @app.callback(invoke_without_command=True)
 def main_command(
     ctx: typer.Context,
+    identity: str = typer.Option(None, "--as", help="Show agent spawn context"),
 ):
     if ctx.invoked_subcommand is None:
-        typer.echo(
-            "space-os: Agent orchestration system. Run 'space <command> --help' for commands."
-        )
+        if identity:
+            from space.os.spawn.api import launch, agents
+            agent = agents.get_agent(identity)
+            model = agent.model if agent else None
+            context = launch.build_spawn_context(identity, model)
+            typer.echo(context)
+        else:
+            typer.echo(
+                "space-os: Agent orchestration system. Run 'space <command> --help' for commands."
+            )
 
 
 def main() -> None:

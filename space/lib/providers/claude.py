@@ -4,8 +4,8 @@ import json
 import subprocess
 from pathlib import Path
 
-# Tools to disallow when spawning Claude agents
-DISALLOWED_TOOLS = ["Task", "NotebookRead", "NotebookEdit", "TodoWrite"]
+# Tools to allow when spawning Claude agents
+ALLOWED_TOOLS = ["Bash", "Read", "Write", "Edit", "MultiEdit", "Grep", "Glob", "WebSearch", "WebFetch"]
 
 
 class Claude:
@@ -84,8 +84,8 @@ class Claude:
                     "-p",
                     task,
                     "--dangerously-skip-permissions",
-                    "--disallowedTools",
-                    ",".join(DISALLOWED_TOOLS),
+                    "--allowedTools",
+                    ",".join(ALLOWED_TOOLS),
                 ],
                 capture_output=True,
                 text=True,

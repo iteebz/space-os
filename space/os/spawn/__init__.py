@@ -20,7 +20,7 @@ from .api import (
     update_agent,
 )
 from .commands import app
-from .spawn import build_identity_prompt, resolve_model_alias
+from .spawn import resolve_model_alias
 
 db.register()
 
@@ -28,7 +28,6 @@ __all__ = [
     "api",
     "db",
     "app",
-    "build_identity_prompt",
     "resolve_model_alias",
     "get_agent",
     "register_agent",
