@@ -264,3 +264,41 @@ def test_merge_agents_updates_all_dbs(mock_db):
             result = spawn.merge_agents("from", "to")
 
     assert result is True
+
+
+def test_register_agent_rejects_spaces(mock_db):
+    with pytest.raises(ValueError, match="Identity cannot contain spaces"):
+        spawn.register_agent("my agent", "claude-haiku-4-5", "c.md")
+
+
+def test_register_agent_suggests_hyphen(mock_db):
+    with pytest.raises(ValueError, match="Use hyphens instead: 'my-agent'"):
+        spawn.register_agent("my agent", "claude-haiku-4-5", "c.md")
+
+
+def test_rename_agent_rejects_spaces(mock_db):
+    mock_agent = Agent(
+        agent_id="a-1",
+        identity="old",
+        constitution="c.md",
+        model="claude-haiku-4-5",
+        description=None,
+        created_at="2024-01-01",
+    )
+    with patch("space.os.spawn.api.agents.get_agent", return_value=mock_agent):
+        with pytest.raises(ValueError, match="Identity cannot contain spaces"):
+            spawn.rename_agent("old", "new name")
+
+
+def test_clone_agent_rejects_spaces(mock_db):
+    mock_agent = Agent(
+        agent_id="a-1",
+        identity="original",
+        constitution="c.md",
+        model="claude-haiku-4-5",
+        description=None,
+        created_at="2024-01-01",
+    )
+    with patch("space.os.spawn.api.agents.get_agent", return_value=mock_agent):
+        with pytest.raises(ValueError, match="Identity cannot contain spaces"):
+            spawn.clone_agent("original", "new agent")

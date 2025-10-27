@@ -6,12 +6,11 @@ from typer.core import TyperGroup
 
 from space.lib import errors, output
 from space.os.spawn import api, models
-from space.os.spawn.api import symlinks
 
 errors.install_error_handler("spawn")
 
 
-class AgentSpawnGroup(TyperGroup):
+class SpawnGroup(TyperGroup):
     """Typer group that dynamically spawns tasks for agent names."""
 
     def get_command(self, ctx, cmd_name):
@@ -33,7 +32,7 @@ class AgentSpawnGroup(TyperGroup):
         return spawn_agent
 
 
-app = typer.Typer(invoke_without_command=True, cls=AgentSpawnGroup)
+app = typer.Typer(invoke_without_command=True, cls=SpawnGroup)
 
 from . import agents, launch, sleep, tasks  # noqa: E402
 
@@ -101,11 +100,6 @@ def register(
     try:
         agent_id = api.register_agent(identity, model, constitution)
         typer.echo(f"✓ Registered {identity} ({agent_id[:8]})")
-
-        if symlinks.create_agent_symlink(identity):
-            typer.echo(f"✓ Created ~/.local/bin/{identity}")
-        else:
-            typer.echo(f"⚠ Could not create ~/.local/bin/{identity} symlink", err=True)
     except ValueError as e:
         typer.echo(f"❌ {e}", err=True)
         raise typer.Exit(1) from e

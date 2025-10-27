@@ -1,8 +1,34 @@
+import click
 import typer
+from typer.core import TyperGroup
 
 from space.apps import backup, canon, chats, context, council, daemons, health, init, stats
+from space.os.spawn import api
 
-app = typer.Typer(invoke_without_command=True, no_args_is_help=False)
+
+class SpawnGroup(TyperGroup):
+    """Typer group that dynamically spawns tasks for agent names."""
+
+    def get_command(self, ctx, cmd_name):
+        """Get command by name, or spawn agent if not found."""
+        cmd = super().get_command(ctx, cmd_name)
+        if cmd is not None:
+            return cmd
+
+        agent = api.get_agent(cmd_name)
+        if agent is None:
+            return None
+
+        @click.command(name=cmd_name)
+        @click.argument("task_input", required=False, nargs=-1)
+        def spawn_agent(task_input):
+            input_list = list(task_input) if task_input else []
+            api.launch_agent(agent.identity, extra_args=input_list)
+
+        return spawn_agent
+
+
+app = typer.Typer(invoke_without_command=True, no_args_is_help=False, cls=SpawnGroup)
 
 app.add_typer(init.app, name="init")
 app.add_typer(backup.app, name="backup")

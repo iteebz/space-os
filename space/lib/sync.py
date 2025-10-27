@@ -6,8 +6,13 @@ from pathlib import Path
 from space.lib import paths, providers
 
 
-def sync_provider_chats() -> dict[str, tuple[int, int]]:
+def sync_provider_chats(verbose: bool = False) -> dict[str, tuple[int, int]]:
     """Sync chats from all providers (~/.claude, ~/.codex, ~/.gemini) to ~/.space/chats/.
+
+    Only syncs files that are newer than existing copies (diff-aware).
+
+    Args:
+        verbose: If True, yield progress messages (not implemented here, use return value)
 
     Returns:
         {provider_name: (sessions_discovered, files_synced)} for each provider
@@ -39,8 +44,16 @@ def sync_provider_chats() -> dict[str, tuple[int, int]]:
 
                 try:
                     dest_file = dest_dir / src_file.name
-                    shutil.copy2(src_file, dest_file)
-                    synced_count += 1
+                    dest_file.parent.mkdir(parents=True, exist_ok=True)
+
+                    should_sync = (
+                        not dest_file.exists()
+                        or src_file.stat().st_mtime > dest_file.stat().st_mtime
+                    )
+
+                    if should_sync:
+                        shutil.copy2(src_file, dest_file)
+                        synced_count += 1
                 except (OSError, Exception):
                     pass
 

@@ -1,4 +1,5 @@
 import contextlib
+import os
 import time
 from pathlib import Path
 
@@ -6,7 +7,6 @@ import typer
 
 from space.lib import paths, store, sync
 from space.os import spawn
-from space.os.spawn.api import symlinks
 
 app = typer.Typer()
 
@@ -75,6 +75,44 @@ def init_default_agents():
                 spawn.register_agent(identity, "claude-haiku-4-5", constitution)
 
 
+def _get_bin_dir() -> Path:
+    """Get ~/.local/bin directory."""
+    return Path.home() / ".local" / "bin"
+
+
+def _list_agent_identities() -> list[str]:
+    """Get all registered agent identities from spawn DB."""
+    with spawn.db.connect():
+        agents = spawn.api.list_agents()
+    return [agent.identity for agent in agents]
+
+
+def _is_bin_in_path() -> bool:
+    """Check if ~/.local/bin is in PATH."""
+    bin_dir = str(_get_bin_dir())
+    return bin_dir in os.getenv("PATH", "")
+
+
+def _install_shortcuts():
+    """Install identity shortcuts in ~/.local/bin."""
+    bin_dir = _get_bin_dir()
+    bin_dir.mkdir(parents=True, exist_ok=True)
+
+    identities = _list_agent_identities()
+    if not identities:
+        return
+
+    for identity in identities:
+        script_path = bin_dir / identity
+        script_content = f"#!/usr/bin/env bash\nexec spawn {identity} \"$@\"\n"
+        script_path.write_text(script_content)
+        script_path.chmod(0o755)
+
+    typer.echo(f"✓ Installed {len(identities)} identity shortcuts")
+    if not _is_bin_in_path():
+        typer.echo("⚠ Add to PATH: export PATH=\"$HOME/.local/bin:$PATH\"")
+
+
 @app.command()
 def init():
     """Initialize space workspace structure and databases."""
@@ -108,21 +146,20 @@ def init():
 
     archive_old_config()
     init_default_agents()
-    sync.sync_provider_chats()
-
-    bin_dir = Path.home() / ".local" / "bin"
-    launch_script = paths.package_root().parent / "bin" / "launch"
-    if launch_script.exists():
-        bin_dir.mkdir(parents=True, exist_ok=True)
-        if symlinks._setup_launch_symlink(launch_script):
-            typer.echo("✓ Agent launcher configured (~/.local/bin/launch)")
 
     constitutions_dir = paths.canon_path() / "constitutions"
     constitution_files = sorted(
         [f.name for f in constitutions_dir.glob("*.md") if f.name != "README.md"]
     )
-
     typer.echo(f"✓ {len(constitution_files)} constitutions registered")
+
+    typer.echo("Syncing provider chats...")
+    chat_results = sync.sync_provider_chats()
+    for provider, (discovered, synced) in chat_results.items():
+        if discovered > 0:
+            typer.echo(f"  {provider}: {synced}/{discovered} synced")
+
+    _install_shortcuts()
 
     typer.echo()
     typer.echo("Created space structure:")
@@ -142,11 +179,11 @@ def init():
     typer.echo("  ~/.space_backups/")
     typer.echo("    ├── data/                   → timestamped snapshots")
     typer.echo("    └── chats/                  → latest backup")
+
     typer.echo()
     typer.echo("Next steps:")
-    typer.echo("  1. Run: spawn agents")
-    typer.echo("  2. Create a new *.md constitution file in ~/space/canon/constitutions/")
-    typer.echo("  3. Register your agent: spawn register <identity> -m <model> -c <constitution>")
+    typer.echo("  1. Create a new *.md constitution file in ~/space/canon/constitutions/")
+    typer.echo("  2. Register your agent: spawn register <identity> -m <model> -c <constitution>")
 
 
 def main() -> None:

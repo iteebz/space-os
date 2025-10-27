@@ -10,6 +10,16 @@ from space.lib import store
 from space.lib.store import from_row
 
 
+def _validate_identity(identity: str) -> None:
+    """Validate agent identity format. Raises ValueError if invalid."""
+    if not identity:
+        raise ValueError("Identity cannot be empty")
+    if " " in identity:
+        raise ValueError(
+            f"Identity cannot contain spaces. Use hyphens instead: '{identity.replace(' ', '-')}'"
+        )
+
+
 def _row_to_agent(row: store.Row) -> Agent:
     data = dict(row)
     data["archived_at"] = int(data.get("archived_at", 0)) if data.get("archived_at") else None
@@ -60,6 +70,7 @@ def register_agent(identity: str, model: str, constitution: str | None = None) -
 
     Provider is inferred from model.
     """
+    _validate_identity(identity)
     agent = get_agent(identity)
     if agent:
         raise ValueError(f"Identity '{identity}' already registered")
@@ -119,6 +130,7 @@ def update_agent(
 
 def clone_agent(src_identity: str, dst_identity: str) -> str:
     """Clone an agent: new agent_id, copied constitution/model."""
+    _validate_identity(dst_identity)
     src_agent = get_agent(src_identity)
     if not src_agent:
         raise ValueError(f"Source agent '{src_identity}' not found")
@@ -146,6 +158,7 @@ def describe_self(name: str, content: str) -> None:
 
 def rename_agent(old_name: str, new_name: str) -> bool:
     """Rename an agent. Fails if new_name exists."""
+    _validate_identity(new_name)
     old_agent = get_agent(old_name)
     if not old_agent:
         return False
