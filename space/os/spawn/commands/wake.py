@@ -99,7 +99,8 @@ def wake(
 ):
     """Load your context. Resume where you left off."""
     typer.echo(f"Waking up {identity}")
-    from space.apps import chats, memory, spawn
+    from space.apps import chats
+    from space.os import memory, spawn
 
     agent = spawn.get_agent(identity)
     if not agent:

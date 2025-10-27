@@ -5,7 +5,7 @@ import typer
 from typer.core import TyperGroup
 
 from space.lib import errors, output, readme
-from space.os.spawn import api
+from space.os.spawn import api, models
 
 errors.install_error_handler("spawn")
 
@@ -94,10 +94,10 @@ def register(
         ..., "--constitution", "-c", help="Constitution filename (e.g., zealot.md)"
     ),
     provider: str = typer.Option(
-        ..., "--provider", "-p", help="Provider: claude, gemini, or codex"
+        ..., "--provider", "-p", help="Provider: claude, codex, or gemini. Run 'spawn models' to list available options"
     ),
     model: str = typer.Option(
-        ..., "--model", "-m", help="Full model name (e.g., claude-haiku-4-5)"
+        ..., "--model", "-m", help="Model ID. Run 'spawn models' to list available models"
     ),
 ):
     """Register a new agent."""
@@ -150,3 +150,18 @@ def rename(old_name: str, new_name: str):
     except ValueError as e:
         typer.echo(f"❌ {e}", err=True)
         raise typer.Exit(1) from e
+
+
+@app.command("models")
+def list_models():
+    """List available models for all providers."""
+    for prov in ["claude", "codex", "gemini"]:
+        provider_models = models.get_models_for_provider(prov)
+        typer.echo(f"\n📦 {prov.capitalize()} Models:\n")
+        for model in provider_models:
+            typer.echo(f"  • {model.name} ({model.id})")
+            if model.description:
+                typer.echo(f"    {model.description}")
+            if model.reasoning_levels:
+                typer.echo(f"    Reasoning levels: {', '.join(model.reasoning_levels)}")
+            typer.echo()
