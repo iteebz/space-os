@@ -105,33 +105,22 @@ def init():
     typer.echo()
     typer.echo("Created space structure:")
     typer.echo("  ~/space/")
-    typer.echo("    └── New workspace root")
-    typer.echo()
-    typer.echo("  ~/space/canon/")
-    typer.echo("    └── Human curated context (edit here)")
-    typer.echo()
-    typer.echo("  ~/space/canon/constitutions/")
-    
-    constitutions_dir = paths.canon_path() / "constitutions"
-    all_constitutions = list(default_constitutions)
-    if constitutions_dir.exists():
-        extra = sorted([f.name for f in constitutions_dir.glob("*.md") if f.name not in default_constitutions and f.name != "README.md"])
-        all_constitutions.extend(extra)
-    
-    for i, const_file in enumerate(all_constitutions):
-        if i == len(all_constitutions) - 1:
-            typer.echo(f"    └── {const_file}")
+    typer.echo("    └── canon/                  → human curated context")
+    typer.echo("        └── constitutions/      → identity prompts")
+    for i, const_file in enumerate(default_constitutions):
+        if i == len(default_constitutions) - 1:
+            typer.echo(f"            ├── {const_file}")
         else:
-            typer.echo(f"    ├── {const_file}")
-    typer.echo("        └── (add more here)")
+            typer.echo(f"            ├── {const_file}")
+    typer.echo("            └── (custom.md)")
     typer.echo()
     typer.echo("  ~/.space/")
-    typer.echo("    ├── data/       → runtime databases")
-    typer.echo("    └── chats/      → chat history")
+    typer.echo("    ├── data/                   → runtime databases")
+    typer.echo("    └── chats/                  → chat history")
     typer.echo()
     typer.echo("  ~/.space_backups/")
-    typer.echo("    ├── data/       → timestamped snapshots")
-    typer.echo("    └── chats/      → latest backup")
+    typer.echo("    ├── data/                   → timestamped snapshots")
+    typer.echo("    └── chats/                  → latest backup")
     typer.echo()
     typer.echo("Next steps:")
     typer.echo("  1. Run: spawn agents")
