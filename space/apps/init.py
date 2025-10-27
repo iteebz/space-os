@@ -104,13 +104,13 @@ def _install_shortcuts():
 
     for identity in identities:
         script_path = bin_dir / identity
-        script_content = f"#!/usr/bin/env bash\nexec spawn {identity} \"$@\"\n"
+        script_content = f'#!/usr/bin/env bash\nexec spawn {identity} "$@"\n'
         script_path.write_text(script_content)
         script_path.chmod(0o755)
 
     typer.echo(f"✓ Installed {len(identities)} identity shortcuts")
     if not _is_bin_in_path():
-        typer.echo("⚠ Add to PATH: export PATH=\"$HOME/.local/bin:$PATH\"")
+        typer.echo('⚠ Add to PATH: export PATH="$HOME/.local/bin:$PATH"')
 
 
 @app.command()
