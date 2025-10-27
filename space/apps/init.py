@@ -7,6 +7,7 @@ import typer
 
 from space.lib import paths, store, sync
 from space.os import spawn
+from space.os.spawn import defaults as spawn_defaults
 
 app = typer.Typer()
 
@@ -72,7 +73,8 @@ def init_default_agents():
             constitution = const_file.name
 
             with contextlib.suppress(ValueError):
-                spawn.register_agent(identity, "claude-haiku-4-5", constitution)
+                model = spawn_defaults.canonical_model(identity)
+                spawn.register_agent(identity, model, constitution)
 
 
 def _get_bin_dir() -> Path:

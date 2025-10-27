@@ -105,9 +105,7 @@ def show_context(identity: str):
         )
 
 
-def show_wake_summary(
-    identity: str, quiet_output: bool, spawn_count: int
-):
+def show_wake_summary(identity: str, quiet_output: bool, spawn_count: int):
     from space.os import bridge, spawn
 
     agent = spawn.get_agent(identity)
@@ -125,7 +123,7 @@ def show_wake_summary(
         typer.echo(f"🔄 Spawn #{spawn_count}")
         if last_journal:
             last_sleep_ts = last_journal[0].created_at
-            last_sleep_duration = format_duration(time.time() - last_sleep_ts)
+            format_duration(time.time() - last_sleep_ts)
             # typer.echo(f"Last session {last_sleep_duration} ago")
 
         journals = memory.list_entries(identity, topic="journal")

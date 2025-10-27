@@ -2,20 +2,63 @@
 
 import asyncio
 import sys
+from datetime import datetime
 
 import typer
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 
-from space.os.bridge.api import (
-    get_channel,
-    get_messages,
-    resolve_channel,
-    send_message,
-)
+from space.os import spawn
+from space.os.bridge import api as bridge_api
 
-from .api import format_error, format_header, format_message
+
+class Colors:
+    CYAN = "\033[36m"
+    WHITE = "\033[37m"
+    GRAY = "\033[90m"
+    YELLOW = "\033[33m"
+    BOLD = "\033[1m"
+    RESET = "\033[0m"
+
+
+def _styled(text: str, *colors: str) -> str:
+    """Apply ANSI styles with automatic reset."""
+    return f"{''.join(colors)}{text}{Colors.RESET}"
+
+
+def format_message(msg, is_user: bool) -> str:
+    """Return formatted council message line."""
+    agent = spawn.get_agent(msg.agent_id)
+    identity = agent.identity if agent else msg.agent_id
+    ts = datetime.fromisoformat(msg.created_at).strftime("%H:%M:%S")
+
+    if is_user:
+        prefix = _styled(">", Colors.CYAN)
+        ts_part = _styled(ts, Colors.CYAN)
+        id_part = _styled(identity, Colors.BOLD)
+        return f"{prefix} {ts_part} {id_part}: {msg.content}"
+
+    ts_part = _styled(ts, Colors.WHITE)
+    id_part = _styled(identity, Colors.BOLD)
+    return f"{ts_part} {id_part}: {msg.content}"
+
+
+def format_header(channel_name: str, topic: str | None = None) -> str:
+    """Return formatted channel header."""
+    title = _styled(f"📡 {channel_name}", Colors.BOLD, Colors.CYAN)
+    lines = [f"\n{title}"]
+    if topic:
+        lines.append(f"   {_styled(topic, Colors.GRAY)}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def format_error(msg: str) -> str:
+    """Return formatted error output."""
+    warn = _styled("⚠", Colors.YELLOW)
+    return f"\n{warn}  {msg}\n"
+
 
 STREAM_POLL_INTERVAL = 0.5
 STREAM_ERROR_BACKOFF = 1.0
@@ -24,7 +67,7 @@ STREAM_ERROR_BACKOFF = 1.0
 class Council:
     def __init__(self, channel_name: str):
         self.channel_name = channel_name
-        self.channel_id = resolve_channel(channel_name).channel_id
+        self.channel_id = bridge_api.resolve_channel(channel_name).channel_id
         self.last_msg_id = None
         self.running = True
         self._lock = asyncio.Lock()
@@ -36,7 +79,7 @@ class Council:
         """Stream new messages from channel."""
         while self.running:
             try:
-                msgs = get_messages(self.channel_id)
+                msgs = bridge_api.get_messages(self.channel_id)
                 if msgs:
                     start_idx = self._find_new_messages_start(msgs)
                     for msg in msgs[start_idx:]:
@@ -69,8 +112,8 @@ class Council:
                     msg = await loop.run_in_executor(None, self.session.prompt, "> ")
                 msg = msg.strip()
                 if msg:
-                    send_message(self.channel_id, "human", msg)
-                    msgs = get_messages(self.channel_id)
+                    bridge_api.send_message(self.channel_id, "human", msg)
+                    msgs = bridge_api.get_messages(self.channel_id)
                     if msgs:
                         self.sent_msg_ids.add(msgs[-1].message_id)
             except EOFError:
@@ -104,7 +147,7 @@ class Council:
     async def run(self):
         """Main loop - stream + input."""
         try:
-            channel = get_channel(self.channel_id)
+            channel = bridge_api.get_channel(self.channel_id)
             print(format_header(self.channel_name, channel.topic), end="")
 
             stream_task = asyncio.create_task(self.stream_messages())

@@ -16,4 +16,5 @@ def register() -> None:
 
 def connect():
     """Return connection to spawn database via central registry."""
+    register()
     return store.ensure("spawn")

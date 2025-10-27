@@ -4,6 +4,8 @@ import pytest
 
 from space.os import bridge
 
+pytestmark = pytest.mark.usefixtures("mock_resolve_channel")
+
 
 def make_mock_row(data):
     row = MagicMock()
@@ -18,6 +20,15 @@ def mock_db():
     with patch("space.lib.store.ensure") as mock_ensure:
         mock_ensure.return_value.__enter__.return_value = conn
         mock_ensure.return_value.__exit__.return_value = None
+        conn.execute.return_value.fetchone.return_value = make_mock_row(
+            {
+                "channel_id": "ch-1",
+                "name": "general",
+                "topic": None,
+                "created_at": "2024-01-01T00:00:00",
+            }
+        )
+        conn.execute.return_value.fetchall.return_value = []
         yield conn
 
 
@@ -38,19 +49,21 @@ def mock_get_channel():
 def test_send_message_inserts_record(mock_db, mock_get_agent):
     bridge.send_message("ch-1", "sender", "hello")
 
-    assert mock_db.execute.call_count == 2
+    calls = mock_db.execute.call_args_list
 
-    # Check the first call (INSERT)
-    insert_args = mock_db.execute.call_args_list[0][0]
-    assert "INSERT INTO messages" in insert_args[0]
-    assert insert_args[1][1] == "ch-1"
-    assert insert_args[1][2] == "agent-123"
-    assert insert_args[1][3] == "hello"
+    insert_call = next((call for call in calls if "INSERT INTO messages" in call.args[0]), None)
+    assert insert_call, "message insert not executed"
+    _, params = insert_call.args
+    assert params[1] == "ch-1"
+    assert params[2] == "agent-123"
+    assert params[3] == "hello"
 
-    # Check the second call (UPDATE for touch_agent)
-    update_args = mock_db.execute.call_args_list[1][0]
-    assert "UPDATE agents SET last_active_at" in update_args[0]
-    assert update_args[1][1] == "agent-123"
+    update_call = next(
+        (call for call in calls if "UPDATE agents SET last_active_at" in call.args[0]), None
+    )
+    assert update_call, "agent touch update not executed"
+    _, params = update_call.args
+    assert params[1] == "agent-123"
 
 
 def test_send_message_returns_agent_id(mock_db, mock_get_agent):

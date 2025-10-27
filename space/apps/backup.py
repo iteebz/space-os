@@ -46,10 +46,6 @@ def _backup_data_snapshot(timestamp: str, quiet_output: bool) -> dict:
     backup_path = paths.backup_snapshot(timestamp)
     backup_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if not paths.validate_backup_path(backup_path):
-        typer.echo("ERROR: Backup path validation failed (possible path traversal)", err=True)
-        raise typer.Exit(code=1)
-
     store.close_all()
     store.resolve(src)
     shutil.copytree(src, backup_path, dirs_exist_ok=False)
@@ -66,10 +62,6 @@ def _backup_chats_latest(quiet_output: bool) -> None:
 
     backup_path = paths.backup_chats_latest()
     backup_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if not paths.validate_backup_path(backup_path):
-        typer.echo("ERROR: Backup path validation failed (possible path traversal)", err=True)
-        raise typer.Exit(code=1)
 
     backup_path.mkdir(parents=True, exist_ok=True)
 

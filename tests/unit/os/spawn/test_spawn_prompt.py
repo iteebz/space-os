@@ -22,7 +22,7 @@ def test_spawn_prompt_no_model(tmp_path):
 def test_spawn_prompt_format(tmp_path):
     result = spawn.spawn_prompt("sentinel")
 
-    lines = result.split("\n")
+    result.split("\n")
     assert "SPACE-OS MANUAL" in result
     assert "You are sentinel." in result
     assert "COMMAND REFERENCE" in result

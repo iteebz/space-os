@@ -1,11 +1,16 @@
 """Codex provider: chat discovery + message parsing + spawning."""
 
 import json
+import logging
 import subprocess
 from pathlib import Path
 
+from space.core.protocols import Provider
 
-class Codex:
+logger = logging.getLogger(__name__)
+
+
+class Codex(Provider):
     """Codex provider: chat discovery + message parsing + spawning.
 
     Codex supports two models: gpt-5-codex (optimized for coding) and gpt-5 (general).
@@ -65,6 +70,9 @@ class Codex:
                                 if isinstance(item, dict) and item.get("type") == "input_text"
                             )
 
+                        else:
+                            content = content_list
+
                         msg = {
                             "message_id": payload.get("id"),
                             "role": role,
@@ -83,6 +91,8 @@ class Codex:
                                 for item in content_list
                                 if isinstance(item, dict) and item.get("type") == "input_text"
                             )
+                        else:
+                            content = content_list
 
                         msg = {
                             "message_id": payload.get("id"),
@@ -94,8 +104,8 @@ class Codex:
                             "byte_offset": offset,
                         }
                         messages.append(msg)
-        except (OSError, json.JSONDecodeError):
-            pass
+        except (OSError, json.JSONDecodeError) as e:
+            logger.error(f"Error parsing Codex messages from {file_path}: {e}")
         return messages
 
     def spawn(self, identity: str, task: str | None = None) -> str:
@@ -125,7 +135,8 @@ class Codex:
             from space.os.spawn import api as spawn_api
 
             return spawn_api.get_agent(identity) is not None
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error pinging Codex agent {identity}: {e}")
             return False
 
     def list_agents(self) -> list[str]:
@@ -134,5 +145,6 @@ class Codex:
             from space.os.spawn import api as spawn_api
 
             return spawn_api.list_agents()
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error listing Codex agents: {e}")
             return []

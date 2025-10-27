@@ -70,7 +70,7 @@ class Provider(Protocol):
         """
         ...
 
-    def spawn(self, role: str, task: str | None = None) -> str:
+    def spawn(self, identity: str, task: str | None = None) -> str:
         """Spawn agent instance with role.
 
         Args:

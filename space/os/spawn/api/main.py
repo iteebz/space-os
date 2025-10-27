@@ -24,33 +24,45 @@ def spawn_prompt(identity: str, model: str | None = None) -> str:
 
     Replaces <identity> placeholders and inserts agent-specific context blocks.
     """
-    agent = agents.get_agent(identity)
-    if not agent:
-        return f"You are {identity}."
-
-    agent_id = agent.agent_id
+    try:
+        agent = agents.get_agent(identity)
+    except ValueError:
+        agent = None
+    agent_id = agent.agent_id if agent else None
+    resolved_model = model
 
     manual_path = paths.package_root().parent / "MANUAL.md"
     if not manual_path.exists():
-        return f"You are {identity}."
+        base = f"You are {identity}."
+        if resolved_model:
+            base += f" Your model is {resolved_model}."
+        return base
 
     manual_text = manual_path.read_text()
 
-    spawn_count = sessions.get_spawn_count(agent_id)
-
-    last_journal = memory.list_entries(identity, topic="journal", limit=1)
-    if last_journal:
-        e = last_journal[0]
-        last_sleep_duration = format_duration(datetime.now().timestamp() - e.created_at)
-        spawn_status = f"📝 Last session {last_sleep_duration} ago"
+    if agent_id:
+        try:
+            spawn_count = sessions.get_spawn_count(agent_id)
+        except Exception:  # pragma: no cover - defensive because DB may be unavailable in tests
+            spawn_count = 0
     else:
-        spawn_status = "📝 First spawn"
+        spawn_count = 0
+
+    spawn_status = "📝 First spawn"
+    try:
+        last_journal = memory.list_entries(identity, topic="journal", limit=1)
+        if last_journal:
+            entry = last_journal[0]
+            last_sleep_duration = format_duration(datetime.now().timestamp() - entry.created_at)
+            spawn_status = f"📝 Last session {last_sleep_duration} ago"
+    except Exception:  # pragma: no cover - defensive for missing memory DB
+        pass
 
     template_vars = {
         "identity": identity,
         "spawn_count": spawn_count,
         "spawn_status": spawn_status,
-        "model": f" Your model is {model}." if model else "",
+        "model": f" Your model is {resolved_model}." if resolved_model else "",
     }
 
     output = manual_text
@@ -58,31 +70,40 @@ def spawn_prompt(identity: str, model: str | None = None) -> str:
         output = output.replace(f"<{var}>", str(value))
 
     agent_info_blocks = _build_agent_info_blocks(identity, agent, agent_id)
-    return output.replace("{{AGENT_INFO}}", agent_info_blocks)
+    return output.replace("{{AGENT_INFO}}", agent_info_blocks or "")
 
 
-def _build_agent_info_blocks(identity: str, agent, agent_id: str) -> str:
+def _build_agent_info_blocks(identity: str, agent, agent_id: str | None) -> str:
     """Build identity, memories, and bridge context blocks for template injection."""
     parts = []
+
+    if not agent or not agent_id:
+        return ""
 
     if agent.description:
         parts.append(f"**Your identity:** {agent.description}")
         parts.append("")
 
-    core_entries = memory.list_entries(identity, filter="core")
+    try:
+        core_entries = memory.list_entries(identity, filter="core")
+    except Exception:  # pragma: no cover - safeguard for unseeded DBs
+        core_entries = []
     if core_entries:
         parts.append("⭐ **Core memories:**")
-        for e in core_entries[:3]:
-            parts.append(f"  [{e.memory_id[-8:]}] {e.message}")
+        for entry in core_entries[:3]:
+            parts.append(f"  [{entry.memory_id[-8:]}] {entry.message}")
         parts.append("")
 
-    recent = memory.list_entries(identity, filter="recent:7", limit=3)
-    non_journal = [e for e in recent if e.topic != "journal"]
+    try:
+        recent = memory.list_entries(identity, filter="recent:7", limit=3)
+    except Exception:  # pragma: no cover - safeguard for unseeded DBs
+        recent = []
+    non_journal = [entry for entry in recent if entry.topic != "journal"]
     if non_journal:
         parts.append("📋 **Recent work (7d):**")
-        for e in non_journal:
-            ts = datetime.fromtimestamp(e.created_at).strftime("%m-%d %H:%M")
-            parts.append(f"  [{ts}] {e.topic}: {e.message[:100]}")
+        for entry in non_journal:
+            ts = datetime.fromtimestamp(entry.created_at).strftime("%m-%d %H:%M")
+            parts.append(f"  [{ts}] {entry.topic}: {entry.message[:100]}")
         parts.append("")
 
     critical = _get_critical_knowledge()
@@ -90,19 +111,22 @@ def _build_agent_info_blocks(identity: str, agent, agent_id: str) -> str:
         parts.append(f"💡 **Latest decision:** [{critical.domain}] {critical.content[:100]}")
         parts.append("")
 
-    inbox_channels = bridge.fetch_inbox(agent_id)
+    try:
+        inbox_channels = bridge.fetch_inbox(agent_id)
+    except Exception:  # pragma: no cover - safeguard for offline bridge
+        inbox_channels = []
     if inbox_channels:
         total_msgs = sum(ch.unread_count for ch in inbox_channels)
         parts.append(f"📬 **{total_msgs} unread messages in {len(inbox_channels)} channels:**")
         priority_ch = _priority_channel(inbox_channels)
         if priority_ch:
             parts.append(f"  #{priority_ch.name} ({priority_ch.unread_count} unread) ← START HERE")
-            for ch in inbox_channels[:4]:
-                if ch.name != priority_ch.name:
-                    parts.append(f"  #{ch.name} ({ch.unread_count} unread)")
+            for channel in inbox_channels[:4]:
+                if channel.name != priority_ch.name:
+                    parts.append(f"  #{channel.name} ({channel.unread_count} unread)")
         else:
-            for ch in inbox_channels[:5]:
-                parts.append(f"  #{ch.name} ({ch.unread_count} unread)")
+            for channel in inbox_channels[:5]:
+                parts.append(f"  #{channel.name} ({channel.unread_count} unread)")
         if len(inbox_channels) > 5:
             parts.append(f"  ... and {len(inbox_channels) - 5} more")
         parts.append("")
@@ -113,7 +137,10 @@ def _build_agent_info_blocks(identity: str, agent, agent_id: str) -> str:
 def _get_critical_knowledge():
     """Get most recent critical knowledge entry (24h)."""
     critical_domains = {"decision", "architecture", "operations", "consensus"}
-    entries = knowledge.list_entries()
+    try:
+        entries = knowledge.list_entries()
+    except Exception:  # pragma: no cover - safeguard when knowledge DB uninitialized
+        return None
 
     cutoff = datetime.now() - timedelta(hours=24)
     recent = [

@@ -28,7 +28,7 @@ def test_format_message_user():
     msg.created_at = "2025-10-25T12:30:45"
     msg.content = "hello"
 
-    with patch("space.apps.council.lib.formatting.spawn.get_agent") as m_get_agent:
+    with patch("space.apps.council.cli.spawn.get_agent") as m_get_agent:
         m_agent = MagicMock()
         m_agent.identity = "alice"
         m_get_agent.return_value = m_agent
@@ -47,7 +47,7 @@ def test_format_message_agent():
     msg.created_at = "2025-10-25T12:30:45"
     msg.content = "response"
 
-    with patch("space.apps.council.lib.formatting.spawn.get_agent") as m_get_agent:
+    with patch("space.apps.council.cli.spawn.get_agent") as m_get_agent:
         m_agent = MagicMock()
         m_agent.identity = "zealot"
         m_get_agent.return_value = m_agent
@@ -66,7 +66,7 @@ def test_format_message_unknown_agent():
     msg.created_at = "2025-10-25T12:30:45"
     msg.content = "text"
 
-    with patch("space.apps.council.lib.formatting.spawn.get_agent", return_value=None):
+    with patch("space.apps.council.cli.spawn.get_agent", return_value=None):
         result = council.format_message(msg, is_user=False)
         assert "unknown-id" in result
 
@@ -93,7 +93,7 @@ def test_format_error():
 
 def test_council_init():
     """Council initializes with channel name and resolves channel ID."""
-    with patch("space.apps.council.lib.formatting.bridge.resolve_channel") as m_resolve:
+    with patch("space.apps.council.cli.bridge_api.resolve_channel") as m_resolve:
         mock_channel = MagicMock()
         mock_channel.channel_id = "ch-123"
         m_resolve.return_value = mock_channel
@@ -107,7 +107,7 @@ def test_council_init():
 
 def test_council_find_new_messages_start_no_previous():
     """Find new messages start from 0 if no previous messages."""
-    with patch("space.apps.council.lib.formatting.bridge.resolve_channel"):
+    with patch("space.apps.council.cli.bridge_api.resolve_channel"):
         c = council.Council("test-channel")
         c.last_msg_id = None
 
@@ -118,7 +118,7 @@ def test_council_find_new_messages_start_no_previous():
 
 def test_council_find_new_messages_start_from_last():
     """Find new messages start from after last processed ID."""
-    with patch("space.apps.council.lib.formatting.bridge.resolve_channel"):
+    with patch("space.apps.council.cli.bridge_api.resolve_channel"):
         c = council.Council("test-channel")
         c.last_msg_id = "id-1"
 
@@ -133,7 +133,7 @@ def test_council_find_new_messages_start_from_last():
 
 def test_council_find_new_messages_start_not_found():
     """Find new messages returns 0 if last message not in current list."""
-    with patch("space.apps.council.lib.formatting.bridge.resolve_channel"):
+    with patch("space.apps.council.cli.bridge_api.resolve_channel"):
         c = council.Council("test-channel")
         c.last_msg_id = "old-id"
 
@@ -144,7 +144,7 @@ def test_council_find_new_messages_start_not_found():
 
 def test_council_should_add_separator_first_message():
     """No separator for first message."""
-    with patch("space.apps.council.lib.formatting.bridge.resolve_channel"):
+    with patch("space.apps.council.cli.bridge_api.resolve_channel"):
         c = council.Council("test-channel")
         c._last_printed_agent_id = None
 
@@ -154,7 +154,7 @@ def test_council_should_add_separator_first_message():
 
 def test_council_should_add_separator_user_message():
     """No separator before user messages."""
-    with patch("space.apps.council.lib.formatting.bridge.resolve_channel"):
+    with patch("space.apps.council.cli.bridge_api.resolve_channel"):
         c = council.Council("test-channel")
         c._last_printed_agent_id = "agent-1"
 
@@ -164,7 +164,7 @@ def test_council_should_add_separator_user_message():
 
 def test_council_should_add_separator_different_agent():
     """Add separator when switching between agents."""
-    with patch("space.apps.council.lib.formatting.bridge.resolve_channel"):
+    with patch("space.apps.council.cli.bridge_api.resolve_channel"):
         c = council.Council("test-channel")
         c._last_printed_agent_id = "agent-1"
 
@@ -174,7 +174,7 @@ def test_council_should_add_separator_different_agent():
 
 def test_council_should_add_separator_same_agent():
     """No separator when same agent continues."""
-    with patch("space.apps.council.lib.formatting.bridge.resolve_channel"):
+    with patch("space.apps.council.cli.bridge_api.resolve_channel"):
         c = council.Council("test-channel")
         c._last_printed_agent_id = "agent-1"
 

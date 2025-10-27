@@ -1,11 +1,16 @@
 """Claude provider: chat discovery + message parsing + spawning."""
 
 import json
+import logging
 import subprocess
 from pathlib import Path
 
+from space.core.protocols import Provider
 
-class Claude:
+logger = logging.getLogger(__name__)
+
+
+class Claude(Provider):
     """Claude provider: chat discovery + message parsing + spawning."""
 
     def __init__(self):
@@ -99,8 +104,8 @@ class Claude:
                     if role == "tool":
                         msg["tool_type"] = "tool_result"
                     messages.append(msg)
-        except (OSError, json.JSONDecodeError):
-            pass
+        except (OSError, json.JSONDecodeError) as e:
+            logger.error(f"Error parsing Claude messages from {file_path}: {e}")
         return messages
 
     def spawn(self, identity: str, task: str | None = None) -> str:
@@ -124,7 +129,8 @@ class Claude:
             from space.os.spawn import api as spawn_api
 
             return spawn_api.get_agent(identity) is not None
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error pinging Claude agent {identity}: {e}")
             return False
 
     def list_agents(self) -> list[str]:
@@ -133,5 +139,6 @@ class Claude:
             from space.os.spawn import api as spawn_api
 
             return spawn_api.list_agents()
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error listing Claude agents: {e}")
             return []

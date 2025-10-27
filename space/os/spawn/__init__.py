@@ -9,20 +9,18 @@ from .api import (
     fail_task,
     get_agent,
     get_task,
-    spawn_agent,
     list_agents,
     list_tasks,
     merge_agents,
     register_agent,
     rename_agent,
+    spawn_agent,
     spawn_prompt,
     start_task,
     unarchive_agent,
     update_agent,
 )
 from .cli import app
-
-db.register()
 
 __all__ = [
     "api",

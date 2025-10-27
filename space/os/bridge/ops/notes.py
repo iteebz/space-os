@@ -32,4 +32,4 @@ def add_note(channel: str, agent_id: str, content: str):
         ValueError: If channel not found.
     """
     channel_id = ch.resolve_channel(channel).channel_id
-    nt.add_note(channel_id, agent_id, content)
+    return nt.add_note(channel_id, agent_id, content)

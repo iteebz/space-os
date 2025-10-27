@@ -3,9 +3,9 @@
 from datetime import datetime
 
 from space.core.models import Task, TaskStatus
-from space.lib import store
 from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
+from space.os.spawn import db
 
 from .agents import get_agent
 
@@ -25,7 +25,7 @@ def create_task(
     agent_id = agent.agent_id
     task_id = uuid7()
     now_iso = datetime.now().isoformat()
-    with store.ensure("spawn") as conn:
+    with db.connect() as conn:
         conn.execute(
             """
             INSERT INTO tasks (task_id, agent_id, channel_id, input, status, created_at)
@@ -38,7 +38,7 @@ def create_task(
 
 def get_task(task_id: str) -> Task | None:
     """Get task by ID."""
-    with store.ensure("spawn") as conn:
+    with db.connect() as conn:
         row = conn.execute(
             "SELECT * FROM tasks WHERE task_id = ?",
             (task_id,),
@@ -59,7 +59,7 @@ def start_task(task_id: str, pid: int | None = None):
 
     params.append(task_id)
     query = f"UPDATE tasks SET {', '.join(updates)} WHERE task_id = ?"
-    with store.ensure("spawn") as conn:
+    with db.connect() as conn:
         conn.execute(query, params)
 
 
@@ -77,7 +77,7 @@ def complete_task(task_id: str, output: str | None = None, stderr: str | None = 
 
     params.append(task_id)
     query = f"UPDATE tasks SET {', '.join(updates)} WHERE task_id = ?"
-    with store.ensure("spawn") as conn:
+    with db.connect() as conn:
         conn.execute(query, params)
 
 
@@ -92,7 +92,7 @@ def fail_task(task_id: str, stderr: str | None = None):
 
     params.append(task_id)
     query = f"UPDATE tasks SET {', '.join(updates)} WHERE task_id = ?"
-    with store.ensure("spawn") as conn:
+    with db.connect() as conn:
         conn.execute(query, params)
 
 
@@ -116,6 +116,6 @@ def list_tasks(
 
     query += " ORDER BY created_at DESC"
 
-    with store.ensure("spawn") as conn:
+    with db.connect() as conn:
         rows = conn.execute(query, params).fetchall()
         return [from_row(row, Task) for row in rows]

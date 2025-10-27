@@ -11,52 +11,45 @@ def create_session(agent_id: str) -> str:
 
     Returns session_id.
     """
-    conn = db.connect()
-    cursor = conn.cursor()
+    with db.connect() as conn:
+        cursor = conn.cursor()
 
-    session_id = uuid7()
+        session_id = uuid7()
 
-    cursor.execute("SELECT spawn_count FROM agents WHERE agent_id = ?", (agent_id,))
-    result = cursor.fetchone()
-    spawn_count = (result[0] if result else 0) + 1
+        cursor.execute("SELECT spawn_count FROM agents WHERE agent_id = ?", (agent_id,))
+        result = cursor.fetchone()
+        spawn_count = (result[0] if result else 0) + 1
 
-    cursor.execute(
-        """
-        INSERT INTO sessions (session_id, agent_id, spawn_number, wakes)
-        VALUES (?, ?, ?, 0)
-        """,
-        (session_id, agent_id, spawn_count),
-    )
+        cursor.execute(
+            """
+            INSERT INTO sessions (session_id, agent_id, spawn_number, wakes)
+            VALUES (?, ?, ?, 0)
+            """,
+            (session_id, agent_id, spawn_count),
+        )
 
-    cursor.execute(
-        "UPDATE agents SET spawn_count = ?, last_active_at = ? WHERE agent_id = ?",
-        (spawn_count, datetime.now().isoformat(), agent_id),
-    )
+        cursor.execute(
+            "UPDATE agents SET spawn_count = ?, last_active_at = ? WHERE agent_id = ?",
+            (spawn_count, datetime.now().isoformat(), agent_id),
+        )
 
-    conn.commit()
-    return session_id
+        return session_id
 
 
 def end_session(session_id: str) -> None:
     """End a session."""
-    conn = db.connect()
-    cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE sessions SET ended_at = ? WHERE session_id = ?",
-        (datetime.now().isoformat(), session_id),
-    )
-    conn.commit()
-
-
-
+    with db.connect() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE sessions SET ended_at = ? WHERE session_id = ?",
+            (datetime.now().isoformat(), session_id),
+        )
 
 
 def get_spawn_count(agent_id: str) -> int:
     """Get total spawn count for agent."""
-    conn = db.connect()
-    cursor = conn.cursor()
-    cursor.execute("SELECT spawn_count FROM agents WHERE agent_id = ?", (agent_id,))
-    result = cursor.fetchone()
-    return result[0] if result else 0
-
-
+    with db.connect() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT spawn_count FROM agents WHERE agent_id = ?", (agent_id,))
+        result = cursor.fetchone()
+        return result[0] if result else 0

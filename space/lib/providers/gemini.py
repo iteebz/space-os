@@ -1,11 +1,16 @@
 """Gemini provider: chat discovery + message parsing + spawning."""
 
 import json
+import logging
 import subprocess
 from pathlib import Path
 
+from space.core.protocols import Provider
 
-class Gemini:
+logger = logging.getLogger(__name__)
+
+
+class Gemini(Provider):
     """Gemini provider: chat discovery + message parsing + spawning."""
 
     def __init__(self):
@@ -64,9 +69,8 @@ class Gemini:
                                 "timestamp": entry.get("timestamp"),
                                 "first_message": entry.get("message", ""),
                             }
-                except (OSError, json.JSONDecodeError, MemoryError):
-                    # Skip if too large or corrupted
-                    pass
+                except (OSError, json.JSONDecodeError, MemoryError) as e:
+                    logger.error(f"Error processing logs.json for project {project_hash}: {e}")
 
             # Discover actual chat files (ground truth)
             if chats_dir.exists():
@@ -96,9 +100,8 @@ class Gemini:
                                 ),
                             }
                         )
-                    except (OSError, json.JSONDecodeError, MemoryError):
-                        # Gracefully skip malformed/huge files; they'll work on retry
-                        # or with streaming parser in future
+                    except (OSError, json.JSONDecodeError, MemoryError) as e:
+                        logger.error(f"Error parsing Gemini chat file {chat_file}: {e}")
                         continue
 
         return sessions
@@ -136,8 +139,8 @@ class Gemini:
                                 }
                             )
                         return messages
-                except (json.JSONDecodeError, ValueError):
-                    pass
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.error(f"Error parsing Gemini JSON content from {file_path}: {e}")
 
             with open(file_path, "rb") as f:
                 f.seek(from_offset)
@@ -159,8 +162,8 @@ class Gemini:
                             "byte_offset": offset,
                         }
                     )
-        except (OSError, json.JSONDecodeError):
-            pass
+        except (OSError, json.JSONDecodeError) as e:
+            logger.error(f"Error parsing Gemini messages from {file_path}: {e}")
         return messages
 
     def spawn(self, identity: str, task: str | None = None) -> str:
@@ -189,7 +192,8 @@ class Gemini:
             from space.os.spawn import api as spawn_api
 
             return spawn_api.get_agent(identity) is not None
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error pinging Gemini agent {identity}: {e}")
             return False
 
     def list_agents(self) -> list[str]:
@@ -198,5 +202,6 @@ class Gemini:
             from space.os.spawn import api as spawn_api
 
             return spawn_api.list_agents()
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error listing Gemini agents: {e}")
             return []

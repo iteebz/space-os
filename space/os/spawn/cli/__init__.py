@@ -34,7 +34,17 @@ class SpawnGroup(TyperGroup):
 
 app = typer.Typer(invoke_without_command=True, cls=SpawnGroup)
 
-from . import agents, clone, dynamic, merge, models, register, rename, sleep, tasks, update  # noqa: E402
+from . import (  # noqa: E402
+    agents,
+    clone,
+    merge,
+    models,
+    register,
+    rename,
+    sleep,
+    tasks,
+    update,
+)
 
 app.command("agents")(agents.list_agents)
 app.add_typer(tasks.app, name="tasks")

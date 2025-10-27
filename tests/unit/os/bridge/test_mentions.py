@@ -41,7 +41,6 @@ def test_build_prompt_success():
         agent_id="a-1",
         identity="zealot",
         constitution="zealot.md",
-        provider="claude",
         model="claude-haiku-4-5",
         created_at="2024-01-01",
     )
@@ -73,7 +72,6 @@ def test_build_prompt_failure():
         agent_id="a-1",
         identity="zealot",
         constitution="zealot.md",
-        provider="claude",
         model="claude-haiku-4-5",
         created_at="2024-01-01",
     )
@@ -97,7 +95,6 @@ def test_build_prompt_timeout():
         agent_id="a-1",
         identity="zealot",
         constitution="zealot.md",
-        provider="claude",
         model="claude-haiku-4-5",
         created_at="2024-01-01",
     )

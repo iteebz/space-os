@@ -8,13 +8,16 @@ import pytest
 
 from space.lib import paths, store
 from space.os import bridge, knowledge, memory, spawn
+from space.os.spawn import defaults as spawn_defaults
 
 
 @pytest.fixture(scope="session")
 def _seed_dbs(tmp_path_factory):
     seed_dir = tmp_path_factory.mktemp("seed_dbs")
 
-    store.ensure("spawn")
+    spawn.db.register()
+    with spawn.db.connect():
+        pass
 
     for db_module, _db_name in [
         (memory.db, "memory.db"),
@@ -87,16 +90,44 @@ def mock_db():
 
 
 @pytest.fixture
+def mock_resolve_channel():
+    """Standardize channel resolution patching for bridge-focused tests."""
+
+    def _resolve(identifier):
+        channel_id = getattr(identifier, "channel_id", identifier)
+        if channel_id is None:
+            channel_id = ""
+        return MagicMock(channel_id=channel_id)
+
+    with patch("space.os.bridge.api.channels.resolve_channel") as mock:
+        mock.side_effect = _resolve
+        yield mock
+
+
+class AgentHandle(str):
+    """String-like handle exposing agent metadata for tests."""
+
+    def __new__(cls, identity: str, agent_id: str, model: str, constitution: str | None):
+        obj = str.__new__(cls, identity)
+        obj.agent_id = agent_id
+        obj.model = model
+        obj.constitution = constitution
+        return obj
+
+
+@pytest.fixture
 def default_agents(test_space):
     """Registers a set of default agents for tests and returns their identities."""
     from space.os import spawn
 
-    agents = {
-        "zealot": "zealot",
-        "sentinel": "sentinel",
-        "crucible": "crucible",
-    }
-    for identity in agents:
+    handles: dict[str, AgentHandle] = {}
+    for identity in spawn_defaults.DEFAULT_AGENT_MODELS:
         with contextlib.suppress(ValueError):
-            spawn.register_agent(identity, "claude-haiku-4-5", f"{identity}.md")
-    return agents
+            model = spawn_defaults.canonical_model(identity)
+            spawn.register_agent(identity, model, f"{identity}.md")
+        agent = spawn.get_agent(identity)
+        assert agent is not None
+        handles[identity] = AgentHandle(
+            agent.identity, agent.agent_id, agent.model, agent.constitution
+        )
+    return handles

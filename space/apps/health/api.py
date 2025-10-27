@@ -107,6 +107,7 @@ def check_db(db_name: str, tables: list[str]) -> tuple[bool, list[str], dict]:
         issues.append(f"❌ {db_name}: {e}")
         return False, issues, {}
 
+
 def run_all_checks() -> tuple[list[str], dict]:
     """Run all health checks and return issues and counts."""
     all_issues = []
@@ -122,5 +123,5 @@ def run_all_checks() -> tuple[list[str], dict]:
     orphan_issues = check_orphans()
     if orphan_issues:
         all_issues.extend(orphan_issues)
-    
+
     return all_issues, all_counts

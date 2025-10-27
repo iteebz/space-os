@@ -17,7 +17,6 @@ from .sessions import (
     create_session,
     end_session,
     get_spawn_count,
-
 )
 from .stats import agent_identities, archived_agents, stats
 from .tasks import complete_task, create_task, fail_task, get_task, list_tasks, start_task
@@ -40,7 +39,6 @@ __all__ = [
     "create_session",
     "end_session",
     "get_spawn_count",
-
     "create_task",
     "get_task",
     "list_tasks",

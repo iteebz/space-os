@@ -16,15 +16,6 @@ def make_mock_row(data):
 
 
 @pytest.fixture
-def mock_db():
-    conn = MagicMock()
-    with patch("space.lib.store.ensure") as mock_ensure:
-        mock_ensure.return_value.__enter__.return_value = conn
-        mock_ensure.return_value.__exit__.return_value = None
-        yield conn
-
-
-@pytest.fixture
 def mock_resolve_agent():
     with patch("space.os.spawn.api.tasks.get_agent") as mock:
         mock.return_value = MagicMock(agent_id="agent-123")
