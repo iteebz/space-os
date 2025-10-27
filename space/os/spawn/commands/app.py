@@ -4,7 +4,7 @@ import click
 import typer
 from typer.core import TyperGroup
 
-from space.lib import errors, output, readme
+from space.lib import errors, output
 from space.os.spawn import api, models
 
 errors.install_error_handler("spawn")
@@ -34,11 +34,10 @@ class AgentSpawnGroup(TyperGroup):
 
 app = typer.Typer(invoke_without_command=True, cls=AgentSpawnGroup)
 
-from . import agents, launch, sleep, tasks, wake  # noqa: E402
+from . import agents, launch, sleep, tasks  # noqa: E402
 
 app.command("agents")(agents.list_agents)
 app.add_typer(tasks.app, name="tasks")
-app.command()(wake.wake)
 app.add_typer(sleep.sleep, name="sleep")
 app.command()(launch.launch)
 
@@ -59,7 +58,7 @@ def main_callback(
     if ctx.resilient_parsing:
         return
     if ctx.invoked_subcommand is None:
-        typer.echo(readme.load("spawn"))
+        typer.echo("spawn <agent>: Launch agent. Run 'spawn agents' to list registered agents.")
 
 
 @app.command("merge")

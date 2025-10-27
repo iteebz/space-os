@@ -2,7 +2,7 @@
 
 import typer
 
-from space.lib import output, readme
+from space.lib import output
 
 app = typer.Typer(invoke_without_command=True)
 
@@ -25,7 +25,7 @@ def main_callback(
         ctx.obj = {}
 
     if ctx.resilient_parsing or ctx.invoked_subcommand is None:
-        typer.echo(readme.load("knowledge"))
+        typer.echo("knowledge [command]: Manage domain-specific knowledge. Run 'knowledge --help' for commands.")
 
 
 def __getattr__(name):

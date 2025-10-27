@@ -7,7 +7,7 @@ Zero business logic—delegated to ops/.
 
 import typer
 
-from space.lib import output, readme
+from space.lib import output
 
 from . import channels, export, messages, notes
 
@@ -33,7 +33,7 @@ def main_callback(
     if ctx.resilient_parsing:
         return
     if ctx.invoked_subcommand is None:
-        typer.echo(readme.load("bridge"))
+        typer.echo("bridge [command]: Manage channels and messages. Run 'bridge --help' for commands.")
 
 
 @app.command("list")

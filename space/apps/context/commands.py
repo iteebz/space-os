@@ -3,7 +3,7 @@
 import typer
 
 from space.apps.context.lib import api
-from space.lib import display, errors, output, readme
+from space.lib import display, errors, output
 
 errors.install_error_handler("context")
 
@@ -28,11 +28,11 @@ def main_command(
         ctx.obj = {}
 
     if help:
-        typer.echo(readme.load("context"))
+        typer.echo("context [query] --as <identity>: Retrieve concept evolution and current state.")
         ctx.exit()
 
     if (ctx.resilient_parsing or ctx.invoked_subcommand is None) and not query:
-        typer.echo(readme.load("context"))
+        typer.echo("context [query] --as <identity>: Retrieve concept evolution and current state.")
         return
 
     timeline = api.collect_timeline(query, identity, all_agents)

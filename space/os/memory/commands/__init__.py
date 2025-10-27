@@ -2,7 +2,7 @@
 
 import typer
 
-from space.lib import errors, output, readme
+from space.lib import errors, output
 
 errors.install_error_handler("memory")
 
@@ -35,7 +35,7 @@ def main_callback(
         if identity:
             entries._list_entries(identity, ctx, show_all=show_all, topic=topic)
         else:
-            typer.echo(readme.load("memory"))
+            typer.echo("memory [command] --as <identity>: Store and retrieve agent memories.")
 
 
 def __getattr__(name):

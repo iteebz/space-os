@@ -6,12 +6,12 @@ import typer
 
 
 def launch():
-    """Display the space-os launch guide (hitchhiker's manual)."""
-    guide_path = Path.home() / "space" / "LAUNCH.md"
+    """Display the space-os manual (instruction set for agents and humans)."""
+    manual_path = Path(__file__).parent.parent.parent.parent.parent / "MANUAL.md"
 
-    if not guide_path.exists():
-        typer.echo("Launch guide not found at ~/space/LAUNCH.md", err=True)
+    if not manual_path.exists():
+        typer.echo("MANUAL.md not found", err=True)
         raise typer.Exit(code=1)
 
-    with open(guide_path) as f:
+    with open(manual_path) as f:
         typer.echo(f.read())

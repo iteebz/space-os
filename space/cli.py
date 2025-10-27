@@ -5,7 +5,6 @@ from space.apps.context.commands import context
 from space.apps.council.commands import council
 from space.apps.stats.commands import stats
 from space.apps.system.commands import system
-from space.lib import readme
 from space.os import (
     bridge,
     knowledge,
@@ -33,7 +32,7 @@ def main_command(
     ctx: typer.Context,
 ):
     if ctx.invoked_subcommand is None:
-        typer.echo(readme.root())
+        typer.echo("space-os: Agent orchestration system. Run 'space <command> --help' for commands.")
 
 
 def main() -> None:

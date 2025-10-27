@@ -1,4 +1,4 @@
-"""Agent launching: wake, inject identity, execute."""
+"""Agent launching: unified context injection, execute."""
 
 import os
 import shlex
@@ -11,20 +11,22 @@ import click
 
 from space.lib import paths
 
-from ..spawn import build_identity_prompt
+from .context import build_spawn_context
 from . import agents
 
 
 def launch_agent(identity: str, extra_args: list[str] | None = None):
     """Launch an agent by identity from registry.
 
-    Looks up agent, writes constitution to provider home dir, wakes memory,
-    injects identity via stdin, and executes the provider CLI.
+    Looks up agent, writes constitution to provider home dir,
+    injects unified context via stdin, and executes the provider CLI.
 
     Args:
         identity: Agent identity from registry
         extra_args: Additional CLI arguments forwarded to provider
     """
+    from . import sessions
+
     agent = agents.get_agent(identity)
     if not agent:
         raise ValueError(f"Agent '{identity}' not found in registry")
@@ -46,28 +48,28 @@ def launch_agent(identity: str, extra_args: list[str] | None = None):
 
     passthrough = extra_args or []
     model_args = ["--model", agent.model]
-    tool_args = ["--disableTools", "Task"] if agent.provider == "claude" else []
+    tool_args = ["--disallowedTools", "Task"] if agent.provider == "claude" else []
 
-    click.echo(f"Waking {identity}...\n")
-    wake_output = _run_wake_sequence(identity)
+    click.echo(f"Spawning {identity}...\n")
+    session_id = sessions.create_session(agent.agent_id)
 
-    identity_prompt = build_identity_prompt(identity, agent.model)
-    stdin_content = identity_prompt
-    if wake_output:
-        stdin_content = identity_prompt + "\n\n" + wake_output
+    stdin_content = build_spawn_context(identity, agent.model)
 
     full_command = command_tokens + model_args + tool_args + passthrough
 
     constitution_str = agent.constitution or "no constitution"
-    click.echo(f"Spawning {identity} with {constitution_str} --model {agent.model}")
     click.echo(f"Executing: {' '.join(full_command)}")
+    click.echo("")
 
     proc = subprocess.Popen(
         full_command, env=env, cwd=str(workspace_root), stdin=subprocess.PIPE, text=True
     )
     proc.stdin.write(stdin_content + "\n")
     proc.stdin.close()
-    proc.wait()
+    try:
+        proc.wait()
+    finally:
+        sessions.end_session(session_id)
 
 
 def _get_provider_command(provider: str) -> str:
@@ -81,20 +83,6 @@ def _get_provider_command(provider: str) -> str:
     if not cmd:
         raise ValueError(f"Unknown provider: {provider}")
     return cmd
-
-
-def _run_wake_sequence(identity: str) -> str | None:
-    """Run wake and memory load sequence for identity. Returns wake output for agent context."""
-    import io
-    from contextlib import redirect_stdout
-
-    from space.os.spawn.commands import wake
-
-    output = io.StringIO()
-    with redirect_stdout(output):
-        wake.wake(identity=identity, quiet=False)
-
-    return output.getvalue() if output.getvalue() else None
 
 
 def _write_constitution(provider: str, constitution: str) -> None:

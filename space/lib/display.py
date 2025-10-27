@@ -117,13 +117,12 @@ def show_wake_summary(
     identity: str, quiet_output: bool, spawn_count: int, wakes_this_spawn: int = 0
 ):
     from space.os import bridge, spawn
-    from space.os.spawn.commands import wake as wake_module
 
     agent = spawn.get_agent(identity)
     self_desc = agent.description if agent else None
-    typer.echo(wake_module.IDENTITY_HEADER.format(identity=identity))
+    typer.echo(f"⚡ You are {identity}.")
     if self_desc:
-        typer.echo(wake_module.SELF_DESCRIPTION.format(description=self_desc))
+        typer.echo(f"Self: {self_desc}")
     typer.echo()
 
     agent_id = agent.agent_id if agent else None
@@ -171,7 +170,7 @@ def show_wake_summary(
 
         sent_msgs = bridge.get_sender_history(identity, limit=5)
         if sent_msgs:
-            typer.echo(wake_module.SECTION_SENT)
+            typer.echo("💬 **Last sent:**")
             channel_names = {}
             for msg in sent_msgs:
                 if msg.channel_id not in channel_names:
@@ -183,6 +182,8 @@ def show_wake_summary(
                 preview = first_line[:50] + "..." if len(first_line) > 50 else first_line
                 typer.echo(f"  [{ts}] #{channel}: {preview}")
             typer.echo()
+
+        typer.echo("📖 Read MANUAL.md: `spawn launch` for full instruction set on memory, bridge, knowledge, canon.")
 
 
 def show_smart_memory(identity: str, json_output: bool, quiet_output: bool):
