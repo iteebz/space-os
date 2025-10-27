@@ -33,11 +33,14 @@ def launch_agent(identity: str, extra_args: list[str] | None = None):
     if not agent:
         raise ValueError(f"Agent '{identity}' not found in registry")
 
-    const_path = paths.constitution(agent.constitution)
-    constitution_text = const_path.read_text()
+    constitution_text = None
+    if agent.constitution:
+        const_path = paths.constitution(agent.constitution)
+        constitution_text = const_path.read_text()
 
     provider_cmd = _get_provider_command(agent.provider)
-    _write_constitution(agent.provider, constitution_text)
+    if constitution_text:
+        _write_constitution(agent.provider, constitution_text)
 
     command_tokens = _parse_command(provider_cmd)
     env = _build_launch_env()
@@ -59,7 +62,8 @@ def launch_agent(identity: str, extra_args: list[str] | None = None):
 
     full_command = command_tokens + model_args + tool_args + passthrough
 
-    click.echo(f"Spawning {identity} with {agent.constitution} --model {agent.model}")
+    constitution_str = agent.constitution or "no constitution"
+    click.echo(f"Spawning {identity} with {constitution_str} --model {agent.model}")
     click.echo(f"Executing: {' '.join(full_command)}")
 
     proc = subprocess.Popen(

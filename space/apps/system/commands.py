@@ -208,6 +208,7 @@ def archive_old_config():
 def init_default_agents():
     """Register default agents with correct providers."""
     default_agents = [
+        ("base", None, "claude", "claude-haiku-4-5"),
         ("zealot", "zealot.md", "claude", "claude-haiku-4-5"),
         ("crucible", "crucible.md", "gemini", "gemini-2.0-flash"),
         ("sentinel", "sentinel.md", "codex", "codex-latest"),
@@ -216,7 +217,7 @@ def init_default_agents():
     with spawn.db.connect():
         for identity, constitution, provider, model in default_agents:
             with contextlib.suppress(ValueError):
-                spawn.register_agent(identity, constitution, provider, model)
+                spawn.register_agent(identity, provider, model, constitution)
 
 
 @system.command()

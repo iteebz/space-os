@@ -90,19 +90,22 @@ def merge(id_from: str, id_to: str):
 @app.command("register")
 def register(
     identity: str,
-    constitution: str = typer.Option(
-        ..., "--constitution", "-c", help="Constitution filename (e.g., zealot.md)"
-    ),
     provider: str = typer.Option(
-        ..., "--provider", "-p", help="Provider: claude, codex, or gemini. Run 'spawn models' to list available options"
+        ...,
+        "--provider",
+        "-p",
+        help="Provider: claude, codex, or gemini. Run 'spawn models' to list available options",
     ),
     model: str = typer.Option(
         ..., "--model", "-m", help="Model ID. Run 'spawn models' to list available models"
     ),
+    constitution: str | None = typer.Option(
+        None, "--constitution", "-c", help="Constitution filename (e.g., zealot.md) - optional"
+    ),
 ):
     """Register a new agent."""
     try:
-        agent_id = api.register_agent(identity, constitution, provider, model)
+        agent_id = api.register_agent(identity, provider, model, constitution)
         typer.echo(f"✓ Registered {identity} ({agent_id[:8]})")
     except ValueError as e:
         typer.echo(f"❌ {e}", err=True)

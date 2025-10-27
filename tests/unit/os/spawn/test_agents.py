@@ -74,7 +74,7 @@ def test_register_agent_success(mock_db):
     mock_db.execute.return_value.fetchone.return_value = None  # Agent not found
     with patch("space.os.spawn.api.agents.uuid.uuid4") as mock_uuid:
         mock_uuid.return_value = "new-uuid"
-        agent_id = spawn.register_agent("newagent", "c.md", "claude", "claude-haiku-4-5")
+        agent_id = spawn.register_agent("newagent", "claude", "claude-haiku-4-5", "c.md")
 
     assert agent_id == "new-uuid"
     # Check that the agents table was called (not the events table)
@@ -85,7 +85,14 @@ def test_register_agent_success(mock_db):
         "INSERT INTO agents (agent_id, identity, constitution, provider, model, created_at) VALUES (?, ?, ?, ?, ?, ?)"
         in agents_call[0][0]
     )
-    assert agents_call[0][1][:5] == ("new-uuid", "newagent", "c.md", "claude", "claude-haiku-4-5")
+    assert agents_call[0][1] == (
+        "new-uuid",
+        "newagent",
+        "c.md",
+        "claude",
+        "claude-haiku-4-5",
+        agents_call[0][1][5],
+    )
 
 
 def test_register_agent_already_exists(mock_db):
@@ -104,7 +111,7 @@ def test_register_agent_already_exists(mock_db):
     mock_db.execute.return_value.fetchone.return_value = mock_row  # Agent found
 
     with pytest.raises(ValueError, match="Identity 'agent1' already registered"):
-        spawn.register_agent("agent1", "c.md", "claude", "claude-haiku-4-5")
+        spawn.register_agent("agent1", "claude", "claude-haiku-4-5", "c.md")
 
 
 def test_describe_self_updates(mock_db):

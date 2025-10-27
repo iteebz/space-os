@@ -85,9 +85,8 @@ def get_models_for_provider(provider: str) -> list[Model]:
     provider_lower = provider.lower()
     if provider_lower == "claude":
         return CLAUDE_MODELS
-    elif provider_lower == "codex":
+    if provider_lower == "codex":
         return CODEX_MODELS
-    elif provider_lower == "gemini":
+    if provider_lower == "gemini":
         return GEMINI_MODELS
-    else:
-        raise ValueError(f"Unknown provider: {provider}")
+    raise ValueError(f"Unknown provider: {provider}")

@@ -126,13 +126,13 @@ class Agent:
 
     agent_id: str
     identity: str
-    constitution: str
     provider: str
     model: str
+    constitution: str | None = None
     description: str | None = None
     archived_at: int | None = None
     created_at: str | None = None
-    last_active_at: str | None = None  # NEW
+    last_active_at: str | None = None
 
 
 @dataclass

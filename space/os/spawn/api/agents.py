@@ -55,7 +55,9 @@ def get_agent(identifier: str) -> Agent | None:
         return _row_to_agent(row) if row else None
 
 
-def register_agent(identity: str, constitution: str, provider: str, model: str) -> str:
+def register_agent(
+    identity: str, provider: str, model: str, constitution: str | None = None
+) -> str:
     """Explicitly register an identity. Fails if identity already exists."""
     agent = get_agent(identity)
     if agent:
@@ -124,7 +126,7 @@ def clone_agent(src_identity: str, dst_identity: str) -> str:
     if dst_agent:
         raise ValueError(f"Target identity '{dst_identity}' already exists")
 
-    return register_agent(dst_identity, src_agent.constitution, src_agent.provider, src_agent.model)
+    return register_agent(dst_identity, src_agent.provider, src_agent.model, src_agent.constitution)
 
 
 def describe_self(name: str, content: str) -> None:
