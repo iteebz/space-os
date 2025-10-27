@@ -4,15 +4,43 @@ import json
 import subprocess
 from pathlib import Path
 
-# Tools to allow when spawning Claude agents
-ALLOWED_TOOLS = ["Bash", "Read", "Write", "Edit", "MultiEdit", "Grep", "Glob", "WebSearch", "WebFetch"]
-
 
 class Claude:
     """Claude provider: chat discovery + message parsing + spawning."""
 
     def __init__(self):
         self.chats_dir = Path.home() / ".claude" / "projects"
+
+    @staticmethod
+    def allowed_tools() -> list[str]:
+        """Return allowed tools for Claude."""
+        return [
+            "Bash",
+            "Read",
+            "Write",
+            "Edit",
+            "MultiEdit",
+            "Grep",
+            "Glob",
+            "WebSearch",
+            "WebFetch",
+            "LS",
+        ]
+
+    @staticmethod
+    def launch_args() -> list[str]:
+        """Return launch arguments for Claude."""
+        disallowed = [
+            "NotebookRead",
+            "NotebookEdit",
+            "Task",
+            "TodoWrite",
+        ]
+        return [
+            "--dangerously-skip-permissions",
+            "--disallowedTools",
+            " ".join(disallowed),
+        ]
 
     def discover_sessions(self) -> list[dict]:
         """Discover Claude chat sessions."""
@@ -79,14 +107,7 @@ class Claude:
         """Spawn Claude agent."""
         if task:
             result = subprocess.run(
-                [
-                    "claude",
-                    "-p",
-                    task,
-                    "--dangerously-skip-permissions",
-                    "--allowedTools",
-                    ",".join(ALLOWED_TOOLS),
-                ],
+                ["claude", "-p", task] + self.launch_args(),
                 capture_output=True,
                 text=True,
             )

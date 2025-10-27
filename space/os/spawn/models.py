@@ -43,15 +43,13 @@ CODEX_MODELS = [
         id="gpt-5-codex",
         name="GPT-5 Codex",
         provider="codex",
-        description="Optimized for agentic coding in Codex CLI",
-        reasoning_levels=["Low", "Medium (default)", "High"],
+        description="Optimized for agentic coding",
     ),
     Model(
         id="gpt-5",
         name="GPT-5",
         provider="codex",
-        description="Broad world knowledge with strong general reasoning",
-        reasoning_levels=["Minimal", "Low", "Medium (default)", "High"],
+        description="Broad world knowledge with strong reasoning",
     ),
 ]
 

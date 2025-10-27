@@ -3,9 +3,9 @@
 import typer
 
 from space.lib import output
+from space.os.bridge import ops
 
 from . import channels, format, messages, notes
-from space.os.bridge import ops
 
 app = typer.Typer()
 
@@ -70,7 +70,9 @@ def inbox_cmd(
             last_activity, description = format.format_channel_row(channel)
             format.echo_if_output(f"  {last_activity}: {description}", ctx)
     except Exception as e:
-        format.output_json({"status": "error", "message": str(e)}, ctx) or format.echo_if_output(f"❌ {e}", ctx)
+        format.output_json({"status": "error", "message": str(e)}, ctx) or format.echo_if_output(
+            f"❌ {e}", ctx
+        )
         raise typer.Exit(code=1) from e
 
 

@@ -91,8 +91,6 @@ def display_context(timeline, current_state, lattice_docs, canon_docs):
 def show_context(identity: str):
     from space.os import knowledge, spawn
 
-    typer.echo("\n" + "─" * 60)
-
     agent = spawn.get_agent(identity)
     if not agent:
         typer.echo(f"\nNo agent found for identity: {identity}")
@@ -105,12 +103,6 @@ def show_context(identity: str):
         typer.echo(
             f"\nKNOWLEDGE: {len(knowledge_entries)} entries across {', '.join(sorted(domains))}"
         )
-    else:
-        typer.echo(
-            "\nYou haven't made any knowledge contributions yet. Build more confidence first before doing that."
-        )
-
-    typer.echo("\n" + "─" * 60)
 
 
 def show_wake_summary(

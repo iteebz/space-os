@@ -126,13 +126,24 @@ class Agent:
 
     agent_id: str
     identity: str
-    provider: str
     model: str
     constitution: str | None = None
     description: str | None = None
     archived_at: int | None = None
     created_at: str | None = None
     last_active_at: str | None = None
+
+    @property
+    def provider(self) -> str:
+        """Infer provider from model string."""
+        model_lower = self.model.lower()
+        if model_lower.startswith("gpt-"):
+            return "codex"
+        if model_lower.startswith("gemini-"):
+            return "gemini"
+        if model_lower.startswith("claude-"):
+            return "claude"
+        raise ValueError(f"Unknown provider for model: {self.model}")
 
 
 @dataclass

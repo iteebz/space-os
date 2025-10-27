@@ -23,7 +23,7 @@ def _get_agent_by_name_cached(name: str) -> Agent | None:
     """Cached agent lookup by name."""
     with store.ensure("spawn") as conn:
         row = conn.execute(
-            "SELECT agent_id, identity, constitution, provider, model, self_description, archived_at, created_at FROM agents WHERE identity = ? AND archived_at IS NULL LIMIT 1",
+            "SELECT agent_id, identity, constitution, model, self_description, archived_at, created_at FROM agents WHERE identity = ? AND archived_at IS NULL LIMIT 1",
             (name,),
         ).fetchone()
         return _row_to_agent(row) if row else None
@@ -49,7 +49,7 @@ def get_agent(identifier: str) -> Agent | None:
     """Resolve agent by name or ID. Returns Agent object or None."""
     with store.ensure("spawn") as conn:
         row = conn.execute(
-            "SELECT agent_id, identity, constitution, provider, model, self_description, archived_at, created_at FROM agents WHERE (identity = ? OR agent_id = ?) AND archived_at IS NULL LIMIT 1",
+            "SELECT agent_id, identity, constitution, model, self_description, archived_at, created_at FROM agents WHERE (identity = ? OR agent_id = ?) AND archived_at IS NULL LIMIT 1",
             (identifier, identifier),
         ).fetchone()
         return _row_to_agent(row) if row else None
@@ -60,20 +60,16 @@ def register_agent(identity: str, model: str, constitution: str | None = None) -
 
     Provider is inferred from model.
     """
-    from space.os.spawn import models
-
     agent = get_agent(identity)
     if agent:
         raise ValueError(f"Identity '{identity}' already registered")
-
-    provider = models.infer_provider(model)
 
     agent_id = str(uuid.uuid4())
     now_iso = datetime.now().isoformat()
     with store.ensure("spawn") as conn:
         conn.execute(
-            "INSERT INTO agents (agent_id, identity, constitution, provider, model, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (agent_id, identity, constitution, provider, model, now_iso),
+            "INSERT INTO agents (agent_id, identity, constitution, model, created_at) VALUES (?, ?, ?, ?, ?)",
+            (agent_id, identity, constitution, model, now_iso),
         )
     _clear_cache()
     touch_agent(agent_id)
@@ -96,7 +92,6 @@ def update_agent(
 
     If model is specified, provider is inferred from it.
     """
-    from space.os.spawn import models as models_module
 
     agent = get_agent(identity)
     if not agent:
@@ -110,9 +105,6 @@ def update_agent(
     if model is not None:
         updates.append("model = ?")
         values.append(model)
-        provider = models_module.infer_provider(model)
-        updates.append("provider = ?")
-        values.append(provider)
 
     if not updates:
         return True

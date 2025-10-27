@@ -11,6 +11,31 @@ class Gemini:
     def __init__(self):
         self.tmp_dir = Path.home() / ".gemini" / "tmp"
 
+    @staticmethod
+    def allowed_tools() -> list[str]:
+        """Return allowed tools for Gemini."""
+        return [
+            "Edit",
+            "FindFiles",
+            "GoogleSearch",
+            "ReadFile",
+            "ReadFolder",
+            "ReadManyFiles",
+            "SearchText",
+            "Shell",
+            "WebFetch",
+            "WriteFile",
+        ]
+
+    @staticmethod
+    def launch_args(has_prompt: bool = False) -> list[str]:
+        """Return launch arguments for Gemini."""
+        allowed = Gemini.allowed_tools()
+        args = ["--allowed-tools"] + allowed
+        if has_prompt:
+            args.append("--prompt-interactive")
+        return args
+
     def discover_sessions(self) -> list[dict]:
         """Discover Gemini chat sessions from actual chat files and logs.json index."""
         sessions = []

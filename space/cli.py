@@ -5,19 +5,9 @@ from space.apps.context.commands import context
 from space.apps.council.commands import council
 from space.apps.stats.commands import stats
 from space.apps.system.commands import system
-from space.os import (
-    bridge,
-    knowledge,
-    memory,
-)
-from space.os.spawn import commands as spawn_commands
 
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False)
 
-app.add_typer(bridge.app, name="bridge")
-app.add_typer(spawn_commands.app, name="spawn")
-app.add_typer(memory.app, name="memory")
-app.add_typer(knowledge.app, name="knowledge")
 app.add_typer(canon.app, name="canon")
 
 app.add_typer(context, name="context")
@@ -34,14 +24,17 @@ def main_command(
 ):
     if ctx.invoked_subcommand is None:
         if identity:
-            from space.os.spawn.api import launch, agents
+            from space.os.spawn.api import agents, launch
+
             agent = agents.get_agent(identity)
             model = agent.model if agent else None
             context = launch.build_spawn_context(identity, model)
             typer.echo(context)
         else:
             typer.echo(
-                "space-os: Agent orchestration system. Run 'space <command> --help' for commands."
+                "space-os: Agent orchestration system.\n"
+                "Primitives: bridge, spawn, memory, knowledge\n"
+                "Apps: space <canon|context|council|daemons|stats|system> --help"
             )
 
 

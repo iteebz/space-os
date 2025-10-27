@@ -6,10 +6,19 @@ from pathlib import Path
 
 
 class Codex:
-    """Codex provider: chat discovery + message parsing + spawning."""
+    """Codex provider: chat discovery + message parsing + spawning.
+
+    Codex supports two models: gpt-5-codex (optimized for coding) and gpt-5 (general).
+    Reasoning effort defaults to low and is configured via codex config, not CLI args.
+    """
 
     def __init__(self):
         self.sessions_dir = Path.home() / ".codex" / "sessions"
+
+    @staticmethod
+    def launch_args() -> list[str]:
+        """Return launch arguments for Codex."""
+        return ["--dangerously-bypass-approvals-and-sandbox"]
 
     def discover_sessions(self) -> list[dict]:
         """Discover Codex chat sessions."""
@@ -97,7 +106,7 @@ class Codex:
                     "codex",
                     "exec",
                     task,
-                    "--dangerously-bypass-approvals-and-sandbox",
+                    "--full-auto",
                     "--skip-git-repo-check",
                 ],
                 capture_output=True,

@@ -1,7 +1,6 @@
 """Agent launching: unified context injection, execute."""
 
 import os
-import re
 import shlex
 import shutil
 import subprocess
@@ -14,6 +13,7 @@ import click
 from space.lib import paths
 from space.lib.constitution import write_constitution
 from space.lib.format import format_duration
+from space.lib.providers import claude, codex, gemini
 from space.os import bridge, knowledge, memory
 
 from . import agents, sessions
@@ -29,16 +29,16 @@ def build_spawn_context(identity: str, model: str | None = None) -> str:
         return f"You are {identity}."
 
     agent_id = agent.agent_id
-    
+
     manual_path = paths.package_root().parent / "MANUAL.md"
     if not manual_path.exists():
         return f"You are {identity}."
-    
+
     manual_text = manual_path.read_text()
-    
+
     spawn_count = sessions.get_spawn_count(agent_id)
     wakes_this_spawn = sessions.get_wakes_this_spawn(agent_id)
-    
+
     last_journal = memory.list_entries(identity, topic="journal", limit=1)
     if last_journal:
         e = last_journal[0]
@@ -46,7 +46,7 @@ def build_spawn_context(identity: str, model: str | None = None) -> str:
         spawn_status = f"📝 Last session {last_sleep_duration} ago"
     else:
         spawn_status = "📝 First spawn"
-    
+
     template_vars = {
         "identity": identity,
         "spawn_count": spawn_count,
@@ -54,32 +54,30 @@ def build_spawn_context(identity: str, model: str | None = None) -> str:
         "spawn_status": spawn_status,
         "model": f" Your model is {model}." if model else "",
     }
-    
+
     output = manual_text
     for var, value in template_vars.items():
         output = output.replace(f"<{var}>", str(value))
-    
+
     agent_info_blocks = _build_agent_info_blocks(identity, agent, agent_id)
-    output = output.replace("{{AGENT_INFO}}", agent_info_blocks)
-    
-    return output
+    return output.replace("{{AGENT_INFO}}", agent_info_blocks)
 
 
 def _build_agent_info_blocks(identity: str, agent, agent_id: str) -> str:
     """Build identity, memories, and bridge context blocks for template injection."""
     parts = []
-    
+
     if agent.description:
         parts.append(f"**Your identity:** {agent.description}")
         parts.append("")
-    
+
     core_entries = memory.list_entries(identity, filter="core")
     if core_entries:
         parts.append("⭐ **Core memories:**")
         for e in core_entries[:3]:
             parts.append(f"  [{e.memory_id[-8:]}] {e.message}")
         parts.append("")
-    
+
     recent = memory.list_entries(identity, filter="recent:7", limit=3)
     non_journal = [e for e in recent if e.topic != "journal"]
     if non_journal:
@@ -88,12 +86,12 @@ def _build_agent_info_blocks(identity: str, agent, agent_id: str) -> str:
             ts = datetime.fromtimestamp(e.created_at).strftime("%m-%d %H:%M")
             parts.append(f"  [{ts}] {e.topic}: {e.message[:100]}")
         parts.append("")
-    
+
     critical = _get_critical_knowledge()
     if critical:
         parts.append(f"💡 **Latest decision:** [{critical.domain}] {critical.content[:100]}")
         parts.append("")
-    
+
     inbox_channels = bridge.fetch_inbox(agent_id)
     if inbox_channels:
         total_msgs = sum(ch.unread_count for ch in inbox_channels)
@@ -110,7 +108,7 @@ def _build_agent_info_blocks(identity: str, agent, agent_id: str) -> str:
         if len(inbox_channels) > 5:
             parts.append(f"  ... and {len(inbox_channels) - 5} more")
         parts.append("")
-    
+
     return "\n".join(parts)
 
 
@@ -176,23 +174,31 @@ def launch_agent(identity: str, extra_args: list[str] | None = None):
 
     passthrough = extra_args or []
     model_args = ["--model", agent.model]
-    tool_args = ["--disallowedTools", "Task"] if agent.provider == "claude" else []
 
     click.echo(f"Spawning {identity}...\n")
     session_id = sessions.create_session(agent.agent_id)
 
-    stdin_content = build_spawn_context(identity, agent.model)
+    context = build_spawn_context(identity, agent.model)
+    has_prompt = bool(context.strip())
 
-    full_command = command_tokens + model_args + tool_args + passthrough
+    provider_obj = {"claude": claude, "gemini": gemini, "codex": codex}.get(agent.provider)
+    if provider_obj:
+        if agent.provider == "gemini":
+            launch_args = provider_obj.launch_args(has_prompt=has_prompt)
+        else:
+            launch_args = provider_obj.launch_args()
+    else:
+        launch_args = []
+    full_command = command_tokens + [context] + model_args + launch_args + passthrough
+    display_command = command_tokens + ['"<space_manual>"'] + model_args + launch_args + passthrough
 
-    click.echo(f"Executing: {' '.join(full_command)}")
+    click.echo(f"Executing: {' '.join(display_command)}")
     click.echo("")
 
     proc = subprocess.Popen(
-        full_command, env=env, cwd=str(workspace_root), stdin=subprocess.PIPE, text=True
+        full_command, env=env, cwd=str(workspace_root)
     )
-    proc.stdin.write(stdin_content + "\n")
-    proc.stdin.close()
+
     try:
         proc.wait()
     finally:
