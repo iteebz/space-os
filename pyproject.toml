@@ -22,7 +22,7 @@ pyyaml = "^6.0"
 prompt-toolkit = "^3.0.47"
 
 [tool.poetry.scripts]
-bridge = "space.os.bridge.commands:app"
+bridge = "space.os.bridge.cli:app"
 spawn = "space.os.spawn.commands:app"
 memory = "space.os.memory.commands:app"
 knowledge = "space.os.knowledge.commands:app"

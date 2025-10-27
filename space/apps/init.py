@@ -4,7 +4,7 @@ from pathlib import Path
 
 import typer
 
-from space.lib import paths, store
+from space.lib import paths, store, sync
 from space.os import spawn
 from space.os.spawn.api import symlinks
 
@@ -18,15 +18,34 @@ def callback(ctx: typer.Context):
 
 
 def archive_old_config():
-    """Archive old provider config files with .old suffix."""
+    """Archive old provider config files with .old suffix.
+    
+    Only archives if content doesn't match default constitutions to avoid spam.
+    """
+    default_constitutions = ["zealot.md", "sentinel.md", "crucible.md"]
     old_configs = [
         Path.home() / ".claude" / "CLAUDE.md",
         Path.home() / ".gemini" / "GEMINI.md",
         Path.home() / ".codex" / "AGENTS.md",
     ]
+    
+    constitutions_dir = paths.canon_path() / "constitutions"
 
     for old_path in old_configs:
-        if old_path.exists():
+        if not old_path.exists():
+            continue
+        
+        old_content = old_path.read_text()
+        is_default = False
+        
+        for const_name in default_constitutions:
+            const_file = constitutions_dir / const_name
+            if const_file.exists():
+                if const_file.read_text() == old_content:
+                    is_default = True
+                    break
+        
+        if not is_default:
             timestamp = int(time.time())
             new_path = old_path.parent / f"{old_path.stem}.{timestamp}.old"
             old_path.rename(new_path)
@@ -90,6 +109,7 @@ def init():
 
     archive_old_config()
     init_default_agents()
+    sync.sync_provider_chats()
 
     bin_dir = Path.home() / ".local" / "bin"
     launch_script = paths.package_root().parent / "bin" / "launch"
@@ -98,21 +118,21 @@ def init():
         if symlinks._setup_launch_symlink(launch_script):
             typer.echo("✓ Agent launcher configured (~/.local/bin/launch)")
 
-    default_constitutions = ["zealot.md", "sentinel.md", "crucible.md"]
+    constitutions_dir = paths.canon_path() / "constitutions"
+    constitution_files = sorted([f.name for f in constitutions_dir.glob("*.md") if f.name != "README.md"])
 
-    typer.echo("✓ Default constitutions registered")
+    typer.echo(f"✓ {len(constitution_files)} constitutions registered")
 
     typer.echo()
     typer.echo("Created space structure:")
     typer.echo("  ~/space/")
     typer.echo("    └── canon/                  → human curated context")
     typer.echo("        └── constitutions/      → identity prompts")
-    for i, const_file in enumerate(default_constitutions):
-        if i == len(default_constitutions) - 1:
-            typer.echo(f"            ├── {const_file}")
+    for i, const_file in enumerate(constitution_files):
+        if i == len(constitution_files) - 1:
+            typer.echo(f"            └── {const_file}")
         else:
             typer.echo(f"            ├── {const_file}")
-    typer.echo("            └── (custom.md)")
     typer.echo()
     typer.echo("  ~/.space/")
     typer.echo("    ├── data/                   → runtime databases")

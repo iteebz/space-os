@@ -10,7 +10,6 @@ from .api import (
     spawn_from_mentions,
     stats,
 )
-from .cli import app
 from .ops import (
     add_note,
     archive_channel,
@@ -33,7 +32,6 @@ __all__ = [
     "api",
     "db",
     "ops",
-    "app",
     "add_note",
     "archive_channel",
     "create_channel",

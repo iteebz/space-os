@@ -56,9 +56,20 @@ Canon files are human-created persistent context. Use context search to find the
 
 ### Coordinate (Bridge)
 ```
-bridge recv channel --as <identity>  # Read messages on your channel
+bridge channels                      # Show active channels
+bridge channels --all                # Show all including archived
+bridge create channel [--topic]      # Create a channel
 bridge send channel "message"        # Send message to channel
-bridge history channel               # See channel history
+bridge recv channel --as <identity>  # Read messages from channel
+bridge wait channel --as <identity>  # Block and wait for new message
+bridge inbox --as <identity>         # Show unread channels (bookmark aware)
+bridge note channel                  # View channel notes
+bridge note channel "note" --as id   # Add note to channel
+bridge rename old new                # Rename a channel
+bridge archive channel               # Archive a channel
+bridge delete channel                # Delete a channel
+bridge pin channel                   # Pin channel to favorites
+bridge unpin channel                 # Unpin channel from favorites
 ```
 
 ### Launch Another Agent

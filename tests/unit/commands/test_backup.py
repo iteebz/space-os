@@ -85,3 +85,39 @@ def test_backup_stats_counts_rows(tmp_path):
     assert "test.db" in stats
     assert stats["test.db"]["rows"] == 3
     assert stats["test.db"]["tables"] == 1
+
+
+@patch("space.apps.backup.paths.validate_backup_path")
+@patch("space.apps.backup.paths.backup_chats_latest")
+@patch("space.apps.backup.paths.chats_dir")
+def test_backup_chats_append_only(mock_chats_dir, mock_backup_chats_latest, mock_validate, tmp_path):
+    """Chat backup is append-only: new files added, updated files copied, old files retained."""
+    from space.apps.backup import _backup_chats_latest
+
+    src_chats = tmp_path / "chats"
+    src_chats.mkdir()
+    (src_chats / "claude").mkdir()
+    (src_chats / "codex").mkdir()
+
+    backup_dir = tmp_path / "backup"
+
+    mock_chats_dir.return_value = src_chats
+    mock_backup_chats_latest.return_value = backup_dir
+    mock_validate.return_value = True
+
+    (src_chats / "claude" / "session1.jsonl").write_text("msg1")
+    (src_chats / "codex" / "session2.jsonl").write_text("msg2")
+
+    _backup_chats_latest(quiet_output=True)
+
+    assert (backup_dir / "claude" / "session1.jsonl").read_text() == "msg1"
+    assert (backup_dir / "codex" / "session2.jsonl").read_text() == "msg2"
+
+    (src_chats / "claude" / "session3.jsonl").write_text("msg3")
+    (src_chats / "claude" / "session1.jsonl").write_text("msg1-updated")
+
+    _backup_chats_latest(quiet_output=True)
+
+    assert (backup_dir / "claude" / "session1.jsonl").read_text() == "msg1-updated"
+    assert (backup_dir / "claude" / "session3.jsonl").read_text() == "msg3"
+    assert (backup_dir / "codex" / "session2.jsonl").read_text() == "msg2"

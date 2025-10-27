@@ -8,7 +8,7 @@ from pathlib import Path
 
 import typer
 
-from space.lib import paths, store
+from space.lib import paths, sqlite, store
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,7 @@ def _backup_data_snapshot(timestamp: str, quiet_output: bool) -> dict:
         raise typer.Exit(code=1)
 
     store.close_all()
+    sqlite.resolve(src)
     shutil.copytree(src, backup_path, dirs_exist_ok=False)
     os.chmod(backup_path, 0o555)
 
@@ -58,7 +59,7 @@ def _backup_data_snapshot(timestamp: str, quiet_output: bool) -> dict:
 
 
 def _backup_chats_latest(quiet_output: bool) -> None:
-    """Backup ~/.space/chats to ~/.space_backups/chats/latest (overwrites)."""
+    """Backup ~/.space/chats to ~/.space_backups/chats/latest (append-only, never deletes)."""
     src = paths.chats_dir()
     if not src.exists():
         return
@@ -70,10 +71,26 @@ def _backup_chats_latest(quiet_output: bool) -> None:
         typer.echo("ERROR: Backup path validation failed (possible path traversal)", err=True)
         raise typer.Exit(code=1)
 
-    if backup_path.exists():
-        shutil.rmtree(backup_path)
+    backup_path.mkdir(parents=True, exist_ok=True)
 
-    shutil.copytree(src, backup_path, dirs_exist_ok=False)
+    for provider_dir in src.iterdir():
+        if not provider_dir.is_dir():
+            continue
+        
+        backup_provider_dir = backup_path / provider_dir.name
+        backup_provider_dir.mkdir(exist_ok=True)
+        
+        for chat_file in provider_dir.rglob("*"):
+            if not chat_file.is_file():
+                continue
+            
+            rel_path = chat_file.relative_to(provider_dir)
+            backup_file = backup_provider_dir / rel_path
+            backup_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            if not backup_file.exists() or chat_file.stat().st_mtime > backup_file.stat().st_mtime:
+                shutil.copy2(chat_file, backup_file)
+    
     os.chmod(backup_path, 0o555)
 
 
