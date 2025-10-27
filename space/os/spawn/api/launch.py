@@ -46,7 +46,7 @@ def launch_agent(identity: str, extra_args: list[str] | None = None):
 
     passthrough = extra_args or []
     model_args = ["--model", agent.model]
-    tool_args = ["--disableTools", "Task"] if agent.provider == "claude" else ["--disable", "Task"]
+    tool_args = ["--disableTools", "Task"] if agent.provider == "claude" else []
 
     click.echo(f"Waking {identity}...\n")
     wake_output = _run_wake_sequence(identity)

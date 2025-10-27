@@ -205,18 +205,26 @@ def archive_old_config():
 
 
 def init_default_agents():
-    """Register default agents with correct providers."""
-    default_agents = [
-        ("base", None, "claude", "claude-haiku-4-5"),
-        ("zealot", "zealot.md", "claude", "claude-haiku-4-5"),
-        ("crucible", "crucible.md", "gemini", "gemini-2.0-flash"),
-        ("sentinel", "sentinel.md", "codex", "codex-latest"),
-    ]
+    """Auto-discover and register agents from canon/constitutions/.
+
+    Agents are created with identity matching constitution filename (without .md).
+    User must manually assign provider/model via 'spawn update' after init.
+    """
+    constitutions_dir = paths.canon_path() / "constitutions"
+    if not constitutions_dir.exists():
+        return
+
+    constitution_files = sorted(constitutions_dir.glob("*.md"))
+    if not constitution_files:
+        return
 
     with spawn.db.connect():
-        for identity, constitution, provider, model in default_agents:
+        for const_file in constitution_files:
+            identity = const_file.stem
+            constitution = const_file.name
+
             with contextlib.suppress(ValueError):
-                spawn.register_agent(identity, provider, model, constitution)
+                spawn.register_agent(identity, "claude", "claude-haiku-4-5", constitution)
 
 
 @system.command()

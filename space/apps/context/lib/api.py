@@ -31,7 +31,9 @@ def _validate_search_term(term: str) -> None:
         raise ValueError(f"Search term too long (max {max_len} chars, got {len(term)})")
 
 
-def _search_provider_chats(query: str, identity: str | None = None, all_agents: bool = False) -> list[dict]:
+def _search_provider_chats(
+    query: str, identity: str | None = None, all_agents: bool = False
+) -> list[dict]:
     """Search provider chat logs directly (stateless, ephemeral discovery)."""
     results = []
     query_lower = query.lower()
