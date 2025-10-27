@@ -1,5 +1,5 @@
-"""Chats app: discover, sync, and manage chat histories from LLM providers."""
+"""Chats: discover, sync, and manage chat histories from LLM providers."""
 
-from .commands import app
+from .cli import app
 
 __all__ = ["app"]
