@@ -90,7 +90,9 @@ def test_backup_stats_counts_rows(tmp_path):
 @patch("space.apps.backup.paths.validate_backup_path")
 @patch("space.apps.backup.paths.backup_chats_latest")
 @patch("space.apps.backup.paths.chats_dir")
-def test_backup_chats_append_only(mock_chats_dir, mock_backup_chats_latest, mock_validate, tmp_path):
+def test_backup_chats_append_only(
+    mock_chats_dir, mock_backup_chats_latest, mock_validate, tmp_path
+):
     """Chat backup is append-only: new files added, updated files copied, old files retained."""
     from space.apps.backup import _backup_chats_latest
 

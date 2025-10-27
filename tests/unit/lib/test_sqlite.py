@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from space.lib import sqlite, store
+from space.lib import store
 
 
 @pytest.fixture
@@ -27,7 +27,7 @@ def clean_registry():
 def test_connect_basic(temp_db_dir):
     """Test basic connection to SQLite database."""
     db_path = temp_db_dir / "test.db"
-    conn = sqlite.connect(db_path)
+    conn = store.connect(db_path)
 
     assert isinstance(conn, sqlite3.Connection)
     assert conn.row_factory == sqlite3.Row
@@ -39,8 +39,9 @@ def test_register_database(clean_registry):
     """Test registering a database."""
     store.register("test_db", "test.db")
 
-    assert "test_db" in store._registry
-    assert store._registry["test_db"] == "test.db"
+    registry = store.registry()
+    assert "test_db" in registry
+    assert registry["test_db"] == "test.db"
 
 
 def test_register_migrations(clean_registry):
@@ -48,8 +49,9 @@ def test_register_migrations(clean_registry):
     migs = [("v1", "CREATE TABLE test (id TEXT)")]
     store.add_migrations("test_db", migs)
 
-    assert "test_db" in store._migrations
-    assert store._migrations["test_db"] == migs
+    from space.lib.store.registry import get_migrations
+
+    assert get_migrations("test_db") == migs
 
 
 def test_ensure_unregistered_raises(clean_registry, temp_db_dir, monkeypatch):
@@ -146,9 +148,11 @@ def test_ensure_schema_with_migrations(clean_registry, temp_db_dir):
         ("v1", "ALTER TABLE test ADD COLUMN value TEXT"),
     ]
 
-    sqlite.ensure_schema(db_path, migs)
+    from space.lib.store import migrations
 
-    conn = sqlite.connect(db_path)
+    migrations.ensure_schema(db_path, migs)
+
+    conn = store.connect(db_path)
     cursor = conn.execute("PRAGMA table_info(test)")
     columns = {row[1] for row in cursor.fetchall()}
     assert "value" in columns

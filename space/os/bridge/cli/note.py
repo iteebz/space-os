@@ -27,10 +27,7 @@ def register(app: typer.Typer) -> None:
                     return
 
                 output_json(
-                    [
-                        note.__dict__ if hasattr(note, "__dict__") else note
-                        for note in notes_list
-                    ],
+                    [note.__dict__ if hasattr(note, "__dict__") else note for note in notes_list],
                     ctx,
                 ) or None
                 if should_output(ctx):
@@ -40,13 +37,9 @@ def register(app: typer.Typer) -> None:
                         timestamp = format_local_time(note_dict["created_at"])
                         agent_id_note = note_dict.get("agent_id")
                         identity_str = (
-                            spawn.get_agent(agent_id_note).identity
-                            if agent_id_note
-                            else "unknown"
+                            spawn.get_agent(agent_id_note).identity if agent_id_note else "unknown"
                         )
-                        echo_if_output(
-                            f"[{timestamp}] {identity_str}: {note_dict['content']}", ctx
-                        )
+                        echo_if_output(f"[{timestamp}] {identity_str}: {note_dict['content']}", ctx)
                         echo_if_output("", ctx)
             except ValueError as e:
                 output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(
@@ -63,9 +56,7 @@ def register(app: typer.Typer) -> None:
                 output_json(
                     {"status": "error", "message": "Must specify --as identity when adding notes"},
                     ctx,
-                ) or echo_if_output(
-                    "❌ Must specify --as identity when adding notes", ctx
-                )
+                ) or echo_if_output("❌ Must specify --as identity when adding notes", ctx)
                 raise typer.Exit(code=1)
             try:
                 agent = spawn.get_agent(identity)

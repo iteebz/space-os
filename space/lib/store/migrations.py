@@ -1,20 +1,13 @@
-"""SQLite storage backend implementation."""
+"""Database schema migrations and initialization."""
 
-import contextlib
 import logging
 import sqlite3
 from collections.abc import Callable
 from pathlib import Path
 
+from space.lib.store.sqlite import connect
+
 logger = logging.getLogger(__name__)
-
-
-def connect(db_path: Path) -> sqlite3.Connection:
-    """Open connection to SQLite database."""
-    conn = sqlite3.connect(db_path, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.isolation_level = None
-    return conn
 
 
 def ensure_schema(
@@ -31,8 +24,6 @@ def ensure_schema(
 
 def migrate(conn: sqlite3.Connection, migs: list[tuple[str, str | Callable]]) -> None:
     """Apply migrations to connection with data loss safeguards."""
-    from space.lib import store
-
     conn.execute("CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY)")
     conn.commit()
 
@@ -45,7 +36,7 @@ def migrate(conn: sqlite3.Connection, migs: list[tuple[str, str | Callable]]) ->
                 "SELECT name FROM sqlite_master WHERE type='table' AND name != '_migrations' AND name != 'sqlite_sequence'"
             )
             tables = [row[0] for row in cursor.fetchall()]
-            before = {t: store._get_table_count(conn, t) for t in tables}
+            before = {t: _get_table_count(conn, t) for t in tables}
 
             if callable(migration):
                 migration(conn)
@@ -57,7 +48,7 @@ def migrate(conn: sqlite3.Connection, migs: list[tuple[str, str | Callable]]) ->
 
             for table, count_before in before.items():
                 try:
-                    store._check_migration_safety(conn, table, count_before, allow_loss=0)
+                    _check_migration_safety(conn, table, count_before, allow_loss=0)
                 except ValueError as e:
                     logger.error(f"Migration '{name}' data loss detected: {e}")
                     raise
@@ -70,26 +61,44 @@ def migrate(conn: sqlite3.Connection, migs: list[tuple[str, str | Callable]]) ->
             raise
 
 
-def resolve(db_dir: Path) -> None:
-    """Resolve WAL files by checkpointing all databases in directory.
+def _get_table_count(conn: sqlite3.Connection, table: str) -> int:
+    """Get row count for table, returns 0 if table doesn't exist."""
+    try:
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?",
+            (table,),
+        )
+        if not cursor.fetchone()[0]:
+            return 0
+        result = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
+        return result[0] if result else 0
+    except sqlite3.OperationalError:
+        return 0
 
-    Merges WAL (Write-Ahead Logging) data into main database files,
-    creating complete, standalone snapshots suitable for backup/transfer.
+
+def _check_migration_safety(
+    conn: sqlite3.Connection, table: str, before: int, allow_loss: int = 0
+) -> None:
+    """Verify row count after migration, raise if data loss exceeds threshold.
 
     Args:
-        db_dir: Directory containing *.db files
+            conn: Database connection
+            table: Table name to check
+            before: Row count before migration
+            allow_loss: Max rows permitted to be lost (e.g., duplicates removed)
+
+    Raises:
+            ValueError: If data loss detected exceeds allow_loss
     """
-    for db_file in sorted(db_dir.glob("*.db")):
-        try:
-            conn = connect(db_file)
-            conn.execute("PRAGMA journal_mode=DELETE")
-            conn.execute("PRAGMA wal_checkpoint(RESTART)")
-            conn.close()
+    after = _get_table_count(conn, table)
+    lost = before - after
 
-            for artifact in db_file.parent.glob(f"{db_file.name}-*"):
-                with contextlib.suppress(OSError):
-                    artifact.unlink()
+    if lost > allow_loss:
+        msg = f"Migration {table}: {lost} rows lost (before: {before}, after: {after})"
+        logger.error(msg)
+        raise ValueError(msg)
 
-            logger.info(f"Resolved {db_file.name}")
-        except sqlite3.DatabaseError as e:
-            logger.warning(f"Failed to resolve {db_file.name}: {e}")
+    if lost > 0:
+        logger.warning(
+            f"Migration {table}: {lost} rows removed (expected for allow_loss={allow_loss})"
+        )

@@ -19,7 +19,7 @@ def callback(ctx: typer.Context):
 
 def archive_old_config():
     """Archive old provider config files with .old suffix.
-    
+
     Only archives if content doesn't match default constitutions to avoid spam.
     """
     default_constitutions = ["zealot.md", "sentinel.md", "crucible.md"]
@@ -28,23 +28,22 @@ def archive_old_config():
         Path.home() / ".gemini" / "GEMINI.md",
         Path.home() / ".codex" / "AGENTS.md",
     ]
-    
+
     constitutions_dir = paths.canon_path() / "constitutions"
 
     for old_path in old_configs:
         if not old_path.exists():
             continue
-        
+
         old_content = old_path.read_text()
         is_default = False
-        
+
         for const_name in default_constitutions:
             const_file = constitutions_dir / const_name
-            if const_file.exists():
-                if const_file.read_text() == old_content:
-                    is_default = True
-                    break
-        
+            if const_file.exists() and const_file.read_text() == old_content:
+                is_default = True
+                break
+
         if not is_default:
             timestamp = int(time.time())
             new_path = old_path.parent / f"{old_path.stem}.{timestamp}.old"
@@ -119,7 +118,9 @@ def init():
             typer.echo("✓ Agent launcher configured (~/.local/bin/launch)")
 
     constitutions_dir = paths.canon_path() / "constitutions"
-    constitution_files = sorted([f.name for f in constitutions_dir.glob("*.md") if f.name != "README.md"])
+    constitution_files = sorted(
+        [f.name for f in constitutions_dir.glob("*.md") if f.name != "README.md"]
+    )
 
     typer.echo(f"✓ {len(constitution_files)} constitutions registered")
 
