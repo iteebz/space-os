@@ -8,7 +8,7 @@ import typer
 
 from space.lib import output
 
-app = typer.Typer()
+app = typer.Typer(invoke_without_command=True)
 
 
 @app.callback()
@@ -26,7 +26,7 @@ def main_callback(
     if ctx.resilient_parsing:
         return
     if ctx.invoked_subcommand is None:
-        typer.echo("Run 'bridge --help' for available commands and options.")
+        typer.echo("BRIDGE: Agent coordination and messaging system.")
 
 
 _commands = [
@@ -34,6 +34,7 @@ _commands = [
     "channels",
     "create",
     "delete",
+    "export",
     "inbox",
     "note",
     "pin",

@@ -23,13 +23,12 @@ prompt-toolkit = "^3.0.47"
 
 [tool.poetry.scripts]
 bridge = "space.os.bridge.cli:app"
-spawn = "space.os.spawn.commands:app"
-memory = "space.os.memory.commands:app"
-knowledge = "space.os.knowledge.commands:app"
-context = "space.apps.context.commands:context"
+spawn = "space.os.spawn.cli:app"
+memory = "space.os.memory.cli:app"
+knowledge = "space.os.knowledge.cli:app"
+context = "space.apps.context.cli:app"
 space = "space.cli:main"
-wake = "space.os.spawn.commands.wake:main"
-sleep = "space.os.spawn.commands.sleep:main"
+sleep = "space.os.spawn.cli.sleep:main"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.13.0"

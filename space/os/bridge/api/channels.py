@@ -33,12 +33,13 @@ def create_channel(name: str, topic: str | None = None) -> Channel:
     return Channel(channel_id=channel_id, name=name, topic=topic)
 
 
-def resolve_channel(identifier: str) -> Channel:
+def resolve_channel(identifier: str | Channel) -> Channel:
     """Resolve channel by name or ID. Creates if not exists. Returns Channel object."""
+    identifier_str = _to_channel_id(identifier)
     with store.ensure("bridge") as conn:
         row = conn.execute(
             "SELECT channel_id, name, topic, created_at, archived_at FROM channels WHERE name = ? OR channel_id = ? LIMIT 1",
-            (identifier, identifier),
+            (identifier_str, identifier_str),
         ).fetchone()
 
         if row:
@@ -223,12 +224,12 @@ def fetch_inbox(agent_id: str) -> list[Channel]:
 
 
 def get_channel(channel: str | Channel) -> Channel | None:
-    """Get a channel by its ID, including members."""
+    """Get a channel by its ID or name, including members."""
     channel_id = _to_channel_id(channel)
     with store.ensure("bridge") as conn:
         row = conn.execute(
-            "SELECT channel_id, name, topic, created_at, archived_at FROM channels WHERE channel_id = ?",
-            (channel_id,),
+            "SELECT channel_id, name, topic, created_at, archived_at FROM channels WHERE channel_id = ? OR name = ?",
+            (channel_id, channel_id),
         ).fetchone()
 
         if not row:
@@ -238,7 +239,7 @@ def get_channel(channel: str | Channel) -> Channel | None:
 
         members_cursor = conn.execute(
             "SELECT DISTINCT agent_id FROM messages WHERE channel_id = ? ORDER BY agent_id",
-            (channel_id,),
+            (channel.channel_id,),
         )
         channel.members = [p_row["agent_id"] for p_row in members_cursor.fetchall()]
         return channel

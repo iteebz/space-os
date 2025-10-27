@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from space.apps.council.lib import formatting as council
+from space.apps.council import api as council
 
 
 def test_styled_applies_colors():

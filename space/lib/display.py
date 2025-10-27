@@ -106,7 +106,7 @@ def show_context(identity: str):
 
 
 def show_wake_summary(
-    identity: str, quiet_output: bool, spawn_count: int, wakes_this_spawn: int = 0
+    identity: str, quiet_output: bool, spawn_count: int
 ):
     from space.os import bridge, spawn
 
@@ -122,16 +122,11 @@ def show_wake_summary(
     if agent_id:
         last_journal = memory.list_entries(identity, topic="journal", limit=1)
 
+        typer.echo(f"🔄 Spawn #{spawn_count}")
         if last_journal:
             last_sleep_ts = last_journal[0].created_at
             last_sleep_duration = format_duration(time.time() - last_sleep_ts)
-            typer.echo(
-                wake_module.SPAWN_STATUS.format(
-                    spawn=spawn_count, wakes=wakes_this_spawn, duration=last_sleep_duration
-                )
-            )
-        else:
-            typer.echo(f"🔄 Spawn #{spawn_count} • Woke {wakes_this_spawn} times this spawn")
+            # typer.echo(f"Last session {last_sleep_duration} ago")
 
         journals = memory.list_entries(identity, topic="journal")
         if journals:
@@ -146,7 +141,7 @@ def show_wake_summary(
 
         core_entries = memory.list_entries(identity, filter="core")
         if core_entries:
-            typer.echo(wake_module.SECTION_CORE)
+            typer.echo("CORE MEMORIES:")
             for e in core_entries[:5]:
                 typer.echo(f"  [{e.memory_id[-8:]}] {e.message}")
             typer.echo()
@@ -154,7 +149,7 @@ def show_wake_summary(
         recent = memory.list_entries(identity, filter="recent:7", limit=30)
         non_journal = [e for e in recent if e.topic != "journal" and not e.core][:3]
         if non_journal:
-            typer.echo(wake_module.SECTION_RECENT)
+            typer.echo("RECENT (7d):")
             for e in non_journal:
                 ts = datetime.fromtimestamp(e.created_at).strftime("%m-%d %H:%M")
                 typer.echo(f"  [{ts}] {e.topic}: {e.message}")

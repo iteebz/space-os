@@ -178,9 +178,9 @@ class Gemini:
             )
             return result.stdout
 
-        from space.os.spawn.api import launch_agent
+        from space.os.spawn.api import spawn_agent
 
-        launch_agent(identity)
+        spawn_agent(identity)
         return ""
 
     def ping(self, identity: str) -> bool:

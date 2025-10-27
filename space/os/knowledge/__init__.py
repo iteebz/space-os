@@ -10,7 +10,7 @@ from .api import (
     restore_entry,
     search,
 )
-from .commands import app
+from .cli import app
 
 db.register()
 

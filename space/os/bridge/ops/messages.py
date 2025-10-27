@@ -29,8 +29,9 @@ def send_message(channel: str, identity: str, content: str, decode_base64: bool 
             raise ValueError("Invalid base64 payload") from exc
 
     channel_id = ch.resolve_channel(channel).channel_id
-    messaging.send_message(channel_id, identity, content)
+    agent_id = messaging.send_message(channel_id, identity, content)
     mentions.spawn_from_mentions(channel_id, content)
+    return agent_id
 
 
 def recv_messages(channel: str, agent_id: str):

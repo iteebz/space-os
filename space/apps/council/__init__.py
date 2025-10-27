@@ -1,3 +1,3 @@
-from space.apps.council.commands import app
+from space.apps.council.cli import app
 
 __all__ = ["app"]

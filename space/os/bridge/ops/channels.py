@@ -3,8 +3,12 @@
 from space.os.bridge.api import channels as ch
 
 
-def list_channels(all: bool = False):
+def list_channels(all: bool = False, agent_id: str | None = None):
     """List all channels.
+
+    Args:
+        all: Include archived channels.
+        agent_id: Filter for channels with unread messages for this agent.
 
     Returns:
         List of Channel objects (active, optionally archived).
@@ -12,7 +16,7 @@ def list_channels(all: bool = False):
     Raises:
         None
     """
-    return ch.list_channels(all=all)
+    return ch.list_channels(all=all, agent_id=agent_id)
 
 
 def create_channel(channel_name: str, topic: str | None = None):

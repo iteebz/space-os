@@ -19,7 +19,7 @@ from space.os import bridge, knowledge, memory
 from . import agents, sessions
 
 
-def build_spawn_context(identity: str, model: str | None = None) -> str:
+def spawn_prompt(identity: str, model: str | None = None) -> str:
     """Build unified prompt context from MANUAL.md template with agent context filled in.
 
     Replaces <identity> placeholders and inserts agent-specific context blocks.
@@ -37,7 +37,6 @@ def build_spawn_context(identity: str, model: str | None = None) -> str:
     manual_text = manual_path.read_text()
 
     spawn_count = sessions.get_spawn_count(agent_id)
-    wakes_this_spawn = sessions.get_wakes_this_spawn(agent_id)
 
     last_journal = memory.list_entries(identity, topic="journal", limit=1)
     if last_journal:
@@ -50,7 +49,6 @@ def build_spawn_context(identity: str, model: str | None = None) -> str:
     template_vars = {
         "identity": identity,
         "spawn_count": spawn_count,
-        "wakes_this_spawn": wakes_this_spawn,
         "spawn_status": spawn_status,
         "model": f" Your model is {model}." if model else "",
     }
@@ -141,8 +139,8 @@ def _priority_channel(channels):
     return max(channels, key=lambda ch: (ch.unread_count, ch.last_activity or ""))
 
 
-def launch_agent(identity: str, extra_args: list[str] | None = None):
-    """Launch an agent by identity from registry.
+def spawn_agent(identity: str, extra_args: list[str] | None = None):
+    """Spawn an agent by identity from registry.
 
     Looks up agent, writes constitution to provider home dir,
     injects unified context via stdin, and executes the provider CLI.
@@ -178,7 +176,7 @@ def launch_agent(identity: str, extra_args: list[str] | None = None):
     click.echo(f"Spawning {identity}...\n")
     session_id = sessions.create_session(agent.agent_id)
 
-    context = build_spawn_context(identity, agent.model)
+    context = spawn_prompt(identity, agent.model)
     has_prompt = bool(context.strip())
 
     provider_obj = {"claude": claude, "gemini": gemini, "codex": codex}.get(agent.provider)

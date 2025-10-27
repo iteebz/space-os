@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from space.apps.canon.commands import app
+from space.apps.canon.cli import app
 
 runner = CliRunner()
 

@@ -6,7 +6,7 @@ from .api import (
     memory_stats,
     spawn_stats,
 )
-from .commands import app
+from .cli import app
 from .models import (
     AgentStats,
     BridgeStats,

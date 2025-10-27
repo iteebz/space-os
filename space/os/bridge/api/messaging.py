@@ -76,15 +76,17 @@ def get_messages(channel: str | Channel, agent_id: str | None = None) -> list[Me
     with store.ensure("bridge") as conn:
         from . import channels
 
-        channel = channels.get_channel(channel_id)
-        if not channel:
+        channel_obj = channels.get_channel(channel_id)
+        if not channel_obj:
             raise ValueError(f"Channel {channel_id} not found")
+
+        actual_channel_id = channel_obj.channel_id
 
         last_seen_id = None
         if agent_id:
             row = conn.execute(
                 "SELECT last_seen_id FROM bookmarks WHERE agent_id = ? AND channel_id = ?",
-                (agent_id, channel_id),
+                (agent_id, actual_channel_id),
             ).fetchone()
             last_seen_id = row["last_seen_id"] if row else None
 
@@ -96,7 +98,7 @@ def get_messages(channel: str | Channel, agent_id: str | None = None) -> list[Me
         """
 
         query, params = _build_pagination_query_and_params(
-            conn, channel_id, last_seen_id, base_query
+            conn, actual_channel_id, last_seen_id, base_query
         )
 
         cursor = conn.execute(query, params)

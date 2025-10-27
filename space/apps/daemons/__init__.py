@@ -1,5 +1,5 @@
 """Autonomous daemon swarms for space maintenance and upkeep."""
 
-from .commands import app
+from .cli import app
 
 __all__ = ["app"]

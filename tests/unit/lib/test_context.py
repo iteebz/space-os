@@ -2,7 +2,7 @@
 
 from unittest.mock import patch
 
-from space.apps.context.lib import api as context
+from space.apps.context import api as context
 
 
 def test_validate_search_term_valid():

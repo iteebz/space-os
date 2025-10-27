@@ -23,7 +23,7 @@ class SpawnGroup(TyperGroup):
         @click.argument("task_input", required=False, nargs=-1)
         def spawn_agent(task_input):
             input_list = list(task_input) if task_input else []
-            api.launch_agent(agent.identity, extra_args=input_list)
+            api.spawn_agent(agent.identity, extra_args=input_list)
 
         return spawn_agent
 
@@ -53,7 +53,7 @@ def main_command(
 
             agent = agents.get_agent(identity)
             model = agent.model if agent else None
-            context = launch.build_spawn_context(identity, model)
+            context = launch.spawn_prompt(identity, model)
             typer.echo(context)
         else:
             typer.echo(

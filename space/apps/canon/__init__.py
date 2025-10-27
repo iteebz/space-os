@@ -1,3 +1,4 @@
-from space.apps.canon.commands import app
+from space.apps.canon.cli import app
 
 __all__ = ["app"]
+

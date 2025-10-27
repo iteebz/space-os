@@ -29,7 +29,7 @@ def create_session(agent_id: str) -> str:
     )
 
     cursor.execute(
-        "UPDATE agents SET spawn_count = ?, wakes_this_spawn = 0, last_active_at = ? WHERE agent_id = ?",
+        "UPDATE agents SET spawn_count = ?, last_active_at = ? WHERE agent_id = ?",
         (spawn_count, datetime.now().isoformat(), agent_id),
     )
 
@@ -48,25 +48,7 @@ def end_session(session_id: str) -> None:
     conn.commit()
 
 
-def increment_wakes(agent_id: str) -> int:
-    """Increment wakes for current session. Returns new count."""
-    conn = db.connect()
-    cursor = conn.cursor()
 
-    cursor.execute(
-        "SELECT wakes_this_spawn FROM agents WHERE agent_id = ?",
-        (agent_id,),
-    )
-    result = cursor.fetchone()
-    current = result[0] if result else 0
-    new_count = current + 1
-
-    cursor.execute(
-        "UPDATE agents SET wakes_this_spawn = ? WHERE agent_id = ?",
-        (new_count, agent_id),
-    )
-    conn.commit()
-    return new_count
 
 
 def get_spawn_count(agent_id: str) -> int:
@@ -78,10 +60,3 @@ def get_spawn_count(agent_id: str) -> int:
     return result[0] if result else 0
 
 
-def get_wakes_this_spawn(agent_id: str) -> int:
-    """Get wakes count for current spawn session."""
-    conn = db.connect()
-    cursor = conn.cursor()
-    cursor.execute("SELECT wakes_this_spawn FROM agents WHERE agent_id = ?", (agent_id,))
-    result = cursor.fetchone()
-    return result[0] if result else 0

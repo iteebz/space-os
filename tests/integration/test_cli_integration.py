@@ -81,13 +81,13 @@ def test_bridge_shows_readme():
 
 def test_bridge_list_channels(test_space):
     """Listing channels via bridge CLI."""
-    result = runner.invoke(bridge.app, ["list"])
+    result = runner.invoke(bridge.app, ["channels"])
     assert result.exit_code == 0
 
 
 def test_bridge_channels_list(test_space):
     """Listing channels via bridge channels subcommand."""
-    result = runner.invoke(bridge.app, ["channels", "list"])
+    result = runner.invoke(bridge.app, ["channels"])
     assert result.exit_code == 0
 
 

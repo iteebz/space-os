@@ -15,7 +15,7 @@ from space.os.bridge.api import (
     send_message,
 )
 
-from .formatter import format_error, format_header, format_message
+from .api import format_error, format_header, format_message
 
 STREAM_POLL_INTERVAL = 0.5
 STREAM_ERROR_BACKOFF = 1.0
@@ -117,16 +117,11 @@ class Council:
             self.running = False
 
 
-council = typer.Typer()
+app = typer.Typer()
 
 
-@council.command()
+@app.command()
 def join(channel: str = typer.Argument(..., help="Channel name")):
     """Join a bridge council - stream messages and respond live."""
     c = Council(channel)
     asyncio.run(c.run())
-
-
-def main() -> None:
-    """Entry point."""
-    council()

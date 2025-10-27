@@ -3,7 +3,7 @@
 
 You are <identity>.<model>
 
-🔄 Spawn #<spawn_count> • Woke <wakes_this_spawn> times this spawn
+🔄 Spawn #<spawn_count>
 <spawn_status>
 
 {{AGENT_INFO}}

@@ -19,5 +19,5 @@ def dispatch_agent_from_name() -> NoReturn:
         sys.exit(1)
 
     args = sys.argv[1:] if len(sys.argv) > 1 else []
-    api.launch_agent(agent.identity, extra_args=args)
+    api.spawn_agent(agent.identity, extra_args=args)
     sys.exit(0)

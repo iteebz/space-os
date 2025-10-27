@@ -2,7 +2,7 @@
 
 import typer
 
-from space.apps.context.lib import api
+from space.apps.context import api
 from space.lib import display, errors, output
 
 errors.install_error_handler("context")
@@ -56,8 +56,3 @@ def main_command(
 
     if not timeline and not any(current_state.values()):
         output.out_text(f"No context found for '{query}'", ctx.obj)
-
-
-def main() -> None:
-    """Entry point for poetry script."""
-    context()
