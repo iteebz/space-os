@@ -1,10 +1,13 @@
-"""Unified context search: routes to memory, knowledge, bridge, chats, canon."""
+"""Unified context search: routes to memory, knowledge, bridge, provider chats, canon."""
 
+import contextlib
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
 from space import config
-from space.apps import chats
 from space.apps.context.lib import canon
+from space.lib import providers
 from space.os import bridge, knowledge, memory
 
 log = logging.getLogger(__name__)
@@ -26,6 +29,62 @@ def _validate_search_term(term: str) -> None:
     max_len = _get_max_search_len()
     if len(term) > max_len:
         raise ValueError(f"Search term too long (max {max_len} chars, got {len(term)})")
+
+
+def _search_provider_chats(query: str, identity: str | None = None, all_agents: bool = False) -> list[dict]:
+    """Search provider chat logs directly (stateless, ephemeral discovery)."""
+    results = []
+    query_lower = query.lower()
+
+    def _discover_and_search_provider(cli_name: str) -> list[dict]:
+        """Discover and search a single provider's chats."""
+        provider_results = []
+        try:
+            provider = getattr(providers, cli_name)()
+            sessions = provider.discover_sessions()
+
+            for session in sessions:
+                try:
+                    file_path = Path(session["file_path"])
+                    if not file_path.exists():
+                        continue
+
+                    session_id = session["session_id"]
+                    messages = provider.parse_messages(file_path)
+
+                    for msg in messages:
+                        content = msg.get("content", "")
+                        if query_lower in content.lower():
+                            provider_results.append(
+                                {
+                                    "source": "provider-chats",
+                                    "cli": cli_name,
+                                    "session_id": session_id,
+                                    "identity": None,
+                                    "role": msg.get("role"),
+                                    "text": content,
+                                    "timestamp": msg.get("timestamp"),
+                                    "reference": f"provider-chats:{cli_name}:{session_id}",
+                                }
+                            )
+                except Exception:
+                    pass
+
+        except Exception:
+            pass
+
+        return provider_results
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = {
+            executor.submit(_discover_and_search_provider, cli): cli
+            for cli in ("claude", "codex", "gemini")
+        }
+        for future in as_completed(futures):
+            with contextlib.suppress(Exception):
+                results.extend(future.result())
+
+    return results
 
 
 def collect_timeline(query: str, identity: str | None, all_agents: bool) -> list[dict]:
@@ -79,7 +138,7 @@ def collect_timeline(query: str, identity: str | None, all_agents: bool) -> list
                 }
             )
 
-    for result in chats.search(query, identity, all_agents):
+    for result in _search_provider_chats(query, identity, all_agents):
         key = (result["source"], result.get("session_id"))
         if key not in seen:
             seen.add(key)
@@ -115,7 +174,7 @@ def collect_timeline(query: str, identity: str | None, all_agents: bool) -> list
 
 def collect_current_state(query: str, identity: str | None, all_agents: bool) -> dict:
     """Unified state: current entries across all sources."""
-    results = {"memory": [], "knowledge": [], "bridge": [], "chats": [], "canon": []}
+    results = {"memory": [], "knowledge": [], "bridge": [], "provider_chats": [], "canon": []}
 
     results["memory"] = [
         {
@@ -147,7 +206,7 @@ def collect_current_state(query: str, identity: str | None, all_agents: bool) ->
         for r in bridge.search(query, identity, all_agents)
     ]
 
-    results["chats"] = [
+    results["provider_chats"] = [
         {
             "cli": r["cli"],
             "session_id": r["session_id"],
@@ -156,7 +215,7 @@ def collect_current_state(query: str, identity: str | None, all_agents: bool) ->
             "text": r["text"],
             "reference": r["reference"],
         }
-        for r in chats.search(query, identity, all_agents)
+        for r in _search_provider_chats(query, identity, all_agents)
     ]
 
     results["canon"] = [

@@ -27,7 +27,7 @@ def test_collect_timeline_deduplicates():
         patch("space.apps.context.lib.api.memory.search") as m_mem,
         patch("space.apps.context.lib.api.knowledge.search") as m_know,
         patch("space.apps.context.lib.api.bridge.search") as m_bridge,
-        patch("space.apps.context.lib.api.chats.search") as m_chat,
+        patch("space.apps.context.lib.api._search_provider_chats") as m_chat,
         patch("space.apps.context.lib.api.canon.search") as m_canon,
     ):
         m_mem.return_value = [
@@ -58,7 +58,7 @@ def test_collect_timeline_sorted_by_timestamp():
         patch("space.apps.context.lib.api.memory.search") as m_mem,
         patch("space.apps.context.lib.api.knowledge.search") as m_know,
         patch("space.apps.context.lib.api.bridge.search") as m_bridge,
-        patch("space.apps.context.lib.api.chats.search") as m_chat,
+        patch("space.apps.context.lib.api._search_provider_chats") as m_chat,
         patch("space.apps.context.lib.api.canon.search") as m_canon,
     ):
         m_mem.return_value = [
@@ -96,7 +96,7 @@ def test_collect_timeline_returns_last_10():
         patch("space.apps.context.lib.api.memory.search") as m_mem,
         patch("space.apps.context.lib.api.knowledge.search") as m_know,
         patch("space.apps.context.lib.api.bridge.search") as m_bridge,
-        patch("space.apps.context.lib.api.chats.search") as m_chat,
+        patch("space.apps.context.lib.api._search_provider_chats") as m_chat,
         patch("space.apps.context.lib.api.canon.search") as m_canon,
     ):
         m_mem.return_value = [
@@ -127,7 +127,7 @@ def test_collect_current_state_all_sources():
         patch("space.apps.context.lib.api.memory.search") as m_mem,
         patch("space.apps.context.lib.api.knowledge.search") as m_know,
         patch("space.apps.context.lib.api.bridge.search") as m_bridge,
-        patch("space.apps.context.lib.api.chats.search") as m_chat,
+        patch("space.apps.context.lib.api._search_provider_chats") as m_chat,
         patch("space.apps.context.lib.api.canon.search") as m_canon,
     ):
         m_mem.return_value = [
@@ -155,10 +155,10 @@ def test_collect_current_state_all_sources():
         assert "memory" in result
         assert "knowledge" in result
         assert "bridge" in result
-        assert "chats" in result
+        assert "provider_chats" in result
         assert "canon" in result
         assert len(result["memory"]) == 1
         assert len(result["knowledge"]) == 1
         assert len(result["bridge"]) == 1
-        assert len(result["chats"]) == 1
+        assert len(result["provider_chats"]) == 1
         assert len(result["canon"]) == 1

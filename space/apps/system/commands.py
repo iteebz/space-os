@@ -10,7 +10,6 @@ from pathlib import Path
 
 import typer
 
-from space.apps import chats
 from space.lib import paths, store
 from space.os import spawn
 
@@ -312,11 +311,8 @@ def init():
         (chats_dir / cli).mkdir(exist_ok=True)
 
     spawn.db.register()
-    chats.db.register()
 
     with spawn.db.connect():
-        pass
-    with chats.db.connect():
         pass
     with store.ensure("bridge"):
         pass

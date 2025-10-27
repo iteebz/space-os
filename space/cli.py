@@ -1,9 +1,8 @@
 import typer
 
-from space.apps.chats import app as chats
+from space.apps import daemons
 from space.apps.context.commands import context
 from space.apps.council.commands import council
-from space.apps import daemons
 from space.apps.stats.commands import stats
 from space.apps.system.commands import system
 from space.lib import readme
@@ -20,7 +19,6 @@ app.add_typer(bridge.app, name="bridge")
 app.add_typer(spawn_commands.app, name="spawn")
 app.add_typer(memory.app, name="memory")
 app.add_typer(knowledge.app, name="knowledge")
-app.add_typer(chats, name="chats")
 
 app.add_typer(context, name="context")
 app.add_typer(council, name="council")

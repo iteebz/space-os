@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from space import config
-from space.apps import chats
 from space.lib import paths, store
 from space.os import bridge, knowledge, memory, spawn
 
@@ -30,7 +29,6 @@ def _seed_dbs(tmp_path_factory):
 
 @pytest.fixture
 def test_space(monkeypatch, tmp_path, _seed_dbs):
-    monkeypatch.setattr(chats, "sync", lambda identity=None, session_id=None: 0)
     config.load_config.cache_clear()
     store.close_all()
     spawn.api.agents._clear_cache()
@@ -47,13 +45,11 @@ def test_space(monkeypatch, tmp_path, _seed_dbs):
     monkeypatch.setattr(paths, "space_data", lambda base_path=None: workspace / ".space")
 
     spawn.db._initialized = False
-    chats.db._initialized = False
     memory.db._initialized = False
     knowledge.db._initialized = False
     bridge.db._initialized = False
 
     spawn.db.register()
-    chats.db.register()
     memory.db.register()
     knowledge.db.register()
     bridge.db.register()

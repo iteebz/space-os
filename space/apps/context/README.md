@@ -1,7 +1,7 @@
 # CONTEXT: Unified search across all subsystems.
 
 **What it does:**
-Search memory, knowledge, bridge, and events simultaneously. Track concept evolution over time. Surface current state + historical context.
+Search memory, knowledge, bridge, provider chats, and canon simultaneously. Track concept evolution over time. Surface current state + historical context.
 
 **Quick start:**
 ```
@@ -11,7 +11,7 @@ context --json "query"
 ```
 
 **Why it exists:**
-Information lives in 4 places: memory (private working state), knowledge (shared truth), bridge (ephemeral coordination), events (system telemetry). Searching each separately is ceremony. Context unifies.
+Information lives in 5 places: memory (private working state), knowledge (shared truth), bridge (ephemeral coordination), provider chats (chat history from Claude/Codex/Gemini), canon (architectural documentation). Searching each separately is ceremony. Context unifies.
 
 **Search scope:**
 - `context "query"` — all agents, all subsystems
@@ -28,6 +28,7 @@ Information lives in 4 places: memory (private working state), knowledge (shared
 memory: N entries matching
 knowledge: N entries matching  
 bridge: N messages matching
+provider_chats: N messages matching
 
 ## LATTICE DOCS
 ### Relevant README sections
@@ -37,7 +38,8 @@ bridge: N messages matching
 - Memory: message + topic fields
 - Knowledge: content + domain fields  
 - Bridge: message content + channel names
-- Events: data field (filters noise like message_received)
+- Provider chats: parsed messages from Claude, Codex, and Gemini chat logs
+- Canon: documentation content
 
 **Timeline deduplication:**
 Same content from same agent counted once. Sorted chronologically, last 10 shown.

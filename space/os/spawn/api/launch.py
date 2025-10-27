@@ -25,10 +25,6 @@ def launch_agent(identity: str, extra_args: list[str] | None = None):
         identity: Agent identity from registry
         extra_args: Additional CLI arguments forwarded to provider
     """
-    from space.apps import chats
-
-    chats.db.register()
-
     agent = agents.get_agent(identity)
     if not agent:
         raise ValueError(f"Agent '{identity}' not found in registry")
