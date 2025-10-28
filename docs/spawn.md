@@ -106,7 +106,7 @@ Bridge receives: @hailot "task"
 └─ Bridge:
    ├─ Export full channel context
    ├─ Build prompt: constitution + wake + context + task
-   ├─ Create task record (status=pending) in bridge.db
+   ├─ Create task record (status=pending) in space.db
    ├─ Call: spawn hailot prompt --context <pre-built>
    ├─ Capture output
    ├─ Update task record (status=completed|failed, output)

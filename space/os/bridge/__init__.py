@@ -12,12 +12,10 @@ from .api import (
 )
 from .cli import app
 from .ops import (
-    add_note,
     archive_channel,
     create_channel,
     delete_channel,
     fetch_inbox,
-    get_notes,
     list_channels,
     pin_channel,
     recv_messages,
@@ -34,7 +32,6 @@ __all__ = [
     "app",
     "db",
     "ops",
-    "add_note",
     "archive_channel",
     "create_channel",
     "delete_channel",
@@ -42,7 +39,6 @@ __all__ = [
     "fetch_inbox",
     "get_channel",
     "get_messages",
-    "get_notes",
     "get_sender_history",
     "list_channels",
     "pin_channel",

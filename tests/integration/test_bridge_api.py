@@ -157,36 +157,3 @@ def test_recv_summary_latest(test_space, default_agents):
     messages, count, _, _ = bridge.recv_messages(channel_id, agent_identity)
     assert len(messages) == 0
     assert count == 0
-
-
-def test_note_convert_identity(test_space, default_agents):
-    channel_id = bridge.create_channel("note-test-channel")
-    identity = default_agents["zealot"]
-    agent = spawn.get_agent(identity)
-    assert agent is not None
-    agent_id = agent.agent_id
-
-    bridge.add_note(channel_id, identity, "test note content")
-
-    notes = bridge.get_notes(channel_id)
-    assert len(notes) == 1
-    assert notes[0].agent_id == agent_id
-    assert notes[0].content == "test note content"
-
-
-def test_notes_return_agent_id(test_space, default_agents):
-    channel_id = bridge.create_channel("note-uuid-test")
-    identity = default_agents["zealot"]
-    agent = spawn.get_agent(identity)
-    assert agent is not None
-    agent_id = agent.agent_id
-
-    bridge.add_note(channel_id, identity, "note content")
-
-    notes = bridge.get_notes(channel_id)
-    assert len(notes) == 1
-
-    assert hasattr(notes[0], "agent_id")
-    assert notes[0].agent_id == agent_id
-    assert isinstance(notes[0].agent_id, str)
-    assert len(notes[0].agent_id) == 36

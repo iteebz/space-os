@@ -29,7 +29,6 @@ def test_bridge_stats_returns_bridge_stats_object(mock_apis):
     mock_apis["bridge"].api.stats.return_value = {
         "messages": {"total": 100, "active": 80, "archived": 20, "by_agent": []},
         "channels": {"total": 10, "active": 8, "archived": 2},
-        "notes": 5,
         "events": {"total": 0, "by_agent": []},
     }
     mock_apis["spawn"].api.agent_identities.return_value = {}
@@ -131,7 +130,6 @@ def test_collect_returns_space_stats(mock_apis):
     mock_apis["bridge"].api.stats.return_value = {
         "messages": {"total": 100, "active": 80, "archived": 20, "by_agent": []},
         "channels": {"total": 10, "active": 8, "archived": 2},
-        "notes": 5,
         "events": {"total": 0, "by_agent": []},
     }
     mock_apis["memory"].api.stats.return_value = {

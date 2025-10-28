@@ -65,7 +65,7 @@ def sleep_callback(
             typer.echo(f"No active session for {identity}")
         return
 
-    memory_count = len(memory.db.get_memories(identity))
+    memory_count = len(memory.list_entries(identity, show_all=True))
 
     if not quiet:
         typer.echo(f"💀 Sleeping {identity}")
@@ -74,7 +74,7 @@ def sleep_callback(
         typer.echo(f"🧠 {memory_count} memories persisted")
 
         # Retrieve and display last session journal
-        journals = memory.db.get_memories(identity, topic="journal", limit=1)
+        journals = memory.list_entries(identity, topic="journal", limit=1)
         typer.echo()
         typer.echo("Your last journal:")
         if journals:

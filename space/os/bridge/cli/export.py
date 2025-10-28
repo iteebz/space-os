@@ -1,4 +1,4 @@
-"""Export channel messages and notes."""
+"""Export channel messages."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ def register(app: typer.Typer) -> None:
         ctx: typer.Context,
         channel: str = typer.Argument(..., help="Channel name or ID"),
     ):
-        """Export channel messages and notes as markdown."""
+        """Export channel messages as markdown."""
         try:
             export_data = api.export_channel(channel)
 
@@ -36,15 +36,6 @@ def register(app: typer.Typer) -> None:
                         }
                         for msg in export_data.messages
                     ],
-                    "notes": [
-                        {
-                            "note_id": note.note_id,
-                            "agent_id": note.agent_id,
-                            "content": note.content,
-                            "created_at": note.created_at,
-                        }
-                        for note in export_data.notes
-                    ],
                 },
                 ctx,
             ):
@@ -58,12 +49,6 @@ def register(app: typer.Typer) -> None:
             for msg in export_data.messages:
                 echo_if_output(f"\n**{msg.agent_id}** ({msg.created_at}):", ctx)
                 echo_if_output(msg.content, ctx)
-
-            if export_data.notes:
-                echo_if_output(f"\n## Notes ({len(export_data.notes)})", ctx)
-                for note in export_data.notes:
-                    echo_if_output(f"\n**{note.agent_id}** ({note.created_at}):", ctx)
-                    echo_if_output(note.content, ctx)
 
         except Exception as e:
             output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(

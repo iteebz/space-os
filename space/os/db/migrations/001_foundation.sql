@@ -44,16 +44,6 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     FOREIGN KEY (last_seen_id) REFERENCES messages(message_id) ON DELETE SET NULL
 );
 
-CREATE TABLE IF NOT EXISTS notes (
-    note_id TEXT PRIMARY KEY,
-    channel_id TEXT NOT NULL,
-    agent_id TEXT NOT NULL,
-    content TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%f', 'now')),
-    FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE,
-    FOREIGN KEY (agent_id) REFERENCES agents(agent_id) ON DELETE CASCADE
-);
-
 CREATE TABLE IF NOT EXISTS tasks (
     task_id TEXT PRIMARY KEY,
     agent_id TEXT NOT NULL,
@@ -125,8 +115,6 @@ CREATE TABLE IF NOT EXISTS knowledge (
 
 CREATE INDEX IF NOT EXISTS idx_messages_channel_created ON messages(channel_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id);
-
-CREATE INDEX IF NOT EXISTS idx_notes_channel_time ON notes(channel_id, created_at);
 
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_agent ON tasks(agent_id);

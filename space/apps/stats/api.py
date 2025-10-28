@@ -49,7 +49,6 @@ def bridge_stats(limit: int = None) -> BridgeStats:
             channels=channels_data.get("total", 0),
             active_channels=channels_data.get("active", 0),
             archived_channels=channels_data.get("archived", 0),
-            notes=stats_data.get("notes", 0),
             message_leaderboard=msg_leaderboard,
         )
     except Exception as exc:

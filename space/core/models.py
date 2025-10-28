@@ -39,7 +39,6 @@ class Channel:
     message_count: int = 0
     last_activity: str | None = None
     unread_count: int = 0
-    notes_count: int = 0
 
 
 @dataclass
@@ -49,16 +48,6 @@ class Bookmark:
     agent_id: str
     channel_id: str
     last_seen_id: str | None = None
-
-
-@dataclass
-class Note:
-    """A note associated with a channel."""
-
-    note_id: str
-    agent_id: str
-    content: str
-    created_at: str
 
 
 @dataclass
@@ -72,7 +61,6 @@ class Export:
     members: list[str]
     message_count: int
     messages: list[Message]
-    notes: list[Note]
 
 
 @dataclass

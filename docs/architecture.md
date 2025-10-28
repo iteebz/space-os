@@ -4,7 +4,7 @@ High-level design of space-os primitives and data flows.
 
 ## System Overview
 
-**Five primitives, five databases, zero orchestration.**
+**Five primitives, single database, zero orchestration.**
 
 Agents coordinate asynchronously through message passing (bridge), maintain private working context (memory), build shared discoveries (knowledge), and search across all subsystems (context). Constitutional identity (spawn) provides agent registry with immutable provenance via events.
 
@@ -15,7 +15,7 @@ Agents coordinate asynchronously through message passing (bridge), maintain priv
 ```
 space/
 ├── spawn/          # agent registry + constitutional identity + task tracking
-├── bridge/         # async messaging (channels, messages, notes, bookmarks)
+├── bridge/         # async messaging (channels, messages, bookmarks)
 ├── memory/         # private agent context (topic-sharded, soft-deleted)
 ├── knowledge/      # shared discoveries (domain-indexed, multi-agent)
 ├── context/        # unified search (meta-layer, no storage)
@@ -27,45 +27,36 @@ space/
 
 ## Primitive Overview
 
-### spawn.db
-**Agent registry with constitutional identity.**
+### Agents (spawn domain)
+**Agent registry with constitutional identity, stored in `space.db`.**
 - Tracks agent instances, names, and constitutional hashes
 - Enforces name uniqueness (one identity per name per workspace)
 - Stores content-addressed constitutions (immutable, hash-verified)
 - Provenance: identity → constitution mapping + spawn counter
 
-### bridge.db
+### Bridge
 **Async coordination channels with unread tracking.**
 - Channels (named, archived, pinned)
 - Messages (append-only, no deletes, priority-tagged)
 - Bookmarks (per-agent-per-channel read position)
-- Notes (agent reflections, don't appear in timeline)
 - Pattern: agents send → readers catch up → consensus emerges
 
-### memory.db
+### Memory
 **Private agent context with topic sharding and soft deletes.**
 - Memories (identity-scoped, topic-organized)
+- Namespace conventions (`#journal`, `#notes`, `#task`) express patterns without new primitives
 - Supersession chains (entry evolution tracking)
 - Core flag (architectural/identity-defining entries surface first)
 - Archive instead of delete (recovery possible)
 - No cross-agent visibility
 
-### knowledge.db
+### Knowledge
 **Shared domain knowledge indexed by contributor + domain.**
 - Knowledge entries (domain taxonomy emerges)
 - Contributor provenance (agent_id tracked)
 - Multi-agent writes (shared truth)
 - Archive instead of delete
 - Visible to all agents
-
-### events.db
-**Immutable append-only audit log.**
-- Event source (spawn, bridge, memory, knowledge, identity)
-- Agent ID (nullable for system events)
-- Event type (semantic: agent.create, message_sent, etc.)
-- Timestamp (UUID7 for chronological ordering)
-- Chat context (optional bridge channel reference)
-- Used for: provenance tracking, analytics, timeline reconstruction
 
 ## Data Flow Architecture
 
@@ -76,8 +67,6 @@ Bridge (ephemeral messages)
 Memory (working context, captured from bridge)
     ↓
 Knowledge (permanent discoveries, shared via domain)
-    ↓
-Events (immutable audit trail, all sources)
 ```
 
 ### Provenance Model
@@ -112,6 +101,4 @@ Later: events.query(agent_id=X) shows full audit trail
    - Fetch messages WHERE created_at > last_read
    - Update bookmark (last_read = now)
    - Emit event: source=bridge, event_type=message_read
-3. Agent A (later): `bridge.notes(channel_id, agent_id, "reflection")`
-   - Insert note (metadata, not in timeline)
-   - Emit event: source=bridge, event_type=note_created
+3. (Reflections now live under `memory#notes` namespaces instead of bridge.)

@@ -25,7 +25,7 @@ Commands available: `space`, `spawn`, `bridge`, `memory`, `knowledge`, `context`
 
 **Primitives (first-class commands):**
 - `memory` — private agent context (add, list, search, archive, edit)
-- `bridge` — async coordination channels (send, channels, inbox, notes)
+- `bridge` — async coordination channels (send, channels, inbox)
 - `knowledge` — shared discoveries (add, list, query by domain/agent)
 - `spawn` — constitutional identity registry (launch, list, registry)
 
@@ -55,14 +55,11 @@ bridge     — ephemeral coordination (conversation until consensus)
 spawn      — identity registry (constitutional provenance)
 ```
 
-**Storage:** `.space/` directory (workspace-local)
+**Storage:** `.space/` directory (workspace-local, single SQLite file)
 ```
 .space/
-├── spawn.db       # identity registry + constitution hashes
-├── bridge.db      # channels, messages, notes
-├── memory.db      # agent private context (topic-sharded)
-├── knowledge.db   # shared discoveries (domain-indexed)
-└── events.db      # system audit log
+├── space.db       # unified schema (agents, channels, messages, bookmarks, memories, knowledge, tasks, sessions, links)
+└── backups/…      # optional workspace snapshots
 ```
 
 **Design principles:**

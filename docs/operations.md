@@ -15,7 +15,6 @@ sleep --as zealot-1             # persist state before death
 ```bash
 bridge send research "proposal: stateless context assembly" --as zealot-1
 bridge recv research --as harbinger-1
-bridge notes research --as zealot-1
 ```
 
 **Context management:**
@@ -36,7 +35,7 @@ spawn list                          # show registered agents
 ```
 
 Constitutions: `space/core/spawn/constitutions/<role>.md`  
-Storage: `.space/spawn.db`
+Storage: `.space/space.db` (agents, sessions, tasks)
 
 ### bridge
 Async message bus. Agents coordinate via conversation until consensus emerges.
@@ -45,11 +44,10 @@ Async message bus. Agents coordinate via conversation until consensus emerges.
 bridge send <channel> "msg" --as <identity>
 bridge recv <channel> --as <identity>       # marks read
 bridge inbox --as <identity>                # all unreads
-bridge notes <channel> --as <identity>      # reflect on channel
 bridge export <channel>                     # full transcript
 ```
 
-Storage: `.space/bridge.db`
+Storage: `.space/space.db` (channels, messages, bookmarks)
 
 ### memory
 Private working context. Topic-sharded, identity-scoped.
@@ -63,7 +61,7 @@ memory search <keyword> --as <identity>
 memory inspect <id>                         # find related via keywords
 ```
 
-Storage: `.space/memory.db`
+Storage: `.space/space.db` (memories, links)
 
 ### knowledge
 Shared discoveries. Domain taxonomy emerges through use.
@@ -75,7 +73,7 @@ knowledge list
 knowledge export
 ```
 
-Storage: `.space/knowledge.db`
+Storage: `.space/space.db` (knowledge)
 
 ### context
 Unified search over memory, knowledge, bridge, events. Timeline + current state + lattice docs.
@@ -123,7 +121,6 @@ Each agent is stateless. All context is immutable in storage. Next agent sees ex
 - **Bridge** — Ephemeral coordination (conversations, proposals)
 - **Memory** — Working state (what you're doing, blockers, plans)
 - **Knowledge** — Permanent discoveries (shared truths)
-- **Events** — Immutable audit trail (who did what, when)
 
 Pattern: Bridge → Memory → Knowledge (information flows "down" as consensus solidifies)
 
@@ -172,12 +169,8 @@ After intense debugging session:
 space backup  # copies entire .space/ to ~/.space_backups/YYYYMMDD_HHMMSS/
 ```
 
-**Database locations:**
-- `.space/spawn.db` — agent registry, constitutions, tasks
-- `.space/bridge.db` — channels, messages, notes, bookmarks
-- `.space/memory.db` — agent memories (identity-scoped)
-- `.space/knowledge.db` — shared knowledge (multi-agent)
-- `.space/events.db` — audit log (all subsystems)
+**Database location:**
+- `.space/space.db` — unified schema (agents, channels, messages, bookmarks, memories, links, knowledge, tasks, sessions)
 
 **No migrations needed** — All schema changes via automatic registry-based migrations on first connection.
 
@@ -218,7 +211,7 @@ space health  # validate DB schemas, report mismatches
 
 ### Unread messages not clearing
 - Bookmark may be stale: `bridge recv <channel> --as <identity>` updates it
-- Or manually: check `bridge.db` bookmarks table
+- Or manually: inspect `space.db` bookmarks table
 
 ### Memory bloat
 - Archive old entries: `memory archive <id>`
@@ -231,15 +224,11 @@ space health  # validate DB schemas, report mismatches
 
 ## Performance Notes
 
-**Database sizes:**
-- spawn.db: ~1MB per 1000 agents
-- bridge.db: ~1MB per 10k messages
-- memory.db: ~1MB per 5000 entries (per agent)
-- knowledge.db: ~1MB per 5000 entries (shared)
-- events.db: ~1MB per 100k events
+**Database footprint:**
+- space.db: ~1MB per 10k bridge messages + 5k memory entries; under 5MB for typical workspaces
 
 **Query performance:**
-- Wake (7 queries): <100ms for <10k entries per DB
+- Wake (7 queries across spawn/memory tables): <100ms for <10k relevant rows
 - Context search (4-5 LIKE queries): <500ms
 - Bridge recv (bookmark lookup + message fetch): <10ms
 

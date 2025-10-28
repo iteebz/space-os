@@ -119,7 +119,6 @@ def test_list_channels_returns_list(mock_db):
             "archived_at": None,
             "message_count": 10,
             "last_activity": "2024-01-02",
-            "notes_count": 2,
             "unread_count": 0,
         }
     )
@@ -163,10 +162,8 @@ def test_export_channel_returns_export(mock_db):
         mock_get.return_value = mock_channel
         with patch("space.os.bridge.api.channels.messaging.get_messages") as mock_msgs:
             mock_msgs.return_value = []
-            with patch("space.os.bridge.api.channels.notes.get_notes") as mock_notes:
-                mock_notes.return_value = []
-                result = bridge.export_channel("ch-1")
-                assert result.channel_id == "ch-1"
+            result = bridge.export_channel("ch-1")
+            assert result.channel_id == "ch-1"
 
 
 def test_export_channel_missing_raises(mock_db):

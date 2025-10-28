@@ -25,19 +25,16 @@ from .messaging import (
     send_message,
     set_bookmark,
 )
-from .notes import add_note, get_notes
 from .search import search
 from .stats import stats
 
 __all__ = [
-    "add_note",
     "archive_channel",
     "create_channel",
     "delete_channel",
     "export_channel",
     "get_channel",
     "get_messages",
-    "get_notes",
     "get_sender_history",
     "fetch_inbox",
     "list_channels",

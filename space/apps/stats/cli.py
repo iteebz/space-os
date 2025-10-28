@@ -28,7 +28,7 @@ overview"""
 
     if s.bridge.available:
         lines.append(
-            f"  bridge · {s.bridge.active_channels} active · {s.bridge.archived_channels} archived · {s.bridge.active} msgs ({s.bridge.archived} archived) · {s.bridge.notes} notes"
+            f"  bridge · {s.bridge.active_channels} active · {s.bridge.archived_channels} archived · {s.bridge.active} msgs ({s.bridge.archived} archived)"
         )
 
     if s.memory.available and s.memory.total > 0:
@@ -151,18 +151,15 @@ def bridge():
     archived = s.bridge.archived
     channels = s.bridge.active_channels
     archived_channels = s.bridge.archived_channels
-    notes = s.bridge.notes
 
     if total == 0:
         lines.append("  no messages yet")
     else:
         retention_rate = (active / total * 100) if total > 0 else 0
         avg_per_channel = active / channels if channels > 0 else 0
-        note_rate = (notes / active * 100) if active > 0 else 0
 
         lines.append(f"  messages · {active} active · {archived} archived")
         lines.append(f"  channels · {channels} active · {archived_channels} archived")
-        lines.append(f"  notes · {notes} ({note_rate:.1f}% coverage)")
         lines.append(f"  retention · {retention_rate:.1f}%")
         lines.append(f"  density · {avg_per_channel:.1f} msgs/channel")
 

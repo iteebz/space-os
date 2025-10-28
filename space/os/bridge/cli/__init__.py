@@ -36,7 +36,6 @@ _commands = [
     "delete",
     "export",
     "inbox",
-    "note",
     "pin",
     "recv",
     "rename",

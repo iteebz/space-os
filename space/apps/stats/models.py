@@ -32,7 +32,6 @@ class BridgeStats:
     channels: int = 0
     active_channels: int = 0
     archived_channels: int = 0
-    notes: int = 0
     message_leaderboard: list[LeaderboardEntry] | None = None
 
 

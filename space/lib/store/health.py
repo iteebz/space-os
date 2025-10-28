@@ -12,7 +12,7 @@ def check_backup_has_data(backup_path: Path, db_name: str, min_rows: int = 1) ->
 
     Args:
             backup_path: Path to backup directory
-            db_name: Database filename (e.g., 'memory.db')
+            db_name: Database filename (e.g., 'space.db')
             min_rows: Minimum expected rows (excluding schema tables)
 
     Returns:

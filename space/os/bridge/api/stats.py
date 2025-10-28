@@ -1,10 +1,10 @@
-"""Bridge stats aggregation: messages, channels, notes, and events."""
+"""Bridge stats aggregation: messages, channels, and events."""
 
 from space.lib import store
 
 
 def stats() -> dict:
-    """Get bridge statistics: messages, channels, notes, and events by agent."""
+    """Get bridge statistics: messages, channels, and events by agent."""
     with store.ensure("bridge") as conn:
         total_msgs = conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
         archived_msgs = conn.execute(
@@ -21,8 +21,6 @@ def stats() -> dict:
         distinct_channels = conn.execute(
             "SELECT COUNT(DISTINCT channel_id) FROM messages WHERE channel_id IS NOT NULL"
         ).fetchone()[0]
-
-        total_notes = conn.execute("SELECT COUNT(*) FROM notes").fetchone()[0]
 
         msg_by_agent = conn.execute(
             "SELECT agent_id, COUNT(*) as count FROM messages GROUP BY agent_id ORDER BY count DESC"
@@ -73,7 +71,6 @@ def stats() -> dict:
             "active": active_channels,
             "archived": archived_channels,
         },
-        "notes": total_notes,
         "events": {
             "total": total_events,
             "by_agent": events_by_agent,

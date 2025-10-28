@@ -18,9 +18,6 @@ def format_channel_row(channel) -> tuple[str, str]:
         parts.append(f"{channel.message_count} msgs")
     if channel.members:
         parts.append(f"{len(channel.members)} members")
-    if channel.notes_count:
-        parts.append(f"{channel.notes_count} notes")
-
     meta_str = " | ".join(parts)
     channel_id_suffix = channel.channel_id[-8:] if channel.channel_id else ""
 

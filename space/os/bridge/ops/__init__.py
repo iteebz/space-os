@@ -20,15 +20,12 @@ from .messages import (
     send_message,
     wait_for_message,
 )
-from .notes import add_note, get_notes
 
 __all__ = [
-    "add_note",
     "archive_channel",
     "create_channel",
     "delete_channel",
     "fetch_inbox",
-    "get_notes",
     "list_channels",
     "pin_channel",
     "recv_messages",

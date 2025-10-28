@@ -1,72 +1,47 @@
 import contextlib
 import gc
-import shutil
 import sqlite3
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from space.lib import paths, store
 from space.os import bridge, knowledge, memory, spawn
+from space.os import db as unified_db
 from space.os.spawn import defaults as spawn_defaults
 
 
-@pytest.fixture(scope="session")
-def _seed_dbs(tmp_path_factory):
-    seed_dir = tmp_path_factory.mktemp("seed_dbs")
+def _configure_paths(monkeypatch: pytest.MonkeyPatch, workspace: Path) -> None:
+    data_dir = workspace / ".space" / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
 
-    spawn.db.register()
-    with spawn.db.connect():
-        pass
+    monkeypatch.setattr(paths, "space_root", lambda: workspace)
+    monkeypatch.setattr(paths, "dot_space", lambda: workspace / ".space")
+    monkeypatch.setattr(paths, "space_data", lambda: data_dir)
 
-    for db_module, _db_name in [
-        (memory.db, "memory.db"),
-        (knowledge.db, "knowledge.db"),
-        (bridge.db, "bridge.db"),
-    ]:
-        store.ensure(db_module.__name__.split(".")[-2])
 
-    return seed_dir
+def _reset_runtime_state() -> None:
+    store._reset_for_testing()
+    spawn.api.agents._clear_cache()
+    unified_db._initialized = False  # type: ignore[attr-defined]
+    for module in (spawn.db, memory.db, knowledge.db, bridge.db):
+        if hasattr(module, "_initialized"):
+            setattr(module, "_initialized", False)
 
 
 @pytest.fixture
-def test_space(monkeypatch, tmp_path, _seed_dbs):
-    store.close_all()
-    spawn.api.agents._clear_cache()
+def test_space(monkeypatch, tmp_path):
+    _reset_runtime_state()
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     (workspace / "AGENTS.md").write_text("test workspace")
 
-    def paths_override(base_path=None):
-        return workspace
-
-    monkeypatch.setattr(paths, "space_root", paths_override)
-    monkeypatch.setattr(paths, "dot_space", lambda base_path=None: workspace / ".space")
-    monkeypatch.setattr(paths, "space_data", lambda base_path=None: workspace / ".space")
-
-    spawn.db._initialized = False
-    memory.db._initialized = False
-    knowledge.db._initialized = False
-    bridge.db._initialized = False
-
-    spawn.db.register()
-    memory.db.register()
-    knowledge.db.register()
-    bridge.db.register()
-
-    for subdir in ["", "bridge", "knowledge"]:
-        (workspace / ".space" / subdir).mkdir(parents=True, exist_ok=True)
-
-    for db_name in ["spawn.db", "memory.db", "knowledge.db", "bridge.db"]:
-        src = _seed_dbs / db_name
-        dst = workspace / ".space" / db_name
-        if src.exists():
-            shutil.copy2(src, dst)
-            for suffix in ["-wal", "-shm"]:
-                wal = src.parent / f"{src.name}{suffix}"
-                if wal.exists():
-                    shutil.copy2(wal, workspace / ".space" / wal.name)
+    _configure_paths(monkeypatch, workspace)
+    unified_db.register()
+    with unified_db.connect():
+        pass
 
     yield workspace
 

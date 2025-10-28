@@ -37,10 +37,10 @@ CREATE TABLE tasks (
     pid INTEGER,
     started_at TEXT,
     completed_at TEXT,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%f', 'now'))
 );
 
--- bridge (channels, messages, notes, bookmarks)
+-- bridge (channels, messages, bookmarks)
 CREATE TABLE channels (
     channel_id TEXT PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
@@ -65,18 +65,9 @@ CREATE TABLE bookmarks (
     PRIMARY KEY (agent_id, channel_id)
 );
 
-CREATE TABLE notes (
-    note_id TEXT PRIMARY KEY,
-    channel_id TEXT NOT NULL REFERENCES channels(channel_id) ON DELETE CASCADE,
-    agent_id TEXT NOT NULL REFERENCES agents(agent_id) ON DELETE CASCADE,
-    content TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%f', 'now'))
-);
-
 -- essential indexes
-CREATE INDEX idx_messages_channel_time ON messages(channel_id, created_at);
+CREATE INDEX idx_messages_channel_created ON messages(channel_id, created_at);
 CREATE INDEX idx_messages_agent ON messages(agent_id);
-CREATE INDEX idx_notes_channel_time ON notes(channel_id, created_at);
 
 CREATE INDEX idx_tasks_status ON tasks(status);
 CREATE INDEX idx_tasks_agent ON tasks(agent_id);

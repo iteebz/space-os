@@ -7,7 +7,7 @@ from space.core.models import Channel, Export
 from space.lib import store
 from space.lib.store import from_row
 
-from . import messaging, notes
+from . import messaging
 
 
 def _row_to_channel(row: store.Row) -> Channel:
@@ -122,7 +122,6 @@ def delete_channel(name: str) -> None:
         channel_id = row["channel_id"]
         conn.execute("DELETE FROM bookmarks WHERE channel_id = ?", (channel_id,))
         conn.execute("DELETE FROM messages WHERE channel_id = ?", (channel_id,))
-        conn.execute("DELETE FROM notes WHERE channel_id = ?", (channel_id,))
         conn.execute("DELETE FROM channels WHERE channel_id = ?", (channel_id,))
 
 
@@ -145,7 +144,6 @@ def list_channels(all: bool = False, agent_id: str | None = None) -> list[Channe
                     c.archived_at,
                     COUNT(m.message_id) as message_count,
                     MAX(m.created_at) as last_activity,
-                    COUNT(n.note_id) as notes_count,
                     SUM(CASE
                         WHEN ls.channel_id IS NULL THEN 1
                         WHEN m.created_at > ls.created_at OR (m.created_at = ls.created_at AND m.rowid > ls.rowid) THEN 1
@@ -154,7 +152,6 @@ def list_channels(all: bool = False, agent_id: str | None = None) -> list[Channe
                 FROM channels c
                 LEFT JOIN messages m ON c.channel_id = m.channel_id
                 LEFT JOIN last_seen ls ON c.channel_id = ls.channel_id
-                LEFT JOIN notes n ON c.channel_id = n.channel_id
                 WHERE c.archived_at IS NULL
                 GROUP BY c.channel_id
                 HAVING unread_count > 0
@@ -173,11 +170,9 @@ def list_channels(all: bool = False, agent_id: str | None = None) -> list[Channe
                     c.archived_at,
                     COUNT(m.message_id) as message_count,
                     MAX(m.created_at) as last_activity,
-                    COUNT(n.note_id) as notes_count,
                     0 as unread_count
                 FROM channels c
                 LEFT JOIN messages m ON c.channel_id = m.channel_id
-                LEFT JOIN notes n ON c.channel_id = n.channel_id
                 WHERE 1=1 {archived_clause}
                 GROUP BY c.channel_id
                 ORDER BY COALESCE(MAX(m.created_at), c.created_at) DESC
@@ -204,7 +199,6 @@ def fetch_inbox(agent_id: str) -> list[Channel]:
                 c.archived_at,
                 COUNT(m.message_id) as message_count,
                 MAX(m.created_at) as last_activity,
-                COUNT(n.note_id) as notes_count,
                 SUM(CASE
                     WHEN ls.channel_id IS NULL THEN 1
                     WHEN m.created_at > ls.created_at OR (m.created_at = ls.created_at AND m.rowid > ls.rowid) THEN 1
@@ -213,7 +207,6 @@ def fetch_inbox(agent_id: str) -> list[Channel]:
             FROM channels c
             LEFT JOIN messages m ON c.channel_id = m.channel_id
             LEFT JOIN last_seen ls ON c.channel_id = ls.channel_id
-            LEFT JOIN notes n ON c.channel_id = n.channel_id
             WHERE c.archived_at IS NULL
             GROUP BY c.channel_id
             HAVING unread_count > 0
@@ -246,15 +239,13 @@ def get_channel(channel: str | Channel) -> Channel | None:
 
 
 def export_channel(channel: str | Channel) -> Export:
-    """Get complete channel export with messages and notes."""
+    """Get complete channel export with messages."""
     channel_id = _to_channel_id(channel)
     channel = get_channel(channel_id)
     if not channel:
         raise ValueError(f"Channel {channel_id} not found")
 
     messages = messaging.get_messages(channel_id)
-    notes_list = notes.get_notes(channel_id)
-
     created_at = None
     if messages:
         created_at = messages[0].created_at
@@ -267,5 +258,4 @@ def export_channel(channel: str | Channel) -> Export:
         members=channel.members,
         message_count=len(messages),
         messages=messages,
-        notes=notes_list,
     )
