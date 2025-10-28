@@ -1,12 +1,11 @@
 """Bridge search: unified query interface."""
 
 from space.lib import store
+from space.os import spawn
 
 
 def search(query: str, identity: str | None, all_agents: bool) -> list[dict]:
     """Search bridge messages by query, optionally filtering by agent, returning structured results with references."""
-    from space.os import spawn
-
     results = []
 
     with store.ensure("bridge") as conn:

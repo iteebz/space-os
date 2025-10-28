@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import sqlite3
 
@@ -5,123 +7,80 @@ from space.lib import paths, store
 
 logger = logging.getLogger(__name__)
 
-REGISTRY_MAP = {
-    "spawn.db": "spawn",
-    "bridge.db": "bridge",
-    "memory.db": "memory",
-    "knowledge.db": "knowledge",
+DB_NAME = "space.db"
+REGISTRY = "space"
+EXPECTED_TABLES = {
+    "agents",
+    "sessions",
+    "tasks",
+    "channels",
+    "messages",
+    "bookmarks",
+    "notes",
+    "memories",
+    "links",
+    "knowledge",
 }
-
-ORPHAN_CHECKS = [
-    ("spawn.db", "tasks", "agent_id", "agents", "agent_id"),
-    ("bridge.db", "messages", "channel_id", "channels", "channel_id"),
-    ("bridge.db", "notes", "channel_id", "channels", "channel_id"),
-    ("bridge.db", "bookmarks", "channel_id", "channels", "channel_id"),
-    ("memory.db", "memories", "agent_id", None, None),
-    ("knowledge.db", "agent_id", "knowledge", None, None),
-]
-
-DB_DEFINITIONS = {
-    "spawn.db": ["constitutions", "agents", "tasks"],
-    "bridge.db": ["channels", "messages", "notes", "bookmarks"],
-    "memory.db": ["memories", "links"],
-    "knowledge.db": ["knowledge"],
-}
+IGNORED_TABLES = {"sqlite_sequence", "_migrations"}
 
 
-def check_orphans() -> list[str]:
-    """Check for orphaned references across DBs."""
+def _database_exists() -> bool:
+    return (paths.space_data() / DB_NAME).exists()
+
+
+def _check_foreign_keys(conn: sqlite3.Connection) -> list[str]:
+    """Run PRAGMA foreign_key_check and format issues."""
+    fk_rows = conn.execute("PRAGMA foreign_key_check").fetchall()
     issues = []
-
-    for src_db, src_table, src_col, ref_db, ref_col in ORPHAN_CHECKS:
-        db_path = paths.space_data() / src_db
-        if not db_path.exists():
-            continue
-        if ref_db and not (paths.space_data() / ref_db).exists():
-            continue
-
-        registry_name = REGISTRY_MAP.get(src_db)
-        if not registry_name:
-            continue
-
-        ref_table = ref_db.split(".")[0] if ref_db else None
-        if not ref_table:
-            continue
-
-        try:
-            with store.ensure(registry_name) as conn:
-                query = f"""
-                SELECT COUNT(*) FROM {src_table}
-                WHERE {src_col} IS NOT NULL
-                AND {src_col} NOT IN (SELECT {ref_col} FROM {ref_table} WHERE {ref_col} IS NOT NULL)
-                """
-                orphans = conn.execute(query).fetchone()[0]
-                if orphans > 0:
-                    issues.append(f"❌ {src_db}::{src_table}.{src_col}: {orphans} orphaned")
-        except sqlite3.Error as e:
-            issues.append(f"❌ {src_db}: orphan check failed: {e}")
-
+    for row in fk_rows:
+        table = row["table"]
+        rowid = row["rowid"]
+        parent = row["parent"]
+        issues.append(f"❌ {table} row {rowid} violates FK to {parent}")
     return issues
 
 
-def check_db(db_name: str, tables: list[str]) -> tuple[bool, list[str], dict]:
-    """Check single DB. Return (healthy, issues, counts)."""
-    issues = []
-    db_path = paths.space_data() / db_name
+def check_db() -> tuple[bool, list[str], dict[str, int]]:
+    """Validate schema integrity and return (healthy, issues, counts)."""
+    issues: list[str] = []
+    counts: dict[str, int] = {}
 
-    if not db_path.exists():
-        issues.append(f"❌ {db_name} missing")
-        return False, issues, {}
-
-    registry_name = REGISTRY_MAP.get(db_name)
-    if not registry_name:
-        issues.append(f"❌ {db_name}: unknown database")
-        return False, issues, {}
+    if not _database_exists():
+        issues.append(f"❌ {DB_NAME} missing")
+        return False, issues, counts
 
     try:
-        with store.ensure(registry_name) as conn:
-            actual = {
-                row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        with store.ensure(REGISTRY) as conn:
+            actual_tables = {
+                row[0]
+                for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
             }
-
-            missing = set(tables) - actual
-            ignored = {"_migrations", "sqlite_sequence", "instructions"}
-            extra = actual - set(tables) - ignored
+            missing = EXPECTED_TABLES - actual_tables
+            extra = actual_tables - EXPECTED_TABLES - IGNORED_TABLES
             if missing:
-                issues.append(f"❌ {db_name}: missing tables {missing}")
+                issues.append(f"❌ {DB_NAME}: missing tables {sorted(missing)}")
             if extra:
-                issues.append(f"⚠️  {db_name}: unexpected tables {extra}")
+                issues.append(f"⚠️  {DB_NAME}: unexpected tables {sorted(extra)}")
 
-            result = conn.execute("PRAGMA integrity_check").fetchone()[0]
-            if result != "ok":
-                issues.append(f"❌ {db_name}: corruption")
+            integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
+            if integrity != "ok":
+                issues.append(f"❌ {DB_NAME}: integrity_check={integrity}")
 
-            counts = {}
-            for tbl in tables:
-                if tbl in actual:
-                    count = conn.execute(f"SELECT COUNT(*) FROM {tbl}").fetchone()[0]
-                    counts[tbl] = count
+            fk_issues = _check_foreign_keys(conn)
+            issues.extend(fk_issues)
 
-            return not issues, issues, counts
-    except sqlite3.Error as e:
-        issues.append(f"❌ {db_name}: {e}")
-        return False, issues, {}
+            for table in sorted(EXPECTED_TABLES & actual_tables):
+                counts[table] = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+
+    except sqlite3.Error as exc:
+        issues.append(f"❌ {DB_NAME}: {exc}")
+        return False, issues, counts
+
+    return not issues, issues, counts
 
 
-def run_all_checks() -> tuple[list[str], dict]:
-    """Run all health checks and return issues and counts."""
-    all_issues = []
-    all_counts = {}
-
-    for db_name, tables in DB_DEFINITIONS.items():
-        ok, db_issues, counts = check_db(db_name, tables)
-        if not ok:
-            all_issues.extend(db_issues)
-        else:
-            all_counts[db_name] = counts
-
-    orphan_issues = check_orphans()
-    if orphan_issues:
-        all_issues.extend(orphan_issues)
-
-    return all_issues, all_counts
+def run_all_checks() -> tuple[list[str], dict[str, dict[str, int]]]:
+    """Run health checks for consumers expecting legacy signature."""
+    ok, issues, counts = check_db()
+    summaries = {DB_NAME: counts} if ok else {}
+    return issues, summaries

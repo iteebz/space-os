@@ -1,14 +1,19 @@
-from space.lib import migrations as migration_loader
 from space.lib import store
+from space.os import db as unified_db
 
-_initialized = False
+unified_db.register()
 
 
 def register() -> None:
-    global _initialized
-    if _initialized:
-        return
-    _initialized = True
+    """Legacy shim to maintain backward compatibility."""
+    unified_db.register()
 
-    store.register("knowledge", "knowledge.db")
-    store.add_migrations("knowledge", migration_loader.load_migrations("space.os.knowledge"))
+
+def connect():
+    """Return connection to unified database via knowledge alias."""
+    return store.ensure("knowledge")
+
+
+def path():
+    """Expose filesystem path for unified database."""
+    return unified_db.path()

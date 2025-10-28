@@ -1,11 +1,28 @@
 import json
-import time
 from datetime import datetime
 
 import typer
 
 from space.lib.format import format_duration
 from space.os import memory
+
+
+def _safe_datetime(value):
+    """Best-effort conversion to datetime from iso strings or epoch seconds."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value)
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            if value.endswith("Z"):
+                try:
+                    return datetime.fromisoformat(value[:-1] + "+00:00")
+                except ValueError:
+                    return None
+    return None
 
 
 def fmt_entry_header(entry, agent_identity: str = None) -> str:
@@ -45,7 +62,8 @@ def display_context(timeline, current_state, lattice_docs, canon_docs):
     if timeline:
         typer.echo("## EVOLUTION (last 10)\n")
         for entry in timeline:
-            ts = datetime.fromtimestamp(entry["timestamp"]).strftime("%Y-%m-%d %H:%M")
+            ts_dt = _safe_datetime(entry.get("timestamp"))
+            ts = ts_dt.strftime("%Y-%m-%d %H:%M") if ts_dt else str(entry.get("timestamp"))
             typ = entry["type"]
             identity_str = entry["identity"] or "system"
             data = entry["data"][:100] if entry["data"] else ""
@@ -123,8 +141,10 @@ def show_wake_summary(identity: str, quiet_output: bool, spawn_count: int):
         typer.echo(f"🔄 Spawn #{spawn_count}")
         if last_journal:
             last_sleep_ts = last_journal[0].created_at
-            format_duration(time.time() - last_sleep_ts)
-            # typer.echo(f"Last session {last_sleep_duration} ago")
+            last_sleep_dt = _safe_datetime(last_sleep_ts)
+            if last_sleep_dt:
+                last_sleep_duration = format_duration((datetime.now() - last_sleep_dt).total_seconds())
+                typer.echo(f"Last session {last_sleep_duration} ago")
 
         journals = memory.list_entries(identity, topic="journal")
         if journals:
@@ -149,7 +169,8 @@ def show_wake_summary(identity: str, quiet_output: bool, spawn_count: int):
         if non_journal:
             typer.echo("RECENT (7d):")
             for e in non_journal:
-                ts = datetime.fromtimestamp(e.created_at).strftime("%m-%d %H:%M")
+                ts_dt = _safe_datetime(e.created_at)
+                ts = ts_dt.strftime("%m-%d %H:%M") if ts_dt else str(e.created_at)
                 typer.echo(f"  [{ts}] {e.topic}: {e.message}")
             typer.echo()
 
@@ -162,7 +183,8 @@ def show_wake_summary(identity: str, quiet_output: bool, spawn_count: int):
                     channel_obj = bridge.get_channel(msg.channel_id)
                     channel_names[msg.channel_id] = channel_obj.name if channel_obj else None
                 channel = channel_names[msg.channel_id]
-                ts = datetime.strptime(msg.created_at, "%Y-%m-%d %H:%M:%S").strftime("%m-%d %H:%M")
+                ts_dt = _safe_datetime(msg.created_at)
+                ts = ts_dt.strftime("%m-%d %H:%M") if ts_dt else msg.created_at
                 first_line = msg.content.split("\n")[0]
                 preview = first_line[:50] + "..." if len(first_line) > 50 else first_line
                 typer.echo(f"  [{ts}] #{channel}: {preview}")

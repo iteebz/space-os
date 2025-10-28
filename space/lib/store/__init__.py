@@ -8,6 +8,7 @@ from space.lib.store.health import (
 )
 from space.lib.store.registry import (
     _reset_for_testing,
+    alias,
     add_migrations,
     close_all,
     register,
@@ -20,6 +21,7 @@ __all__ = [
     "from_row",
     "Row",
     "register",
+    "alias",
     "add_migrations",
     "registry",
     "_reset_for_testing",

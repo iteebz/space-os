@@ -48,7 +48,7 @@ class Bookmark:
 
     agent_id: str
     channel_id: str
-    last_seen_id: int = 0
+    last_seen_id: str | None = None
 
 
 @dataclass
@@ -82,8 +82,8 @@ class Memory:
     topic: str
     message: str
     timestamp: str
-    created_at: int
-    archived_at: int | None = None
+    created_at: str
+    archived_at: str | None = None
     core: bool = False
     source: str = "manual"
     bridge_channel: str | None = None
@@ -117,7 +117,7 @@ class Knowledge:
     content: str
     confidence: float | None
     created_at: str
-    archived_at: int | None = None
+    archived_at: str | None = None
 
 
 @dataclass
@@ -129,7 +129,7 @@ class Agent:
     model: str
     constitution: str | None = None
     description: str | None = None
-    archived_at: int | None = None
+    archived_at: str | None = None
     created_at: str | None = None
     last_active_at: str | None = None
 

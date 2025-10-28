@@ -1,6 +1,5 @@
 """Agent operations: CRUD, merging, caching."""
 
-import time
 import uuid
 from datetime import datetime
 from functools import lru_cache
@@ -23,7 +22,6 @@ def _validate_identity(identity: str) -> None:
 
 def _row_to_agent(row: store.Row) -> Agent:
     data = dict(row)
-    data["archived_at"] = int(data.get("archived_at", 0)) if data.get("archived_at") else None
     if "self_description" in data:
         data["description"] = data.pop("self_description")
     return from_row(data, Agent)
@@ -47,8 +45,6 @@ def _clear_cache():
 
 def touch_agent(agent_id: str) -> None:
     """Update last_active_at for an agent. Called after any agent operation."""
-    from datetime import datetime
-
     with db.connect() as conn:
         conn.execute(
             "UPDATE agents SET last_active_at = ? WHERE agent_id = ?",
@@ -185,7 +181,8 @@ def archive_agent(name: str) -> bool:
 
     with db.connect() as conn:
         conn.execute(
-            "UPDATE agents SET archived_at = ? WHERE agent_id = ?", (int(time.time()), agent_id)
+            "UPDATE agents SET archived_at = ? WHERE agent_id = ?",
+            (datetime.now().isoformat(), agent_id),
         )
     _clear_cache()
     return True
@@ -230,30 +227,14 @@ def merge_agents(from_name: str, to_name: str) -> bool:
     if from_id == to_id:
         return False
 
-    from space.lib import paths
-
-    events_db = paths.space_data() / "events.db"
-    memory_db = paths.space_data() / "memory.db"
-    knowledge_db = paths.space_data() / "knowledge.db"
-    bridge_db = paths.space_data() / "bridge.db"
-
-    if events_db.exists():
-        with store.ensure("events") as conn:
-            conn.execute("UPDATE events SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
-
-    if memory_db.exists():
-        with store.ensure("memory") as conn:
-            conn.execute("UPDATE memories SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
-
-    if knowledge_db.exists():
-        with store.ensure("knowledge") as conn:
-            conn.execute("UPDATE knowledge SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
-
-    if bridge_db.exists():
-        with store.ensure("bridge") as conn:
-            conn.execute("UPDATE messages SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
-
     with db.connect() as conn:
+        conn.execute("UPDATE messages SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
+        conn.execute("UPDATE notes SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
+        conn.execute("UPDATE bookmarks SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
+        conn.execute("UPDATE tasks SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
+        conn.execute("UPDATE sessions SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
+        conn.execute("UPDATE knowledge SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
+        conn.execute("UPDATE memories SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
         conn.execute("DELETE FROM agents WHERE agent_id = ?", (from_id,))
 
     _clear_cache()

@@ -6,7 +6,7 @@ Callers: commands.py only.
 
 from __future__ import annotations
 
-import time
+from datetime import datetime
 
 from space.core.models import Knowledge
 from space.lib import store
@@ -112,7 +112,7 @@ def find_related(
 
 def archive_entry(entry_id: str) -> None:
     """Archive a knowledge entry."""
-    now = int(time.time())
+    now = datetime.now().isoformat()
     with store.ensure("knowledge") as conn:
         conn.execute(
             "UPDATE knowledge SET archived_at = ? WHERE knowledge_id = ?",

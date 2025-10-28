@@ -1,6 +1,5 @@
-import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from space.core.models import Memory
 from space.lib import store
@@ -20,7 +19,7 @@ def add_entry(
     agent_id: str, topic: str, message: str, core: bool = False, source: str = "manual"
 ) -> str:
     memory_id = uuid7()
-    now = int(time.time())
+    now = datetime.now().isoformat()
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
     with store.ensure("memory") as conn:
         conn.execute(
@@ -58,7 +57,7 @@ def list_entries(
             query += " AND core = 1"
         elif filter and filter.startswith("recent:"):
             days = int(filter.split(":")[1])
-            cutoff = int(time.time()) - (days * 86400)
+            cutoff = (datetime.now() - timedelta(days=days)).isoformat()
             query += " AND created_at >= ?"
             params.append(cutoff)
 
@@ -102,7 +101,7 @@ def archive_entry(memory_id: str) -> None:
     entry = get_by_id(full_id)
     if not entry:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
-    now = int(time.time())
+    now = datetime.now().isoformat()
     with store.ensure("memory") as conn:
         conn.execute(
             "UPDATE memories SET archived_at = ? WHERE memory_id = ?",
@@ -200,7 +199,7 @@ def replace_entry(
 ) -> str:
     full_old_ids = [resolve_id("memory", "memory_id", old_id) for old_id in old_ids]
     new_id = uuid7()
-    now = int(time.time())
+    now = datetime.now().isoformat()
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     with store.ensure("memory") as conn:
@@ -293,7 +292,7 @@ def get_chain(memory_id: str) -> dict[str, Memory | list[Memory]]:
 
 def add_link(memory_id: str, parent_id: str, kind: str = "supersedes") -> str:
     link_id = str(uuid.uuid4())
-    now = int(time.time())
+    now = datetime.now().isoformat()
     with store.ensure("memory") as conn:
         conn.execute(
             "INSERT OR IGNORE INTO links (link_id, memory_id, parent_id, kind, created_at) VALUES (?, ?, ?, ?, ?)",

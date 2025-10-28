@@ -53,7 +53,8 @@ def spawn_prompt(identity: str, model: str | None = None) -> str:
         last_journal = memory.list_entries(identity, topic="journal", limit=1)
         if last_journal:
             entry = last_journal[0]
-            last_sleep_duration = format_duration(datetime.now().timestamp() - entry.created_at)
+            created_at = datetime.fromisoformat(entry.created_at)
+            last_sleep_duration = format_duration((datetime.now() - created_at).total_seconds())
             spawn_status = f"📝 Last session {last_sleep_duration} ago"
     except Exception:  # pragma: no cover - defensive for missing memory DB
         pass
@@ -102,7 +103,7 @@ def _build_agent_info_blocks(identity: str, agent, agent_id: str | None) -> str:
     if non_journal:
         parts.append("📋 **Recent work (7d):**")
         for entry in non_journal:
-            ts = datetime.fromtimestamp(entry.created_at).strftime("%m-%d %H:%M")
+            ts = datetime.fromisoformat(entry.created_at).strftime("%m-%d %H:%M")
             parts.append(f"  [{ts}] {entry.topic}: {entry.message[:100]}")
         parts.append("")
 

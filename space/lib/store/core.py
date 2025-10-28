@@ -6,6 +6,7 @@ from typing import Any, TypeVar
 
 from space.lib import paths
 from space.lib.store import migrations, registry
+from space.lib.store.sqlite import connect
 
 T = TypeVar("T")
 
@@ -39,8 +40,6 @@ def ensure(name: str) -> sqlite3.Connection:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     migs = registry.get_migrations(name)
     migrations.ensure_schema(db_path, migs)
-
-    from space.lib.store.sqlite import connect
 
     conn = connect(db_path)
     registry.set_connection(name, conn)
