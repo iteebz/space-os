@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from space.lib import migrations as migration_loader, paths, store
+from space.lib import migrations as migration_loader
+from space.lib import paths, store
 
 ALIASES = ("bridge", "memory", "knowledge", "spawn")
 _initialized = False

@@ -118,10 +118,12 @@ def test_tasks_list_empty(test_space, capsys):
 
 
 def test_tasks_list_shows_running(test_space, capsys, default_agents):
+    from space.os.bridge.api import channels as bridge_api
     from space.os.spawn.cli.tasks import list as list_tasks
 
+    channel = bridge_api.create_channel(name="test-ch-running")
     zealot_id = default_agents["zealot"]
-    t1 = spawn.create_task(role=zealot_id, input="task 1", channel_id="ch-1")
+    t1 = spawn.create_task(role=zealot_id, input="task 1", channel_id=channel.channel_id)
     spawn.start_task(t1)
 
     list_tasks(None, None)

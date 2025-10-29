@@ -65,7 +65,7 @@ def get_migrations(name: str) -> list[tuple[str, str | Callable]] | None:
 
 def registry() -> dict[str, str]:
     """Return registry of all registered databases (aliases included)."""
-    items = {name: db for name, db in _registry.items()}
+    items = dict(_registry.items())
     for alias_name, canonical_name in _aliases.items():
         items[alias_name] = _registry.get(canonical_name, "")
     return items

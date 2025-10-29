@@ -1,5 +1,7 @@
 """Unified concept retrieval: evolution + current state."""
 
+from typing import Annotated  # Added for typer.Argument and typer.Option
+
 import typer
 
 from space.apps.context import api
@@ -10,35 +12,37 @@ errors.install_error_handler("context")
 app = typer.Typer(invoke_without_command=True)
 
 
-@app.callback()
-def main_command(
+@app.command(name="")  # This makes it the default command when no subcommand is given
+def context_main_command(
     ctx: typer.Context,
-    query: str | None = typer.Argument(None, help="Query to retrieve context for"),
-    identity: str | None = typer.Option(None, "--as", help="Scope to identity (default: all)"),
-    all_agents: bool = typer.Option(False, "--all", help="Cross-agent perspective"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
-    help: bool = typer.Option(False, "--help", "-h", help="Show help"),
+    query: Annotated[str | None, typer.Argument(None, help="Query to retrieve context for")] = None,
+    all_agents: Annotated[
+        bool, typer.Option(False, "--all", help="Cross-agent perspective")
+    ] = False,
+    help: Annotated[bool, typer.Option(False, "--help", "-h", help="Show help")] = False,
 ):
     """Unified context retrieval: trace evolution + current state."""
-    output.set_flags(ctx, json_output, quiet_output)
-    if ctx.obj is None:
-        ctx.obj = {}
+    # The common options (identity, json_output, quiet_output) are now handled by add_common_options
+    # and are available in ctx.obj
 
     if help:
         typer.echo("context [query] --as <identity>: Retrieve concept evolution and current state.")
         ctx.exit()
 
-    if (ctx.resilient_parsing or ctx.invoked_subcommand is None) and not query:
+    # This check is now simpler as common options are handled by the callback
+    if (ctx.resilient_parsing or ctx.invoked_subcommand is not None) and not query:
         typer.echo("context [query] --as <identity>: Retrieve concept evolution and current state.")
         return
+
+    # Retrieve identity from ctx.obj
+    identity = ctx.obj.get("identity")
+    json_output = ctx.obj.get("json")
+    quiet_output = ctx.obj.get("quiet")
 
     timeline = api.collect_timeline(query, identity, all_agents)
     current_state = api.collect_current_state(query, identity, all_agents)
 
-    if ctx.obj.get("json_output"):
+    if json_output:
         typer.echo(
             output.out_json(
                 {
@@ -49,7 +53,7 @@ def main_command(
         )
         return
 
-    if ctx.obj.get("quiet_output"):
+    if quiet_output:
         return
 
     display.display_context(timeline, current_state)

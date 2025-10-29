@@ -1,152 +1,36 @@
-# Spawn: Constitutional Agent Launcher
+# Spawn Primitive
 
-Spawn is a **pure primitive** for launching constitutional agents. It owns identity registry and constitutional injection—nothing more.
+Constitutional identity registry for agents. Spawn manages agent lifecycle, constitutional provenance, and provides the human interface for interacting with agents.
 
-## Architecture
+## Key Characteristics
 
-### Spawn's Responsibility
-- Identity registry (agents table)
-- Constitutional storage (content-addressable by hash)
-- Agent launching (interactive or task mode)
-- Context injection via `--context` flag
+-   **Constitutional Identity:** Registers agents with unique identities and links them to immutable, content-addressed constitutions.
+-   **Agent Lifecycle Management:** Tracks agent instances, their roles, and associated models.
+-   **Human Interface:** Provides commands for registering, listing, and managing agents.
+-   **Provenance:** Ensures immutable provenance by mapping identities to constitutional hashes and tracking spawn counts.
+-   **Task Tracking:** Can be used for tracking tasks associated with agents.
 
-### What Spawn Does NOT Own
-- **Task lifecycle tracking** (belongs to Bridge)
-- **Channel coordination** (belongs to Bridge)
-- **Context building** (Bridge's job)
+## CLI Usage
 
-## Core Concepts
+The `spawn` command is used to register new agents, list existing ones, and manage their state.
 
-### Identity Registry
-```python
-from space.os import spawn
-
-# Register a new agent
-agent_id = spawn.register_agent("hailot", "hailot.md", "claude-haiku-4-5")
-
-# Get an existing agent
-agent = spawn.get_agent("hailot")
-constitution = agent.constitution
-```
-
-Agents table stores: `(id, name, self_description, created_at, archived_at)`
-
-### Constitutional Injection
-Constitutions are stored content-addressable (by hash). On launch, identity is injected:
-
-```
-# HAILOT CONSTITUTION
-Self: You are hailot. Your model is claude-haiku-4-5.
-
-[base constitution content]
-
-run `space` for orientation
-```
-
-### Agent Interface
-All agents (Claude, Gemini, Codex) follow the same contract:
-
-```python
-class Agent:
-    def __init__(self, identity: str):
-        self.identity = identity
-
-    def run(self, prompt: str | None) -> str:
-        # prompt=None → interactive (blocking stdin)
-        # prompt=str → one-shot task (return output)
-```
-
-## Usage
-
-### Interactive Mode
 ```bash
-spawn hailot
-```
-- Runs wake sequence (loads memories, channel state)
-- Blocks on stdin
-- Same interface across Claude, Gemini, Codex
+# Register a new agent with a specific role, identity, channel, and model
+spawn register zealot zealot-1 research --model claude-sonnet-4
 
-### Task Mode
-```bash
-spawn hailot "task description"
-```
-- Returns output immediately (no stdin)
-- Accepts `--context <prefix>` for pre-built context
-- Context is prepended to task: `context + "\n\n" + task`
-
-### With Channel Context
-```bash
-spawn hailot "task" --context "$(bridge export channel-name)"
-```
-- Bridge builds and exports full channel context
-- Spawn receives context as pre-built prefix
-- Agent processes: constitution + context + task
-
-### Direct Task (One-Shot)
-```bash
-spawn hailot "task" --as <base-agent> --model <model>
-```
-- Spawns specific agent (claude, gemini, codex)
-- Returns output, exits
-
-## Design Principles
-
-1. **Pure Primitive**: Spawn is minimal—identity + constitution + launch
-2. **No Lifecycle Tracking**: Tasks are Bridge's responsibility
-3. **No Channel Knowledge**: Spawn doesn't know about channels
-4. **Unified Agent Interface**: Claude/Gemini/Codex are interchangeable
-5. **Context Injection by Caller**: Bridge builds context, passes via `--context`
-
-## Task Execution Pattern
-
-Task execution is a **pattern using spawn**, not part of spawn itself:
-
-```
-Bridge receives: @hailot "task"
-└─ Bridge:
-   ├─ Export full channel context
-   ├─ Build prompt: constitution + wake + context + task
-   ├─ Create task record (status=pending) in space.db
-   ├─ Call: spawn hailot prompt --context <pre-built>
-   ├─ Capture output
-   ├─ Update task record (status=completed|failed, output)
-   └─ Send result to channel
-```
-
-Spawn's job: return agent output. Bridge's job: manage task lifecycle.
-
-## Debugging
-
-### Check Agent Identity
-```bash
+# List all registered agents
 spawn list
-spawn get <identity>
+
+# List archived agents
+spawn list --archived
+
+# Archive an agent (soft delete)
+spawn archive <identity>
+
+# Restore an archived agent
+spawn restore <identity>
 ```
 
-### Show Constitution
-```bash
-spawn <identity>
-```
-(interactive mode—exit with Ctrl-C)
+## Storage
 
-### Run Task (Show Output)
-```bash
-spawn <identity> "debug task" 2>&1
-```
-
-## Testing
-
-Tests verify:
-- Spawn registry has NO tasks table
-- Bridge owns tasks table (channel_id, identity, status, input, output, started_at, completed_at)
-- `--context` flag works
-- Full export for bridge spawns (no 10-msg limit)
-- Unified agent interface across all backends
-
-See `tests/unit/spawn/test_spawn_unification.py` for reference-grade TDD validation.
-
-## Related
-
-- [Bridge](bridge.md): Task coordination & lifecycle
-- [Agents](agents.md): Constitutional intelligence layer
-- [Constitutions](../space/os/constitutions): Identity definitions
+Agent registrations, constitutions, and session data are stored in the unified `.space/space.db` SQLite database.

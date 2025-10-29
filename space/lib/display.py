@@ -143,7 +143,9 @@ def show_wake_summary(identity: str, quiet_output: bool, spawn_count: int):
             last_sleep_ts = last_journal[0].created_at
             last_sleep_dt = _safe_datetime(last_sleep_ts)
             if last_sleep_dt:
-                last_sleep_duration = format_duration((datetime.now() - last_sleep_dt).total_seconds())
+                last_sleep_duration = format_duration(
+                    (datetime.now() - last_sleep_dt).total_seconds()
+                )
                 typer.echo(f"Last session {last_sleep_duration} ago")
 
         journals = memory.list_entries(identity, topic="journal")

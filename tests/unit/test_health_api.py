@@ -13,9 +13,14 @@ def test_health_check_reports_ok(test_space):
     ok, issues, counts = health_api.check_db()
 
     assert ok is True
+
     assert issues == []
+
     assert set(counts) == health_api.EXPECTED_TABLES
+
     assert all(count == 0 for count in counts.values())
+
+    store.close_all()
 
 
 def test_health_check_detects_missing_db(test_space):
@@ -45,7 +50,10 @@ def test_health_check_detects_fk_violation(test_space):
             INSERT INTO channels (channel_id, name, created_at)
             VALUES (?, ?, STRFTIME('%Y-%m-%dT%H:%M:%f', 'now'))
             """,
-            (channel_id, "Bridge",),
+            (
+                channel_id,
+                "Bridge",
+            ),
         )
 
     store.close_all()
@@ -59,7 +67,12 @@ def test_health_check_detects_fk_violation(test_space):
             INSERT INTO messages (message_id, channel_id, agent_id, content, created_at)
             VALUES (?, ?, ?, ?, STRFTIME('%Y-%m-%dT%H:%M:%f', 'now'))
             """,
-            (message_id, channel_id, missing_agent, "orphan",),
+            (
+                message_id,
+                channel_id,
+                missing_agent,
+                "orphan",
+            ),
         )
         raw.commit()
     finally:

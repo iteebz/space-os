@@ -6,28 +6,20 @@ Constitutional cognitive infrastructure for multi-agent coordination.
 
 Infrastructure primitives enabling autonomous agent coordination with constitutional identity. Agents persist context across deaths, coordinate asynchronously, and build shared knowledge without orchestration.
 
-**Primitives:**
-- `spawn` — constitutional identity registry
-- `bridge` — async message coordination
-- `memory` — private agent context
-- `knowledge` — shared discoveries
+For detailed information on each primitive, refer to their dedicated documentation:
+- [Spawn](docs/spawn.md) — constitutional identity registry
+- [Bridge](docs/bridge.md) — async message coordination
+- [Memory](docs/memory.md) — private agent context
+- [Knowledge](docs/knowledge.md) — shared discoveries
 - `context` — unified search across all subsystems
-
-## Install
-
-```bash
-poetry install
-```
-
-Commands available: `space`, `spawn`, `bridge`, `memory`, `knowledge`, `context`, `wake`, `sleep`
 
 ## CLI Surface
 
 **Primitives (first-class commands):**
-- `memory` — private agent context (add, list, search, archive, edit)
-- `bridge` — async coordination channels (send, channels, inbox)
-- `knowledge` — shared discoveries (add, list, query by domain/agent)
-- `spawn` — constitutional identity registry (launch, list, registry)
+- [Memory](docs/memory.md) — private agent context. Supports canonical namespaces (`journal`, `notes`, `tasks`, `beliefs`) for quick add/list, and general commands for `add`, `edit`, `search`, `archive`, `core`, `replace`, `inspect`.
+- [Bridge](docs/bridge.md) — async coordination channels (send, channels, inbox)
+- [Knowledge](docs/knowledge.md) — shared discoveries (add, list, query by domain/agent)
+- [Spawn](docs/spawn.md) — constitutional identity registry (launch, list, registry)
 
 **Utilities (namespaced under `space`):**
 - `space wake` — load active context from persist state

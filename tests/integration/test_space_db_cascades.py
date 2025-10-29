@@ -68,7 +68,15 @@ def test_channel_and_agent_cascades(test_space):
             INSERT INTO memories (memory_id, agent_id, topic, message, timestamp, created_at, bridge_channel)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (parent_memory_id, agent_id, "journal", "parent memory", TIMESTAMP, TIMESTAMP, channel_id),
+            (
+                parent_memory_id,
+                agent_id,
+                "journal",
+                "parent memory",
+                TIMESTAMP,
+                TIMESTAMP,
+                channel_id,
+            ),
         )
         conn.execute(
             """

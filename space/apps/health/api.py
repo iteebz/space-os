@@ -51,8 +51,7 @@ def check_db() -> tuple[bool, list[str], dict[str, int]]:
     try:
         with store.ensure(REGISTRY) as conn:
             actual_tables = {
-                row[0]
-                for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
             }
             missing = EXPECTED_TABLES - actual_tables
             extra = actual_tables - EXPECTED_TABLES - IGNORED_TABLES

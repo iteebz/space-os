@@ -1,57 +1,67 @@
 import contextlib
-import gc
-import sqlite3
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from space.lib import paths, store
-from space.os import bridge, knowledge, memory, spawn
+from space.os import bridge, spawn
 from space.os import db as unified_db
 from space.os.spawn import defaults as spawn_defaults
 
 
-def _configure_paths(monkeypatch: pytest.MonkeyPatch, workspace: Path) -> None:
-    data_dir = workspace / ".space" / "data"
+def _configure_paths(monkeypatch: pytest.MonkeyPatch, workspace: Path, test_name: str) -> None:
+    data_dir = workspace / test_name / ".space" / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
+
+    db_path = data_dir / "space.db"
+    if db_path.exists():
+        db_path.unlink()
 
     monkeypatch.setattr(paths, "space_root", lambda: workspace)
     monkeypatch.setattr(paths, "dot_space", lambda: workspace / ".space")
     monkeypatch.setattr(paths, "space_data", lambda: data_dir)
 
 
-def _reset_runtime_state() -> None:
-    store._reset_for_testing()
-    spawn.api.agents._clear_cache()
-    unified_db._initialized = False  # type: ignore[attr-defined]
-    for module in (spawn.db, memory.db, knowledge.db, bridge.db):
-        if hasattr(module, "_initialized"):
-            setattr(module, "_initialized", False)
-
-
 @pytest.fixture
-def test_space(monkeypatch, tmp_path):
-    _reset_runtime_state()
-
+def test_space(monkeypatch, tmp_path, request):
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     (workspace / "AGENTS.md").write_text("test workspace")
 
-    _configure_paths(monkeypatch, workspace)
+    data_dir = workspace / ".space" / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    db_path = data_dir / "space.db"
+    if db_path.exists():
+        db_path.unlink()
+
+    monkeypatch.setattr(paths, "space_root", lambda: workspace)
+    monkeypatch.setattr(paths, "dot_space", lambda: workspace / ".space")
+    monkeypatch.setattr(paths, "space_data", lambda: data_dir)
+
+    store._reset_for_testing()
+    unified_db._initialized = False
     unified_db.register()
     with unified_db.connect():
         pass
 
     yield workspace
 
-    spawn.api.agents._clear_cache()
-    store.close_all()
-    gc.collect()
-    for obj in gc.get_objects():
-        if isinstance(obj, sqlite3.Connection):
-            with contextlib.suppress(Exception):
-                obj.close()
+
+@pytest.fixture
+def populated_space(test_space):
+    # Create dummy constitution files for default agents
+    for identity in spawn_defaults.DEFAULT_AGENT_MODELS:
+        constitution_path = test_space / f"{identity}.md"
+        constitution_path.write_text(
+            f"# {identity} Constitution\n\nThis is a dummy constitution for {identity}."
+        )
+
+    # Register default channels for tests
+    bridge.api.channels.resolve_channel("ch-1")
+    bridge.api.channels.resolve_channel("ch-spawn-test-123")
+    return test_space
 
 
 @pytest.fixture
@@ -90,10 +100,16 @@ class AgentHandle(str):
         return obj
 
 
+def dump_agents_table():
+    with unified_db.connect() as conn:
+        print("DEBUG: Contents of agents table:")
+        for row in conn.execute("SELECT agent_id, identity FROM agents").fetchall():
+            print(f"  agent_id: {row['agent_id']}, identity: {row['identity']}")
+
+
 @pytest.fixture
 def default_agents(test_space):
     """Registers a set of default agents for tests and returns their identities."""
-    from space.os import spawn
 
     handles: dict[str, AgentHandle] = {}
     for identity in spawn_defaults.DEFAULT_AGENT_MODELS:

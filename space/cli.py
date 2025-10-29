@@ -30,23 +30,28 @@ class SpawnGroup(TyperGroup):
 
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False, cls=SpawnGroup)
 
-app.add_typer(init.app, name="init")
-app.add_typer(backup.app, name="backup")
-app.add_typer(health.app, name="health")
-
-app.add_typer(canon.app, name="canon")
-app.add_typer(chats.app, name="chats")
-app.add_typer(context.app, name="context")
-app.add_typer(council.app, name="council")
-app.add_typer(daemons.app, name="daemons")
-app.add_typer(stats.app, name="stats")
-
 
 @app.callback(invoke_without_command=True)
-def main_command(
+def common_options_callback(
     ctx: typer.Context,
-    identity: str = typer.Option(None, "--as", help="Show agent spawn context"),
+    identity: str = typer.Option(None, "--as", help="Agent identity to use."),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
 ):
+    """Adds common CLI options (identity, json_output, quiet_output) to a Typer app."""
+    from space.lib import output
+
+    output.set_flags(ctx, json_output, quiet_output)
+
+    if ctx.obj is None:
+        ctx.obj = {}
+
+    ctx.obj["identity"] = identity
+    ctx.obj["json"] = json_output
+    ctx.obj["quiet"] = quiet_output
+
     if ctx.invoked_subcommand is None:
         if identity:
             # The 'launch' module has been removed, so this functionality is disabled.
@@ -58,6 +63,18 @@ def main_command(
                 "\n"
                 "Commands: space backup|health|init|canon|chats|context|council|daemons|stats"
             )
+
+
+app.add_typer(init.app, name="init")
+app.add_typer(backup.app, name="backup")
+app.add_typer(health.app, name="health")
+
+app.add_typer(canon.app, name="canon")
+app.add_typer(chats.app, name="chats")
+app.add_typer(context.app, name="context")
+app.add_typer(council.app, name="council")
+app.add_typer(daemons.app, name="daemons")
+app.add_typer(stats.app, name="stats")
 
 
 def main() -> None:

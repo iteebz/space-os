@@ -8,8 +8,8 @@ from space.lib.store.health import (
 )
 from space.lib.store.registry import (
     _reset_for_testing,
-    alias,
     add_migrations,
+    alias,
     close_all,
     register,
     registry,

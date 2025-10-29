@@ -75,7 +75,7 @@ def list_entries(
 
 def edit_entry(memory_id: str, new_message: str) -> None:
     full_id = resolve_id("memory", "memory_id", memory_id)
-    entry = get_by_id(full_id)
+    entry = get_.by_id(full_id)
     if not entry:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -205,7 +205,7 @@ def replace_entry(
     with store.ensure("memory") as conn:
         with conn:
             conn.execute(
-                "INSERT INTO memories (memory_id, agent_id, topic, message, timestamp, created_at, core, source, synthesis_note, supersedes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO memories (memory_id, agent_id, topic, message, timestamp, created_at, core, source, synthesis_note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     new_id,
                     agent_id,
@@ -216,7 +216,6 @@ def replace_entry(
                     1 if core else 0,
                     "manual",
                     note,
-                    ",".join(full_old_ids),
                 ),
             )
 

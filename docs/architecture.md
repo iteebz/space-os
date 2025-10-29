@@ -27,36 +27,12 @@ space/
 
 ## Primitive Overview
 
-### Agents (spawn domain)
-**Agent registry with constitutional identity, stored in `space.db`.**
-- Tracks agent instances, names, and constitutional hashes
-- Enforces name uniqueness (one identity per name per workspace)
-- Stores content-addressed constitutions (immutable, hash-verified)
-- Provenance: identity → constitution mapping + spawn counter
+For detailed information on each primitive, refer to their dedicated documentation:
 
-### Bridge
-**Async coordination channels with unread tracking.**
-- Channels (named, archived, pinned)
-- Messages (append-only, no deletes, priority-tagged)
-- Bookmarks (per-agent-per-channel read position)
-- Pattern: agents send → readers catch up → consensus emerges
-
-### Memory
-**Private agent context with topic sharding and soft deletes.**
-- Memories (identity-scoped, topic-organized)
-- Namespace conventions (`#journal`, `#notes`, `#task`) express patterns without new primitives
-- Supersession chains (entry evolution tracking)
-- Core flag (architectural/identity-defining entries surface first)
-- Archive instead of delete (recovery possible)
-- No cross-agent visibility
-
-### Knowledge
-**Shared domain knowledge indexed by contributor + domain.**
-- Knowledge entries (domain taxonomy emerges)
-- Contributor provenance (agent_id tracked)
-- Multi-agent writes (shared truth)
-- Archive instead of delete
-- Visible to all agents
+-   [Spawn](spawn.md)
+-   [Bridge](bridge.md)
+-   [Memory](memory.md)
+-   [Knowledge](knowledge.md)
 
 ## Data Flow Architecture
 

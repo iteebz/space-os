@@ -20,21 +20,27 @@ def test_list_tasks(test_space, default_agents):
     assert len(zealot_tasks) == 1
     assert zealot_tasks[0].task_id == t1
 
-    channel_id = "ch-spawn-test-123"
+    from space.lib.uuid7 import uuid7
+    from space.os.bridge.api import channels as bridge_api
+
+    channel = bridge_api.create_channel(name=f"ch-spawn-test-{uuid7()}")
     task_id = spawn.create_task(
         role=zealot_id,
         input="list repos",
-        channel_id=channel_id,
+        channel_id=channel.channel_id,
     )
+    channel_tasks = spawn.list_tasks(channel_id=channel.channel_id)
+    assert len(channel_tasks) == 1
+    assert channel_tasks[0].task_id == task_id
 
     task = spawn.get_task(task_id)
-    assert task.channel_id == channel_id
+    assert task.channel_id == channel.channel_id
 
     spawn.start_task(task_id)
     spawn.complete_task(task_id, output="done")
 
     task = spawn.get_task(task_id)
-    assert task.channel_id == channel_id
+    assert task.channel_id == channel.channel_id
     assert task.status == "completed"
 
 

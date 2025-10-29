@@ -1,5 +1,3 @@
-"""Delete a channel."""
-
 from __future__ import annotations
 
 import typer
@@ -10,7 +8,7 @@ from .format import echo_if_output, output_json
 
 
 def register(app: typer.Typer) -> None:
-    @app.command()
+    @app.command("delete")
     def delete(
         ctx: typer.Context,
         channel: str = typer.Argument(..., help="Channel to delete"),

@@ -97,7 +97,10 @@ def fail_task(task_id: str, stderr: str | None = None):
 
 
 def list_tasks(
-    status: str | None = None, identity: str | None = None, role: str | None = None
+    status: str | None = None,
+    identity: str | None = None,
+    role: str | None = None,
+    channel_id: str | None = None,
 ) -> list[Task]:
     """List tasks with optional filters."""
     query = "SELECT * FROM tasks WHERE 1 = 1"
@@ -113,6 +116,9 @@ def list_tasks(
             return []
         query += " AND agent_id = ?"
         params.append(agent.agent_id)
+    if channel_id is not None:
+        query += " AND channel_id = ?"
+        params.append(channel_id)
 
     query += " ORDER BY created_at DESC"
 

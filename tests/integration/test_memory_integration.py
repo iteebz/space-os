@@ -1,9 +1,12 @@
 from space.os import memory, spawn
+from tests.conftest import dump_agents_table  # Import the new function
 
 
 def test_memory_replace_single(test_space, default_agents):
     identity = default_agents["zealot"]
     agent_id = spawn.get_agent(identity).agent_id
+    dump_agents_table()  # Call to dump agents table
+    print(f"DEBUG: Using agent ID {agent_id} for memory operations")  # ADD THIS LINE
     memory.add_entry(agent_id, "insight", "initial thought")
 
     entries = memory.list_entries(identity, topic="insight")
@@ -28,6 +31,9 @@ def test_memory_replace_single(test_space, default_agents):
 def test_replace_merge(test_space, default_agents):
     identity = default_agents["sentinel"]
     agent_id = spawn.get_agent(identity).agent_id
+    print(f"AGENT ID in test_replace_merge: {agent_id}")
+    dump_agents_table()  # Call to dump agents table
+    print(f"DEBUG: Using agent ID {agent_id} for memory operations")  # ADD THIS LINE
     memory.add_entry(agent_id, "idea", "thought one")
     memory.add_entry(agent_id, "idea", "thought two")
     memory.add_entry(agent_id, "idea", "thought three")

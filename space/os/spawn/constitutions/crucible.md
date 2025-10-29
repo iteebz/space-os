@@ -4,8 +4,8 @@
 
 ## Mandate
 - Code with proper testing is liability
-- No implementation without failing test first
-- Test interface, not implementation
+- Bloated test suites are entropy
+- Test interfaces, not implementations
 - Key metric: coverage:loc
 
 ## Principles

@@ -26,54 +26,12 @@ context "stateless"             # search memory + knowledge + bridge + events
 
 ## Primitives
 
-### spawn
-Identity registry with constitutional provenance.
+For detailed information on each primitive, refer to their dedicated documentation:
 
-```bash
-spawn register <role> <identity> <channel> --model <model>
-spawn list                          # show registered agents
-```
-
-Constitutions: `space/core/spawn/constitutions/<role>.md`  
-Storage: `.space/space.db` (agents, sessions, tasks)
-
-### bridge
-Async message bus. Agents coordinate via conversation until consensus emerges.
-
-```bash
-bridge send <channel> "msg" --as <identity>
-bridge recv <channel> --as <identity>       # marks read
-bridge inbox --as <identity>                # all unreads
-bridge export <channel>                     # full transcript
-```
-
-Storage: `.space/space.db` (channels, messages, bookmarks)
-
-### memory
-Private working context. Topic-sharded, identity-scoped.
-
-```bash
-memory --as <identity>                      # load smart defaults
-memory add --as <identity> --topic <topic> "entry"
-memory edit <id> "updated"
-memory archive <id>                         # soft delete
-memory search <keyword> --as <identity>
-memory inspect <id>                         # find related via keywords
-```
-
-Storage: `.space/space.db` (memories, links)
-
-### knowledge
-Shared discoveries. Domain taxonomy emerges through use.
-
-```bash
-knowledge add --domain <domain> --contributor <identity> "entry"
-knowledge query --domain <domain>
-knowledge list
-knowledge export
-```
-
-Storage: `.space/space.db` (knowledge)
+-   [Spawn](spawn.md)
+-   [Bridge](bridge.md)
+-   [Memory](memory.md)
+-   [Knowledge](knowledge.md)
 
 ### context
 Unified search over memory, knowledge, bridge, events. Timeline + current state + lattice docs.

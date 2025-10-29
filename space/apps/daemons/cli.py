@@ -1,6 +1,7 @@
 """Daemon commands: spawn and manage autonomous swarms."""
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Annotated  # Added for typer.Option
 
 import typer
 
@@ -53,17 +54,20 @@ def _run_all_daemons(role: str = "zealot") -> None:
 def main(ctx: typer.Context) -> None:
     """Space health heartbeat: run all daemons in parallel, or invoke subcommands."""
     if ctx.invoked_subcommand is None:
-        _run_all_daemons()
+        # Retrieve identity from ctx.obj
+        role = ctx.obj.get("identity", "zealot")  # Default to zealot if not provided
+        _run_all_daemons(role=role)
 
 
 @app.command()
 def upkeep(
-    role: str = typer.Option("zealot", "--as", help="Constitutional identity to run daemon"),
-    wait_for_completion: bool = typer.Option(
-        False, "--wait", "-w", help="Block until task completes"
-    ),
+    ctx: typer.Context,
+    wait_for_completion: Annotated[
+        bool, typer.Option(False, "--wait", "-w", help="Block until task completes")
+    ] = False,
 ):
     """Spawn upkeep daemon: repository hygiene, memory compaction, artifact checksumming."""
+    role = ctx.obj.get("identity", "zealot")
     try:
         task_id = api.create_daemon_task("upkeep", role=role)
         typer.echo(f"✓ Daemon spawned: {task_id[:8]}")
@@ -79,7 +83,9 @@ def upkeep(
 
 @app.command()
 def status(
-    all_tasks: bool = typer.Option(False, "--all", "-a", help="Show all tasks including completed"),
+    all_tasks: Annotated[
+        bool, typer.Option(False, "--all", "-a", help="Show all tasks including completed")
+    ] = False,
 ):
     """Show daemon task status."""
     filter_status = None if all_tasks else "pending|running"

@@ -1,6 +1,7 @@
 """Space canon lookup - navigate and read documents from ~/space/canon."""
 
 from pathlib import Path
+from typing import Annotated  # Added for typer.Argument
 
 import typer
 
@@ -9,12 +10,13 @@ from space.lib.paths import canon_path
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False)
 
 
-@app.callback(invoke_without_command=True)
-def main_command(
+@app.command(name="")  # This makes it the default command when no subcommand is given
+def canon_main_command(
     ctx: typer.Context,
-    doc_path: str | None = typer.Argument(
-        None, help="Document path (e.g., INDEX.md or constitutions/zealot.md)"
-    ),
+    doc_path: Annotated[
+        str | None,
+        typer.Argument(help="Document path (e.g., INDEX.md or constitutions/zealot.md)"),
+    ] = None,
 ):
     """Navigate and read canon documents from ~/space/canon."""
     if ctx.invoked_subcommand is not None:
