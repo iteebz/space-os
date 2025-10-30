@@ -28,7 +28,6 @@ memory = "space.os.memory.cli:main"
 knowledge = "space.os.knowledge.cli:main"
 context = "space.apps.context.cli:app"
 space = "space.cli:main"
-sleep = "space.os.spawn.cli:sleep_main"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.13.0"

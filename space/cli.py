@@ -3,6 +3,7 @@ import typer
 from typer.core import TyperGroup
 
 from space.apps import backup, canon, chats, context, council, daemons, health, init, stats
+from space.os import bridge, knowledge, memory, spawn
 from space.os.spawn import api
 
 
@@ -75,6 +76,11 @@ app.add_typer(context.app, name="context")
 app.add_typer(council.app, name="council")
 app.add_typer(daemons.app, name="daemons")
 app.add_typer(stats.app, name="stats")
+
+app.add_typer(bridge.app, name="bridge")
+app.add_typer(knowledge.app, name="knowledge")
+app.add_typer(memory.app, name="memory")
+app.add_typer(spawn.app, name="spawn")
 
 
 def main() -> None:

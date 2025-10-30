@@ -14,53 +14,26 @@ from space.os.memory.ops import namespace as ops_namespace
 errors.install_error_handler("memory")
 
 
-def create_namespace_command(namespace: str, noun: str):
-    """Creates a command callback for a memory namespace that handles both list and add."""
-
-    def namespace_command(
-        ctx: typer.Context,
-        message: Annotated[
-            str | None, typer.Argument(help=f"Message to add to the {noun}. Omit to list.")
-        ] = None,
-        all: Annotated[bool, typer.Option("--all", help="Include archived entries.")] = False,
-        json: Annotated[bool, typer.Option("--json", help="Output as JSON.")] = False,
-        quiet: Annotated[bool, typer.Option("--quiet", help="Suppress output.")] = False,
-    ):
-        if ctx.obj is None or "identity" not in ctx.obj:
-            typer.echo("Error: Agent identity must be provided via --as option.", err=True)
-            raise typer.Exit(1)
-
-        if message is None:
-            entries = ops_namespace.list_entries(ctx, namespace, show_all=all)
-            if json:
-                output.json_output([entry.model_dump() for entry in entries])
-            elif not quiet:
-                output.out_text(format_memory_entries(entries), ctx.obj)
-        else:
-            entry = ops_namespace.add_entry(ctx, namespace, message)
-            if json:
-                output.json_output(entry.model_dump_json())
-            elif not quiet:
-                typer.echo(f"Added {namespace} entry: {entry.uuid}")
-
-    namespace_command.__doc__ = (
-        f"Manage {noun} entries.\n\nNo argument to list, or provide a message to add."
-    )
-    return namespace_command
-
-
 main_app = typer.Typer(
     invoke_without_command=True,
     help="""Memory: Knowledge Base Management.
 
-Use `memory <namespace> <message> --as <agent>` to quickly add entries to specific namespaces.
-Example: `memory journal "Wound down session" --as zealot`
+Use `memory add <topic> <message> --as <agent>` to add entries.
 
-Use `memory <namespace> --as <agent>` to list entries in a namespace.
-Example: `memory notes --as zealot`
+Common topics (by convention):
+  journal   - Session consolidations, reflections
+  notes     - Insights, observations
+  tasks     - Action items for next spawn
+  beliefs   - Core principles and convictions
 
-For general memory commands (add, list, archive, core, replace, inspect), use `memory <command> ...`
-Example: `memory add --topic general "A general thought" --as zealot`""",
+Examples:
+  memory add journal "Consolidated understanding" --as zealot
+  memory add notes "Architecture pattern discovered" --as zealot
+  memory add tasks "Fix async handler in next spawn" --as zealot
+  memory add beliefs "Simplicity over cleverness" --as zealot
+
+For other memory commands (list, edit, archive, replace, inspect), use `memory <command> ...`
+Example: `memory list --as zealot`""",
 )
 
 
@@ -98,8 +71,8 @@ def main_callback(
 @main_app.command("add")
 def add(
     ctx: typer.Context,
+    topic: str = typer.Argument(..., help="Topic name"),
     message: str = typer.Argument(..., help="The memory message"),
-    topic: str = typer.Option(..., help="Topic name"),
 ):
     """Add a new memory entry."""
     ident = ctx.obj.get("identity")
@@ -283,10 +256,6 @@ def replace(
     output.out_text(f"Merged {len(old_ids)} → {new_uuid[-8:]}", ctx.obj)
 
 
-main_app.command("journal")(create_namespace_command("journal", "journal"))
-main_app.command("notes")(create_namespace_command("notes", "note"))
-main_app.command("tasks")(create_namespace_command("tasks", "task"))
-main_app.command("beliefs")(create_namespace_command("beliefs", "belief"))
 
 
 def main() -> None:

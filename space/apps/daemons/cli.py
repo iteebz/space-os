@@ -1,7 +1,6 @@
 """Daemon commands: spawn and manage autonomous swarms."""
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Annotated  # Added for typer.Option
 
 import typer
 
@@ -62,9 +61,7 @@ def main(ctx: typer.Context) -> None:
 @app.command("upkeep")
 def upkeep(
     ctx: typer.Context,
-    wait_for_completion: Annotated[
-        bool, typer.Option(False, "--wait", "-w", help="Block until task completes")
-    ] = False,
+    wait_for_completion: bool = typer.Option(False, "--wait", "-w", help="Block until task completes"),
 ):
     """Spawn upkeep daemon: repository hygiene, memory compaction, artifact checksumming."""
     role = ctx.obj.get("identity", "zealot")
@@ -83,9 +80,7 @@ def upkeep(
 
 @app.command("status")
 def status(
-    all_tasks: Annotated[
-        bool, typer.Option(False, "--all", "-a", help="Show all tasks including completed")
-    ] = False,
+    all_tasks: bool = typer.Option(False, "--all", "-a", help="Show all tasks including completed"),
 ):
     """Show daemon task status."""
     filter_status = None if all_tasks else "pending|running"
