@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+from space.core import db
 from space.lib import store
-from space.os import db as unified_db
 
 TIMESTAMP = "2024-01-01T00:00:00.000000"
 
 
 def test_channel_and_agent_cascades(test_space):
-    unified_db.register()
+    db.register()
 
     agent_id = "agent-alpha"
     channel_id = "channel-bridge"

@@ -2,10 +2,10 @@
 
 from datetime import datetime
 
+from space.core import db
 from space.core.models import Task, TaskStatus
 from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
-from space.os.spawn import db
 
 from .agents import get_agent
 

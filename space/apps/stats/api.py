@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 def _get_agent_identities() -> dict[str, str]:
     """Get agent_id -> identity mapping."""
-    from space.os.spawn import db
+    from space.core import db
 
     with db.connect() as conn:
         rows = conn.execute("SELECT agent_id, identity FROM agents").fetchall()

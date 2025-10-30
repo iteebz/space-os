@@ -1,4 +1,4 @@
-"""Unified space.os database - single SQLite file with shared schema."""
+"""Unified space.db database - single SQLite file with shared schema."""
 
 from __future__ import annotations
 

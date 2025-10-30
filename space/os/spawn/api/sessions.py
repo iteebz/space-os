@@ -2,8 +2,8 @@
 
 from datetime import datetime
 
+from space.core import db
 from space.lib.uuid7 import uuid7
-from space.os.spawn import db
 
 
 def create_session(agent_id: str) -> str:

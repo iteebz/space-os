@@ -5,6 +5,7 @@ from pathlib import Path
 
 import typer
 
+from space.core import db
 from space.lib import paths, store, sync
 from space.os import spawn
 from space.os.spawn import defaults as spawn_defaults
@@ -65,7 +66,7 @@ def init_default_agents():
     if not constitution_files:
         return
 
-    with spawn.db.connect():
+    with db.connect():
         for const_file in constitution_files:
             if const_file.name == "README.md":
                 continue
@@ -84,7 +85,7 @@ def _get_bin_dir() -> Path:
 
 def _list_agent_identities() -> list[str]:
     """Get all registered agent identities from spawn DB."""
-    with spawn.db.connect():
+    with db.connect():
         agents = spawn.api.list_agents()
     return [agent.identity for agent in agents]
 
@@ -131,9 +132,9 @@ def init():
     for cli in ["claude", "codex", "gemini"]:
         (chats_dir / cli).mkdir(exist_ok=True)
 
-    spawn.db.register()
+    db.register()
 
-    with spawn.db.connect():
+    with db.connect():
         pass
     with store.ensure("bridge"):
         pass

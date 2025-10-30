@@ -30,7 +30,7 @@ def test_storage_protocol_ensure_schema_with_migrations():
 def test_storage_protocol_register():
     """Storage implements register method."""
     storage = MagicMock(spec=Storage)
-    storage.register("memory", "memory.db", "CREATE TABLE entries (...)")
+    storage.register("space", "space.db", "CREATE TABLE entries (...)")
     storage.register.assert_called_once()
 
 

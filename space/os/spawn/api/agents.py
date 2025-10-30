@@ -4,10 +4,10 @@ import uuid
 from datetime import datetime
 from functools import lru_cache
 
+from space.core import db
 from space.core.models import Agent
 from space.lib import store
 from space.lib.store import from_row
-from space.os.spawn import db
 
 
 def _validate_identity(identity: str) -> None:

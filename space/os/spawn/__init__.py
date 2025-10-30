@@ -1,4 +1,6 @@
-from . import api, db
+from space.core import db
+
+from . import api
 from .api import (
     archive_agent,
     clone_agent,

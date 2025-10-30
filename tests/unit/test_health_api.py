@@ -3,12 +3,12 @@ from __future__ import annotations
 import sqlite3
 
 from space.apps.health import api as health_api
+from space.core import db
 from space.lib import paths, store
-from space.os import db as unified_db
 
 
 def test_health_check_reports_ok(test_space):
-    unified_db.register()
+    db.register()
 
     ok, issues, counts = health_api.check_db()
 
@@ -24,7 +24,7 @@ def test_health_check_reports_ok(test_space):
 
 
 def test_health_check_detects_missing_db(test_space):
-    unified_db.register()
+    db.register()
     store.close_all()
 
     db_path = paths.space_data() / health_api.DB_NAME
@@ -38,7 +38,7 @@ def test_health_check_detects_missing_db(test_space):
 
 
 def test_health_check_detects_fk_violation(test_space):
-    unified_db.register()
+    db.register()
 
     channel_id = "channel-1"
     message_id = "ghost-message"

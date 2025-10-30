@@ -1,4 +1,6 @@
-from . import api, db, ops
+from space.core import db
+
+from . import api, ops
 from .api import (
     export_channel,
     get_channel,
