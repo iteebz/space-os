@@ -5,7 +5,6 @@ import json
 import os
 import signal
 import sys
-import time
 from typing import NoReturn
 
 import click
@@ -226,11 +225,8 @@ def merge(id_from: str, id_to: str):
     typer.echo("✓ Merged")
 
 
-tasks_app = typer.Typer()
-
-
-@tasks_app.command()
-def list(
+@app.command(name="tasks")
+def show_tasks(
     status: str | None = None,
     role: str | None = None,
     all: bool = typer.Option(
@@ -278,7 +274,7 @@ def list(
         typer.echo(f"Avg: {avg_dur:.1f}s | Min: {min_dur:.1f}s | Max: {max_dur:.1f}s")
 
 
-@tasks_app.command()
+@app.command()
 def logs(task_id: str):
     """Show full task details: input, output, stderr, timestamps, duration."""
     task = tasks.get_task(task_id)
@@ -318,33 +314,7 @@ def logs(task_id: str):
     typer.echo()
 
 
-@tasks_app.command()
-def wait(task_id: str, timeout: float | None = None) -> int:
-    """Block until task completes. Return exit code: 0=success, 1=failed, 124=timeout."""
-    if timeout is None:
-        timeout = 300
-
-    task = tasks.get_task(task_id)
-    if not task:
-        typer.echo(f"❌ Task not found: {task_id}", err=True)
-        raise typer.Exit(1)
-
-    start = time.time()
-    while True:
-        task = tasks.get_task(task_id)
-        if task.status in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.TIMEOUT):
-            if task.status == TaskStatus.COMPLETED:
-                return 0
-            return 1
-
-        if time.time() - start > timeout:
-            tasks.fail_task(task_id, stderr="Wait timeout exceeded")
-            raise typer.Exit(124)
-
-        time.sleep(0.1)
-
-
-@tasks_app.command()
+@app.command()
 def kill(task_id: str):
     """Kill a running task."""
     task = tasks.get_task(task_id)
@@ -362,9 +332,6 @@ def kill(task_id: str):
 
     tasks.fail_task(task_id, stderr="Killed by user")
     typer.echo(f"✓ Task {task_id[:8]} killed")
-
-
-app.add_typer(tasks_app, name="tasks")
 
 
 sleep_app = typer.Typer(

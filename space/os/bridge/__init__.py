@@ -8,7 +8,6 @@ from .api import (
     search,
     set_bookmark,
     spawn_from_mentions,
-    stats,
 )
 from .cli import app
 from .ops import (
@@ -49,7 +48,6 @@ __all__ = [
     "send_message",
     "set_bookmark",
     "spawn_from_mentions",
-    "stats",
     "unpin_channel",
     "wait_for_message",
 ]

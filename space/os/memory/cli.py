@@ -14,33 +14,14 @@ from space.os.memory.ops import namespace as ops_namespace
 errors.install_error_handler("memory")
 
 
-def create_namespace_cli(namespace: str, noun: str) -> typer.Typer:
-    """Creates a Typer app for a memory namespace."""
-    app = typer.Typer(
-        name=namespace,
-        help=f"""Manage {noun} entries.
+def create_namespace_command(namespace: str, noun: str):
+    """Creates a command callback for a memory namespace that handles both list and add."""
 
-Use `memory {namespace} "<message>" --as <agent>` to quickly add a {noun} entry.
-Use `memory {namespace} --as <agent>` to list {noun} entries.""",
-    )
-
-    @app.callback(invoke_without_command=True)
-    def callback(
+    def namespace_command(
         ctx: typer.Context,
-    ):
-        if ctx.obj is None:
-            ctx.obj = {}
-
-        if "identity" not in ctx.obj:
-            typer.echo("Error: Agent identity must be provided via --as option.", err=True)
-            raise typer.Exit(1)
-
-        if ctx.invoked_subcommand is None:
-            ops_namespace.list_entries(ctx, namespace, False)
-
-    @app.command("list")
-    def list_command(
-        ctx: typer.Context,
+        message: Annotated[
+            str | None, typer.Argument(help=f"Message to add to the {noun}. Omit to list.")
+        ] = None,
         all: Annotated[bool, typer.Option("--all", help="Include archived entries.")] = False,
         json: Annotated[bool, typer.Option("--json", help="Output as JSON.")] = False,
         quiet: Annotated[bool, typer.Option("--quiet", help="Suppress output.")] = False,
@@ -48,34 +29,24 @@ Use `memory {namespace} --as <agent>` to list {noun} entries.""",
         if ctx.obj is None or "identity" not in ctx.obj:
             typer.echo("Error: Agent identity must be provided via --as option.", err=True)
             raise typer.Exit(1)
-        ctx.obj["all"] = all
-        ctx.obj["json"] = json
-        ctx.obj["quiet"] = quiet
-        entries = ops_namespace.list_entries(ctx, namespace, show_all=all)
-        if json:
-            output.json_output([entry.model_dump() for entry in entries])
-        elif not quiet:
-            output.out_text(format_memory_entries(entries), ctx.obj)
 
-    @app.command("add")
-    def add_command(
-        ctx: typer.Context,
-        message: Annotated[str, typer.Argument(help=f"Message to add to the {noun}.")],
-        json: Annotated[bool, typer.Option("--json", help="Output as JSON.")] = False,
-        quiet: Annotated[bool, typer.Option("--quiet", help="Suppress output.")] = False,
-    ):
-        if ctx.obj is None or "identity" not in ctx.obj:
-            typer.echo("Error: Agent identity must be provided via --as option.", err=True)
-            raise typer.Exit(1)
-        ctx.obj["json"] = json
-        ctx.obj["quiet"] = quiet
-        entry = ops_namespace.add_entry(ctx, namespace, message)
-        if json:
-            output.json_output(entry.model_dump_json())
-        elif not quiet:
-            typer.echo(f"Added {namespace} entry: {entry.uuid}")
+        if message is None:
+            entries = ops_namespace.list_entries(ctx, namespace, show_all=all)
+            if json:
+                output.json_output([entry.model_dump() for entry in entries])
+            elif not quiet:
+                output.out_text(format_memory_entries(entries), ctx.obj)
+        else:
+            entry = ops_namespace.add_entry(ctx, namespace, message)
+            if json:
+                output.json_output(entry.model_dump_json())
+            elif not quiet:
+                typer.echo(f"Added {namespace} entry: {entry.uuid}")
 
-    return app
+    namespace_command.__doc__ = (
+        f"Manage {noun} entries.\n\nNo argument to list, or provide a message to add."
+    )
+    return namespace_command
 
 
 main_app = typer.Typer(
@@ -312,10 +283,10 @@ def replace(
     output.out_text(f"Merged {len(old_ids)} → {new_uuid[-8:]}", ctx.obj)
 
 
-main_app.add_typer(create_namespace_cli("journal", "journal"), name="journal")
-main_app.add_typer(create_namespace_cli("notes", "note"), name="notes")
-main_app.add_typer(create_namespace_cli("tasks", "task"), name="tasks")
-main_app.add_typer(create_namespace_cli("beliefs", "belief"), name="beliefs")
+main_app.command("journal")(create_namespace_command("journal", "journal"))
+main_app.command("notes")(create_namespace_command("notes", "note"))
+main_app.command("tasks")(create_namespace_command("tasks", "task"))
+main_app.command("beliefs")(create_namespace_command("beliefs", "belief"))
 
 
 def main() -> None:

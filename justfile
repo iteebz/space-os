@@ -17,7 +17,7 @@ ci:
     @poetry build
 
 test:
-    @poetry run pytest tests
+    @python -m pytest tests
 
 format:
     @poetry run ruff format .

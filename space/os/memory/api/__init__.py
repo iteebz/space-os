@@ -13,7 +13,6 @@ from .entries import (
     restore_entry,
 )
 from .search import search
-from .stats import stats
 
 __all__ = [
     "add_entry",
@@ -29,5 +28,4 @@ __all__ = [
     "replace_entry",
     "restore_entry",
     "search",
-    "stats",
 ]

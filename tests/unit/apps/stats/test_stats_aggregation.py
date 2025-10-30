@@ -9,32 +9,50 @@ from space.apps.stats.models import LeaderboardEntry
 
 
 @pytest.fixture
-def mock_apis():
-    """Mock all core APIs."""
-    with (
-        patch("space.apps.stats.api.bridge") as mock_bridge,
-        patch("space.apps.stats.api.memory") as mock_memory,
-        patch("space.apps.stats.api.knowledge") as mock_knowledge,
-        patch("space.apps.stats.api.spawn") as mock_spawn,
-    ):
-        yield {
-            "bridge": mock_bridge,
-            "memory": mock_memory,
-            "knowledge": mock_knowledge,
-            "spawn": mock_spawn,
-        }
+def mock_get_agent_identities():
+    """Mock _get_agent_identities."""
+    with patch("space.apps.stats.api._get_agent_identities") as mock:
+        yield mock
 
 
-def test_build_leaderboard_empty(mock_apis):
-    mock_apis["spawn"].api.agent_identities.return_value = {}
+@pytest.fixture
+def mock_get_archived_agents():
+    """Mock _get_archived_agents."""
+    with patch("space.apps.stats.api._get_archived_agents") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_get_bridge_stats():
+    """Mock _get_bridge_stats."""
+    with patch("space.apps.stats.api._get_bridge_stats") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_get_memory_stats():
+    """Mock _get_memory_stats."""
+    with patch("space.apps.stats.api._get_memory_stats") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_get_knowledge_stats():
+    """Mock _get_knowledge_stats."""
+    with patch("space.apps.stats.api._get_knowledge_stats") as mock:
+        yield mock
+
+
+def test_build_leaderboard_empty(mock_get_agent_identities):
+    mock_get_agent_identities.return_value = {}
 
     result = api._build_leaderboard([])
 
     assert result == []
 
 
-def test_build_leaderboard_with_agents(mock_apis):
-    mock_apis["spawn"].api.agent_identities.return_value = {
+def test_build_leaderboard_with_agents(mock_get_agent_identities):
+    mock_get_agent_identities.return_value = {
         "agent1": "Alice",
         "agent2": "Bob",
     }
@@ -51,8 +69,8 @@ def test_build_leaderboard_with_agents(mock_apis):
     assert result[1] == LeaderboardEntry(identity="Bob", count=5)
 
 
-def test_build_leaderboard_with_limit(mock_apis):
-    mock_apis["spawn"].api.agent_identities.return_value = {
+def test_build_leaderboard_with_limit(mock_get_agent_identities):
+    mock_get_agent_identities.return_value = {
         "agent1": "Alice",
         "agent2": "Bob",
         "agent3": "Charlie",
@@ -72,8 +90,8 @@ def test_build_leaderboard_with_limit(mock_apis):
     assert result[1].identity == "Bob"
 
 
-def test_build_leaderboard_unknown_agent(mock_apis):
-    mock_apis["spawn"].api.agent_identities.return_value = {"agent1": "Alice"}
+def test_build_leaderboard_unknown_agent(mock_get_agent_identities):
+    mock_get_agent_identities.return_value = {"agent1": "Alice"}
 
     result = api._build_leaderboard(
         [
@@ -87,14 +105,20 @@ def test_build_leaderboard_unknown_agent(mock_apis):
     assert result[1].identity == "unknown"
 
 
-def test_agent_stats_aggregates_data(mock_apis):
-    mock_apis["spawn"].api.agent_identities.return_value = {
+def test_agent_stats_aggregates_data(
+    mock_get_agent_identities,
+    mock_get_archived_agents,
+    mock_get_bridge_stats,
+    mock_get_memory_stats,
+    mock_get_knowledge_stats,
+):
+    mock_get_agent_identities.return_value = {
         "agent1": "Alice",
         "agent2": "Bob",
     }
-    mock_apis["spawn"].api.archived_agents.return_value = set()
+    mock_get_archived_agents.return_value = set()
 
-    mock_apis["bridge"].api.stats.return_value = {
+    mock_get_bridge_stats.return_value = {
         "messages": {"by_agent": [{"agent_id": "agent1", "count": 10}]},
         "events": {
             "by_agent": [
@@ -102,12 +126,8 @@ def test_agent_stats_aggregates_data(mock_apis):
             ]
         },
     }
-    mock_apis["memory"].api.stats.return_value = {
-        "mem_by_agent": [{"agent_id": "agent1", "count": 3}]
-    }
-    mock_apis["knowledge"].api.stats.return_value = {
-        "know_by_agent": [{"agent_id": "agent1", "count": 2}]
-    }
+    mock_get_memory_stats.return_value = {"mem_by_agent": [{"agent_id": "agent1", "count": 3}]}
+    mock_get_knowledge_stats.return_value = {"know_by_agent": [{"agent_id": "agent1", "count": 2}]}
 
     result = api.agent_stats()
 
@@ -121,19 +141,25 @@ def test_agent_stats_aggregates_data(mock_apis):
     assert alice.spawns == 1
 
 
-def test_agent_stats_filters_archived(mock_apis):
-    mock_apis["spawn"].api.agent_identities.return_value = {
+def test_agent_stats_filters_archived(
+    mock_get_agent_identities,
+    mock_get_archived_agents,
+    mock_get_bridge_stats,
+    mock_get_memory_stats,
+    mock_get_knowledge_stats,
+):
+    mock_get_agent_identities.return_value = {
         "agent1": "Alice",
         "agent2": "Bob",
     }
-    mock_apis["spawn"].api.archived_agents.return_value = {"agent2"}
+    mock_get_archived_agents.return_value = {"agent2"}
 
-    mock_apis["bridge"].api.stats.return_value = {
+    mock_get_bridge_stats.return_value = {
         "messages": {"by_agent": []},
         "events": {"by_agent": []},
     }
-    mock_apis["memory"].api.stats.return_value = {"mem_by_agent": []}
-    mock_apis["knowledge"].api.stats.return_value = {"know_by_agent": []}
+    mock_get_memory_stats.return_value = {"mem_by_agent": []}
+    mock_get_knowledge_stats.return_value = {"know_by_agent": []}
 
     result = api.agent_stats()
 
@@ -141,19 +167,25 @@ def test_agent_stats_filters_archived(mock_apis):
     assert result[0].agent_id == "agent1"
 
 
-def test_agent_stats_show_all(mock_apis):
-    mock_apis["spawn"].api.agent_identities.return_value = {
+def test_agent_stats_show_all(
+    mock_get_agent_identities,
+    mock_get_archived_agents,
+    mock_get_bridge_stats,
+    mock_get_memory_stats,
+    mock_get_knowledge_stats,
+):
+    mock_get_agent_identities.return_value = {
         "agent1": "Alice",
         "agent2": "Bob",
     }
-    mock_apis["spawn"].api.archived_agents.return_value = {"agent2"}
+    mock_get_archived_agents.return_value = {"agent2"}
 
-    mock_apis["bridge"].api.stats.return_value = {
+    mock_get_bridge_stats.return_value = {
         "messages": {"by_agent": []},
         "events": {"by_agent": []},
     }
-    mock_apis["memory"].api.stats.return_value = {"mem_by_agent": []}
-    mock_apis["knowledge"].api.stats.return_value = {"know_by_agent": []}
+    mock_get_memory_stats.return_value = {"mem_by_agent": []}
+    mock_get_knowledge_stats.return_value = {"know_by_agent": []}
 
     result = api.agent_stats(show_all=True)
 

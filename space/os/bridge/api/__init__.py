@@ -26,7 +26,6 @@ from .messaging import (
     set_bookmark,
 )
 from .search import search
-from .stats import stats
 
 __all__ = [
     "archive_channel",
@@ -46,6 +45,5 @@ __all__ = [
     "send_message",
     "set_bookmark",
     "spawn_from_mentions",
-    "stats",
     "unpin_channel",
 ]

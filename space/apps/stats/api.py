@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from space.lib import format as fmt
-from space.os import bridge, knowledge, memory, spawn
+from space.lib import store
 
 from .models import (
     AgentStats,
@@ -18,11 +18,29 @@ from .models import (
 logger = logging.getLogger(__name__)
 
 
+def _get_agent_identities() -> dict[str, str]:
+    """Get agent_id -> identity mapping."""
+    from space.os.spawn import db
+
+    with db.connect() as conn:
+        rows = conn.execute("SELECT agent_id, identity FROM agents").fetchall()
+        return {row[0]: row[1] for row in rows}
+
+
+def _get_archived_agents() -> set[str]:
+    """Get set of archived agent IDs."""
+    from space.os.spawn import db
+
+    with db.connect() as conn:
+        rows = conn.execute("SELECT agent_id FROM agents WHERE archived_at IS NOT NULL").fetchall()
+        return {row[0] for row in rows}
+
+
 def _build_leaderboard(
     agent_counts: list[dict], limit: int | None = None
 ) -> list[LeaderboardEntry]:
     """Build leaderboard from agent_id -> count mapping."""
-    names = spawn.api.agent_identities()
+    names = _get_agent_identities()
     entries = [
         LeaderboardEntry(
             identity=names.get(item["agent_id"], item["agent_id"]), count=item["count"]
@@ -32,9 +50,157 @@ def _build_leaderboard(
     return entries[:limit] if limit else entries
 
 
+def _get_memory_stats() -> dict:
+    """Get memory statistics."""
+    with store.ensure("memory") as conn:
+        total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
+        active = conn.execute("SELECT COUNT(*) FROM memories WHERE archived_at IS NULL").fetchone()[
+            0
+        ]
+        archived = total - active
+
+        topics = conn.execute(
+            "SELECT COUNT(DISTINCT topic) FROM memories WHERE archived_at IS NULL"
+        ).fetchone()[0]
+
+        mem_by_agent = conn.execute(
+            "SELECT agent_id, COUNT(*) as count FROM memories GROUP BY agent_id ORDER BY count DESC"
+        ).fetchall()
+
+    return {
+        "total": total,
+        "active": active,
+        "archived": archived,
+        "topics": topics,
+        "mem_by_agent": [{"agent_id": row[0], "count": row[1]} for row in mem_by_agent],
+    }
+
+
+def _get_knowledge_stats() -> dict:
+    """Get knowledge statistics."""
+    with store.ensure("knowledge") as conn:
+        total = conn.execute("SELECT COUNT(*) FROM knowledge").fetchone()[0]
+        active = conn.execute(
+            "SELECT COUNT(*) FROM knowledge WHERE archived_at IS NULL"
+        ).fetchone()[0]
+        archived = total - active
+
+        domains = conn.execute(
+            "SELECT COUNT(DISTINCT domain) FROM knowledge WHERE archived_at IS NULL"
+        ).fetchone()[0]
+
+        know_by_agent = conn.execute(
+            "SELECT agent_id, COUNT(*) as count FROM knowledge GROUP BY agent_id ORDER BY count DESC"
+        ).fetchall()
+
+    return {
+        "total": total,
+        "active": active,
+        "archived": archived,
+        "topics": domains,
+        "know_by_agent": [{"agent_id": row[0], "count": row[1]} for row in know_by_agent],
+    }
+
+
+def _get_bridge_stats() -> dict:
+    """Get bridge statistics: messages, channels, and events by agent."""
+    with store.ensure("bridge") as conn:
+        total_msgs = conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+        archived_msgs = conn.execute(
+            "SELECT COUNT(*) FROM messages WHERE channel_id IN (SELECT channel_id FROM channels WHERE archived_at IS NOT NULL)"
+        ).fetchone()[0]
+        active_msgs = total_msgs - archived_msgs
+
+        total_channels = conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0]
+        active_channels = conn.execute(
+            "SELECT COUNT(*) FROM channels WHERE archived_at IS NULL"
+        ).fetchone()[0]
+        archived_channels = total_channels - active_channels
+
+        distinct_channels = conn.execute(
+            "SELECT COUNT(DISTINCT channel_id) FROM messages WHERE channel_id IS NOT NULL"
+        ).fetchone()[0]
+
+        msg_by_agent = conn.execute(
+            "SELECT agent_id, COUNT(*) as count FROM messages GROUP BY agent_id ORDER BY count DESC"
+        ).fetchall()
+
+    try:
+        with store.ensure("events") as conn:
+            rows = conn.execute(
+                "SELECT agent_id, event_type, timestamp FROM events ORDER BY timestamp"
+            ).fetchall()
+
+            agent_events: dict[str, dict] = {}
+            total_events = len(rows)
+
+            for row in rows:
+                agent_id = row[0]
+                event_type = row[1]
+                timestamp = row[2]
+
+                if agent_id not in agent_events:
+                    agent_events[agent_id] = {
+                        "events": 0,
+                        "spawns": 0,
+                        "last_active": None,
+                    }
+
+                agent_events[agent_id]["events"] += 1
+                if event_type == "session_start":
+                    agent_events[agent_id]["spawns"] += 1
+                agent_events[agent_id]["last_active"] = timestamp
+
+            events_by_agent = [
+                {"agent_id": agent_id, **data} for agent_id, data in agent_events.items()
+            ]
+    except Exception:
+        total_events = 0
+        events_by_agent = []
+
+    return {
+        "messages": {
+            "total": total_msgs,
+            "active": active_msgs,
+            "archived": archived_msgs,
+            "by_agent": [{"agent_id": row[0], "count": row[1]} for row in msg_by_agent],
+        },
+        "channels": {
+            "total": distinct_channels,
+            "active": active_channels,
+            "archived": archived_channels,
+        },
+        "events": {
+            "total": total_events,
+            "by_agent": events_by_agent,
+        },
+    }
+
+
+def _get_spawn_stats() -> dict:
+    """Get spawn statistics."""
+    from space.os.spawn import db
+
+    with db.connect() as conn:
+        total_agents = conn.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
+        active_agents = conn.execute(
+            "SELECT COUNT(*) FROM agents WHERE archived_at IS NULL"
+        ).fetchone()[0]
+        archived_agents = total_agents - active_agents
+
+        hashes = conn.execute("SELECT COUNT(*) FROM constitutions").fetchone()[0]
+
+    return {
+        "total": total_agents,
+        "active": active_agents,
+        "archived": archived_agents,
+        "hashes": hashes,
+    }
+
+
 def bridge_stats(limit: int = None) -> BridgeStats:
     try:
-        stats_data = bridge.api.stats()
+        stats_data = _get_bridge_stats()
 
         msg_data = stats_data.get("messages", {})
         msg_leaderboard = _build_leaderboard(msg_data.get("by_agent", []), limit=limit)
@@ -58,7 +224,7 @@ def bridge_stats(limit: int = None) -> BridgeStats:
 
 def memory_stats(limit: int = None) -> MemoryStats:
     try:
-        stats_data = memory.api.stats()
+        stats_data = _get_memory_stats()
 
         leaderboard = _build_leaderboard(stats_data.pop("mem_by_agent", []), limit=limit)
 
@@ -74,7 +240,7 @@ def memory_stats(limit: int = None) -> MemoryStats:
 
 def knowledge_stats(limit: int = None) -> KnowledgeStats:
     try:
-        stats_data = knowledge.api.stats()
+        stats_data = _get_knowledge_stats()
 
         leaderboard = _build_leaderboard(stats_data.pop("know_by_agent", []), limit=limit)
 
@@ -90,8 +256,8 @@ def knowledge_stats(limit: int = None) -> KnowledgeStats:
 
 def agent_stats(limit: int = None, show_all: bool = False) -> list[AgentStats] | None:
     try:
-        agent_identities_map = spawn.api.agent_identities()
-        archived_set = spawn.api.archived_agents()
+        agent_identities_map = _get_agent_identities()
+        archived_set = _get_archived_agents()
 
         agent_map = {
             agent_id: {
@@ -106,9 +272,9 @@ def agent_stats(limit: int = None, show_all: bool = False) -> list[AgentStats] |
             for agent_id, identity in agent_identities_map.items()
         }
 
-        bridge_data = bridge.api.stats()
-        memory_data = memory.api.stats()
-        knowledge_data = knowledge.api.stats()
+        bridge_data = _get_bridge_stats()
+        memory_data = _get_memory_stats()
+        knowledge_data = _get_knowledge_stats()
 
         for item in bridge_data.get("messages", {}).get("by_agent", []):
             agent_id = item["agent_id"]
@@ -160,7 +326,7 @@ def agent_stats(limit: int = None, show_all: bool = False) -> list[AgentStats] |
 
 def spawn_stats() -> SpawnStats:
     try:
-        stats_data = spawn.api.stats()
+        stats_data = _get_spawn_stats()
         return SpawnStats(available=True, **stats_data)
     except Exception as exc:
         logger.error(f"Failed to fetch spawn stats: {exc}")

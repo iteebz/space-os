@@ -240,6 +240,39 @@ def merge_agents(from_name: str, to_name: str) -> bool:
     return True
 
 
+def agent_identities() -> dict[str, str]:
+    """Get agent_id -> identity mapping."""
+    with db.connect() as conn:
+        rows = conn.execute("SELECT agent_id, identity FROM agents").fetchall()
+        return {row[0]: row[1] for row in rows}
+
+
+def archived_agents() -> set[str]:
+    """Get set of archived agent IDs."""
+    with db.connect() as conn:
+        rows = conn.execute("SELECT agent_id FROM agents WHERE archived_at IS NOT NULL").fetchall()
+        return {row[0] for row in rows}
+
+
+def stats() -> dict:
+    """Get spawn statistics."""
+    with db.connect() as conn:
+        total_agents = conn.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
+        active_agents = conn.execute(
+            "SELECT COUNT(*) FROM agents WHERE archived_at IS NULL"
+        ).fetchone()[0]
+        archived_agents_count = total_agents - active_agents
+
+        hashes = conn.execute("SELECT COUNT(*) FROM constitutions").fetchone()[0]
+
+    return {
+        "total": total_agents,
+        "active": active_agents,
+        "archived": archived_agents_count,
+        "hashes": hashes,
+    }
+
+
 __all__ = [
     "get_agent",
     "register_agent",
@@ -253,4 +286,7 @@ __all__ = [
     "list_agents",
     "merge_agents",
     "touch_agent",
+    "agent_identities",
+    "archived_agents",
+    "stats",
 ]

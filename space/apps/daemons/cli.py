@@ -59,7 +59,7 @@ def main(ctx: typer.Context) -> None:
         _run_all_daemons(role=role)
 
 
-@app.command()
+@app.command("upkeep")
 def upkeep(
     ctx: typer.Context,
     wait_for_completion: Annotated[
@@ -81,7 +81,7 @@ def upkeep(
         raise typer.Exit(1) from e
 
 
-@app.command()
+@app.command("status")
 def status(
     all_tasks: Annotated[
         bool, typer.Option(False, "--all", "-a", help="Show all tasks including completed")

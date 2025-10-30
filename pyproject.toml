@@ -69,7 +69,6 @@ addopts = [
 ]
 markers = [
     "asyncio: Async tests using pytest-asyncio",
-    "unit: Unit tests (can run in parallel)",
     "integration: Integration tests (may need isolation)",
     "contract: API contract validation tests",
     "schema: Schema validation tests",
