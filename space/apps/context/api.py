@@ -6,8 +6,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from space.apps import canon
-from space.lib import providers
-from space.os import bridge, knowledge, memory
+from space.lib import providers, store
+from space.os import spawn
 
 log = logging.getLogger(__name__)
 
@@ -24,6 +24,123 @@ def _validate_search_term(term: str) -> None:
     max_len = _get_max_search_len()
     if len(term) > max_len:
         raise ValueError(f"Search term too long (max {max_len} chars, got {len(term)})")
+
+
+def _search_memory(query: str, identity: str | None, all_agents: bool) -> list[dict]:
+    """Search memory entries by query, optionally filtering by agent."""
+    results = []
+    with store.ensure("memory") as conn:
+        sql_query = (
+            "SELECT memory_id, agent_id, topic, message, timestamp, created_at FROM memories "
+            "WHERE (message LIKE ? OR topic LIKE ?)"
+        )
+        params = [f"%{query}%", f"%{query}%"]
+
+        if identity and not all_agents:
+            agent = spawn.get_agent(identity)
+            if not agent:
+                raise ValueError(f"Agent '{identity}' not found")
+            sql_query += " AND agent_id = ?"
+            params.append(agent.agent_id)
+
+        sql_query += " ORDER BY created_at ASC"
+
+        rows = conn.execute(sql_query, params).fetchall()
+        for row in rows:
+            agent = spawn.get_agent(row["agent_id"])
+            results.append(
+                {
+                    "source": "memory",
+                    "memory_id": row["memory_id"],
+                    "topic": row["topic"],
+                    "message": row["message"],
+                    "identity": agent.identity if agent else row["agent_id"],
+                    "timestamp": row["created_at"],
+                    "reference": f"memory:{row['memory_id']}",
+                }
+            )
+    return results
+
+
+def _search_knowledge(query: str, identity: str | None, all_agents: bool) -> list[dict]:
+    """Search knowledge entries by query, optionally filtering by agent."""
+    results = []
+    with store.ensure("knowledge") as conn:
+        sql_query = (
+            "SELECT knowledge_id, domain, agent_id, content, created_at FROM knowledge "
+            "WHERE (content LIKE ? OR domain LIKE ?)"
+        )
+        params = [f"%{query}%", f"%{query}%"]
+
+        if identity and not all_agents:
+            agent = spawn.get_agent(identity)
+            if not agent:
+                raise ValueError(f"Agent '{identity}' not found")
+            sql_query += " AND agent_id = ?"
+            params.append(agent.agent_id)
+
+        sql_query += " ORDER BY created_at ASC"
+
+        rows = conn.execute(sql_query, params).fetchall()
+        for row in rows:
+            agent = spawn.get_agent(row["agent_id"])
+            results.append(
+                {
+                    "source": "knowledge",
+                    "domain": row["domain"],
+                    "knowledge_id": row["knowledge_id"],
+                    "contributor": agent.name if agent else row["agent_id"],
+                    "content": row["content"],
+                    "timestamp": row["created_at"],
+                    "reference": f"knowledge:{row['knowledge_id']}",
+                }
+            )
+    return results
+
+
+def _search_bridge(query: str, identity: str | None, all_agents: bool) -> list[dict]:
+    """Search bridge messages by query, optionally filtering by agent."""
+    results = []
+
+    with store.ensure("bridge") as conn:
+        sql_query = (
+            "SELECT m.message_id, m.channel_id, m.agent_id, m.content, m.created_at, c.name as channel_name "
+            "FROM messages m JOIN channels c ON m.channel_id = c.channel_id "
+            "WHERE (m.content LIKE ? OR c.name LIKE ?)"
+        )
+
+        params = [f"%{query}%", f"%{query}%"]
+
+        if identity and not all_agents:
+            agent = spawn.get_agent(identity)
+
+            if not agent:
+                raise ValueError(f"Agent '{identity}' not found")
+
+            sql_query += " AND m.agent_id = ?"
+
+            params.append(agent.agent_id)
+
+        sql_query += " ORDER BY m.created_at ASC"
+
+        rows = conn.execute(sql_query, params).fetchall()
+
+        for row in rows:
+            agent = spawn.get_agent(row["agent_id"])
+
+            results.append(
+                {
+                    "source": "bridge",
+                    "channel_name": row["channel_name"],
+                    "message_id": row["message_id"],
+                    "sender": agent.identity if agent else row["agent_id"],
+                    "content": row["content"],
+                    "timestamp": row["created_at"],
+                    "reference": f"bridge:{row['channel_name']}:{row['message_id']}",
+                }
+            )
+
+    return results
 
 
 def _search_provider_chats(
@@ -90,7 +207,7 @@ def collect_timeline(query: str, identity: str | None, all_agents: bool) -> list
     seen = set()
     timeline = []
 
-    for result in memory.search(query, identity, all_agents):
+    for result in _search_memory(query, identity, all_agents):
         key = (result["source"], result.get("memory_id"))
         if key not in seen:
             seen.add(key)
@@ -105,7 +222,7 @@ def collect_timeline(query: str, identity: str | None, all_agents: bool) -> list
                 }
             )
 
-    for result in knowledge.search(query, identity, all_agents):
+    for result in _search_knowledge(query, identity, all_agents):
         key = (result["source"], result.get("knowledge_id"))
         if key not in seen:
             seen.add(key)
@@ -120,7 +237,7 @@ def collect_timeline(query: str, identity: str | None, all_agents: bool) -> list
                 }
             )
 
-    for result in bridge.search(query, identity, all_agents):
+    for result in _search_bridge(query, identity, all_agents):
         key = (result["source"], result.get("message_id"))
         if key not in seen:
             seen.add(key)
@@ -180,7 +297,7 @@ def collect_current_state(query: str, identity: str | None, all_agents: bool) ->
             "message": r["message"],
             "reference": r["reference"],
         }
-        for r in memory.search(query, identity, all_agents)
+        for r in _search_memory(query, identity, all_agents)
     ]
 
     results["knowledge"] = [
@@ -190,7 +307,7 @@ def collect_current_state(query: str, identity: str | None, all_agents: bool) ->
             "contributor": r["contributor"],
             "reference": r["reference"],
         }
-        for r in knowledge.search(query, identity, all_agents)
+        for r in _search_knowledge(query, identity, all_agents)
     ]
 
     results["bridge"] = [
@@ -200,7 +317,7 @@ def collect_current_state(query: str, identity: str | None, all_agents: bool) ->
             "content": r["content"],
             "reference": r["reference"],
         }
-        for r in bridge.search(query, identity, all_agents)
+        for r in _search_bridge(query, identity, all_agents)
     ]
 
     results["provider_chats"] = [

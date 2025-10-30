@@ -14,7 +14,6 @@ from .api import (
     mark_core,
     replace_entry,
     restore_entry,
-    search,
 )
 from .cli import app
 
@@ -36,5 +35,4 @@ __all__ = [
     "mark_core",
     "replace_entry",
     "restore_entry",
-    "search",
 ]

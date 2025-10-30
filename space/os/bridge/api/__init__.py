@@ -25,7 +25,6 @@ from .messaging import (
     send_message,
     set_bookmark,
 )
-from .search import search
 
 __all__ = [
     "archive_channel",
@@ -41,7 +40,6 @@ __all__ = [
     "recv_messages",
     "rename_channel",
     "resolve_channel",
-    "search",
     "send_message",
     "set_bookmark",
     "spawn_from_mentions",

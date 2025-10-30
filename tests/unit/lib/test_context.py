@@ -24,9 +24,9 @@ def test_validate_search_term_too_long():
 def test_collect_timeline_deduplicates():
     """Timeline deduplicates by source and ID."""
     with (
-        patch("space.apps.context.api.memory.search") as m_mem,
-        patch("space.apps.context.api.knowledge.search") as m_know,
-        patch("space.apps.context.api.bridge.search") as m_bridge,
+        patch("space.apps.context.api._search_memory") as m_mem,
+        patch("space.apps.context.api._search_knowledge") as m_know,
+        patch("space.apps.context.api._search_bridge") as m_bridge,
         patch("space.apps.context.api._search_provider_chats") as m_chat,
         patch("space.apps.context.api.canon.search") as m_canon,
     ):
@@ -55,9 +55,9 @@ def test_collect_timeline_deduplicates():
 def test_collect_timeline_sorted_by_timestamp():
     """Timeline entries sorted by timestamp."""
     with (
-        patch("space.apps.context.api.memory.search") as m_mem,
-        patch("space.apps.context.api.knowledge.search") as m_know,
-        patch("space.apps.context.api.bridge.search") as m_bridge,
+        patch("space.apps.context.api._search_memory") as m_mem,
+        patch("space.apps.context.api._search_knowledge") as m_know,
+        patch("space.apps.context.api._search_bridge") as m_bridge,
         patch("space.apps.context.api._search_provider_chats") as m_chat,
         patch("space.apps.context.api.canon.search") as m_canon,
     ):
@@ -93,9 +93,9 @@ def test_collect_timeline_sorted_by_timestamp():
 def test_collect_timeline_returns_last_10():
     """Timeline returns max 10 entries."""
     with (
-        patch("space.apps.context.api.memory.search") as m_mem,
-        patch("space.apps.context.api.knowledge.search") as m_know,
-        patch("space.apps.context.api.bridge.search") as m_bridge,
+        patch("space.apps.context.api._search_memory") as m_mem,
+        patch("space.apps.context.api._search_knowledge") as m_know,
+        patch("space.apps.context.api._search_bridge") as m_bridge,
         patch("space.apps.context.api._search_provider_chats") as m_chat,
         patch("space.apps.context.api.canon.search") as m_canon,
     ):
@@ -124,9 +124,9 @@ def test_collect_timeline_returns_last_10():
 def test_collect_current_state_all_sources():
     """Current state collects from all sources."""
     with (
-        patch("space.apps.context.api.memory.search") as m_mem,
-        patch("space.apps.context.api.knowledge.search") as m_know,
-        patch("space.apps.context.api.bridge.search") as m_bridge,
+        patch("space.apps.context.api._search_memory") as m_mem,
+        patch("space.apps.context.api._search_knowledge") as m_know,
+        patch("space.apps.context.api._search_bridge") as m_bridge,
         patch("space.apps.context.api._search_provider_chats") as m_chat,
         patch("space.apps.context.api.canon.search") as m_canon,
     ):

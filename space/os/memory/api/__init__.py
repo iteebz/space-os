@@ -12,7 +12,6 @@ from .entries import (
     replace_entry,
     restore_entry,
 )
-from .search import search
 
 __all__ = [
     "add_entry",
@@ -27,5 +26,4 @@ __all__ = [
     "mark_core",
     "replace_entry",
     "restore_entry",
-    "search",
 ]

@@ -169,30 +169,3 @@ def test_find_related_returns_scores(mock_db):
     result = knowledge.find_related(entry)
     assert len(result) > 0
     assert isinstance(result[0], tuple)
-
-
-def test_search_returns_structured_results(mock_db):
-    with patch("space.os.spawn.get_agent") as mock_agent:
-        mock_agent.return_value = MagicMock(agent_id="a-1", identity="agent1")
-        mock_row = make_mock_row(
-            {
-                "knowledge_id": "k-1",
-                "domain": "ml",
-                "agent_id": "a-1",
-                "content": "test",
-                "created_at": "2024-01-01",
-            }
-        )
-        mock_db.execute.return_value.fetchall.return_value = [mock_row]
-        result = knowledge.search("test", None, True)
-        assert len(result) == 1
-        assert result[0]["source"] == "knowledge"
-
-
-def test_search_filters_by_identity(mock_db):
-    with patch("space.os.spawn.get_agent") as mock_agent:
-        mock_agent.return_value = MagicMock(agent_id="a-1", identity="agent1")
-        mock_db.execute.return_value.fetchall.return_value = []
-        knowledge.search("test", "agent1", False)
-        args = mock_db.execute.call_args[0]
-        assert "AND agent_id = ?" in args[0]

@@ -10,7 +10,6 @@ from .api import (
     query_by_agent,
     query_by_domain,
     restore_entry,
-    search,
 )
 from .cli import app
 
@@ -28,5 +27,4 @@ __all__ = [
     "query_by_agent",
     "query_by_domain",
     "restore_entry",
-    "search",
 ]

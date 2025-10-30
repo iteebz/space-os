@@ -8,7 +8,6 @@ from .entries import (
     query_by_domain,
     restore_entry,
 )
-from .search import search
 
 __all__ = [
     "add_entry",
@@ -19,5 +18,4 @@ __all__ = [
     "query_by_agent",
     "query_by_domain",
     "restore_entry",
-    "search",
 ]

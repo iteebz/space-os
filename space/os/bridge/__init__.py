@@ -7,7 +7,6 @@ from .api import (
     get_messages,
     get_sender_history,
     resolve_channel,
-    search,
     set_bookmark,
     spawn_from_mentions,
 )
@@ -46,7 +45,6 @@ __all__ = [
     "recv_messages",
     "rename_channel",
     "resolve_channel",
-    "search",
     "send_message",
     "set_bookmark",
     "spawn_from_mentions",
