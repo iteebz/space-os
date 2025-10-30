@@ -1,4 +1,4 @@
-"""Knowledge entry commands: add, list, query, get, inspect, archive."""
+"""Knowledge CLI: Domain-specific Knowledge Base."""
 
 from dataclasses import asdict
 
@@ -6,12 +6,30 @@ import typer
 
 from space.lib import errors, output
 from space.os import spawn
-
-from ..api import entries as api
+from space.os.knowledge import api
 
 errors.install_error_handler("knowledge")
 
-app = typer.Typer()
+app = typer.Typer(invoke_without_command=True)
+
+
+@app.callback()
+def main_callback(
+    ctx: typer.Context,
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
+):
+    """Knowledge: Domain-specific Knowledge Base"""
+    output.set_flags(ctx, json_output, quiet_output)
+    if ctx.obj is None:
+        ctx.obj = {}
+
+    if ctx.resilient_parsing or ctx.invoked_subcommand is None:
+        typer.echo(
+            "knowledge [command]: Manage domain-specific knowledge. Run 'knowledge --help' for commands."
+        )
 
 
 @app.command("add")
@@ -57,6 +75,7 @@ def list_entries(
 
     output.out_text("Knowledge entries:", ctx.obj)
     for e in entries:
+        mark = " [ARCHIVED]" if e.archived_at else ""
         agent = spawn.get_agent(e.agent_id)
         contributor = agent.identity if agent else e.agent_id[:8]
         output.out_text(
@@ -142,3 +161,16 @@ def archive(
     except ValueError as e:
         output.emit_error("knowledge", entry.agent_id, "archive/restore", e)
         raise typer.BadParameter(str(e)) from e
+
+
+def main() -> None:
+    """Entry point for poetry script."""
+    try:
+        app()
+    except SystemExit:
+        raise
+    except BaseException as e:
+        raise SystemExit(1) from e
+
+
+__all__ = ["app", "main"]

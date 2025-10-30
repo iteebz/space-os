@@ -6,7 +6,7 @@ from space.os import spawn
 def test_wait_blocks_until_completion(test_space, default_agents):
     import threading
 
-    from space.os.spawn.cli.tasks import wait
+    from space.os.spawn.cli import wait
 
     zealot_id = default_agents["zealot"]
     task_id = spawn.create_task(role=zealot_id, input="test")
@@ -26,7 +26,7 @@ def test_wait_blocks_until_completion(test_space, default_agents):
 
 
 def test_wait_exit_code(test_space, default_agents):
-    from space.os.spawn.cli.tasks import wait
+    from space.os.spawn.cli import wait
 
     zealot_id = default_agents["zealot"]
     task_id = spawn.create_task(role=zealot_id, input="test")
@@ -39,7 +39,7 @@ def test_wait_exit_code(test_space, default_agents):
 def test_wait_timeout(test_space, default_agents):
     import typer
 
-    from space.os.spawn.cli.tasks import wait
+    from space.os.spawn.cli import wait
 
     zealot_id = default_agents["zealot"]
     task_id = spawn.create_task(role=zealot_id, input="test")
@@ -53,7 +53,7 @@ def test_wait_timeout(test_space, default_agents):
 
 
 def test_wait_pending(test_space, default_agents):
-    from space.os.spawn.cli.tasks import wait
+    from space.os.spawn.cli import wait
 
     zealot_id = default_agents["zealot"]
     task_id = spawn.create_task(role=zealot_id, input="test")
@@ -69,7 +69,7 @@ def test_wait_pending(test_space, default_agents):
 
 
 def test_kill_running_task(test_space, default_agents):
-    from space.os.spawn.cli.tasks import kill
+    from space.os.spawn.cli import kill
 
     zealot_id = default_agents["zealot"]
     task_id = spawn.create_task(role=zealot_id, input="long task")
@@ -85,7 +85,7 @@ def test_kill_running_task(test_space, default_agents):
 def test_kill_nonexistent_task(test_space, capsys):
     import typer
 
-    from space.os.spawn.cli.tasks import kill
+    from space.os.spawn.cli import kill
 
     try:
         kill("nonexistent-id")
@@ -97,7 +97,7 @@ def test_kill_nonexistent_task(test_space, capsys):
 
 
 def test_kill_completed_task_no_op(test_space, default_agents):
-    from space.os.spawn.cli.tasks import kill
+    from space.os.spawn.cli import kill
 
     zealot_id = default_agents["zealot"]
     task_id = spawn.create_task(role=zealot_id, input="test")
@@ -110,7 +110,7 @@ def test_kill_completed_task_no_op(test_space, default_agents):
 
 
 def test_tasks_list_empty(test_space, capsys):
-    from space.os.spawn.cli.tasks import list as list_tasks
+    from space.os.spawn.cli import list as list_tasks
 
     list_tasks(None, None)
     captured = capsys.readouterr()
@@ -119,7 +119,7 @@ def test_tasks_list_empty(test_space, capsys):
 
 def test_tasks_list_shows_running(test_space, capsys, default_agents):
     from space.os.bridge.api import channels as bridge_api
-    from space.os.spawn.cli.tasks import list as list_tasks
+    from space.os.spawn.cli import list as list_tasks
 
     channel = bridge_api.create_channel(name="test-ch-running")
     zealot_id = default_agents["zealot"]
@@ -133,7 +133,7 @@ def test_tasks_list_shows_running(test_space, capsys, default_agents):
 
 
 def test_tasks_list_filter_by_status(test_space, capsys, default_agents):
-    from space.os.spawn.cli.tasks import list as list_tasks
+    from space.os.spawn.cli import list as list_tasks
 
     zealot_id = default_agents["zealot"]
     t1 = spawn.create_task(role=zealot_id, input="task 1")
@@ -147,7 +147,7 @@ def test_tasks_list_filter_by_status(test_space, capsys, default_agents):
 
 
 def test_tasks_list_filter_by_identity(test_space, capsys, default_agents):
-    from space.os.spawn.cli.tasks import list as list_tasks
+    from space.os.spawn.cli import list as list_tasks
 
     sentinel_id = default_agents["sentinel"]
     zealot_id = default_agents["zealot"]
@@ -165,7 +165,7 @@ def test_tasks_list_filter_by_identity(test_space, capsys, default_agents):
 
 
 def test_logs_shows_full_task_detail(test_space, capsys, default_agents):
-    from space.os.spawn.cli.tasks import logs
+    from space.os.spawn.cli import logs
 
     zealot_id = default_agents["zealot"]
     task_id = spawn.create_task(role=zealot_id, input="list repos")
@@ -181,7 +181,7 @@ def test_logs_shows_full_task_detail(test_space, capsys, default_agents):
 
 
 def test_logs_shows_failed_task_stderr(test_space, capsys, default_agents):
-    from space.os.spawn.cli.tasks import logs
+    from space.os.spawn.cli import logs
 
     zealot_id = default_agents["zealot"]
     task_id = spawn.create_task(role=zealot_id, input="bad command")
@@ -196,7 +196,7 @@ def test_logs_shows_failed_task_stderr(test_space, capsys, default_agents):
 def test_logs_task_not_found(test_space, capsys):
     import typer
 
-    from space.os.spawn.cli.tasks import logs
+    from space.os.spawn.cli import logs
 
     try:
         logs("nonexistent-id-123")

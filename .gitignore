@@ -1,7 +1,5 @@
 __pycache__/
 *.py[cod]
-*$py.class
-
 build/
 dist/
 
@@ -10,17 +8,15 @@ dist/
 env/
 venv/
 
-.ruff_cache/
+.coverage
 .pytest_cache/
 .mypy_cache/
-.coverage*
-
-.space/
-bin/
-*.db
+.ruff_cache/
 
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+repomix-output.*

@@ -2,7 +2,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from space.os.memory.cli.namespace import create_namespace_cli  # Import create_namespace_cli
+from space.os.memory.cli import create_namespace_cli
 from space.os.memory.ops import namespace as ops_namespace
 
 runner = CliRunner()
@@ -20,9 +20,7 @@ def mock_ops_namespace(mocker):
     mock_add_entry = mocker.patch("space.os.memory.ops.namespace.add_entry")
     mock_add_entry.return_value = mocker.Mock(uuid="test-uuid")
     mocker.patch("space.os.memory.ops.namespace.list_entries", return_value=[])
-    mocker.patch(
-        "space.os.memory.cli.namespace.format_memory_entries", return_value="formatted entries"
-    )
+    mocker.patch("space.os.memory.cli.format_memory_entries", return_value="formatted entries")
     mocker.patch("space.os.spawn.get_agent", return_value=mocker.Mock(agent_id="test-agent-id"))
     # Set the identity in the main_app's context object
     main_app.obj = {"identity": "test-agent-id"}
