@@ -2,8 +2,9 @@ import click
 import typer
 from typer.core import TyperGroup
 
-from space.apps import canon, chats, council, daemons, health, init, stats
+from space.apps import chats, council, daemons, health, init, stats
 from space.lib import backup
+from space.os import canon
 from space.os.spawn import api
 
 
