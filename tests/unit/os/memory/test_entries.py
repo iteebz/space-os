@@ -120,25 +120,3 @@ def test_list_entries_agent_not_found_raises(mock_get_agent):
 
     with pytest.raises(ValueError, match="not found"):
         memory.list_entries("nonexistent")
-
-
-def test_replace_entry_archives_old(mock_db):
-    with patch("space.os.memory.api.entries.resolve_id", return_value="m-1"):
-        memory.replace_entry(["m-1"], "agent-123", "topic", "new msg")
-
-    calls = [call[0][0] for call in mock_db.execute.call_args_list]
-    assert any("UPDATE memories SET archived_at" in call for call in calls)
-
-
-def test_replace_entry_creates_new(mock_db):
-    with patch("space.os.memory.api.entries.resolve_id", return_value="m-1"):
-        memory.replace_entry(["m-1"], "agent-123", "topic", "new msg")
-
-    calls = [call[0][0] for call in mock_db.execute.call_args_list]
-    assert any("INSERT INTO memories" in call for call in calls)
-
-
-def test_replace_entry_returns_id(mock_db):
-    with patch("space.os.memory.api.entries.resolve_id", return_value="m-1"):
-        result = memory.replace_entry(["m-1"], "agent-123", "topic", "new msg")
-    assert result is not None

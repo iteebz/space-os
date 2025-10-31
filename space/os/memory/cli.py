@@ -202,38 +202,6 @@ def inspect(
         display.show_memory_entry(entry, ctx.obj, related=related)
 
 
-@main_app.command("replace")
-def replace(
-    ctx: typer.Context,
-    old_id: str = typer.Argument(None, help="Single UUID to replace"),
-    message: str = typer.Argument(..., help="New message content"),
-    supersedes: str = typer.Option(None, help="Comma-separated UUIDs to replace"),
-    note: str = typer.Option("", "--note", help="Synthesis note"),
-):
-    """Merge multiple memories into one (--supersedes)."""
-    id = ctx.obj.get("identity")
-    if not id:
-        raise typer.BadParameter("--as required")
-    agent = spawn.get_agent(id)
-    if not agent:
-        raise typer.BadParameter(f"Identity '{id}' not registered.")
-    agent_id = agent.agent_id
-
-    if supersedes:
-        old_ids = [x.strip() for x in supersedes.split(",")]
-    elif old_id:
-        old_ids = [old_id]
-    else:
-        raise typer.BadParameter("Provide old_id or --supersedes")
-
-    old_entry = api.get_by_id(old_ids[0])
-    if not old_entry:
-        raise typer.BadParameter(f"Not found: {old_ids[0]}")
-
-    new_uuid = api.replace_entry(old_ids, agent_id, old_entry.topic, message, note)
-    output.out_text(f"Merged {len(old_ids)} → {new_uuid[-8:]}", ctx.obj)
-
-
 def main() -> None:
     """Entry point for memory command."""
     try:
