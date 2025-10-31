@@ -177,6 +177,10 @@ def spawn_agent(identity: str, extra_args: list[str] | None = None):
         identity: Agent identity from registry
         extra_args: Additional CLI arguments forwarded to provider
     """
+    import json
+
+    from space.lib.mcp import registry
+
     from . import sessions
 
     agent = agents.get_agent(identity)
@@ -215,7 +219,14 @@ def spawn_agent(identity: str, extra_args: list[str] | None = None):
             launch_args = provider_obj.launch_args()
     else:
         launch_args = []
-    full_command = command_tokens + [context] + model_args + launch_args + passthrough
+
+    mcp_args = []
+    if agent.provider in ("claude", "codex"):
+        mcp_config = registry.get_launch_config()
+        if mcp_config:
+            mcp_args = ["--mcp-config", json.dumps({"servers": mcp_config})]
+
+    full_command = command_tokens + [context] + model_args + launch_args + mcp_args + passthrough
     display_command = command_tokens + ['"<space_manual>"'] + model_args + launch_args + passthrough
 
     click.echo(f"Executing: {' '.join(display_command)}")

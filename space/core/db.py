@@ -31,4 +31,4 @@ def connect():
 def path():
     """Return filesystem path to unified database."""
     register()
-    return paths.space_data() / "space.db"
+    return paths.dot_space() / "space.db"
