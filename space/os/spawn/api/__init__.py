@@ -15,7 +15,8 @@ from .agents import (
     unarchive_agent,
     update_agent,
 )
-from .prompt import spawn_agent, spawn_prompt
+from .launch import spawn_agent
+from .prompt import spawn_prompt
 from .sessions import (
     create_session,
     end_session,
