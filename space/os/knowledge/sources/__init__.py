@@ -1,4 +1,4 @@
-"""Canon operations: read-only git-backed markdown files (now in knowledge sources)."""
+"""Knowledge sources: canon (markdown files) and other data sources."""
 
 from space.os.knowledge.sources.canon import canon_exists, get_canon_entries, read_canon
 

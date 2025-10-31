@@ -17,7 +17,7 @@ def test_canon_tree_command():
         (canon_root / "research").mkdir()
         (canon_root / "research" / "safety.md").write_text("# Safety")
 
-        with patch("space.apps.canon.api.operations.canon_path", return_value=canon_root):
+        with patch("space.os.knowledge.sources.canon.canon_path", return_value=canon_root):
             result = runner.invoke(app, ["tree"])
 
         assert result.exit_code == 0
@@ -31,7 +31,7 @@ def test_canon_inspect_command():
         content = "# Test Document\nContent here."
         (canon_root / "test.md").write_text(content)
 
-        with patch("space.apps.canon.api.operations.canon_path", return_value=canon_root):
+        with patch("space.os.knowledge.sources.canon.canon_path", return_value=canon_root):
             result = runner.invoke(app, ["inspect", "test"])
 
         assert result.exit_code == 0
@@ -47,7 +47,7 @@ def test_canon_inspect_nested():
         content = "# Nested"
         (canon_root / "research" / "nested.md").write_text(content)
 
-        with patch("space.apps.canon.api.operations.canon_path", return_value=canon_root):
+        with patch("space.os.knowledge.sources.canon.canon_path", return_value=canon_root):
             result = runner.invoke(app, ["inspect", "research/nested"])
 
         assert result.exit_code == 0
@@ -60,7 +60,7 @@ def test_canon_inspect_missing():
         canon_root = Path(tmpdir)
         (canon_root / "exists.md").write_text("# Exists")
 
-        with patch("space.apps.canon.api.operations.canon_path", return_value=canon_root):
+        with patch("space.os.knowledge.sources.canon.canon_path", return_value=canon_root):
             result = runner.invoke(app, ["inspect", "missing"])
 
         assert result.exit_code == 0

@@ -40,10 +40,7 @@ class Claude(Provider):
             "Task",
             "TodoWrite",
         ]
-        args = ["--dangerously-skip-permissions"]
-        for tool in disallowed:
-            args.extend(["--disallowedTools", tool])
-        return args
+        return ["--dangerously-skip-permissions", "--disallowedTools", ",".join(disallowed)]
 
     def discover_sessions(self) -> list[dict]:
         """Discover Claude chat sessions."""

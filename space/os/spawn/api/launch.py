@@ -24,7 +24,8 @@ def spawn_agent(identity: str, extra_args: list[str] | None = None):
 
     Args:
             identity: Agent identity from registry
-            extra_args: Additional CLI arguments forwarded to provider
+            extra_args: Additional CLI arguments forwarded to provider.
+                       If empty, spawn in interactive mode without context prompt.
     """
     agent = agents.get_agent(identity)
     if not agent:
@@ -51,13 +52,10 @@ def spawn_agent(identity: str, extra_args: list[str] | None = None):
     click.echo(f"Spawning {identity}...\n")
     session_id = sessions.create_session(agent.agent_id)
 
-    context = spawn_prompt(identity, agent.model)
-    has_prompt = bool(context.strip())
-
     provider_obj = {"claude": claude, "gemini": gemini, "codex": codex}.get(agent.provider)
     if provider_obj:
         if agent.provider == "gemini":
-            launch_args = provider_obj.launch_args(has_prompt=has_prompt)
+            launch_args = provider_obj.launch_args(has_prompt=bool(passthrough))
         else:
             launch_args = provider_obj.launch_args()
     else:
@@ -65,18 +63,47 @@ def spawn_agent(identity: str, extra_args: list[str] | None = None):
 
     mcp_args = []
 
-    full_command = command_tokens + [context] + model_args + launch_args + mcp_args + passthrough
-    display_command = command_tokens + ['"<space_manual>"'] + model_args + launch_args + passthrough
+    if passthrough:
+        context = spawn_prompt(identity, agent.model)
+        full_command = (
+            command_tokens + [context] + model_args + launch_args + mcp_args + passthrough
+        )
+        display_command = (
+            command_tokens + ['"<space_manual>"'] + model_args + launch_args + passthrough
+        )
+    else:
+        full_command = command_tokens + model_args + launch_args + mcp_args
+        display_command = command_tokens + model_args + launch_args
 
     click.echo(f"Executing: {' '.join(display_command)}")
     click.echo("")
 
-    proc = subprocess.Popen(full_command, env=env, cwd=str(workspace_root))
+    if passthrough:
+        popen_kwargs = {
+            "env": env,
+            "cwd": str(workspace_root),
+            "stdin": subprocess.PIPE,
+        }
+        proc = subprocess.Popen(full_command, **popen_kwargs)
+        try:
+            proc.communicate()
+        finally:
+            sessions.end_session(session_id)
+    else:
+        import sys
 
-    try:
-        proc.wait()
-    finally:
-        sessions.end_session(session_id)
+        popen_kwargs = {
+            "env": env,
+            "cwd": str(workspace_root),
+            "stdin": sys.stdin,
+            "stdout": sys.stdout,
+            "stderr": sys.stderr,
+        }
+        proc = subprocess.Popen(full_command, **popen_kwargs)
+        try:
+            proc.wait()
+        finally:
+            sessions.end_session(session_id)
 
 
 def _get_provider_command(provider: str) -> str:
@@ -93,8 +120,12 @@ def _get_provider_command(provider: str) -> str:
 
 
 def _write_constitution(provider: str, constitution: str) -> None:
-    """Write constitution to provider home dir."""
-    write_constitution(provider, constitution)
+    """Write constitution to provider home dir and verify write succeeded."""
+    path = write_constitution(provider, constitution)
+    with open(path) as f:
+        os.fsync(f.fileno())
+    if path.read_text() != constitution:
+        raise RuntimeError(f"Failed to write constitution to {path}")
 
 
 def _parse_command(command: str | list[str]) -> list[str]:

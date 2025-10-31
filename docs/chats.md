@@ -12,27 +12,20 @@ First-class data primitive for ingesting and querying chat histories from extern
 ## MVP Surface
 
 ```bash
-chats sync              # discover + delta-pull all sessions into chats.db
-chats stats             # breakdown: unique sessions per provider, message counts
+chats sync              # discover + delta-pull all sessions to ~/.space/chats/
+chats stats             # breakdown: files per provider, size breakdown
 ```
 
 ## Architecture
 
-**Data hierarchy:**
-```
-context    — unified search
-  ↓
-chats      — provider session logs (immutable audit trail)
-  ↓
-knowledge  — synthesized shared truth
-  ↓
-memory     — agent working memory
-```
+**Data storage:**
+- **Files:** `~/.space/chats/{provider}/{path}/...` (synced copies of provider chat files)
+- **No database:** Chats are stored as files, not in a database table
+- **Stateless discovery:** Each sync discovers available sessions by scanning provider directories
 
-**Schema:**
-- `sessions` table: cli, session_id, file_path, identity, task_id, discovered_at
-- `syncs` table: cli, session_id, last_byte_offset, last_synced_at, is_complete
-- Tracks offset-based sync per provider
+**Integration layer:**
+- `space/os/context/api/chats.py` — search interface (searches files directly)
+- `space/apps/space/api/chats.py` — sync orchestration (delegates to lib/sync)
 
 ## Provider Differences
 
