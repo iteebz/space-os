@@ -174,6 +174,34 @@ def sync():
     typer.echo(f"{'TOTAL':<10} {total_discovered:<12} {total_synced}")
 
 
+@chats_app.command()
+def resync(session_id: str):
+    """Resync a specific chat session, updating metadata and linking to task."""
+    results = api.chats.resync_chat(session_id)
+
+    typer.echo(f"✓ Chat resync complete for {session_id}")
+    typer.echo()
+    typer.echo(f"{'Provider':<10} {'Discovered':<12} {'Synced'}")
+    typer.echo("-" * 40)
+
+    total_discovered = 0
+    total_synced = 0
+
+    for provider in ("claude", "codex", "gemini"):
+        discovered, synced = results.get(provider, (0, 0))
+        total_discovered += discovered
+        total_synced += synced
+        if discovered > 0 or synced > 0:
+            status = "✓" if synced > 0 else "-"
+            typer.echo(f"{provider:<10} {discovered:<12} {synced:<12} {status}")
+
+    if total_discovered > 0:
+        typer.echo("-" * 40)
+        typer.echo(f"{'TOTAL':<10} {total_discovered:<12} {total_synced}")
+    else:
+        typer.echo("No chats found with that session ID")
+
+
 @chats_app.command(name="stats")
 def chats_stats():
     """Show chat statistics across providers."""

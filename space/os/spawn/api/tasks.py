@@ -1,5 +1,6 @@
 """Task operations: create, get, update, list."""
 
+import logging
 from datetime import datetime
 
 from space.core import db
@@ -8,6 +9,8 @@ from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
 
 from .agents import get_agent
+
+logger = logging.getLogger(__name__)
 
 
 def create_task(

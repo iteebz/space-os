@@ -19,6 +19,7 @@ EXPECTED_TABLES = {
     "memories",
     "links",
     "knowledge",
+    "chats",
 }
 IGNORED_TABLES = {"sqlite_sequence", "_migrations"}
 

@@ -173,3 +173,20 @@ class Task:
                 logger.warning(
                     f"Could not calculate task duration due to malformed timestamps: {e}"
                 )
+
+
+@dataclass
+class Chat:
+    """A chat session tracked for audit trail."""
+
+    session_id: str
+    provider: str
+    file_path: str
+    identity: str | None = None
+    task_id: str | None = None
+    message_count: int | None = None
+    tools_used: int = 0
+    token_count: int | None = None
+    first_message_at: str | None = None
+    last_message_at: str | None = None
+    created_at: str | None = None

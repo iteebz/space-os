@@ -13,6 +13,18 @@ def sync_all_providers() -> dict[str, tuple[int, int]]:
     return lib_sync.sync_provider_chats()
 
 
+def resync_chat(session_id: str) -> dict[str, tuple[int, int]]:
+    """Resync a specific chat session, updating metadata and linking to task.
+
+    Args:
+        session_id: The session ID to resync
+
+    Returns:
+        {provider_name: (sessions_discovered, files_synced)} for that provider
+    """
+    return lib_sync.sync_provider_chats(session_id=session_id)
+
+
 def get_provider_stats() -> dict[str, dict]:
     """Get chat statistics across all providers.
 
