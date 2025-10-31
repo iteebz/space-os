@@ -32,7 +32,7 @@ def _save_sync_state(state: dict) -> None:
 
 def _count_tool_uses(content: str) -> int:
     """Count tool_use blocks in chat content (JSONL).
-    
+
     Claude/Codex format: message.content is array of blocks with 'type' field.
     """
     count = 0
@@ -148,44 +148,45 @@ def _insert_chat_record(chat: Chat) -> None:
 
 def _link_chat_to_task(chat: Chat, cli_name: str) -> None:
     """Link chat to task based on identity and created_at timestamp.
-    
+
     Finds task with matching agent_id (via identity) and recent start time.
     """
     try:
         from space.os.spawn import api as spawn_api
-        
+
         if not chat.identity:
             return
-        
+
         agent = spawn_api.get_agent(chat.identity)
         if not agent:
             return
-        
+
         conn = db.connect()
         cursor = conn.cursor()
-        
+
         cursor.execute(
             """
-            SELECT task_id, started_at FROM tasks 
+            SELECT task_id, started_at FROM tasks
             WHERE agent_id = ? AND status = 'running'
             ORDER BY started_at DESC LIMIT 1
             """,
-            (agent.agent_id,)
+            (agent.agent_id,),
         )
         row = cursor.fetchone()
         if not row:
             return
-        
+
         task_id, started_at = row
         if started_at and chat.created_at:
             try:
-                from datetime import datetime, timedelta
+                from datetime import datetime
+
                 task_start = datetime.fromisoformat(started_at)
                 chat_start = datetime.fromisoformat(chat.created_at)
                 if abs((chat_start - task_start).total_seconds()) < 60:
                     cursor.execute(
                         "UPDATE chats SET task_id = ? WHERE session_id = ?",
-                        (task_id, chat.session_id)
+                        (task_id, chat.session_id),
                     )
                     conn.commit()
             except (ValueError, TypeError):
@@ -194,7 +195,9 @@ def _link_chat_to_task(chat: Chat, cli_name: str) -> None:
         logger.debug(f"Failed to link chat {chat.session_id} to task: {e}")
 
 
-def sync_provider_chats(session_id: str | None = None, verbose: bool = False) -> dict[str, tuple[int, int]]:
+def sync_provider_chats(
+    session_id: str | None = None, verbose: bool = False
+) -> dict[str, tuple[int, int]]:
     """Sync chats from all providers (~/.claude, ~/.codex, ~/.gemini) to ~/.space/chats/.
 
     Converts Gemini JSON to JSONL. Only syncs if source is newer/larger than tracked state.
@@ -237,14 +240,14 @@ def sync_provider_chats(session_id: str | None = None, verbose: bool = False) ->
                     continue
 
                 sid = session.get("session_id")
-                
+
                 if session_id and sid != session_id:
                     continue
-                
+
                 state_key = f"{cli_name}_{sid}"
                 src_mtime = src_file.stat().st_mtime
                 file_size = src_file.stat().st_size
-                
+
                 tracked_entry = sync_state.get(state_key, {})
                 if isinstance(tracked_entry, (int, float)):
                     tracked_mtime = tracked_entry
@@ -252,7 +255,7 @@ def sync_provider_chats(session_id: str | None = None, verbose: bool = False) ->
                 else:
                     tracked_mtime = tracked_entry.get("mtime", 0)
                     tracked_size = tracked_entry.get("size", 0)
-                
+
                 size_changed = file_size != tracked_size
                 should_copy = src_mtime > tracked_mtime or size_changed
                 should_skip_large = cli_name == "gemini" and file_size > size_threshold
@@ -280,7 +283,9 @@ def sync_provider_chats(session_id: str | None = None, verbose: bool = False) ->
                         sync_state[state_key] = {"mtime": src_mtime, "size": file_size}
                         synced_count += 1
                     else:
-                        dest_file = dest_dir / (f"{sid}.jsonl" if cli_name == "gemini" else src_file.name)
+                        dest_file = dest_dir / (
+                            f"{sid}.jsonl" if cli_name == "gemini" else src_file.name
+                        )
                         if not dest_file.exists():
                             continue
                         content_to_parse = dest_file.read_text()
@@ -296,7 +301,7 @@ def sync_provider_chats(session_id: str | None = None, verbose: bool = False) ->
                                     pass
                     tools_used = _count_tool_uses(content_to_parse)
                     first_ts, last_ts = _extract_timestamps(content_to_parse, cli_name)
-                    
+
                     input_tokens, output_tokens = provider.extract_tokens(src_file)
 
                     chat = Chat(
@@ -311,7 +316,7 @@ def sync_provider_chats(session_id: str | None = None, verbose: bool = False) ->
                         last_message_at=last_ts,
                     )
                     _insert_chat_record(chat)
-                    
+
                     _link_chat_to_task(chat, cli_name)
 
                 except (OSError, Exception) as e:

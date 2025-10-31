@@ -64,9 +64,22 @@ class SpawnStats:
 
 
 @dataclass
+class ChatStats:
+    available: bool
+    total_chats: int = 0
+    total_messages: int = 0
+    total_tools_used: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    by_provider: dict[str, dict] | None = None
+    by_agent: list[dict] | None = None
+
+
+@dataclass
 class SpaceStats:
     bridge: BridgeStats
     memory: MemoryStats
     knowledge: KnowledgeStats
     spawn: SpawnStats
+    chats: ChatStats | None = None
     agents: list[AgentStats] | None = None

@@ -109,7 +109,7 @@ class Codex(Provider):
 
     def extract_tokens(self, file_path: Path) -> tuple[int | None, int | None]:
         """Extract input and output tokens from Codex JSONL.
-        
+
         Codex stores tokens in token_count events under info.total_token_usage
         Returns the most recent token counts found.
         """

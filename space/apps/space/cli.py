@@ -125,6 +125,12 @@ overview"""
             f"  knowledge · {s.knowledge.active} active · {archived_k} archived · {s.knowledge.topics} domains"
         )
 
+    if s.chats and s.chats.available and s.chats.total_chats > 0:
+        total_tokens = s.chats.input_tokens + s.chats.output_tokens
+        lines.append(
+            f"  chats · {s.chats.total_chats} sessions · {s.chats.total_messages} messages · {s.chats.total_tools_used} tools · {total_tokens:,} tokens"
+        )
+
     if s.agents:
         lines.append("\nagents")
         lines.append("  name · id · e-s-b-m-k")

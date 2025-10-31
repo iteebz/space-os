@@ -167,7 +167,7 @@ class Gemini(Provider):
 
     def extract_tokens(self, file_path: Path) -> tuple[int | None, int | None]:
         """Extract input and output tokens from Gemini JSON (raw format).
-        
+
         Gemini stores tokens in gemini message objects under tokens.{input,output}
         Extracts from raw JSON before JSONL conversion.
         """
@@ -177,7 +177,7 @@ class Gemini(Provider):
         try:
             with open(file_path) as f:
                 data = json.load(f)
-            
+
             if isinstance(data, dict) and "messages" in data:
                 for msg in data.get("messages", []):
                     if msg.get("type") == "gemini" and "tokens" in msg:

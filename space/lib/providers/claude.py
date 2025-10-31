@@ -109,7 +109,7 @@ class Claude(Provider):
 
     def extract_tokens(self, file_path: Path) -> tuple[int | None, int | None]:
         """Extract input and output tokens from Claude JSONL.
-        
+
         Claude stores tokens in message.usage.{input,output}_tokens
         """
         input_total = 0

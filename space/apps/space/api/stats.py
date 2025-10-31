@@ -8,6 +8,7 @@ from space.lib import store
 from .models import (
     AgentStats,
     BridgeStats,
+    ChatStats,
     KnowledgeStats,
     LeaderboardEntry,
     MemoryStats,
@@ -198,6 +199,59 @@ def _get_spawn_stats() -> dict:
     }
 
 
+def _get_chat_stats() -> dict:
+    """Get chat statistics from chats table."""
+    from space.core import db
+
+    with db.connect() as conn:
+        total_chats = conn.execute("SELECT COUNT(*) FROM chats").fetchone()[0]
+        total_messages = conn.execute(
+            "SELECT COALESCE(SUM(message_count), 0) FROM chats"
+        ).fetchone()[0]
+        total_tools = conn.execute("SELECT COALESCE(SUM(tools_used), 0) FROM chats").fetchone()[0]
+        total_input = conn.execute("SELECT COALESCE(SUM(input_tokens), 0) FROM chats").fetchone()[0]
+        total_output = conn.execute("SELECT COALESCE(SUM(output_tokens), 0) FROM chats").fetchone()[
+            0
+        ]
+
+        by_provider = conn.execute(
+            "SELECT provider, COUNT(*) as count, COALESCE(SUM(message_count), 0) as messages, COALESCE(SUM(tools_used), 0) as tools_used, COALESCE(SUM(input_tokens), 0) as input_tokens, COALESCE(SUM(output_tokens), 0) as output_tokens FROM chats GROUP BY provider"
+        ).fetchall()
+
+        by_agent = conn.execute(
+            "SELECT a.identity, COUNT(c.session_id) as chat_count, COALESCE(SUM(c.message_count), 0) as messages, COALESCE(SUM(c.tools_used), 0) as tools_used, COALESCE(SUM(c.input_tokens), 0) as input_tokens, COALESCE(SUM(c.output_tokens), 0) as output_tokens FROM agents a LEFT JOIN chats c ON c.identity = a.identity GROUP BY a.agent_id ORDER BY messages DESC"
+        ).fetchall()
+
+    return {
+        "total_chats": total_chats,
+        "total_messages": total_messages,
+        "total_tools_used": total_tools,
+        "total_input_tokens": total_input,
+        "total_output_tokens": total_output,
+        "by_provider": {
+            row[0]: {
+                "chats": row[1],
+                "messages": row[2],
+                "tools_used": row[3],
+                "input_tokens": row[4],
+                "output_tokens": row[5],
+            }
+            for row in by_provider
+        },
+        "by_agent": [
+            {
+                "identity": row[0],
+                "chats": row[1],
+                "messages": row[2],
+                "tools_used": row[3],
+                "input_tokens": row[4],
+                "output_tokens": row[5],
+            }
+            for row in by_agent
+        ],
+    }
+
+
 def bridge_stats(limit: int = None) -> BridgeStats:
     try:
         stats_data = _get_bridge_stats()
@@ -333,11 +387,30 @@ def spawn_stats() -> SpawnStats:
         return SpawnStats(available=False)
 
 
+def chat_stats() -> ChatStats:
+    try:
+        stats_data = _get_chat_stats()
+        return ChatStats(
+            available=True,
+            total_chats=stats_data["total_chats"],
+            total_messages=stats_data["total_messages"],
+            total_tools_used=stats_data["total_tools_used"],
+            input_tokens=stats_data["total_input_tokens"],
+            output_tokens=stats_data["total_output_tokens"],
+            by_provider=stats_data["by_provider"],
+            by_agent=stats_data["by_agent"],
+        )
+    except Exception as exc:
+        logger.error(f"Failed to fetch chat stats: {exc}")
+        return ChatStats(available=False)
+
+
 def collect(limit: int = None, agent_limit: int = None) -> SpaceStats:
     return SpaceStats(
         bridge=bridge_stats(limit=limit),
         memory=memory_stats(limit=limit),
         knowledge=knowledge_stats(limit=limit),
         spawn=spawn_stats(),
+        chats=chat_stats(),
         agents=agent_stats(limit=agent_limit),
     )
