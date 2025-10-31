@@ -10,10 +10,10 @@ from space.os.knowledge import api
 
 errors.install_error_handler("knowledge")
 
-app = typer.Typer(invoke_without_command=True)
+app = typer.Typer(invoke_without_command=True, add_completion=False)
 
 
-@app.callback()
+@app.callback(context_settings={"help_option_names": ["-h", "--help"]})
 def main_callback(
     ctx: typer.Context,
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
@@ -21,15 +21,16 @@ def main_callback(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    """Knowledge: Domain-specific Knowledge Base"""
+    """Contribute to shared truth. Once written, entries are immutable.
+    Archive if wrong, add new if refined. Your insights compound collective intelligence."""
     output.set_flags(ctx, json_output, quiet_output)
     if ctx.obj is None:
         ctx.obj = {}
 
-    if ctx.resilient_parsing or ctx.invoked_subcommand is None:
-        typer.echo(
-            "knowledge [command]: Manage domain-specific knowledge. Run 'knowledge --help' for commands."
-        )
+    if ctx.resilient_parsing:
+        return
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
 
 
 @app.command("add")
@@ -40,7 +41,7 @@ def add(
     contributor: str = typer.Option(..., "--as", help="Agent identity"),
     confidence: float = typer.Option(None, help="Confidence score (0.0-1.0)"),
 ):
-    """Add a new knowledge entry."""
+    """Create new knowledge entry (--domain required)."""
     agent = spawn.get_agent(contributor)
     agent_id = agent.agent_id if agent else None
     if not agent_id:
@@ -60,7 +61,7 @@ def list_entries(
     ctx: typer.Context,
     show_all: bool = typer.Option(False, "--all", help="Show all entries"),
 ):
-    """List all knowledge entries."""
+    """List all knowledge (--all includes archived)."""
     entries = api.list_entries(show_all=show_all)
     if not entries:
         if ctx.obj.get("json_output"):
@@ -89,7 +90,7 @@ def query_domain(
     domain: str = typer.Argument(..., help="Domain to query"),
     show_all: bool = typer.Option(False, "--all", help="Show all entries"),
 ):
-    """Query knowledge entries by domain."""
+    """Find entries for specific domain."""
     entries = api.query_by_domain(domain, show_all=show_all)
     if not entries:
         output.out_text(f"No entries for domain '{domain}'", ctx.obj)
@@ -115,7 +116,7 @@ def inspect(
     ctx: typer.Context,
     knowledge_id: str = typer.Argument(..., help="Knowledge ID to inspect"),
 ):
-    """Inspect knowledge entry details."""
+    """View full entry details."""
     entry = api.get_by_id(knowledge_id)
     if not entry:
         output.out_text(f"Not found: {knowledge_id}", ctx.obj)
@@ -144,7 +145,7 @@ def archive(
     knowledge_id: str = typer.Argument(..., help="Knowledge ID to archive"),
     restore: bool = typer.Option(False, "--restore", help="Restore archived entry"),
 ):
-    """Archive or restore a knowledge entry."""
+    """Archive or restore knowledge (--restore)."""
     entry = api.get_by_id(knowledge_id)
     if not entry:
         output.out_text(f"Not found: {knowledge_id}", ctx.obj)
@@ -164,7 +165,7 @@ def archive(
 
 
 def main() -> None:
-    """Entry point for poetry script."""
+    """Entry point for knowledge command."""
     try:
         app()
     except SystemExit:

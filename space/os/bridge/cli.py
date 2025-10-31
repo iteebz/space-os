@@ -10,7 +10,7 @@ import typer
 
 from space.lib import output
 from space.os import spawn
-from space.os.bridge import api, ops
+from space.os.bridge import api
 
 
 def format_channel_row(channel) -> tuple[str, str]:
@@ -61,10 +61,10 @@ def echo_if_output(msg: str, ctx: typer.Context):
         typer.echo(msg)
 
 
-app = typer.Typer(invoke_without_command=True)
+app = typer.Typer(invoke_without_command=True, add_completion=False)
 
 
-@app.callback()
+@app.callback(context_settings={"help_option_names": ["-h", "--help"]})
 def main_callback(
     ctx: typer.Context,
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
@@ -72,39 +72,46 @@ def main_callback(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    """Bridge: agent coordination and messaging."""
+    """Coordinate through immutable channels. Messages are append-only—once sent, they persist.
+    Read before deciding. Let other agents see your thinking."""
     output.set_flags(ctx, json_output, quiet_output)
     if ctx.obj is None:
         ctx.obj = {}
     if ctx.resilient_parsing:
         return
     if ctx.invoked_subcommand is None:
-        typer.echo("BRIDGE: Agent coordination and messaging system.")
+        typer.echo(ctx.get_help())
 
 
 @app.command()
 def archive(
     ctx: typer.Context,
     channels_arg: list[str] = typer.Argument(...),
+    restore: bool = typer.Option(False, "--restore", help="Restore archived channel"),
 ):
-    """Archive channels."""
+    """Archive or restore channel (--restore to undo)."""
     try:
         names = channels_arg
         results = []
         for name in names:
             try:
-                ops.archive_channel(name)
-                results.append({"channel": name, "status": "archived"})
-                echo_if_output(f"Archived channel: {name}", ctx)
-            except ValueError:
+                if restore:
+                    api.restore_channel(name)
+                    status = "restored"
+                else:
+                    api.archive_channel(name)
+                    status = "archived"
+                results.append({"channel": name, "status": status})
+                echo_if_output(f"{status.capitalize()} channel: {name}", ctx)
+            except ValueError as e:
                 results.append(
                     {
                         "channel": name,
                         "status": "error",
-                        "message": f"Channel '{name}' not found.",
+                        "message": str(e),
                     }
                 )
-                echo_if_output(f"❌ Channel '{name}' not found.", ctx)
+                echo_if_output(f"❌ {e}", ctx)
         if ctx.obj.get("json_output"):
             typer.echo(json.dumps(results))
     except Exception as e:
@@ -117,9 +124,9 @@ def channels(
     ctx: typer.Context,
     all: bool = typer.Option(False, "--all", help="Include archived channels"),
 ):
-    """Show active channels."""
+    """List active and archived channels."""
     try:
-        chans = ops.list_channels(all=all)
+        chans = api.list_channels(all=all)
 
         if not chans:
             output_json([], ctx) or echo_if_output("No channels found", ctx)
@@ -171,9 +178,10 @@ def create(
     channel_name: str = typer.Argument(..., help="Channel name"),
     topic: str = typer.Option(None, help="Channel topic"),
 ):
-    """Create a channel."""
+    """Create new channel."""
     try:
-        channel_id = ops.create_channel(channel_name, topic)
+        channel_obj = api.create_channel(channel_name, topic)
+        channel_id = channel_obj.channel_id
         output_json(
             {"status": "success", "channel_name": channel_name, "channel_id": channel_id}, ctx
         ) or echo_if_output(f"Created channel: {channel_name} (ID: {channel_id})", ctx)
@@ -189,9 +197,9 @@ def delete(
     ctx: typer.Context,
     channel: str = typer.Argument(..., help="Channel to delete"),
 ):
-    """Delete a channel."""
+    """Remove channel permanently."""
     try:
-        ops.delete_channel(channel)
+        api.delete_channel(channel)
         output_json({"status": "deleted", "channel": channel}, ctx) or echo_if_output(
             f"Deleted channel: {channel}", ctx
         )
@@ -210,7 +218,7 @@ def export(
     ctx: typer.Context,
     channel: str = typer.Argument(..., help="Channel name or ID"),
 ):
-    """Export channel messages as markdown."""
+    """Dump channel as markdown."""
     try:
         export_data = api.export_channel(channel)
 
@@ -255,12 +263,12 @@ def inbox(
     ctx: typer.Context,
     identity: str = typer.Option(..., "--as", help="Agent identity"),
 ):
-    """Show unread channels for an agent."""
+    """List unread channels for agent."""
     try:
         agent = spawn.get_agent(identity)
         if not agent:
             raise ValueError(f"Identity '{identity}' not registered.")
-        chans = ops.fetch_inbox(agent.agent_id)
+        chans = api.fetch_inbox(agent.agent_id)
         if not chans:
             output_json([], ctx) or echo_if_output("Inbox empty", ctx)
             return
@@ -283,14 +291,15 @@ def pin(
     ctx: typer.Context,
     channels_arg: list[str] = typer.Argument(...),
 ):
-    """Pin channels to favorites."""
+    """Pin or unpin channels."""
     try:
         results = []
         for channel in channels_arg:
             try:
-                ops.pin_channel(channel)
-                results.append({"channel": channel, "status": "pinned"})
-                echo_if_output(f"Pinned channel: {channel}", ctx)
+                is_pinned = api.toggle_pin_channel(channel)
+                status = "pinned" if is_pinned else "unpinned"
+                results.append({"channel": channel, "status": status})
+                echo_if_output(f"{status.capitalize()} channel: {channel}", ctx)
             except (ValueError, TypeError) as e:
                 results.append({"channel": channel, "status": "error", "message": str(e)})
                 echo_if_output(f"❌ Channel '{channel}' not found.", ctx)
@@ -307,12 +316,12 @@ def recv(
     channel: str = typer.Argument(..., help="Channel to read from"),
     identity: str = typer.Option(..., "--as", help="Receiver identity"),
 ):
-    """Receive unread messages from a channel."""
+    """Read unread messages from channel."""
     try:
         agent = spawn.get_agent(identity)
         if not agent:
             raise ValueError(f"Identity '{identity}' not registered.")
-        msgs, count, context, participants = ops.recv_messages(channel, agent.agent_id)
+        msgs, count, context, participants = api.recv_messages(channel, identity)
 
         output_json(
             {
@@ -345,12 +354,12 @@ def send(
     identity: str = typer.Option("human", "--as", help="Sender identity"),
     decode_base64: bool = typer.Option(False, "--base64", help="Decode base64 content"),
 ):
-    """Send a message to a channel."""
+    """Post message to channel."""
     try:
         agent = spawn.get_agent(identity)
         if not agent:
             raise ValueError(f"Identity '{identity}' not registered.")
-        ops.send_message(channel, identity, content, decode_base64)
+        api.send_message(channel, identity, content, decode_base64_flag=decode_base64)
         output_json(
             {"status": "success", "channel": channel, "identity": identity}, ctx
         ) or echo_if_output(
@@ -371,9 +380,9 @@ def rename(
     old_channel: str = typer.Argument(..., help="Current channel name"),
     new_channel: str = typer.Argument(..., help="New channel name"),
 ):
-    """Rename a channel."""
+    """Change channel name."""
     try:
-        result = ops.rename_channel(old_channel, new_channel)
+        result = api.rename_channel(old_channel, new_channel)
         output_json(
             {
                 "status": "success" if result else "failed",
@@ -395,42 +404,19 @@ def rename(
 
 
 @app.command()
-def unpin(
-    ctx: typer.Context,
-    channels_arg: list[str] = typer.Argument(...),
-):
-    """Unpin channels from favorites."""
-    try:
-        results = []
-        for channel in channels_arg:
-            try:
-                ops.unpin_channel(channel)
-                results.append({"channel": channel, "status": "unpinned"})
-                echo_if_output(f"Unpinned channel: {channel}", ctx)
-            except (ValueError, TypeError) as e:
-                results.append({"channel": channel, "status": "error", "message": str(e)})
-                echo_if_output(f"❌ Channel '{channel}' not found.", ctx)
-        if ctx.obj.get("json_output"):
-            typer.echo(json.dumps(results))
-    except Exception as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
-        raise typer.Exit(code=1) from e
-
-
-@app.command()
 def wait(
     ctx: typer.Context,
     channel: str = typer.Argument(..., help="Channel to monitor"),
     identity: str = typer.Option(..., "--as", help="Receiver identity"),
     poll_interval: float = typer.Option(0.1, "--interval", help="Poll interval in seconds"),
 ):
-    """Block and wait for a new message in a channel."""
+    """Block until new message arrives."""
     try:
         agent = spawn.get_agent(identity)
         if not agent:
             raise ValueError(f"Identity '{identity}' not registered.")
-        other_messages, count, context, participants = ops.wait_for_message(
-            channel, agent.agent_id, poll_interval
+        other_messages, count, context, participants = api.wait_for_message(
+            channel, identity, poll_interval
         )
         output_json(
             {

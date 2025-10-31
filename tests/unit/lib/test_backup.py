@@ -1,13 +1,13 @@
 import sqlite3
 from unittest.mock import patch
 
-from space.apps.backup import _get_backup_stats, backup
+from space.lib.backup import _get_backup_stats, backup
 
 
-@patch("space.apps.backup.paths.backup_chats_latest")
-@patch("space.apps.backup.paths.backup_snapshot")
-@patch("space.apps.backup.paths.chats_dir")
-@patch("space.apps.backup.paths.space_data")
+@patch("space.lib.backup.paths.backup_chats_latest")
+@patch("space.lib.backup.paths.backup_snapshot")
+@patch("space.lib.backup.paths.chats_dir")
+@patch("space.lib.backup.paths.space_data")
 def test_backup_creates_timestamped_data_dir(
     mock_space_data, mock_chats_dir, mock_backup_snapshot, mock_backup_chats_latest, tmp_path
 ):
@@ -35,10 +35,10 @@ def test_backup_creates_timestamped_data_dir(
     assert (backup_dir / "chats" / "latest").exists()
 
 
-@patch("space.apps.backup.paths.backup_chats_latest")
-@patch("space.apps.backup.paths.backup_snapshot")
-@patch("space.apps.backup.paths.chats_dir")
-@patch("space.apps.backup.paths.space_data")
+@patch("space.lib.backup.paths.backup_chats_latest")
+@patch("space.lib.backup.paths.backup_snapshot")
+@patch("space.lib.backup.paths.chats_dir")
+@patch("space.lib.backup.paths.space_data")
 def test_backup_copies_db_files(
     mock_space_data, mock_chats_dir, mock_backup_snapshot, mock_backup_chats_latest, tmp_path
 ):
@@ -87,14 +87,14 @@ def test_backup_stats_counts_rows(tmp_path):
     assert stats["test.db"]["tables"] == 1
 
 
-@patch("space.apps.backup.paths.validate_backup_path")
-@patch("space.apps.backup.paths.backup_chats_latest")
-@patch("space.apps.backup.paths.chats_dir")
+@patch("space.lib.backup.paths.validate_backup_path")
+@patch("space.lib.backup.paths.backup_chats_latest")
+@patch("space.lib.backup.paths.chats_dir")
 def test_backup_chats_append_only(
     mock_chats_dir, mock_backup_chats_latest, mock_validate, tmp_path
 ):
     """Chat backup is append-only: new files added, updated files copied, old files retained."""
-    from space.apps.backup import _backup_chats_latest
+    from space.lib.backup import _backup_chats_latest
 
     src_chats = tmp_path / "chats"
     src_chats.mkdir()

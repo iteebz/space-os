@@ -73,13 +73,6 @@ def test_spawn_rename_agent(test_space, default_agents):
 
 
 # === BRIDGE CLI ===
-def test_bridge_shows_readme():
-    """Running bridge without args shows README."""
-    result = runner.invoke(bridge.app)
-    assert result.exit_code == 0
-    assert "BRIDGE" in result.stdout
-
-
 def test_bridge_list_channels(test_space):
     """Listing channels via bridge CLI."""
     result = runner.invoke(bridge.app, ["channels"])
@@ -104,12 +97,13 @@ def test_bridge_inbox_with_identity(test_space, default_agents):
     assert result.exit_code == 0
 
 
-def test_bridge_send_creates_channel(test_space, default_agents):
-    """Send creates missing channel automatically."""
+def test_bridge_send_fails_missing_channel(test_space, default_agents):
+    """Send fails when channel doesn't exist."""
     result = runner.invoke(
-        bridge.app, ["send", "test-channel", "hello", "--as", default_agents["zealot"]]
+        bridge.app, ["send", "nonexistent-channel", "hello", "--as", default_agents["zealot"]]
     )
-    assert result.exit_code == 0
+    assert result.exit_code != 0
+    assert "not found" in result.stdout
 
 
 def test_bridge_recv_requires_identity():
@@ -121,6 +115,7 @@ def test_bridge_recv_requires_identity():
 def test_bridge_export_channel(test_space, default_agents):
     """Export channel returns markdown format."""
     alice_agent = default_agents["zealot"]
+    runner.invoke(bridge.app, ["create", "export-test"])
     runner.invoke(bridge.app, ["send", "export-test", "hello world", "--as", alice_agent])
 
     result = runner.invoke(bridge.app, ["export", "export-test"])

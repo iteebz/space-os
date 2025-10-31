@@ -1,5 +1,3 @@
-from space.core import db
-
 from . import api
 from .api import (
     add_entry,
@@ -13,11 +11,8 @@ from .api import (
 )
 from .cli import app
 
-db.register()
-
 __all__ = [
     "api",
-    "db",
     "app",
     "add_entry",
     "archive_entry",

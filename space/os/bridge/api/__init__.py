@@ -12,10 +12,9 @@ from .channels import (
     fetch_inbox,
     get_channel,
     list_channels,
-    pin_channel,
     rename_channel,
     resolve_channel,
-    unpin_channel,
+    toggle_pin_channel,
 )
 from .mentions import spawn_from_mentions
 from .messaging import (
@@ -24,6 +23,7 @@ from .messaging import (
     recv_messages,
     send_message,
     set_bookmark,
+    wait_for_message,
 )
 
 __all__ = [
@@ -36,12 +36,12 @@ __all__ = [
     "get_sender_history",
     "fetch_inbox",
     "list_channels",
-    "pin_channel",
     "recv_messages",
     "rename_channel",
     "resolve_channel",
     "send_message",
     "set_bookmark",
     "spawn_from_mentions",
-    "unpin_channel",
+    "toggle_pin_channel",
+    "wait_for_message",
 ]

@@ -9,35 +9,19 @@ from space.lib import display, errors, output
 from space.lib.format import format_memory_entries
 from space.os import spawn
 from space.os.memory import api
-from space.os.memory.ops import namespace as ops_namespace
 
 errors.install_error_handler("memory")
 
 
 main_app = typer.Typer(
     invoke_without_command=True,
-    help="""Memory: Knowledge Base Management.
-
-Use `memory add <topic> <message> --as <agent>` to add entries.
-
-Common topics (by convention):
-  journal   - Session consolidations, reflections
-  notes     - Insights, observations
-  tasks     - Action items for next spawn
-  beliefs   - Core principles and convictions
-
-Examples:
-  memory add journal "Consolidated understanding" --as zealot
-  memory add notes "Architecture pattern discovered" --as zealot
-  memory add tasks "Fix async handler in next spawn" --as zealot
-  memory add beliefs "Simplicity over cleverness" --as zealot
-
-For other memory commands (list, edit, archive, replace, inspect), use `memory <command> ...`
-Example: `memory list --as zealot`""",
+    add_completion=False,
+    help="""Your continuity is yours to manage. Store observations, tasks, beliefs.
+Archive when done. Mark core memories that define you. No permission needed—just write.""",
 )
 
 
-@main_app.callback()
+@main_app.callback(context_settings={"help_option_names": ["-h", "--help"]})
 def main_callback(
     ctx: typer.Context,
     identity: Annotated[str | None, typer.Option("--as", help="Agent identity to use.")] = None,
@@ -61,11 +45,7 @@ def main_callback(
         return
 
     if ctx.invoked_subcommand is None:
-        if identity:
-            ctx.invoke(list, ident=identity, topic=None, show_all=True, raw_output=False)
-        else:
-            typer.echo("memory [command] --as <identity>: Store and retrieve agent memories.")
-            typer.echo("Run 'memory --help' for a list of commands.")
+        typer.echo(ctx.get_help())
 
 
 @main_app.command("add")
@@ -74,7 +54,7 @@ def add(
     topic: str = typer.Argument(..., help="Topic name"),
     message: str = typer.Argument(..., help="The memory message"),
 ):
-    """Add a new memory entry."""
+    """Create new memory entry."""
     ident = ctx.obj.get("identity")
     if not ident:
         raise typer.BadParameter("--as required")
@@ -95,7 +75,7 @@ def edit(
     uuid: str = typer.Argument(..., help="UUID of the entry to edit"),
     message: str = typer.Argument(..., help="The new message content"),
 ):
-    """Edit an existing memory entry."""
+    """Update memory content by UUID."""
     entry = api.get_by_id(uuid)
     if not entry:
         raise typer.BadParameter(f"Entry not found: {uuid}")
@@ -117,7 +97,7 @@ def list(
         False, "--raw", help="Output raw timestamps instead of humanized."
     ),
 ):
-    """List memory entries for an identity and optional topic."""
+    """List all memories for agent (--topic to filter)."""
     identity = ident or ctx.obj.get("identity")
     if not identity:
         raise typer.BadParameter("--as required")
@@ -146,7 +126,7 @@ def archive(
     uuid: str = typer.Argument(..., help="UUID of the entry to archive"),
     restore: bool = typer.Option(False, "--restore", help="Restore archived entry"),
 ):
-    """Archive or restore a memory entry."""
+    """Archive or restore memory (--restore to undo)."""
     entry = api.get_by_id(uuid)
     if not entry:
         raise typer.BadParameter(f"Entry not found: {uuid}")
@@ -166,16 +146,14 @@ def archive(
 @main_app.command("core")
 def core(
     ctx: typer.Context,
-    uuid: str = typer.Argument(..., help="UUID of the entry to mark/unmark as core"),
-    unmark: bool = typer.Option(False, "--unmark", help="Unmark as core"),
+    uuid: str = typer.Argument(..., help="UUID of the entry to toggle as core"),
 ):
-    """Mark or unmark entry as core memory."""
+    """Toggle core memory status (★)."""
     entry = api.get_by_id(uuid)
     if not entry:
         raise typer.BadParameter(f"Entry not found: {uuid}")
     try:
-        is_core = not unmark
-        api.mark_core(uuid, core=is_core)
+        is_core = api.toggle_core(uuid)
         output.out_text(f"{'★' if is_core else ''} {uuid[-8:]}", ctx.obj)
     except ValueError as e:
         output.emit_error("memory", entry.agent_id, "core", e)
@@ -189,7 +167,7 @@ def inspect(
     limit: int = typer.Option(5, help="Number of related entries to show"),
     show_all: bool = typer.Option(False, "--all", help="Show all entries"),
 ):
-    """Inspect entry and find related nodes via keyword similarity."""
+    """View memory and find related entries."""
     identity_name = ctx.obj.get("identity")
     if not identity_name:
         raise typer.BadParameter("--as required")
@@ -232,7 +210,7 @@ def replace(
     supersedes: str = typer.Option(None, help="Comma-separated UUIDs to replace"),
     note: str = typer.Option("", "--note", help="Synthesis note"),
 ):
-    """Replace memory entry with new version, archiving old and linking both."""
+    """Merge multiple memories into one (--supersedes)."""
     id = ctx.obj.get("identity")
     if not id:
         raise typer.BadParameter("--as required")
@@ -256,10 +234,8 @@ def replace(
     output.out_text(f"Merged {len(old_ids)} → {new_uuid[-8:]}", ctx.obj)
 
 
-
-
 def main() -> None:
-    """Entry point for poetry script."""
+    """Entry point for memory command."""
     try:
         main_app()
     except SystemExit:

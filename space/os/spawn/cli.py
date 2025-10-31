@@ -43,10 +43,10 @@ class SpawnGroup(TyperGroup):
         return spawn_agent
 
 
-app = typer.Typer(invoke_without_command=True, cls=SpawnGroup)
+app = typer.Typer(invoke_without_command=True, cls=SpawnGroup, add_completion=False)
 
 
-@app.callback()
+@app.callback(context_settings={"help_option_names": ["-h", "--help"]})
 def main_callback(
     ctx: typer.Context,
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
@@ -54,7 +54,7 @@ def main_callback(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    """Spawn: Agent Management & Task Orchestration"""
+    """Register and manage agents. Track tasks and execution."""
     output.set_flags(ctx, json_output, quiet_output)
     if ctx.obj is None:
         ctx.obj = {}
@@ -62,7 +62,7 @@ def main_callback(
     if ctx.resilient_parsing:
         return
     if ctx.invoked_subcommand is None:
-        typer.echo("spawn <agent>: Launch agent. Run 'spawn agents' to list registered agents.")
+        typer.echo(ctx.get_help())
 
 
 @app.command()
@@ -70,7 +70,7 @@ def agents(
     show_all: bool = typer.Option(False, "--all", help="Show archived agents"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
-    """List all agents (registered and orphaned across universe)."""
+    """List registered and orphaned agents."""
     stats = agent_stats(show_all=show_all) or []
 
     if not stats:
@@ -147,7 +147,7 @@ def register(
 
 @app.command()
 def models():
-    """List available models for all providers."""
+    """Show available LLM models."""
     for prov in ["claude", "codex", "gemini"]:
         provider_models = models_module.get_models_for_provider(prov)
         typer.echo(f"\n📦 {prov.capitalize()} Models:\n")
@@ -162,7 +162,7 @@ def models():
 
 @app.command()
 def clone(src: str, dst: str):
-    """Clone an agent with new identity."""
+    """Copy agent with new identity."""
     try:
         agent_id = api.clone_agent(src, dst)
         typer.echo(f"✓ Cloned {src} → {dst} ({agent_id[:8]})")
@@ -173,7 +173,7 @@ def clone(src: str, dst: str):
 
 @app.command()
 def rename(old_name: str, new_name: str):
-    """Rename an agent."""
+    """Change agent identity."""
     try:
         if api.rename_agent(old_name, new_name):
             typer.echo(f"✓ Renamed {old_name} → {new_name}")
@@ -191,7 +191,7 @@ def update(
     model: str = typer.Option(None, "--model", "-m", help="Full model name"),
     constitution: str = typer.Option(None, "--constitution", "-c", help="Constitution filename"),
 ):
-    """Update agent fields."""
+    """Modify agent fields (description, model)."""
     try:
         api.update_agent(identity, constitution, model)
         typer.echo(f"✓ Updated {identity}")
@@ -202,7 +202,7 @@ def update(
 
 @app.command()
 def merge(id_from: str, id_to: str):
-    """Merge all data from one agent ID to another."""
+    """Consolidate data from one agent to another."""
     agent_from = api.get_agent(id_from)
     agent_to = api.get_agent(id_to)
 
@@ -233,7 +233,7 @@ def show_tasks(
         False, "--all", "-a", help="Show all tasks (including completed/failed)"
     ),
 ):
-    """List tasks, optionally filtered by status and/or role.
+    """List tasks (filter by status/role).
 
     Default: Show pending and running tasks only.
     With --all/-a: Show all tasks including completed/failed/timeout.
@@ -276,7 +276,7 @@ def show_tasks(
 
 @app.command()
 def logs(task_id: str):
-    """Show full task details: input, output, stderr, timestamps, duration."""
+    """Show full task details (input, output, stderr)."""
     task = tasks.get_task(task_id)
     if not task:
         typer.echo(f"❌ Task not found: {task_id}", err=True)
@@ -316,7 +316,7 @@ def logs(task_id: str):
 
 @app.command()
 def kill(task_id: str):
-    """Kill a running task."""
+    """Stop running task."""
     task = tasks.get_task(task_id)
     if not task:
         typer.echo(f"❌ Task not found: {task_id}", err=True)
@@ -350,7 +350,7 @@ def dispatch_agent_from_name() -> NoReturn:
 
 
 def main() -> None:
-    """Entry point for poetry script."""
+    """Entry point for spawn command."""
     try:
         app()
     except SystemExit:

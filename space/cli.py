@@ -2,13 +2,13 @@ import click
 import typer
 from typer.core import TyperGroup
 
-from space.apps import backup, canon, chats, context, council, daemons, health, init, stats
-from space.os import bridge, knowledge, memory, spawn
+from space.apps import canon, chats, context, council, daemons, health, init, stats
+from space.lib import backup
 from space.os.spawn import api
 
 
 class SpawnGroup(TyperGroup):
-    """Typer group that dynamically spawns tasks for agent names."""
+    """Custom group to support dynamic agent spawning."""
 
     def get_command(self, ctx, cmd_name):
         """Get command by name, or spawn agent if not found."""
@@ -29,7 +29,9 @@ class SpawnGroup(TyperGroup):
         return spawn_agent
 
 
-app = typer.Typer(invoke_without_command=True, no_args_is_help=False, cls=SpawnGroup)
+app = typer.Typer(
+    invoke_without_command=True, no_args_is_help=False, cls=SpawnGroup, add_completion=False
+)
 
 
 @app.callback(invoke_without_command=True)
@@ -41,7 +43,9 @@ def common_options_callback(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    """Adds common CLI options (identity, json_output, quiet_output) to a Typer app."""
+    """Agent Orchestration System
+
+    Manage agents, their memories, shared knowledge, and coordination."""
     from space.lib import output
 
     output.set_flags(ctx, json_output, quiet_output)
@@ -55,15 +59,9 @@ def common_options_callback(
 
     if ctx.invoked_subcommand is None:
         if identity:
-            # The 'launch' module has been removed, so this functionality is disabled.
-            # Please refer to the updated documentation for alternatives.
             pass
         else:
-            typer.echo(
-                "space-os: Agent orchestration system.\n"
-                "\n"
-                "Commands: space backup|health|init|canon|chats|context|council|daemons|stats"
-            )
+            typer.echo(ctx.get_help())
 
 
 app.add_typer(init.app, name="init")
@@ -77,14 +75,9 @@ app.add_typer(council.app, name="council")
 app.add_typer(daemons.app, name="daemons")
 app.add_typer(stats.app, name="stats")
 
-app.add_typer(bridge.app, name="bridge")
-app.add_typer(knowledge.app, name="knowledge")
-app.add_typer(memory.app, name="memory")
-app.add_typer(spawn.app, name="spawn")
-
 
 def main() -> None:
-    """Entry point for poetry script."""
+    """Entry point for space command."""
     try:
         app()
     except SystemExit:

@@ -1,5 +1,3 @@
-from space.core import db
-
 from . import api
 from .api import (
     archive_agent,
@@ -26,7 +24,6 @@ from .cli import app
 
 __all__ = [
     "api",
-    "db",
     "app",
     "get_agent",
     "register_agent",

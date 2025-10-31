@@ -57,7 +57,17 @@ def resolve_channel(identifier: str | Channel) -> Channel:
 
 
 def rename_channel(old_name: str, new_name: str) -> bool:
-    """Rename channel. Returns True if successful."""
+    """Rename channel. Returns True if successful.
+
+    Args:
+        old_name: Current channel name (automatically stripped of # prefix).
+        new_name: New channel name (automatically stripped of # prefix).
+
+    Returns:
+        True if successful, False if old_channel not found or new_channel exists.
+    """
+    old_name = old_name.lstrip("#")
+    new_name = new_name.lstrip("#")
     with store.ensure("bridge") as conn:
         row = conn.execute(
             "SELECT channel_id FROM channels WHERE name = ?",
@@ -87,26 +97,39 @@ def archive_channel(name: str) -> None:
             raise ValueError(f"Channel '{name}' not found or already archived")
 
 
-def pin_channel(name: str) -> None:
-    """Pin channel. Raises ValueError if not found."""
+def restore_channel(name: str) -> None:
+    """Restore an archived channel. Raises ValueError if not found."""
     with store.ensure("bridge") as conn:
         cursor = conn.execute(
-            "UPDATE channels SET pinned_at = CURRENT_TIMESTAMP WHERE name = ? AND pinned_at IS NULL",
+            "UPDATE channels SET archived_at = NULL WHERE name = ? AND archived_at IS NOT NULL",
             (name,),
         )
         if cursor.rowcount == 0:
-            raise ValueError(f"Channel '{name}' not found or already pinned")
+            raise ValueError(f"Channel '{name}' not found or not archived")
 
 
-def unpin_channel(name: str) -> None:
-    """Unpin channel. Raises ValueError if not found."""
+def toggle_pin_channel(name: str) -> bool:
+    """Toggle pin status of a channel. Returns True if pinned, False if unpinned. Raises ValueError if not found."""
     with store.ensure("bridge") as conn:
-        cursor = conn.execute(
-            "UPDATE channels SET pinned_at = NULL WHERE name = ? AND pinned_at IS NOT NULL",
+        row = conn.execute(
+            "SELECT pinned_at FROM channels WHERE name = ?",
+            (name,),
+        ).fetchone()
+        if not row:
+            raise ValueError(f"Channel '{name}' not found")
+
+        is_pinned = row["pinned_at"] is not None
+        if is_pinned:
+            conn.execute(
+                "UPDATE channels SET pinned_at = NULL WHERE name = ?",
+                (name,),
+            )
+            return False
+        conn.execute(
+            "UPDATE channels SET pinned_at = CURRENT_TIMESTAMP WHERE name = ?",
             (name,),
         )
-        if cursor.rowcount == 0:
-            raise ValueError(f"Channel '{name}' not found or not pinned")
+        return True
 
 
 def delete_channel(name: str) -> None:

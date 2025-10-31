@@ -1,9 +1,11 @@
 """Message operations: send, receive, alerts, bookmarks."""
 
 import sqlite3
+import time
 
 from space.core.models import Channel, Message
 from space.lib import store
+from space.lib.codec import decode_base64
 from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
 
@@ -17,9 +19,26 @@ def _to_channel_id(channel: str | Channel) -> str:
     return channel.channel_id if isinstance(channel, Channel) else channel
 
 
-def send_message(channel: str | Channel, identity: str, content: str) -> str:
-    """Send message. Returns agent_id."""
+def send_message(
+    channel: str | Channel, identity: str, content: str, decode_base64_flag: bool = False
+) -> str:
+    """Send message. Returns agent_id.
+
+    Args:
+        channel: Channel name or ID.
+        identity: Sender identity (caller responsible for validation).
+        content: Message content (or base64-encoded if decode_base64_flag=True).
+        decode_base64_flag: If True, decode content from base64.
+
+    Raises:
+        ValueError: If channel not found, identity not registered, or base64 payload invalid.
+    """
     from space.os import spawn
+
+    from . import channels
+
+    if decode_base64_flag:
+        content = decode_base64(content)
 
     channel_id = _to_channel_id(channel)
     if not identity:
@@ -30,13 +49,22 @@ def send_message(channel: str | Channel, identity: str, content: str) -> str:
     if not agent:
         raise ValueError(f"Identity '{identity}' not registered.")
     agent_id = agent.agent_id
+
+    channel_obj = channels.get_channel(channel_id)
+    if not channel_obj:
+        raise ValueError(f"Channel '{channel_id}' not found. Create it first with 'bridge create'.")
+    actual_channel_id = channel_obj.channel_id
+
     message_id = uuid7()
     with store.ensure("bridge") as conn:
         conn.execute(
             "INSERT INTO messages (message_id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
-            (message_id, channel_id, agent_id, content),
+            (message_id, actual_channel_id, agent_id, content),
         )
     spawn.api.touch_agent(agent_id)
+    from . import mentions
+
+    mentions.spawn_from_mentions(actual_channel_id, content)
     return agent_id
 
 
@@ -166,3 +194,38 @@ def recv_messages(
     members = channel.members if channel else []
 
     return messages, unread_count, topic, members
+
+
+def wait_for_message(
+    channel: str | Channel, identity: str, poll_interval: float = 0.1
+) -> tuple[list[Message], int, str | None, list[str]]:
+    """Wait for a new message from others in a channel (blocking).
+
+    Args:
+        channel: Channel name or ID.
+        identity: Receiver identity.
+        poll_interval: Polling interval in seconds.
+
+    Returns:
+        Tuple of (messages, count, context, participants) for messages from others.
+
+    Raises:
+        ValueError: If channel not found or identity not registered.
+        KeyboardInterrupt: If user interrupts.
+    """
+    from space.os import spawn
+
+    agent = spawn.get_agent(identity)
+    if not agent:
+        raise ValueError(f"Identity '{identity}' not registered.")
+    agent_id = agent.agent_id
+    channel_id = _to_channel_id(channel)
+
+    while True:
+        msgs, count, context, participants = recv_messages(channel_id, agent_id)
+        other_messages = [msg for msg in msgs if msg.agent_id != agent_id]
+
+        if other_messages:
+            return other_messages, len(other_messages), context, participants
+
+        time.sleep(poll_interval)

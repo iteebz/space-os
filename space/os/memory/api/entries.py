@@ -136,6 +136,21 @@ def mark_core(memory_id: str, core: bool = True, agent_id: str | None = None) ->
         )
 
 
+def toggle_core(memory_id: str) -> bool:
+    """Toggle core status of a memory entry. Returns True if now core, False if not."""
+    entry = get_by_id(memory_id)
+    if not entry:
+        raise ValueError(f"Entry with ID '{memory_id}' not found.")
+    is_core = entry.core
+    new_state = not is_core
+    with store.ensure("memory") as conn:
+        conn.execute(
+            "UPDATE memories SET core = ? WHERE memory_id = ?",
+            (1 if new_state else 0, entry.memory_id),
+        )
+    return new_state
+
+
 def find_related(entry: Memory, limit: int = 5, show_all: bool = False) -> list[tuple[Memory, int]]:
     from space.lib.text_utils import stopwords
 

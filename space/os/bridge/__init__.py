@@ -1,37 +1,28 @@
-from space.core import db
-
-from . import api, ops
+from . import api
 from .api import (
-    export_channel,
-    get_channel,
-    get_messages,
-    get_sender_history,
-    resolve_channel,
-    set_bookmark,
-    spawn_from_mentions,
-)
-from .cli import app
-from .ops import (
     archive_channel,
     create_channel,
     delete_channel,
+    export_channel,
     fetch_inbox,
+    get_channel,
+    get_messages,
+    get_sender_history,
     list_channels,
-    pin_channel,
     recv_messages,
     rename_channel,
+    resolve_channel,
     send_message,
-    unpin_channel,
+    set_bookmark,
+    spawn_from_mentions,
+    toggle_pin_channel,
     wait_for_message,
 )
-
-db.register()
+from .cli import app
 
 __all__ = [
     "api",
     "app",
-    "db",
-    "ops",
     "archive_channel",
     "create_channel",
     "delete_channel",
@@ -41,13 +32,12 @@ __all__ = [
     "get_messages",
     "get_sender_history",
     "list_channels",
-    "pin_channel",
     "recv_messages",
     "rename_channel",
     "resolve_channel",
     "send_message",
     "set_bookmark",
     "spawn_from_mentions",
-    "unpin_channel",
+    "toggle_pin_channel",
     "wait_for_message",
 ]

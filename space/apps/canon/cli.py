@@ -12,7 +12,9 @@ app = typer.Typer(invoke_without_command=True, no_args_is_help=False)
 @app.command(name="")  # This makes it the default command when no subcommand is given
 def canon_main_command(
     ctx: typer.Context,
-    doc_path: str | None = typer.Argument(None, help="Document path (e.g., INDEX.md or constitutions/zealot.md)"),
+    doc_path: str | None = typer.Argument(
+        None, help="Document path (e.g., INDEX.md or constitutions/zealot.md)"
+    ),
 ):
     """Navigate and read canon documents from ~/space/canon."""
     if ctx.invoked_subcommand is not None:

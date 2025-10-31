@@ -29,7 +29,7 @@ def _get_agent_identities() -> dict[str, str]:
 
 def _get_archived_agents() -> set[str]:
     """Get set of archived agent IDs."""
-    from space.os.spawn import db
+    from space.core import db
 
     with db.connect() as conn:
         rows = conn.execute("SELECT agent_id FROM agents WHERE archived_at IS NOT NULL").fetchall()
@@ -179,7 +179,7 @@ def _get_bridge_stats() -> dict:
 
 def _get_spawn_stats() -> dict:
     """Get spawn statistics."""
-    from space.os.spawn import db
+    from space.core import db
 
     with db.connect() as conn:
         total_agents = conn.execute("SELECT COUNT(*) FROM agents").fetchone()[0]

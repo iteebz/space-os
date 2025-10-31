@@ -84,15 +84,19 @@ def test_archive_channel_missing_raises(mock_db):
         bridge.archive_channel("missing")
 
 
-def test_pin_channel_updates(mock_db):
-    mock_db.execute.return_value.rowcount = 1
-    bridge.pin_channel("general")
+def test_toggle_pin_channel_pins(mock_db):
+    mock_row = make_mock_row({"pinned_at": None})
+    mock_db.execute.return_value.fetchone.return_value = mock_row
+    result = bridge.toggle_pin_channel("general")
+    assert result is True
     assert mock_db.execute.called
 
 
-def test_unpin_channel_updates(mock_db):
-    mock_db.execute.return_value.rowcount = 1
-    bridge.unpin_channel("general")
+def test_toggle_pin_channel_unpins(mock_db):
+    mock_row = make_mock_row({"pinned_at": "2024-01-01"})
+    mock_db.execute.return_value.fetchone.return_value = mock_row
+    result = bridge.toggle_pin_channel("general")
+    assert result is False
     assert mock_db.execute.called
 
 

@@ -61,7 +61,9 @@ def main(ctx: typer.Context) -> None:
 @app.command("upkeep")
 def upkeep(
     ctx: typer.Context,
-    wait_for_completion: bool = typer.Option(False, "--wait", "-w", help="Block until task completes"),
+    wait_for_completion: bool = typer.Option(
+        False, "--wait", "-w", help="Block until task completes"
+    ),
 ):
     """Spawn upkeep daemon: repository hygiene, memory compaction, artifact checksumming."""
     role = ctx.obj.get("identity", "zealot")
