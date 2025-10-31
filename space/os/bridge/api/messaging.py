@@ -62,6 +62,7 @@ def send_message(
             (message_id, actual_channel_id, agent_id, content),
         )
     spawn.api.touch_agent(agent_id)
+
     from . import mentions
 
     mentions.spawn_from_mentions(actual_channel_id, content)

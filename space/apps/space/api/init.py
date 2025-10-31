@@ -6,7 +6,7 @@ from pathlib import Path
 import typer
 
 from space.core import db
-from space.lib import paths, store, sync
+from space.lib import paths, sync
 from space.os import spawn
 from space.os.spawn import defaults as spawn_defaults
 
@@ -57,6 +57,7 @@ def init_default_agents():
     """Auto-discover and register agents from canon/constitutions/.
 
     Agents are created with identity matching constitution filename (without .md).
+    Also registers 'human' as a reserved identity for bridge communication.
     """
     constitutions_dir = paths.canon_path() / "constitutions"
     if not constitutions_dir.exists():
@@ -67,6 +68,9 @@ def init_default_agents():
         return
 
     with db.connect():
+        with contextlib.suppress(ValueError):
+            spawn.register_agent("human", "human", None)
+
         for const_file in constitution_files:
             if const_file.name == "README.md":
                 continue
@@ -136,12 +140,6 @@ def init():
 
     with db.connect():
         pass
-    with store.ensure("bridge"):
-        pass
-    with store.ensure("memory"):
-        pass
-    with store.ensure("knowledge"):
-        pass
 
     typer.echo(f"✓ Initialized workspace at {root}")
     typer.echo(f"✓ User data directory at {Path.home() / '.space'}")
@@ -156,11 +154,12 @@ def init():
     )
     typer.echo(f"✓ {len(constitution_files)} constitutions registered")
 
+    from space.lib import output
+
     typer.echo("Syncing provider chats...")
-    chat_results = sync.sync_provider_chats()
-    for provider, (discovered, synced) in chat_results.items():
-        if discovered > 0:
-            typer.echo(f"  {provider}: {synced}/{discovered} synced")
+    typer.echo(f"  {'Provider':<10} {'Discovered':<12} {'Synced'}")
+
+    sync.sync_provider_chats(on_progress=output.show_sync_progress)
 
     _install_shortcuts()
 

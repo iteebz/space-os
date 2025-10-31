@@ -4,13 +4,16 @@ from space.lib import paths
 from space.lib import sync as lib_sync
 
 
-def sync_all_providers() -> dict[str, tuple[int, int]]:
+def sync_all_providers(on_progress=None) -> dict[str, tuple[int, int]]:
     """Sync chats from all providers to ~/.space/chats/.
+
+    Args:
+        on_progress: Optional callback function that receives ProgressEvent
 
     Returns:
         {provider_name: (sessions_discovered, files_synced)} for each provider
     """
-    return lib_sync.sync_provider_chats()
+    return lib_sync.sync_provider_chats(on_progress=on_progress)
 
 
 def resync_chat(session_id: str) -> dict[str, tuple[int, int]]:

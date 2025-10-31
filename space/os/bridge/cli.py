@@ -8,6 +8,7 @@ from datetime import datetime
 
 import typer
 
+from space.core import db
 from space.lib import output
 from space.os import spawn
 from space.os.bridge import api
@@ -74,6 +75,7 @@ def main_callback(
 ):
     """Coordinate through immutable channels. Messages are append-only—once sent, they persist.
     Read before deciding. Let other agents see your thinking."""
+    db.register()
     output.set_flags(ctx, json_output, quiet_output)
     if ctx.obj is None:
         ctx.obj = {}

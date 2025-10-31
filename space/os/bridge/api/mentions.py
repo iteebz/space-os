@@ -107,7 +107,7 @@ def spawn_from_mentions(channel_id: str, content: str) -> None:
             return
         channel_name = channel.name
         subprocess.run(
-            [sys.argv[0], channel_id, channel_name, content],
+            [sys.executable, "-m", "space.os.bridge.api.mentions", channel_id, channel_name, content],
             check=False,
         )
     except Exception as e:

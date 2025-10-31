@@ -159,11 +159,14 @@ def chats_callback(ctx: typer.Context):
 @chats_app.command()
 def sync():
     """Sync chats from ~/.claude, ~/.codex, ~/.gemini to ~/.space/chats/."""
-    results = api.chats.sync_all_providers()
+    from space.lib import output
 
-    typer.echo("✓ Chat sync complete")
-    typer.echo()
+    typer.echo("Syncing chats...")
     typer.echo(f"{'Provider':<10} {'Discovered':<12} {'Synced'}")
+    typer.echo("-" * 40)
+
+    results = api.chats.sync_all_providers(on_progress=output.show_sync_progress)
+
     typer.echo("-" * 40)
 
     total_discovered = 0
@@ -173,11 +176,10 @@ def sync():
         discovered, synced = results.get(provider, (0, 0))
         total_discovered += discovered
         total_synced += synced
-        status = "✓" if synced > 0 else "-"
-        typer.echo(f"{provider:<10} {discovered:<12} {synced:<12} {status}")
 
-    typer.echo("-" * 40)
     typer.echo(f"{'TOTAL':<10} {total_discovered:<12} {total_synced}")
+    typer.echo()
+    typer.echo("✓ Chat sync complete")
 
 
 @chats_app.command()

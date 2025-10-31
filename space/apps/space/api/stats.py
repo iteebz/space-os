@@ -53,6 +53,9 @@ def _build_leaderboard(
 
 def _get_memory_stats() -> dict:
     """Get memory statistics."""
+    from space.core import db
+
+    db.register()
     with store.ensure("memory") as conn:
         total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
         active = conn.execute("SELECT COUNT(*) FROM memories WHERE archived_at IS NULL").fetchone()[
@@ -79,6 +82,9 @@ def _get_memory_stats() -> dict:
 
 def _get_knowledge_stats() -> dict:
     """Get knowledge statistics."""
+    from space.core import db
+
+    db.register()
     with store.ensure("knowledge") as conn:
         total = conn.execute("SELECT COUNT(*) FROM knowledge").fetchone()[0]
         active = conn.execute(
@@ -105,6 +111,9 @@ def _get_knowledge_stats() -> dict:
 
 def _get_bridge_stats() -> dict:
     """Get bridge statistics: messages, channels, and events by agent."""
+    from space.core import db
+
+    db.register()
     with store.ensure("bridge") as conn:
         total_msgs = conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
         archived_msgs = conn.execute(
@@ -187,15 +196,11 @@ def _get_spawn_stats() -> dict:
         active_agents = conn.execute(
             "SELECT COUNT(*) FROM agents WHERE archived_at IS NULL"
         ).fetchone()[0]
-        archived_agents = total_agents - active_agents
-
-        hashes = conn.execute("SELECT COUNT(*) FROM constitutions").fetchone()[0]
 
     return {
         "total": total_agents,
-        "active": active_agents,
-        "archived": archived_agents,
-        "hashes": hashes,
+        "agents": active_agents,
+        "hashes": 0,
     }
 
 

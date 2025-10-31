@@ -196,7 +196,9 @@ def _link_chat_to_task(chat: Chat, cli_name: str) -> None:
 
 
 def sync_provider_chats(
-    session_id: str | None = None, verbose: bool = False
+    session_id: str | None = None,
+    verbose: bool = False,
+    on_progress = None,
 ) -> dict[str, tuple[int, int]]:
     """Sync chats from all providers (~/.claude, ~/.codex, ~/.gemini) to ~/.space/chats/.
 
@@ -208,10 +210,13 @@ def sync_provider_chats(
     Args:
         session_id: If provided, only sync this specific session (resync mode)
         verbose: If True, yield progress messages (not implemented here, use return value)
+        on_progress: Optional callback function that receives ProgressEvent
 
     Returns:
         {provider_name: (sessions_discovered, files_synced)} for each provider
     """
+    from space.lib.loader import ProgressEvent
+
     results = {}
     chats_dir = paths.chats_dir()
     chats_dir.mkdir(parents=True, exist_ok=True)
@@ -219,6 +224,8 @@ def sync_provider_chats(
     sync_state = _load_sync_state()
     provider_map = {"claude": "Claude", "codex": "Codex", "gemini": "Gemini"}
     size_threshold = 50 * 1024 * 1024
+    total_discovered = 0
+    total_synced = 0
 
     for cli_name, class_name in provider_map.items():
         try:
@@ -323,9 +330,30 @@ def sync_provider_chats(
                     logger.warning(f"Failed to process {sid}: {e}")
 
             results[cli_name] = (len(sessions), synced_count)
+            total_discovered += len(sessions)
+            total_synced += synced_count
+
+            if on_progress:
+                event = ProgressEvent(
+                    provider=cli_name,
+                    discovered=len(sessions),
+                    synced=synced_count,
+                    total_discovered=total_discovered,
+                    total_synced=total_synced,
+                )
+                on_progress(event)
         except (AttributeError, Exception) as e:
             logger.warning(f"Error syncing {cli_name}: {e}")
             results[cli_name] = (0, 0)
+            if on_progress:
+                event = ProgressEvent(
+                    provider=cli_name,
+                    discovered=0,
+                    synced=0,
+                    total_discovered=total_discovered,
+                    total_synced=total_synced,
+                )
+                on_progress(event)
 
     _save_sync_state(sync_state)
     return results

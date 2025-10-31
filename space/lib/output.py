@@ -26,3 +26,8 @@ def out_text(msg: str, ctx_obj: dict | None = None) -> None:
 def emit_error(module: str, agent_id: str | None, cmd: str, exc: Exception | str) -> None:
     """Standardized error event emission."""
     str(exc) if isinstance(exc, Exception) else exc
+
+
+def show_sync_progress(event) -> None:
+    """Display sync progress event in a clean format."""
+    typer.echo(f"  {event.provider:<10} {event.discovered:<12} {event.synced}")
