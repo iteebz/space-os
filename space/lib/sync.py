@@ -122,15 +122,16 @@ def _insert_chat_record(chat: Chat) -> None:
         cursor.execute(
             """
             INSERT OR REPLACE INTO chats
-            (session_id, provider, identity, task_id, file_path, message_count,
+            (chat_id, provider, identity, cli, session_id, file_path, message_count,
              tools_used, input_tokens, output_tokens, first_message_at, last_message_at, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                chat.session_id,
+                chat.chat_id,
                 chat.provider,
                 chat.identity,
-                chat.task_id,
+                chat.cli,
+                chat.session_id,
                 chat.file_path,
                 chat.message_count,
                 chat.tools_used,
@@ -143,13 +144,13 @@ def _insert_chat_record(chat: Chat) -> None:
         )
         conn.commit()
     except Exception as e:
-        logger.warning(f"Failed to insert chat record for {chat.session_id}: {e}")
+        logger.warning(f"Failed to insert chat record for {chat.chat_id}: {e}")
 
 
-def _link_chat_to_task(chat: Chat, cli_name: str) -> None:
-    """Link chat to task based on identity and created_at timestamp.
+def _link_chat_to_session(chat: Chat, cli_name: str) -> None:
+    """Link chat to session based on identity and created_at timestamp.
 
-    Finds task with matching agent_id (via identity) and recent start time.
+    Finds session with matching agent_id (via identity) and recent start time.
     """
     try:
         from space.os.spawn import api as spawn_api
@@ -166,7 +167,7 @@ def _link_chat_to_task(chat: Chat, cli_name: str) -> None:
 
         cursor.execute(
             """
-            SELECT task_id, started_at FROM tasks
+            SELECT session_id, started_at FROM sessions
             WHERE agent_id = ? AND status = 'running'
             ORDER BY started_at DESC LIMIT 1
             """,
@@ -176,29 +177,29 @@ def _link_chat_to_task(chat: Chat, cli_name: str) -> None:
         if not row:
             return
 
-        task_id, started_at = row
+        session_id, started_at = row
         if started_at and chat.created_at:
             try:
                 from datetime import datetime
 
-                task_start = datetime.fromisoformat(started_at)
+                session_start = datetime.fromisoformat(started_at)
                 chat_start = datetime.fromisoformat(chat.created_at)
-                if abs((chat_start - task_start).total_seconds()) < 60:
+                if abs((chat_start - session_start).total_seconds()) < 60:
                     cursor.execute(
-                        "UPDATE chats SET task_id = ? WHERE session_id = ?",
-                        (task_id, chat.session_id),
+                        "UPDATE chats SET session_id = ? WHERE chat_id = ?",
+                        (session_id, chat.chat_id),
                     )
                     conn.commit()
             except (ValueError, TypeError):
                 pass
     except Exception as e:
-        logger.debug(f"Failed to link chat {chat.session_id} to task: {e}")
+        logger.debug(f"Failed to link chat {chat.chat_id} to session: {e}")
 
 
 def sync_provider_chats(
     session_id: str | None = None,
     verbose: bool = False,
-    on_progress = None,
+    on_progress=None,
 ) -> dict[str, tuple[int, int]]:
     """Sync chats from all providers (~/.claude, ~/.codex, ~/.gemini) to ~/.space/chats/.
 
@@ -312,8 +313,9 @@ def sync_provider_chats(
                     input_tokens, output_tokens = provider.extract_tokens(src_file)
 
                     chat = Chat(
-                        session_id=sid,
+                        chat_id=sid,
                         provider=cli_name,
+                        cli=cli_name,
                         file_path=str(dest_file),
                         message_count=message_count,
                         tools_used=tools_used,
@@ -324,7 +326,7 @@ def sync_provider_chats(
                     )
                     _insert_chat_record(chat)
 
-                    _link_chat_to_task(chat, cli_name)
+                    _link_chat_to_session(chat, cli_name)
 
                 except (OSError, Exception) as e:
                     logger.warning(f"Failed to process {sid}: {e}")

@@ -75,7 +75,7 @@ def init_default_agents():
             if const_file.name == "README.md":
                 continue
             identity = const_file.stem
-            constitution = const_file.name
+            constitution = identity
 
             with contextlib.suppress(ValueError):
                 model = spawn_defaults.canonical_model(identity)

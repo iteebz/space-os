@@ -21,11 +21,13 @@ def package_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-def constitution(filename: str) -> Path:
+def constitution(constitution_name: str) -> Path:
     """Returns the full path to a constitution file.
 
     Checks canon first (SSOT), falls back to local.
+    Accepts constitution name (e.g., "zealot") and appends .md extension.
     """
+    filename = f"{constitution_name}.md"
     canon = canon_path() / "constitutions" / filename
     if canon.exists():
         return canon

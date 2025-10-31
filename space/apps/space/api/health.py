@@ -12,12 +12,10 @@ REGISTRY = "space"
 EXPECTED_TABLES = {
     "agents",
     "sessions",
-    "tasks",
     "channels",
     "messages",
     "bookmarks",
     "memories",
-    "links",
     "knowledge",
     "chats",
 }

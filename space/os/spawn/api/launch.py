@@ -1,6 +1,5 @@
 """Agent launching: provider execution and lifecycle management."""
 
-import json
 import os
 import shlex
 import shutil
@@ -10,7 +9,6 @@ import click
 
 from space.lib import paths
 from space.lib.constitution import write_constitution
-from space.lib.mcp import registry
 from space.lib.providers import claude, codex, gemini
 
 from . import agents, sessions
@@ -66,10 +64,6 @@ def spawn_agent(identity: str, extra_args: list[str] | None = None):
         launch_args = []
 
     mcp_args = []
-    if agent.provider in ("claude", "codex"):
-        mcp_config = registry.get_launch_config()
-        if mcp_config:
-            mcp_args = ["--mcp-config", json.dumps({"servers": mcp_config})]
 
     full_command = command_tokens + [context] + model_args + launch_args + mcp_args + passthrough
     display_command = command_tokens + ['"<space_manual>"'] + model_args + launch_args + passthrough

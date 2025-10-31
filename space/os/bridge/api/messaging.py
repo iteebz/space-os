@@ -65,7 +65,7 @@ def send_message(
 
     from . import mentions
 
-    mentions.spawn_from_mentions(actual_channel_id, content)
+    mentions.spawn_from_mentions(actual_channel_id, content, agent_id)
     return agent_id
 
 
@@ -114,7 +114,7 @@ def get_messages(channel: str | Channel, agent_id: str | None = None) -> list[Me
         last_seen_id = None
         if agent_id:
             row = conn.execute(
-                "SELECT last_seen_id FROM bookmarks WHERE agent_id = ? AND channel_id = ?",
+                "SELECT last_seen_id FROM bookmarks WHERE agent_id = ? AND channel_id = ? AND session_id = ''",
                 (agent_id, actual_channel_id),
             ).fetchone()
             last_seen_id = row["last_seen_id"] if row else None
@@ -155,13 +155,15 @@ def get_sender_history(identity: str, limit: int = 5) -> list[Message]:
         return [_row_to_message(row) for row in cursor.fetchall()]
 
 
-def set_bookmark(agent_id: str, channel: str | Channel, last_seen_id: str) -> None:
+def set_bookmark(
+    agent_id: str, channel: str | Channel, last_seen_id: str, session_id: str | None = None
+) -> None:
     """Mark message as read for agent."""
     channel_id = _to_channel_id(channel)
     with store.ensure("bridge") as conn:
         conn.execute(
-            "INSERT OR REPLACE INTO bookmarks (agent_id, channel_id, last_seen_id) VALUES (?, ?, ?)",
-            (agent_id, channel_id, last_seen_id),
+            "INSERT OR REPLACE INTO bookmarks (agent_id, channel_id, session_id, last_seen_id) VALUES (?, ?, ?, ?)",
+            (agent_id, channel_id, session_id or "", last_seen_id),
         )
 
 

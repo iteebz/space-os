@@ -52,7 +52,7 @@ def _parse_mentions(content: str) -> list[str]:
 
 
 def _build_prompt(identity: str, channel: str, content: str) -> str | None:
-    """Build agent prompt with channel context and task, write constitution."""
+    """Build agent prompt with task instruction only, write constitution."""
     try:
         agent = spawn_agents.get_agent(identity)
         if not agent:
@@ -66,26 +66,7 @@ def _build_prompt(identity: str, channel: str, content: str) -> str | None:
 
         identity_prompt = spawn_prompt(identity, agent.model)
 
-        export = subprocess.run(
-            ["bridge", "export", channel],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if export.returncode != 0:
-            log.error(
-                f"bridge export failed for {channel}: "
-                f"returncode={export.returncode}, stderr={export.stderr[:200]}"
-            )
-            return None
-        return (
-            identity_prompt
-            + "\n\n"
-            + AGENT_PROMPT_TEMPLATE.format(context=export.stdout, task=content)
-        )
-    except subprocess.TimeoutExpired:
-        log.error(f"bridge export timed out for {channel}")
-        return None
+        return identity_prompt + "\n\n" + AGENT_PROMPT_TEMPLATE.format(context="", task=content)
     except Exception as e:
         log.error(f"Building prompt for {identity} failed: {e}", exc_info=True)
         return None
@@ -96,8 +77,14 @@ def _get_task_timeout(identity: str) -> int:
     return 120
 
 
-def spawn_from_mentions(channel_id: str, content: str) -> None:
-    """Spawn agents from @mentions in message content."""
+def spawn_from_mentions(channel_id: str, content: str, agent_id: str | None = None) -> None:
+    """Spawn agents from @mentions in message content.
+
+    Args:
+        channel_id: Channel where message was posted
+        content: Message content with potential @mentions
+        agent_id: If provided, skip processing mentions from this agent (prevents cascades)
+    """
     try:
         from . import channels
 
@@ -107,7 +94,15 @@ def spawn_from_mentions(channel_id: str, content: str) -> None:
             return
         channel_name = channel.name
         subprocess.run(
-            [sys.executable, "-m", "space.os.bridge.api.mentions", channel_id, channel_name, content],
+            [
+                sys.executable,
+                "-m",
+                "space.os.bridge.api.mentions",
+                channel_id,
+                channel_name,
+                content,
+                agent_id or "",
+            ],
             check=False,
         )
     except Exception as e:
@@ -115,13 +110,14 @@ def spawn_from_mentions(channel_id: str, content: str) -> None:
 
 
 def main():
-    if len(sys.argv) != 4:
-        log.error(f"Invalid args: {len(sys.argv)}, expected 4. argv={sys.argv}")
+    if len(sys.argv) < 4:
+        log.error(f"Invalid args: {len(sys.argv)}, expected 4+. argv={sys.argv}")
         return
 
     channel_id = sys.argv[1]
     channel_name = sys.argv[2]
     content = sys.argv[3]
+    sender_agent_id = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] else None
 
     log.info(f"Processing channel={channel_name}, content={content[:50]}")
 
@@ -130,6 +126,18 @@ def main():
     if not mentions:
         log.info("No mentions, skipping")
         return
+
+    if sender_agent_id:
+        log.info(f"Skipping mentions from sender agent: {sender_agent_id}")
+        filtered = []
+        for m in mentions:
+            agent = spawn_agents.get_agent(m)
+            if agent and agent.agent_id != sender_agent_id:
+                filtered.append(m)
+        mentions = filtered
+        if not mentions:
+            log.info("All mentions were from sender, skipping")
+            return
 
     results = []
     for identity in mentions:
@@ -143,7 +151,7 @@ def main():
                 start_task(task_id)
 
                 result = subprocess.run(
-                    ["spawn", identity, prompt, "--channel", channel_name],
+                    ["spawn", identity, prompt],
                     capture_output=True,
                     text=True,
                     timeout=timeout,

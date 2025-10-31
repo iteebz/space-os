@@ -179,11 +179,12 @@ class Task:
 class Chat:
     """A chat session tracked for audit trail."""
 
-    session_id: str
+    chat_id: str
     provider: str
     file_path: str
+    cli: str | None = None
     identity: str | None = None
-    task_id: str | None = None
+    session_id: str | None = None
     message_count: int | None = None
     tools_used: int = 0
     input_tokens: int | None = None

@@ -6,9 +6,9 @@ from datetime import datetime
 from space.core import db
 from space.core.models import Task, TaskStatus
 from space.lib.store import from_row
-from space.lib.uuid7 import uuid7
 
 from .agents import get_agent
+from .sessions import create_session
 
 logger = logging.getLogger(__name__)
 
@@ -26,24 +26,22 @@ def create_task(
     if not agent:
         raise ValueError(f"Agent '{ident}' not found")
     agent_id = agent.agent_id
-    task_id = uuid7()
-    now_iso = datetime.now().isoformat()
+    session_id = create_session(agent_id)
     with db.connect() as conn:
         conn.execute(
             """
-            INSERT INTO tasks (task_id, agent_id, channel_id, input, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            UPDATE sessions SET channel_id = ?, input = ?, status = ?, triggered_by = ? WHERE session_id = ?
             """,
-            (task_id, agent_id, channel_id, input, "pending", now_iso),
+            (channel_id, input, "pending", "bridge", session_id),
         )
-    return task_id
+    return session_id
 
 
 def get_task(task_id: str) -> Task | None:
     """Get task by ID."""
     with db.connect() as conn:
         row = conn.execute(
-            "SELECT * FROM tasks WHERE task_id = ?",
+            "SELECT session_id as task_id, agent_id, input, status, channel_id, output, stderr, pid, started_at, ended_at as completed_at, created_at FROM sessions WHERE session_id = ?",
             (task_id,),
         ).fetchone()
         if not row:
@@ -61,7 +59,7 @@ def start_task(task_id: str, pid: int | None = None):
         params.append(pid)
 
     params.append(task_id)
-    query = f"UPDATE tasks SET {', '.join(updates)} WHERE task_id = ?"
+    query = f"UPDATE sessions SET {', '.join(updates)} WHERE session_id = ?"
     with db.connect() as conn:
         conn.execute(query, params)
 
@@ -69,7 +67,7 @@ def start_task(task_id: str, pid: int | None = None):
 def complete_task(task_id: str, output: str | None = None, stderr: str | None = None):
     """Mark task as completed."""
     now_iso = datetime.now().isoformat()
-    updates = ["status = ?", "completed_at = ?"]
+    updates = ["status = ?", "ended_at = ?"]
     params = [TaskStatus.COMPLETED.value, now_iso]
     if output is not None:
         updates.append("output = ?")
@@ -79,7 +77,7 @@ def complete_task(task_id: str, output: str | None = None, stderr: str | None = 
         params.append(stderr)
 
     params.append(task_id)
-    query = f"UPDATE tasks SET {', '.join(updates)} WHERE task_id = ?"
+    query = f"UPDATE sessions SET {', '.join(updates)} WHERE session_id = ?"
     with db.connect() as conn:
         conn.execute(query, params)
 
@@ -87,14 +85,14 @@ def complete_task(task_id: str, output: str | None = None, stderr: str | None = 
 def fail_task(task_id: str, stderr: str | None = None):
     """Mark task as failed."""
     now_iso = datetime.now().isoformat()
-    updates = ["status = ?", "completed_at = ?"]
+    updates = ["status = ?", "ended_at = ?"]
     params = [TaskStatus.FAILED.value, now_iso]
     if stderr is not None:
         updates.append("stderr = ?")
         params.append(stderr)
 
     params.append(task_id)
-    query = f"UPDATE tasks SET {', '.join(updates)} WHERE task_id = ?"
+    query = f"UPDATE sessions SET {', '.join(updates)} WHERE session_id = ?"
     with db.connect() as conn:
         conn.execute(query, params)
 
@@ -106,8 +104,8 @@ def list_tasks(
     channel_id: str | None = None,
 ) -> list[Task]:
     """List tasks with optional filters."""
-    query = "SELECT * FROM tasks WHERE 1 = 1"
-    params = []
+    query = "SELECT session_id as task_id, agent_id, input, status, channel_id, output, stderr, pid, started_at, ended_at as completed_at, created_at FROM sessions WHERE triggered_by = ? AND 1 = 1"
+    params = ["bridge"]
 
     if status is not None:
         query += " AND status = ?"
@@ -123,7 +121,7 @@ def list_tasks(
         query += " AND channel_id = ?"
         params.append(channel_id)
 
-    query += " ORDER BY created_at DESC"
+    query += " ORDER BY started_at DESC"
 
     with db.connect() as conn:
         rows = conn.execute(query, params).fetchall()

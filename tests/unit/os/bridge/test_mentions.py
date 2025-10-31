@@ -1,7 +1,6 @@
 """Unit tests for bridge mention parsing and prompt building."""
 
-import subprocess
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from space.core.models import Agent
 from space.os.bridge.api import mentions
@@ -45,14 +44,12 @@ def test_build_prompt_success():
         created_at="2024-01-01",
     )
     with (
-        patch("space.os.bridge.api.mentions.subprocess.run") as mock_run,
         patch("space.os.bridge.api.mentions.spawn_agents.get_agent") as mock_get_agent,
         patch("space.os.bridge.api.mentions.paths.constitution") as mock_const_path,
         patch("space.os.bridge.api.mentions._write_role_file") as mock_write,
     ):
         mock_get_agent.return_value = mock_agent
         mock_const_path.return_value.read_text.return_value = "# ZEALOT\nCore principles."
-        mock_run.return_value = MagicMock(returncode=0, stdout="# test-channel\n\n[alice] hello\n")
 
         result = mentions._build_prompt("zealot", "test-channel", "@zealot test message")
 
@@ -61,36 +58,20 @@ def test_build_prompt_success():
         assert "[SPACE INSTRUCTIONS]" in result
         assert "test message" in result
         mock_write.assert_called_once()
-        mock_run.assert_called_once()
-        call_args = mock_run.call_args[0][0]
-        assert call_args == ["bridge", "export", "test-channel"]
 
 
 def test_build_prompt_failure():
-    """Failed build prompt returns None."""
-    mock_agent = Agent(
-        agent_id="a-1",
-        identity="zealot",
-        constitution="zealot.md",
-        model="claude-haiku-4-5",
-        created_at="2024-01-01",
-    )
-    with (
-        patch("space.os.bridge.api.mentions.subprocess.run") as mock_run,
-        patch("space.os.bridge.api.mentions.spawn_agents.get_agent") as mock_get_agent,
-        patch("space.os.bridge.api.mentions.paths.constitution") as mock_const_path,
-    ):
-        mock_get_agent.return_value = mock_agent
-        mock_const_path.return_value.read_text.return_value = "# ZEALOT"
-        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error")
+    """Failed build prompt returns None when agent not found."""
+    with patch("space.os.bridge.api.mentions.spawn_agents.get_agent") as mock_get_agent:
+        mock_get_agent.return_value = None
 
-        result = mentions._build_prompt("zealot", "test-channel", "test")
+        result = mentions._build_prompt("nonexistent", "test-channel", "test")
 
         assert result is None
 
 
-def test_build_prompt_timeout():
-    """Build prompt timeout returns None gracefully."""
+def test_build_prompt_exception():
+    """Build prompt handles exceptions gracefully."""
     mock_agent = Agent(
         agent_id="a-1",
         identity="zealot",
@@ -99,13 +80,13 @@ def test_build_prompt_timeout():
         created_at="2024-01-01",
     )
     with (
-        patch("space.os.bridge.api.mentions.subprocess.run") as mock_run,
         patch("space.os.bridge.api.mentions.spawn_agents.get_agent") as mock_get_agent,
         patch("space.os.bridge.api.mentions.paths.constitution") as mock_const_path,
     ):
         mock_get_agent.return_value = mock_agent
-        mock_const_path.return_value.read_text.return_value = "# ZEALOT"
-        mock_run.side_effect = subprocess.TimeoutExpired("spawn", 120)
+        mock_const_path.return_value.read_text.side_effect = FileNotFoundError(
+            "constitution not found"
+        )
 
         result = mentions._build_prompt("zealot", "test-channel", "test")
 

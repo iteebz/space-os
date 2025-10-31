@@ -16,20 +16,20 @@ def create_session(agent_id: str) -> str:
 
         session_id = uuid7()
 
-        cursor.execute("SELECT spawn_count FROM agents WHERE agent_id = ?", (agent_id,))
+        cursor.execute("SELECT spawns FROM agents WHERE agent_id = ?", (agent_id,))
         result = cursor.fetchone()
         spawn_count = (result[0] if result else 0) + 1
 
         cursor.execute(
             """
-            INSERT INTO sessions (session_id, agent_id, spawn_number, wakes)
-            VALUES (?, ?, ?, 0)
+            INSERT INTO sessions (session_id, agent_id, spawn_number)
+            VALUES (?, ?, ?)
             """,
             (session_id, agent_id, spawn_count),
         )
 
         cursor.execute(
-            "UPDATE agents SET spawn_count = ?, last_active_at = ? WHERE agent_id = ?",
+            "UPDATE agents SET spawns = ?, last_active_at = ? WHERE agent_id = ?",
             (spawn_count, datetime.now().isoformat(), agent_id),
         )
 
@@ -50,6 +50,6 @@ def get_spawn_count(agent_id: str) -> int:
     """Get total spawn count for agent."""
     with db.connect() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT spawn_count FROM agents WHERE agent_id = ?", (agent_id,))
+        cursor.execute("SELECT spawns FROM agents WHERE agent_id = ?", (agent_id,))
         result = cursor.fetchone()
         return result[0] if result else 0
