@@ -106,4 +106,3 @@ class Codex(Provider):
         except (OSError, json.JSONDecodeError) as e:
             logger.error(f"Error parsing Codex messages from {file_path}: {e}")
         return messages
-

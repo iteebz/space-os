@@ -27,7 +27,10 @@ spawn = "space.os.spawn.cli:main"
 memory = "space.os.memory.cli:main"
 knowledge = "space.os.knowledge.cli:main"
 context = "space.os.context.cli:main"
-space = "space.cli:main"
+space = "space.apps.space.cli:main"
+canon = "space.apps.canon.cli:main"
+council = "space.apps.council.cli:main"
+daemons = "space.apps.daemons.cli:main"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.13.0"

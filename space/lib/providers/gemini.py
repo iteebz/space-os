@@ -164,4 +164,3 @@ class Gemini(Provider):
         except (OSError, json.JSONDecodeError) as e:
             logger.error(f"Error parsing Gemini messages from {file_path}: {e}")
         return messages
-

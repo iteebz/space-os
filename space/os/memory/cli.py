@@ -6,9 +6,9 @@ from typing import Annotated
 import typer
 
 from space.lib import errors, output
-from space.os.context import display
 from space.lib.format import format_memory_entries
 from space.os import spawn
+from space.os.context import display
 from space.os.memory import api
 
 errors.install_error_handler("memory")

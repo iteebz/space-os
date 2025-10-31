@@ -50,7 +50,7 @@ def _run_all_daemons(role: str = "zealot") -> None:
 
 
 @app.callback(invoke_without_command=True)
-def main(ctx: typer.Context) -> None:
+def main_callback(ctx: typer.Context) -> None:
     """Space health heartbeat: run all daemons in parallel, or invoke subcommands."""
     if ctx.invoked_subcommand is None:
         # Retrieve identity from ctx.obj
@@ -101,3 +101,13 @@ def status(
         stat = task.status
         task_input = (task.input or "")[:29]
         typer.echo(f"{task_id:<8} {role:<12} {stat:<12} {task_input:<30}")
+
+
+def main() -> None:
+    """Entry point for daemons command."""
+    try:
+        app()
+    except SystemExit:
+        raise
+    except BaseException as e:
+        raise SystemExit(1) from e

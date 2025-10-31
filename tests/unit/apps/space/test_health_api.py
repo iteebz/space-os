@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from space.apps.health import api as health_api
+from space.apps.space.api import health as health_api
 from space.core import db
 from space.lib import paths, store
 

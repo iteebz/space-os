@@ -11,7 +11,7 @@ import click
 import typer
 from typer.core import TyperGroup
 
-from space.apps.stats import agent_stats
+from space.apps.space.api.stats import agent_stats
 from space.core.models import TaskStatus
 from space.lib import errors, output
 from space.os.spawn import api

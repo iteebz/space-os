@@ -168,3 +168,13 @@ def join(channel: str = typer.Argument(..., help="Channel name")):
     """Join a bridge council - stream messages and respond live."""
     c = Council(channel)
     asyncio.run(c.run())
+
+
+def main() -> None:
+    """Entry point for council command."""
+    try:
+        app()
+    except SystemExit:
+        raise
+    except BaseException as e:
+        raise SystemExit(1) from e

@@ -4,49 +4,49 @@ from unittest.mock import patch
 
 import pytest
 
-from space.apps.stats import api
-from space.apps.stats.models import LeaderboardEntry
+from space.apps.space.api import stats as stats_api
+from space.apps.space.api.stats import LeaderboardEntry
 
 
 @pytest.fixture
 def mock_get_agent_identities():
     """Mock _get_agent_identities."""
-    with patch("space.apps.stats.api._get_agent_identities") as mock:
+    with patch("space.apps.space.api.stats._get_agent_identities") as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_get_archived_agents():
     """Mock _get_archived_agents."""
-    with patch("space.apps.stats.api._get_archived_agents") as mock:
+    with patch("space.apps.space.api.stats._get_archived_agents") as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_get_bridge_stats():
     """Mock _get_bridge_stats."""
-    with patch("space.apps.stats.api._get_bridge_stats") as mock:
+    with patch("space.apps.space.api.stats._get_bridge_stats") as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_get_memory_stats():
     """Mock _get_memory_stats."""
-    with patch("space.apps.stats.api._get_memory_stats") as mock:
+    with patch("space.apps.space.api.stats._get_memory_stats") as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_get_knowledge_stats():
     """Mock _get_knowledge_stats."""
-    with patch("space.apps.stats.api._get_knowledge_stats") as mock:
+    with patch("space.apps.space.api.stats._get_knowledge_stats") as mock:
         yield mock
 
 
 def test_build_leaderboard_empty(mock_get_agent_identities):
     mock_get_agent_identities.return_value = {}
 
-    result = api._build_leaderboard([])
+    result = stats_api._build_leaderboard([])
 
     assert result == []
 
@@ -57,7 +57,7 @@ def test_build_leaderboard_with_agents(mock_get_agent_identities):
         "agent2": "Bob",
     }
 
-    result = api._build_leaderboard(
+    result = stats_api._build_leaderboard(
         [
             {"agent_id": "agent1", "count": 10},
             {"agent_id": "agent2", "count": 5},
@@ -76,7 +76,7 @@ def test_build_leaderboard_with_limit(mock_get_agent_identities):
         "agent3": "Charlie",
     }
 
-    result = api._build_leaderboard(
+    result = stats_api._build_leaderboard(
         [
             {"agent_id": "agent1", "count": 10},
             {"agent_id": "agent2", "count": 5},
@@ -93,7 +93,7 @@ def test_build_leaderboard_with_limit(mock_get_agent_identities):
 def test_build_leaderboard_unknown_agent(mock_get_agent_identities):
     mock_get_agent_identities.return_value = {"agent1": "Alice"}
 
-    result = api._build_leaderboard(
+    result = stats_api._build_leaderboard(
         [
             {"agent_id": "agent1", "count": 10},
             {"agent_id": "unknown", "count": 5},
@@ -129,7 +129,7 @@ def test_agent_stats_aggregates_data(
     mock_get_memory_stats.return_value = {"mem_by_agent": [{"agent_id": "agent1", "count": 3}]}
     mock_get_knowledge_stats.return_value = {"know_by_agent": [{"agent_id": "agent1", "count": 2}]}
 
-    result = api.agent_stats()
+    result = stats_api.agent_stats()
 
     assert len(result) == 2
     alice = next(a for a in result if a.agent_id == "agent1")
@@ -161,7 +161,7 @@ def test_agent_stats_filters_archived(
     mock_get_memory_stats.return_value = {"mem_by_agent": []}
     mock_get_knowledge_stats.return_value = {"know_by_agent": []}
 
-    result = api.agent_stats()
+    result = stats_api.agent_stats()
 
     assert len(result) == 1
     assert result[0].agent_id == "agent1"
@@ -187,6 +187,6 @@ def test_agent_stats_show_all(
     mock_get_memory_stats.return_value = {"mem_by_agent": []}
     mock_get_knowledge_stats.return_value = {"know_by_agent": []}
 
-    result = api.agent_stats(show_all=True)
+    result = stats_api.agent_stats(show_all=True)
 
     assert len(result) == 2

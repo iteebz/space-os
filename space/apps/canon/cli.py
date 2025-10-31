@@ -2,8 +2,8 @@
 
 import typer
 
+from space.apps.canon import api
 from space.lib import errors, output
-from space.os.canon import api
 
 errors.install_error_handler("canon")
 
