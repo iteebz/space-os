@@ -6,33 +6,9 @@ Constitutional cognitive infrastructure for multi-agent coordination.
 
 Infrastructure primitives enabling autonomous agent coordination with constitutional identity. Agents persist context across deaths, coordinate asynchronously, and build shared knowledge without orchestration.
 
-For detailed information on each primitive, refer to their dedicated documentation:
-- [Spawn](docs/spawn.md) — constitutional identity registry
-- [Bridge](docs/bridge.md) — async message coordination
-- [Memory](docs/memory.md) — private agent context
-- [Knowledge](docs/knowledge.md) — shared discoveries
-- `context` — unified search across all subsystems
+Five primitives, single database (`space.db`), zero orchestration.
 
-## CLI Surface
-
-**Primitives (first-class commands):**
-- [Memory](docs/memory.md) — private agent context. Supports canonical namespaces (`journal`, `notes`, `tasks`, `beliefs`) for quick add/list, and general commands for `add`, `edit`, `search`, `archive`, `core`, `replace`, `inspect`.
-- [Bridge](docs/bridge.md) — async coordination channels (send, channels, inbox)
-- [Knowledge](docs/knowledge.md) — shared discoveries (add, list, query by domain/agent)
-- [Spawn](docs/spawn.md) — constitutional identity registry (launch, list, registry)
-
-**Utilities (namespaced under `space`):**
-- `space wake` — load active context from persist state
-- `space sleep` — save context before respawn
-- `space health` — system diagnostics
-- `space init` — initialize workspace
-- `space backup` — backup all databases
-- `space events` — query immutable audit log
-
-**Operations:**
-- `context` — unified search across all subsystems (read-only meta-layer)
-
-## Architecture
+## Design
 
 **Data hierarchy:**
 ```
@@ -47,22 +23,86 @@ bridge     — ephemeral coordination (conversation until consensus)
 spawn      — identity registry (constitutional provenance)
 ```
 
-**Storage:** `.space/` directory (workspace-local, single SQLite file)
+**Storage:** `.space/` directory (workspace-local)
 ```
 .space/
-├── space.db       # unified schema (agents, channels, messages, bookmarks, memories, knowledge, tasks, sessions, links)
-└── backups/…      # optional workspace snapshots
+├── space.db       # unified schema (agents, channels, messages, memories, knowledge, tasks, sessions)
+└── backups/…      # optional snapshots
 ```
 
-**Design principles:**
+**Principles:**
 - Composable primitives over monolithic frameworks
 - Workspace sovereignty (no cloud dependencies)
 - Async-first coordination (polling, not orchestration)
-- Constitutional provenance optional (spawn layer)
-- Filesystem as source of truth. READMEs couple docs to code. No drift.
+- Constitutional identity optional (spawn layer)
+- Filesystem as source of truth
 
-See [docs/architecture.md](docs/architecture.md) for implementation details.
-See [docs/operations.md](docs/operations.md) for quick start, command usage, and agent lifecycle.
+See [docs/architecture.md](docs/architecture.md) for design details.
+
+## Spawn Patterns
+
+**Direct spawn** — Run agent by identity:
+```bash
+spawn register zealot zealot-1 --model claude-sonnet-4
+zealot-1 "your task here"  # dynamic CLI from space CLI
+```
+
+**@mention spawn** — Message triggers agent:
+```bash
+bridge send research "@zealot-1 analyze this proposal" --as you
+# System spawns zealot-1, builds prompt from channel context, posts reply
+```
+
+**Task-based spawn** — Create task, agent executes:
+```bash
+spawn tasks
+spawn logs <task-id>      # track execution
+spawn kill <task-id>      # stop running task
+```
+
+**Chat ingestion** — Discover and sync from providers:
+```bash
+space chats sync           # discover claude/gemini/codex chats
+space chats --stats        # view provider statistics
+```
+
+## Core Workflows
+
+**Coordinate asynchronously:**
+```bash
+# Send message to channel
+bridge send research "proposal for review" --as zealot-1
+
+# Read unread channels
+bridge inbox --as zealot-1
+
+# Unified context search (memory + knowledge + bridge + canon)
+context search "your query" --as zealot-1
+```
+
+**Manage memory and knowledge:**
+```bash
+# Private working context (agent-specific)
+memory add --as zealot-1 --topic arch "core insight"
+memory list --as zealot-1
+
+# Shared discoveries (multi-agent, domain-indexed)
+knowledge add --domain architecture --as zealot-1 "shared discovery"
+knowledge query --domain architecture
+```
+
+## CLI Reference
+
+Run `<command> --help` for full options. Each primitive is first-class:
+- `spawn` — agent registry, task tracking
+- `bridge` — async channels, messages, coordination
+- `memory` — private working context
+- `knowledge` — shared discoveries
+- `context` — unified search (memory + knowledge + bridge + canon)
+- `space` — orchestrator (init, health, stats, backup)
+- `canon` — git-backed immutable docs
+- `council` — live channel streaming
+- `daemons` — background upkeep tasks
 
 ## Development
 

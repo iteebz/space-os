@@ -2,79 +2,89 @@
 
 High-level design of space-os primitives and data flows.
 
-## System Overview
+## Overview
 
 **Five primitives, single database, zero orchestration.**
 
-Agents coordinate asynchronously through message passing (bridge), maintain private working context (memory), build shared discoveries (knowledge), and search across all subsystems (context). Constitutional identity (spawn) provides agent registry with immutable provenance via events.
+Agents coordinate asynchronously via message passing (bridge), maintain private working context (memory), build shared discoveries (knowledge), and search across all subsystems (context). Constitutional identity (spawn) provides the agent registry with immutable provenance.
 
 **Design principle:** No central orchestration. Agents are fully autonomous. Coordination emerges through shared communication channels and collective knowledge.
 
-## Module Structure
+## Data Hierarchy
 
 ```
-space/
-├── spawn/          # agent registry + constitutional identity + task tracking
-├── bridge/         # async messaging (channels, messages, bookmarks)
-├── memory/         # private agent context (topic-sharded, soft-deleted)
-├── knowledge/      # shared discoveries (domain-indexed, multi-agent)
-├── context/        # unified search (meta-layer, no storage)
-├── commands/       # wake, sleep, stats, backup, health, etc.
-├── lib/            # shared utilities (db registry, paths, uuid7, identity)
-├── events.py       # system-wide audit log (provenance + analytics)
-└── apps/           # council, context app layer
+context    — unified search (read-only meta-layer)
+  ↓
+knowledge  — shared truth (multi-agent writes)
+  ↓
+memory     — working state (single-agent writes)
+  ↓
+bridge     — ephemeral coordination (conversation until consensus)
+  ↓
+spawn      — identity registry (constitutional provenance)
 ```
 
-## Primitive Overview
+Pattern: Bridge → Memory → Knowledge (information flows "down" as consensus solidifies)
 
-For detailed information on each primitive, refer to their dedicated documentation:
+## Primitives
 
--   [Spawn](spawn.md)
--   [Bridge](bridge.md)
--   [Memory](memory.md)
--   [Knowledge](knowledge.md)
+For detailed information and CLI reference:
 
-## Data Flow Architecture
+- [Spawn](spawn.md) — agent registry, constitutional identity, task tracking
+- [Bridge](bridge.md) — async coordination channels (append-only, bookmarks)
+- [Memory](memory.md) — private working context (identity-scoped, topic-sharded)
+- [Knowledge](knowledge.md) — shared discoveries (domain-indexed, immutable)
+- `context` — unified search across all subsystems (no dedicated storage)
 
-### Storage Hierarchy
-```
-Bridge (ephemeral messages)
-    ↓
-Memory (working context, captured from bridge)
-    ↓
-Knowledge (permanent discoveries, shared via domain)
-```
+## Execution Patterns
 
-### Provenance Model
-```
-Identity invocation (CLI/API)
-    ↓
-spawn.get_agent(identity) → agent_id
-    ↓
-Operation runs (bridge.send, memory.add, etc.)
-    ↓
-events.emit(source, event_type, agent_id, data)
-    ↓
-events.db record (immutable, searchable)
-    ↓
-Later: events.query(agent_id=X) shows full audit trail
+**Direct spawn** — Run agent by registered identity:
+```bash
+zealot-1 "task"
 ```
 
-### Context Assembly (Wake)
-1. `agent = spawn.get_agent(identity)` → resolve to Agent object
-2. `memory.get_core_entries(identity)` → load architectural memories
-3. `memory.get_recent_entries(identity, days=7)` → load working context
-4. `bridge.fetch_channels(agent.agent_id)` → unread counts
-5. `knowledge.query_by_domain("*")` → relevant knowledge
-6. Display summary: unread by channel, core memories, recent discoveries
-7. Suggest priority action (channel with highest unread density)
+**@mention spawn** — Message with @identity triggers agent:
+```bash
+bridge send channel "@zealot-1 analyze proposal" --as you
+# System builds prompt from channel context, spawns agent, posts reply
+```
 
-### Coordination Flow (Bridge)
-1. Agent A: `bridge.send(channel_id, agent_id, "message")`
-   - Insert message (append-only)
-   - Emit event: source=bridge, event_type=message_sent
-2. Agent B: `bridge.recv(channel_id, agent_id)`
-   - Fetch messages WHERE created_at > last_read
-   - Update bookmark (last_read = now)
-   - Emit event: source=bridge, event_type=message_read
-3. (Reflections now live under `memory#notes` namespaces instead of bridge.)
+**Task tracking** — Create, monitor, kill tasks:
+```bash
+spawn tasks
+spawn logs <task-id>
+```
+
+**Chat ingestion** — Discover and sync from providers:
+```bash
+space chats sync         # claude/gemini/codex chats
+```
+
+## Storage
+
+**Single database:** `.space/space.db` (SQLite)
+
+Schema includes:
+- `agents` — identity, model, constitution, provider
+- `channels`, `messages`, `bookmarks` — async coordination
+- `memories`, `links` — private context
+- `knowledge` — shared discoveries
+- `tasks`, `sessions` — execution tracking
+
+See [docs/schema.md](schema.md) for full schema.
+
+## Coordination Flow
+
+1. **Send** — Agent A posts message to channel
+   - `bridge.send(channel_id, agent_id, "message")`
+   - Message appended (immutable)
+   
+2. **Read** — Agent B reads unread messages
+   - `bridge.recv(channel_id, agent_id)`
+   - Bookmark updated (last_seen_id)
+   - @mentions extracted, agents spawned if present
+
+3. **Consolidate** — Insights move down the hierarchy
+   - Bridge → ephemeral discussion
+   - Memory → working notes (if single agent)
+   - Knowledge → shared discovery (if consensus reached)

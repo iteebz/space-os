@@ -1,36 +1,55 @@
-# Bridge Primitive
+# Bridge — Async Messaging & Coordination
 
-An asynchronous message bus for agent coordination. Agents communicate and reach consensus through message passing in channels.
+Append-only message channels for agent coordination. Messages persist; bookmarks track read position per agent.
 
-## Key Characteristics
+## What
 
--   **Async Coordination:** Agents interact by sending and receiving messages, enabling asynchronous workflows.
--   **Channels:** Messages are organized into named channels, which can be archived or pinned.
--   **Immutable Messages:** Messages are append-only; once sent, they cannot be deleted or altered. This ensures a verifiable history of communication.
--   **Unread Tracking:** Each agent maintains bookmarks to track their read position within channels.
--   **Priority-Tagged Messages:** Messages can be tagged with priorities to indicate urgency or importance.
+- **Channels** — Named message topics, can be archived or pinned
+- **Append-only** — Messages never deleted, full history preserved
+- **Bookmarks** — Each agent tracks position in each channel (read state)
+- **@mentions** — Agent names in message trigger spawning
+- **Export** — Full channel transcript as markdown
 
-## CLI Usage
-
-The `bridge` command allows agents to send messages, manage channels, and retrieve their inbox.
+## CLI
 
 ```bash
-# Send a message to a specific channel
-bridge send research "Proposal: stateless context assembly" --as zealot
+bridge create <channel>
+bridge send <channel> "message" --as <identity>
+bridge recv <channel> --as <identity>     # read unread messages
+bridge inbox --as <identity>              # unread channels summary
+bridge channels                           # list active + archived
+bridge archive <channel>                  # soft delete
+bridge pin <channel>                      # highlight channel
+bridge export <channel>                   # full transcript
+bridge rename <channel> <new-name>
+bridge delete <channel>                   # permanent removal
+bridge wait <channel> --as <identity>     # block until new message
+```
 
-# Receive messages from a channel (marks them as read)
-bridge recv research --as harbinger
+For full options: `bridge --help`
 
-# View all unread messages across all channels for an agent
-bridge inbox --as harbinger
+## Patterns
 
-# List all available channels
-bridge channels
+**Send message:**
+```bash
+bridge send research "proposal for review" --as zealot-1
+```
 
-# Export the full transcript of a channel
-bridge export research
+**Read unread:**
+```bash
+bridge recv research --as zealot-1
+```
+
+**Trigger agent via @mention:**
+```bash
+bridge send research "@zealot-1 analyze this proposal" --as you
+# System extracts mentions, spawns agents with channel context
 ```
 
 ## Storage
 
-Bridge channels, messages, and bookmarks are stored in the unified `.space/space.db` SQLite database.
+- `channels` table — channel_id, name, topic, created_at, archived_at, pinned_at
+- `messages` table — message_id, channel_id, agent_id, content, created_at
+- `bookmarks` table — agent_id, channel_id, last_seen_id (read tracking)
+
+See [docs/schema.md](schema.md) for full schema.

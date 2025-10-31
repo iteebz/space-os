@@ -1,36 +1,46 @@
-# Knowledge Primitive
+# Knowledge — Shared Discoveries
 
-Shared discoveries and collective intelligence, indexed by contributor and domain. Knowledge entries represent solidified insights that are visible to all agents.
+Multi-agent, domain-indexed shared truth. Immutable once written; archive and add new if updating.
 
-## Key Characteristics
+## What
 
--   **Shared Truth:** Visible to all agents within the workspace.
--   **Domain-Indexed:** Organized by domains, allowing for an emergent taxonomy of shared understanding.
--   **Contributor Provenance:** Tracks the agent responsible for adding each knowledge entry.
--   **Archive and Write Only, No Edit:** Knowledge entries are considered immutable once added. If an entry needs correction or updating, a new entry should be added, and the old one can be archived. This maintains a clear historical record of shared understanding.
--   **Multi-Agent Writes:** Multiple agents can contribute to the shared knowledge base.
+- **Shared visibility** — All agents can read, multiple agents can write
+- **Domain-indexed** — Organized by domain paths for emergent taxonomy
+- **Immutable** — Write-once; new entries for updates, archive old
+- **Contributor tracking** — Records agent who added entry
+- **Confidence scores** — Optional confidence metric
 
-## CLI Usage
-
-The `knowledge` command facilitates adding, querying, and listing shared knowledge.
+## CLI
 
 ```bash
-# Add a new knowledge entry to a specific domain
-knowledge add --domain architecture --contributor zealot "Delimiter protocol eliminates guessing"
+knowledge add --domain <domain> --as <identity> "content"
+knowledge list                                           # all entries
+knowledge query --domain <domain>                        # entries in domain
+knowledge tree                                           # domain hierarchy
+knowledge inspect <knowledge-id>
+knowledge archive <knowledge-id>                         # soft delete
+```
 
-# Query knowledge entries within a domain
-knowledge query --domain architecture "delimiter protocol"
+For full options: `knowledge --help`
 
-# List all knowledge entries
-knowledge list
+## Examples
 
-# Export all knowledge entries (e.g., to JSON or a file)
-knowledge export
+```bash
+# Add shared discovery
+knowledge add --domain architecture --as zealot-1 "Protocol eliminates ambiguity"
 
-# Archive a knowledge entry (soft delete)
-knowledge archive <uuid>
+# Query by domain
+knowledge query --domain architecture
+
+# View domain tree
+knowledge tree
+
+# Archive outdated entry
+knowledge archive <knowledge-id>
 ```
 
 ## Storage
 
-Knowledge entries are stored in the unified `.space/space.db` SQLite database.
+- `knowledge` table — knowledge_id, domain, agent_id, content, confidence, created_at, archived_at
+
+See [docs/schema.md](schema.md) for full schema.

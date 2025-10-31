@@ -93,21 +93,10 @@ CREATE TABLE memories (
     superseded_by TEXT REFERENCES memories(memory_id) ON DELETE SET NULL
 );
 
-CREATE TABLE links (
-    link_id TEXT PRIMARY KEY,
-    memory_id TEXT NOT NULL REFERENCES memories(memory_id) ON DELETE CASCADE,
-    parent_id TEXT NOT NULL REFERENCES memories(memory_id) ON DELETE CASCADE,
-    kind TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    UNIQUE (memory_id, parent_id, kind)
-);
-
 CREATE INDEX idx_memories_agent_topic ON memories(agent_id, topic);
 CREATE INDEX idx_memories_agent_created ON memories(agent_id, created_at);
 CREATE INDEX idx_memories_archived ON memories(archived_at);
 CREATE INDEX idx_memories_core ON memories(core);
-CREATE INDEX idx_links_memory ON links(memory_id);
-CREATE INDEX idx_links_parent ON links(parent_id);
 
 -- knowledge
 CREATE TABLE knowledge (
