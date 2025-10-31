@@ -10,7 +10,7 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
     with store.ensure("knowledge") as conn:
         sql_query = (
             "SELECT knowledge_id, domain, agent_id, content, created_at FROM knowledge "
-            "WHERE (content LIKE ? OR domain LIKE ?)"
+            "WHERE (content LIKE ? OR domain LIKE ?) AND archived_at IS NULL"
         )
         params = [f"%{query}%", f"%{query}%"]
 

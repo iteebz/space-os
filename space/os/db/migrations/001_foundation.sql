@@ -73,9 +73,8 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS memories (
     memory_id TEXT PRIMARY KEY,
     agent_id TEXT NOT NULL,
-    topic TEXT NOT NULL,
     message TEXT NOT NULL,
-    timestamp TEXT NOT NULL,
+    topic TEXT,
     created_at TEXT NOT NULL,
     archived_at TEXT,
     core INTEGER NOT NULL DEFAULT 0,
@@ -123,7 +122,6 @@ CREATE INDEX IF NOT EXISTS idx_tasks_channel ON tasks(channel_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_agent ON sessions(agent_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_active ON sessions(ended_at) WHERE ended_at IS NULL;
 
-CREATE INDEX IF NOT EXISTS idx_memories_agent_topic ON memories(agent_id, topic);
 CREATE INDEX IF NOT EXISTS idx_memories_agent_created ON memories(agent_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_memories_archived ON memories(archived_at);
 CREATE INDEX IF NOT EXISTS idx_memories_core ON memories(core);

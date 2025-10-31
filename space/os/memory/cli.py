@@ -1,11 +1,12 @@
-"""Memory CLI: Knowledge Base Management."""
+"""Memory CLI: agent working memory management."""
 
 from dataclasses import asdict
 from typing import Annotated
 
 import typer
 
-from space.lib import display, errors, output
+from space.lib import errors, output
+from space.os.context import display
 from space.lib.format import format_memory_entries
 from space.os import spawn
 from space.os.memory import api
@@ -48,63 +49,17 @@ def main_callback(
         typer.echo(ctx.get_help())
 
 
-@main_app.command("tree")
-def tree(
-    ctx: typer.Context,
-    topic: str = typer.Argument(None, help="Topic path to show subtree (optional)"),
-    show_all: bool = typer.Option(False, "--all", help="Include archived"),
-):
-    """Show topic hierarchy as tree.
-
-    Examples:
-      memory tree --as sentinel                      # Show all topics for agent
-      memory tree --as sentinel --topic observations # Show observations subtree
-    """
-    ident = ctx.obj.get("identity")
-    if not ident:
-        raise typer.BadParameter("--as required")
-    agent = spawn.get_agent(ident)
-    if not agent:
-        raise typer.BadParameter(f"Identity '{ident}' not registered.")
-    agent_id = agent.agent_id
-
-    tree_data = api.get_topic_tree(agent_id, topic, show_all)
-
-    def print_tree(node: dict, prefix: str = "", is_last: bool = True):
-        items = list(node.items())
-        for i, (key, subtree) in enumerate(items):
-            is_last_item = i == len(items) - 1
-            current_prefix = "└── " if is_last_item else "├── "
-            output.out_text(f"{prefix}{current_prefix}{key}", ctx.obj)
-            next_prefix = prefix + ("    " if is_last_item else "│   ")
-            if subtree:
-                print_tree(subtree, next_prefix, is_last_item)
-
-    if not tree_data:
-        output.out_text("No topics found.", ctx.obj)
-        return
-
-    output.out_text("Topic hierarchy:", ctx.obj)
-    print_tree(tree_data)
-
-
 @main_app.command("add")
 def add(
     ctx: typer.Context,
-    topic: str = typer.Argument(..., help="Topic path (e.g., observations/tasks/priority)"),
     message: str = typer.Argument(..., help="The memory message"),
+    topic: Annotated[str | None, typer.Option("--topic", help="Optional topic label")] = None,
 ):
     """Create new memory entry.
 
     Example:
-      memory add observations/tasks/urgent "Fix bug in caching layer" --as sentinel
+      memory add "Fix bug in caching layer" --topic observations --as sentinel
     """
-    from space.lib.paths import validate_domain_path
-
-    valid, error = validate_domain_path(topic)
-    if not valid:
-        raise typer.BadParameter(f"Invalid topic: {error}")
-
     ident = ctx.obj.get("identity")
     if not ident:
         raise typer.BadParameter("--as required")
@@ -112,25 +67,27 @@ def add(
     if not agent:
         raise typer.BadParameter(f"Identity '{ident}' not registered.")
     agent_id = agent.agent_id
-    entry_id = api.add_entry(agent_id, topic, message)
+
+    memory_id = api.add_memory(agent_id, message, topic=topic)
     if ctx.obj.get("json_output"):
-        typer.echo(output.out_json({"entry_id": entry_id}))
+        typer.echo(output.out_json({"memory_id": memory_id}))
     else:
-        output.out_text(f"Added to {topic}: {entry_id[-8:]}", ctx.obj)
+        topic_str = f" [{topic}]" if topic else ""
+        output.out_text(f"Added{topic_str}: {memory_id[-8:]}", ctx.obj)
 
 
 @main_app.command("edit")
 def edit(
     ctx: typer.Context,
-    uuid: str = typer.Argument(..., help="UUID of the entry to edit"),
+    uuid: str = typer.Argument(..., help="UUID of the memory to edit"),
     message: str = typer.Argument(..., help="The new message content"),
 ):
     """Update memory content by UUID."""
-    entry = api.get_by_id(uuid)
+    entry = api.get_memory(uuid)
     if not entry:
-        raise typer.BadParameter(f"Entry not found: {uuid}")
+        raise typer.BadParameter(f"Memory not found: {uuid}")
     try:
-        api.edit_entry(uuid, message)
+        api.edit_memory(uuid, message)
         output.out_text(f"Edited {uuid[-8:]}", ctx.obj)
     except ValueError as e:
         output.emit_error("memory", entry.agent_id, "edit", e)
@@ -138,28 +95,27 @@ def edit(
 
 
 @main_app.command("list")
-def list(
+def list_cmd(
     ctx: typer.Context,
-    ident: str = typer.Option(None, "--identity"),
-    topic: str = typer.Option(None, help="Topic name"),
-    show_all: bool = typer.Option(False, "--all", help="Show all entries"),
+    topic: Annotated[str | None, typer.Option("--topic", help="Filter by topic label")] = None,
+    show_all: bool = typer.Option(False, "--all", help="Show archived entries"),
     raw_output: bool = typer.Option(
         False, "--raw", help="Output raw timestamps instead of humanized."
     ),
 ):
-    """List all memories for agent (--topic to filter)."""
-    identity = ident or ctx.obj.get("identity")
+    """List memories for agent (--topic to filter)."""
+    identity = ctx.obj.get("identity")
     if not identity:
         raise typer.BadParameter("--as required")
     try:
-        entries = api.list_entries(identity, topic, show_all=show_all)
+        entries = api.list_memories(identity, topic=topic, show_all=show_all)
     except ValueError as e:
         output.emit_error("memory", None, "list", e)
         raise typer.BadParameter(str(e)) from e
 
-    entries.sort(key=lambda e: (not e.core, e.timestamp), reverse=True)
+    entries = sorted(entries, key=lambda e: (not e.core, e.created_at), reverse=True)
     if not entries:
-        output.out_text("No entries", ctx.obj)
+        output.out_text("No memories", ctx.obj)
         return
 
     if ctx.obj.get("json_output"):
@@ -170,54 +126,57 @@ def list(
             display.show_context(identity)
 
 
-@main_app.command("query")
-def query(
+@main_app.command("search")
+def search(
     ctx: typer.Context,
-    topic: str = typer.Argument(..., help="Topic path to query"),
-    show_all: bool = typer.Option(False, "--all", help="Show all entries"),
+    query: str = typer.Argument(..., help="Search query"),
+    show_all: bool = typer.Option(False, "--all", help="Search archived entries"),
     raw_output: bool = typer.Option(
         False, "--raw", help="Output raw timestamps instead of humanized."
     ),
 ):
-    """Query memories by topic path.
+    """Search memories by message content.
 
-    Examples:
-      memory query observations/tasks --as sentinel          # Exact match
-      memory query observations/tasks --as sentinel --all    # Include archived
+    Example:
+      memory search "caching" --as sentinel
     """
     ident = ctx.obj.get("identity")
     if not ident:
         raise typer.BadParameter("--as required")
     try:
-        entries = api.list_entries(ident, topic, show_all=show_all)
+        agent = spawn.get_agent(ident)
+        if not agent:
+            raise ValueError(f"Agent '{ident}' not found")
+
+        entries = api.list_memories(ident, show_all=show_all)
+        results = [e for e in entries if query.lower() in e.message.lower()]
     except ValueError as e:
-        output.emit_error("memory", None, "query", e)
+        output.emit_error("memory", None, "search", e)
         raise typer.BadParameter(str(e)) from e
 
-    entries.sort(key=lambda e: (not e.core, e.timestamp), reverse=True)
-    if not entries:
-        output.out_text(f"No entries for topic '{topic}'", ctx.obj)
+    if not results:
+        output.out_text(f"No results for '{query}'", ctx.obj)
         return
 
     if ctx.obj.get("json_output"):
-        typer.echo(output.out_json([asdict(e) for e in entries]))
+        typer.echo(output.out_json([asdict(e) for e in results]))
     else:
-        output.out_text(f"Topic: {topic} ({len(entries)} entries)", ctx.obj)
-        output.out_text(format_memory_entries(entries, raw_output=raw_output), ctx.obj)
+        output.out_text(f"Found {len(results)} matches:", ctx.obj)
+        output.out_text(format_memory_entries(results, raw_output=raw_output), ctx.obj)
 
 
 @main_app.command("archive")
 def archive(
     ctx: typer.Context,
-    uuid: str = typer.Argument(..., help="UUID of the entry to archive"),
-    restore: bool = typer.Option(False, "--restore", help="Restore archived entry"),
+    uuid: str = typer.Argument(..., help="UUID of the memory to archive"),
+    restore: bool = typer.Option(False, "--restore", help="Restore archived memory"),
 ):
     """Archive or restore memory."""
-    entry = api.get_by_id(uuid)
+    entry = api.get_memory(uuid)
     if not entry:
-        raise typer.BadParameter(f"Entry not found: {uuid}")
+        raise typer.BadParameter(f"Memory not found: {uuid}")
     try:
-        api.archive_entry(uuid, restore=restore)
+        api.archive_memory(uuid, restore=restore)
         action = "restored" if restore else "archived"
         output.out_text(f"{action} {uuid[-8:]}", ctx.obj)
     except ValueError as e:
@@ -228,14 +187,14 @@ def archive(
 @main_app.command("core")
 def core(
     ctx: typer.Context,
-    uuid: str = typer.Argument(..., help="UUID of the entry to toggle as core"),
+    uuid: str = typer.Argument(..., help="UUID of the memory to mark core"),
 ):
-    """Toggle core memory status (★)."""
-    entry = api.get_by_id(uuid)
+    """Toggle core memory status (essential to agent identity)."""
+    entry = api.get_memory(uuid)
     if not entry:
-        raise typer.BadParameter(f"Entry not found: {uuid}")
+        raise typer.BadParameter(f"Memory not found: {uuid}")
     try:
-        is_core = api.toggle_core(uuid)
+        is_core = api.toggle_memory_core(uuid)
         output.out_text(f"{'★' if is_core else ''} {uuid[-8:]}", ctx.obj)
     except ValueError as e:
         output.emit_error("memory", entry.agent_id, "core", e)
@@ -245,9 +204,9 @@ def core(
 @main_app.command("inspect")
 def inspect(
     ctx: typer.Context,
-    uuid: str = typer.Argument(..., help="UUID of the entry to inspect"),
-    limit: int = typer.Option(5, help="Number of related entries to show"),
-    show_all: bool = typer.Option(False, "--all", help="Show all entries"),
+    uuid: str = typer.Argument(..., help="UUID of the memory to inspect"),
+    limit: int = typer.Option(5, help="Number of related memories to show"),
+    show_all: bool = typer.Option(False, "--all", help="Include archived"),
 ):
     """View memory and find related entries."""
     identity_name = ctx.obj.get("identity")
@@ -258,7 +217,7 @@ def inspect(
         raise typer.BadParameter(f"Identity '{identity_name}' not registered.")
     agent_id = agent.agent_id
     try:
-        entry = api.get_by_id(uuid)
+        entry = api.get_memory(uuid)
     except ValueError as e:
         output.emit_error("memory", agent_id, "inspect", e)
         raise typer.BadParameter(str(e)) from e
@@ -273,11 +232,11 @@ def inspect(
         output.out_text(f"Belongs to {name}", ctx.obj)
         return
 
-    related = api.find_related(entry, limit=limit, show_all=show_all)
+    related = api.find_related_memories(entry, limit=limit, show_all=show_all)
     if ctx.obj.get("json_output"):
         payload = {
-            "entry": asdict(entry),
-            "related": [{"entry": asdict(r[0]), "overlap": r[1]} for r in related],
+            "memory": asdict(entry),
+            "related": [{"memory": asdict(r[0]), "overlap": r[1]} for r in related],
         }
         typer.echo(output.out_json(payload))
     else:

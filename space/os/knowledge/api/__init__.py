@@ -1,21 +1,21 @@
-from .entries import (
-    add_entry,
-    archive_entry,
-    find_related,
-    get_by_id,
+from .operations import (
+    add_knowledge,
+    archive_knowledge,
+    find_related_knowledge,
     get_domain_tree,
-    list_entries,
-    query_by_agent,
-    query_by_domain,
+    get_knowledge,
+    list_knowledge,
+    query_knowledge,
+    query_knowledge_by_agent,
 )
 
 __all__ = [
-    "add_entry",
-    "archive_entry",
-    "find_related",
-    "get_by_id",
+    "add_knowledge",
+    "archive_knowledge",
+    "find_related_knowledge",
     "get_domain_tree",
-    "list_entries",
-    "query_by_agent",
-    "query_by_domain",
+    "get_knowledge",
+    "list_knowledge",
+    "query_knowledge",
+    "query_knowledge_by_agent",
 ]

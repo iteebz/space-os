@@ -4,7 +4,7 @@ from datetime import datetime
 import typer
 
 from space.lib.format import format_duration
-from space.os import memory
+from space.os import bridge, knowledge, memory, spawn
 
 
 def _safe_datetime(value):
@@ -41,8 +41,6 @@ def fmt_entry_msg(msg: str, max_len: int = 100) -> str:
 
 
 def show_memory_entry(entry, ctx_obj, related=None):
-    from space.os import spawn
-
     agent = spawn.get_agent(entry.agent_id)
     agent_identity = agent.identity if agent else None
     typer.echo(fmt_entry_header(entry, agent_identity))
@@ -107,15 +105,13 @@ def display_context(timeline, current_state, lattice_docs, canon_docs):
 
 
 def show_context(identity: str):
-    from space.os import knowledge, spawn
-
     agent = spawn.get_agent(identity)
     if not agent:
         typer.echo(f"\nNo agent found for identity: {identity}")
         return
     agent_id = agent.agent_id
 
-    knowledge_entries = knowledge.query_by_agent(agent_id)
+    knowledge_entries = knowledge.api.query_knowledge_by_agent(agent_id)
     if knowledge_entries:
         domains = {e.domain for e in knowledge_entries}
         typer.echo(
@@ -124,8 +120,6 @@ def show_context(identity: str):
 
 
 def show_wake_summary(identity: str, quiet_output: bool, spawn_count: int):
-    from space.os import bridge, spawn
-
     agent = spawn.get_agent(identity)
     self_desc = agent.description if agent else None
     typer.echo(f"⚡ You are {identity}.")
@@ -136,7 +130,7 @@ def show_wake_summary(identity: str, quiet_output: bool, spawn_count: int):
     agent_id = agent.agent_id if agent else None
 
     if agent_id:
-        last_journal = memory.list_entries(identity, topic="journal", limit=1)
+        last_journal = memory.api.list_memories(identity, topic="journal", limit=1)
 
         typer.echo(f"🔄 Spawn #{spawn_count}")
         if last_journal:
@@ -148,7 +142,7 @@ def show_wake_summary(identity: str, quiet_output: bool, spawn_count: int):
                 )
                 typer.echo(f"Last session {last_sleep_duration} ago")
 
-        journals = memory.list_entries(identity, topic="journal")
+        journals = memory.api.list_memories(identity, topic="journal")
         if journals:
             typer.echo("📝 Last session:")
             typer.echo(f"  {journals[-1].message}")
@@ -159,14 +153,14 @@ def show_wake_summary(identity: str, quiet_output: bool, spawn_count: int):
                     typer.echo(f"  [{s.timestamp}] {s.message}")
             typer.echo()
 
-        core_entries = memory.list_entries(identity, filter="core")
+        core_entries = memory.api.list_memories(identity, filter="core")
         if core_entries:
             typer.echo("CORE MEMORIES:")
             for e in core_entries[:5]:
                 typer.echo(f"  [{e.memory_id[-8:]}] {e.message}")
             typer.echo()
 
-        recent = memory.list_entries(identity, filter="recent:7", limit=30)
+        recent = memory.api.list_memories(identity, filter="recent:7", limit=30)
         non_journal = [e for e in recent if e.topic != "journal" and not e.core][:3]
         if non_journal:
             typer.echo("RECENT (7d):")
@@ -200,13 +194,11 @@ def show_wake_summary(identity: str, quiet_output: bool, spawn_count: int):
 def show_smart_memory(identity: str, json_output: bool, quiet_output: bool):
     from dataclasses import asdict
 
-    from space.os import memory, spawn
-
     agent = spawn.get_agent(identity)
     self_desc = agent.description if agent else None
-    journals = memory.list_entries(identity, topic="journal")
-    core_entries = memory.list_entries(identity, filter="core")
-    recent_entries = memory.list_entries(identity, filter="recent:7", limit=20)
+    journals = memory.api.list_memories(identity, topic="journal")
+    core_entries = memory.api.list_memories(identity, filter="core")
+    recent_entries = memory.api.list_memories(identity, filter="recent:7", limit=20)
 
     if json_output:
         payload = {

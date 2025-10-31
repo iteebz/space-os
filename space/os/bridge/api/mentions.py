@@ -8,7 +8,7 @@ from pathlib import Path
 
 from space.lib import paths
 from space.os.spawn.api import agents as spawn_agents
-from space.os.spawn.api.main import spawn_prompt
+from space.os.spawn.api.prompt import spawn_prompt
 from space.os.spawn.api.tasks import complete_task, create_task, fail_task, start_task
 
 logging.basicConfig(level=logging.DEBUG, format="[worker] %(message)s")

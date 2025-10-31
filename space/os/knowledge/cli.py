@@ -57,11 +57,11 @@ def add(
     if not agent_id:
         output.out_text(f"Agent not found: {contributor}", ctx.obj)
         return
-    entry_id = api.add_entry(domain, agent_id, content, confidence)
+    knowledge_id = api.add_knowledge(domain, agent_id, content, confidence)
     if ctx.obj.get("json_output"):
-        typer.echo(output.out_json({"entry_id": entry_id}))
+        typer.echo(output.out_json({"knowledge_id": knowledge_id}))
     else:
-        output.out_text(f"Added to {domain}: {entry_id[-8:]} by {contributor}", ctx.obj)
+        output.out_text(f"Added to {domain}: {knowledge_id[-8:]} by {contributor}", ctx.obj)
 
 
 @app.command("tree")
@@ -97,12 +97,12 @@ def tree(
 
 
 @app.command("list")
-def list_entries(
+def list_knowledge(
     ctx: typer.Context,
     show_all: bool = typer.Option(False, "--all", help="Show all entries"),
 ):
     """List all knowledge entries."""
-    entries = api.list_entries(show_all=show_all)
+    entries = api.list_knowledge(show_all=show_all)
     if not entries:
         if ctx.obj.get("json_output"):
             typer.echo(output.out_json([]))
@@ -137,7 +137,7 @@ def query_domain(
       knowledge query architecture/caching           # Exact match
       knowledge query architecture/caching --all     # Include archived
     """
-    entries = api.query_by_domain(domain, show_all=show_all)
+    entries = api.query_knowledge(domain, show_all=show_all)
     if not entries:
         output.out_text(f"No entries for domain '{domain}'", ctx.obj)
         return
@@ -163,7 +163,7 @@ def inspect(
     knowledge_id: str = typer.Argument(..., help="Knowledge ID to inspect"),
 ):
     """View full entry details."""
-    entry = api.get_by_id(knowledge_id)
+    entry = api.get_knowledge(knowledge_id)
     if not entry:
         output.out_text(f"Not found: {knowledge_id}", ctx.obj)
         return
@@ -192,13 +192,13 @@ def archive(
     restore: bool = typer.Option(False, "--restore", help="Restore archived entry"),
 ):
     """Archive or restore knowledge."""
-    entry = api.get_by_id(knowledge_id)
+    entry = api.get_knowledge(knowledge_id)
     if not entry:
         output.out_text(f"Not found: {knowledge_id}", ctx.obj)
         return
 
     try:
-        api.archive_entry(knowledge_id, restore=restore)
+        api.archive_knowledge(knowledge_id, restore=restore)
         action = "restored" if restore else "archived"
         output.out_text(f"{action} {knowledge_id[-8:]}", ctx.obj)
     except ValueError as e:

@@ -9,7 +9,7 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
     results = []
     with store.ensure("memory") as conn:
         sql_query = (
-            "SELECT memory_id, agent_id, topic, message, timestamp, created_at FROM memories "
+            "SELECT memory_id, agent_id, topic, message, created_at FROM memories "
             "WHERE (message LIKE ? OR topic LIKE ?)"
         )
         params = [f"%{query}%", f"%{query}%"]

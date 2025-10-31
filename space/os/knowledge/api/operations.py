@@ -1,10 +1,4 @@
-"""Knowledge operations: pure business logic, zero typer imports.
-
-Contains all database operations and business logic.
-Callers: commands.py only.
-"""
-
-from __future__ import annotations
+"""Knowledge operations: discovered patterns and insights across domains."""
 
 from datetime import datetime
 
@@ -19,8 +13,8 @@ def _row_to_knowledge(row: dict) -> Knowledge:
     return from_row(row, Knowledge)
 
 
-def add_entry(domain: str, agent_id: str, content: str, confidence: float | None = None) -> str:
-    """Add new knowledge entry. Returns entry_id."""
+def add_knowledge(domain: str, agent_id: str, content: str, confidence: float | None = None) -> str:
+    """Add knowledge entry in domain. Returns knowledge_id."""
     knowledge_id = uuid7()
     with store.ensure("knowledge") as conn:
         conn.execute(
@@ -31,7 +25,7 @@ def add_entry(domain: str, agent_id: str, content: str, confidence: float | None
     return knowledge_id
 
 
-def list_entries(show_all: bool = False) -> list[Knowledge]:
+def list_knowledge(show_all: bool = False) -> list[Knowledge]:
     """List all knowledge entries."""
     archive_filter = "" if show_all else "WHERE archived_at IS NULL"
     with store.ensure("knowledge") as conn:
@@ -41,7 +35,7 @@ def list_entries(show_all: bool = False) -> list[Knowledge]:
     return [_row_to_knowledge(row) for row in rows]
 
 
-def query_by_domain(domain: str, show_all: bool = False) -> list[Knowledge]:
+def query_knowledge(domain: str, show_all: bool = False) -> list[Knowledge]:
     """Query knowledge entries by domain (supports wildcard paths like 'architecture/*')."""
     archive_filter = "" if show_all else "AND archived_at IS NULL"
 
@@ -61,7 +55,7 @@ def query_by_domain(domain: str, show_all: bool = False) -> list[Knowledge]:
     return [_row_to_knowledge(row) for row in rows]
 
 
-def query_by_agent(agent_id: str, show_all: bool = False) -> list[Knowledge]:
+def query_knowledge_by_agent(agent_id: str, show_all: bool = False) -> list[Knowledge]:
     """Query knowledge entries by agent."""
     archive_filter = "" if show_all else "AND archived_at IS NULL"
     with store.ensure("knowledge") as conn:
@@ -72,7 +66,7 @@ def query_by_agent(agent_id: str, show_all: bool = False) -> list[Knowledge]:
     return [_row_to_knowledge(row) for row in rows]
 
 
-def get_by_id(entry_id: str) -> Knowledge | None:
+def get_knowledge(entry_id: str) -> Knowledge | None:
     """Get knowledge entry by its UUID."""
     with store.ensure("knowledge") as conn:
         row = conn.execute(
@@ -82,10 +76,10 @@ def get_by_id(entry_id: str) -> Knowledge | None:
     return _row_to_knowledge(row) if row else None
 
 
-def find_related(
+def find_related_knowledge(
     entry: Knowledge, limit: int = 5, show_all: bool = False
 ) -> list[tuple[Knowledge, int]]:
-    """Find related entries via keyword similarity."""
+    """Find knowledge related by keyword similarity."""
     from space.lib.text_utils import stopwords
 
     tokens = set(entry.content.lower().split()) | set(entry.domain.lower().split())
@@ -119,8 +113,8 @@ def find_related(
     return scored[:limit]
 
 
-def archive_entry(entry_id: str, restore: bool = False) -> None:
-    """Archive or restore a knowledge entry."""
+def archive_knowledge(entry_id: str, restore: bool = False) -> None:
+    """Archive or restore knowledge entry."""
     if restore:
         with store.ensure("knowledge") as conn:
             conn.execute(

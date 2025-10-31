@@ -69,34 +69,3 @@ class Provider(Protocol):
             List of {role, content, timestamp, byte_offset/message_index}
         """
         ...
-
-    def spawn(self, identity: str, task: str | None = None) -> str:
-        """Spawn agent instance with role.
-
-        Args:
-            role: Identity/role to spawn
-            task: Optional task to execute
-
-        Returns:
-            Command output
-        """
-        ...
-
-    def ping(self, identity: str) -> bool:
-        """Check if agent is alive.
-
-        Args:
-            identity: Agent identity
-
-        Returns:
-            True if agent is responsive
-        """
-        ...
-
-    def list_agents(self) -> list[str]:
-        """List all active agents.
-
-        Returns:
-            List of agent identities
-        """
-        ...

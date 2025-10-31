@@ -1,8 +1,7 @@
-"""Gemini provider: chat discovery + message parsing + spawning."""
+"""Gemini provider: chat discovery and message parsing."""
 
 import json
 import logging
-import subprocess
 from pathlib import Path
 
 from space.core.protocols import Provider
@@ -11,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class Gemini(Provider):
-    """Gemini provider: chat discovery + message parsing + spawning."""
+    """Gemini provider: chat discovery and message parsing."""
 
     def __init__(self):
         self.tmp_dir = Path.home() / ".gemini" / "tmp"
@@ -166,42 +165,3 @@ class Gemini(Provider):
             logger.error(f"Error parsing Gemini messages from {file_path}: {e}")
         return messages
 
-    def spawn(self, identity: str, task: str | None = None) -> str:
-        """Spawn Gemini agent."""
-        if task:
-            result = subprocess.run(
-                [
-                    "gemini",
-                    "-p",
-                    task,
-                    "--yolo",
-                ],
-                capture_output=True,
-                text=True,
-            )
-            return result.stdout
-
-        from space.os.spawn.api import spawn_agent
-
-        spawn_agent(identity)
-        return ""
-
-    def ping(self, identity: str) -> bool:
-        """Check if Gemini agent is alive."""
-        try:
-            from space.os.spawn import api as spawn_api
-
-            return spawn_api.get_agent(identity) is not None
-        except Exception as e:
-            logger.error(f"Error pinging Gemini agent {identity}: {e}")
-            return False
-
-    def list_agents(self) -> list[str]:
-        """List all active agents."""
-        try:
-            from space.os.spawn import api as spawn_api
-
-            return spawn_api.list_agents()
-        except Exception as e:
-            logger.error(f"Error listing Gemini agents: {e}")
-            return []

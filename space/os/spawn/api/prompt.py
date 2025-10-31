@@ -50,7 +50,7 @@ def spawn_prompt(identity: str, model: str | None = None) -> str:
 
     spawn_status = "📝 First spawn"
     try:
-        last_journal = memory.list_entries(identity, topic="journal", limit=1)
+        last_journal = memory.api.list_memories(identity, topic="journal", limit=1)
         if last_journal:
             entry = last_journal[0]
             created_at = datetime.fromisoformat(entry.created_at)
@@ -86,7 +86,7 @@ def _build_agent_info_blocks(identity: str, agent, agent_id: str | None) -> str:
         parts.append("")
 
     try:
-        core_entries = memory.list_entries(identity, filter="core")
+        core_entries = memory.api.list_memories(identity, filter="core")
     except Exception:  # pragma: no cover - safeguard for unseeded DBs
         core_entries = []
     if core_entries:
@@ -96,7 +96,7 @@ def _build_agent_info_blocks(identity: str, agent, agent_id: str | None) -> str:
         parts.append("")
 
     try:
-        recent = memory.list_entries(identity, filter="recent:7", limit=3)
+        recent = memory.api.list_memories(identity, filter="recent:7", limit=3)
     except Exception:  # pragma: no cover - safeguard for unseeded DBs
         recent = []
     non_journal = [entry for entry in recent if entry.topic != "journal"]
@@ -139,7 +139,7 @@ def _get_critical_knowledge():
     """Get most recent critical knowledge entry (24h)."""
     critical_domains = {"decision", "architecture", "operations", "consensus"}
     try:
-        entries = knowledge.list_entries()
+        entries = knowledge.api.list_knowledge()
     except Exception:  # pragma: no cover - safeguard when knowledge DB uninitialized
         return None
 

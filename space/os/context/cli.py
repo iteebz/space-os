@@ -4,7 +4,8 @@ from typing import Annotated
 
 import typer
 
-from space.lib import display, errors, output
+from space.lib import errors, output
+from space.os.context import display
 from space.os.context.api import collect_current_state, collect_timeline
 
 errors.install_error_handler("context")

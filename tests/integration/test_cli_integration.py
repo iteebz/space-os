@@ -24,15 +24,15 @@ def test_spawn_merge_agents(test_space, default_agents):
     agent_id_1 = zealot.agent_id
     agent_id_2 = spawn.register_agent("agent-target", "claude-haiku-4-5", "a.md")
 
-    memory.add_entry(agent_id_1, "topic-a", "memory from source 1")
-    memory.add_entry(agent_id_1, "topic-b", "memory from source 2")
-    memory.add_entry(agent_id_2, "topic-c", "memory from target")
+    memory.api.add_memory(agent_id_1, "memory from source 1", "topic-a")
+    memory.api.add_memory(agent_id_1, "memory from source 2", "topic-b")
+    memory.api.add_memory(agent_id_2, "memory from target", "topic-c")
 
     result = runner.invoke(spawn.app, ["merge", default_agents["zealot"], "agent-target"])
     assert result.exit_code == 0
     assert "Merged" in result.stdout
 
-    target_memories = memory.list_entries("agent-target")
+    target_memories = memory.api.list_memories("agent-target")
     assert len(target_memories) == 3
     assert any("memory from source 1" in m.message for m in target_memories)
     assert any("memory from source 2" in m.message for m in target_memories)

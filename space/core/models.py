@@ -67,10 +67,9 @@ class Export:
 class Memory:
     memory_id: str
     agent_id: str
-    topic: str
     message: str
-    timestamp: str
     created_at: str
+    topic: str | None = None
     archived_at: str | None = None
     core: bool = False
     source: str = "manual"

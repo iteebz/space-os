@@ -1,8 +1,7 @@
-"""Codex provider: chat discovery + message parsing + spawning."""
+"""Codex provider: chat discovery and message parsing."""
 
 import json
 import logging
-import subprocess
 from pathlib import Path
 
 from space.core.protocols import Provider
@@ -11,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class Codex(Provider):
-    """Codex provider: chat discovery + message parsing + spawning.
+    """Codex provider: chat discovery and message parsing.
 
     Codex supports two models: gpt-5-codex (optimized for coding) and gpt-5 (general).
     Reasoning effort defaults to low and is configured via codex config, not CLI args.
@@ -108,43 +107,3 @@ class Codex(Provider):
             logger.error(f"Error parsing Codex messages from {file_path}: {e}")
         return messages
 
-    def spawn(self, identity: str, task: str | None = None) -> str:
-        """Spawn Codex agent."""
-        if task:
-            result = subprocess.run(
-                [
-                    "codex",
-                    "exec",
-                    task,
-                    "--full-auto",
-                    "--skip-git-repo-check",
-                ],
-                capture_output=True,
-                text=True,
-            )
-            return result.stdout
-
-        from space.os.spawn.api import spawn_agent
-
-        spawn_agent(identity)
-        return ""
-
-    def ping(self, identity: str) -> bool:
-        """Check if Codex agent is alive."""
-        try:
-            from space.os.spawn import api as spawn_api
-
-            return spawn_api.get_agent(identity) is not None
-        except Exception as e:
-            logger.error(f"Error pinging Codex agent {identity}: {e}")
-            return False
-
-    def list_agents(self) -> list[str]:
-        """List all active agents."""
-        try:
-            from space.os.spawn import api as spawn_api
-
-            return spawn_api.list_agents()
-        except Exception as e:
-            logger.error(f"Error listing Codex agents: {e}")
-            return []
