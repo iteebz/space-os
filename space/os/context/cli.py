@@ -46,17 +46,21 @@ def main_callback(
 @app.command(name="")
 def search(
     ctx: typer.Context,
-    query: str | None = typer.Argument(None, help="Query to search (required)"),
+    query: str | None = typer.Argument(None, help="Query to search"),
+    scope: str = typer.Option("all", "--scope", help="Search scope: memory|knowledge|canon|all"),
     all_agents: bool = typer.Option(
-        False, "--all", help="Include all agents' memories (requires --as <identity>)"
+        False, "--all", help="Include all agents' memories (requires --as)"
     ),
 ):
-    """Search unified context across knowledge, bridge, chats, and canon (shared/public sources).
+    """Search unified context across memory, knowledge, canon, and bridge.
 
-    Memory is private per agent. To search an agent's memory: context --as <identity> "query"
-    To search multiple agents' memories: context --as <identity> --all "query"
+    Examples:
+      context search "Redis caching"              # Search all public sources
+      context search "my observations" --as agent # Search agent's private memory
+      context search architecture/caching --scope knowledge  # Search domain
 
-    Timeline shows evolution (10 most recent). State groups results by source.
+    Scope options: all (default), memory, knowledge, canon, bridge
+    Timeline shows evolution. State groups results by source.
     """
     if not query:
         typer.echo(ctx.get_help())
@@ -66,13 +70,33 @@ def search(
     json_output = ctx.obj.get("json")
     quiet_output = ctx.obj.get("quiet")
 
+    if scope != "all" and scope not in ("memory", "knowledge", "canon", "bridge"):
+        raise typer.BadParameter(
+            f"Invalid scope: {scope}. Use: all, memory, knowledge, canon, bridge"
+        )
+
     timeline = collect_timeline(query, identity, all_agents)
     current_state = collect_current_state(query, identity, all_agents)
+
+    if scope != "all":
+        timeline = [item for item in timeline if item["source"].lower().startswith(scope.lower())]
+        scope_map = {
+            "memory": "memory",
+            "knowledge": "knowledge",
+            "canon": "canon",
+            "bridge": "bridge",
+        }
+        if scope in scope_map:
+            current_state = {scope_map[scope]: current_state.get(scope_map[scope], [])}
+        else:
+            current_state = {}
 
     if json_output:
         typer.echo(
             output.out_json(
                 {
+                    "query": query,
+                    "scope": scope,
                     "evolution": timeline,
                     "state": current_state,
                 }

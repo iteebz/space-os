@@ -80,3 +80,23 @@ def validate_backup_path(backup_path: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
+def validate_domain_path(domain: str) -> tuple[bool, str]:
+    """Validate domain/topic path format.
+
+    Returns:
+        (is_valid, error_message)
+    """
+    if not domain:
+        return False, "Domain/topic cannot be empty"
+    if domain.startswith("/") or domain.endswith("/"):
+        return False, "Domain/topic cannot start or end with '/'"
+    if "//" in domain:
+        return False, "Domain/topic cannot contain consecutive '/'"
+    if not all(
+        part.isidentifier() or part.replace("-", "").replace("_", "").isalnum()
+        for part in domain.split("/")
+    ):
+        return False, "Domain/topic parts must be alphanumeric (with - and _ allowed)"
+    return True, ""

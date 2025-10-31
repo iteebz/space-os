@@ -6,9 +6,9 @@ from .api import (
     edit_entry,
     find_related,
     get_by_id,
+    get_topic_tree,
     list_entries,
     mark_core,
-    restore_entry,
     toggle_core,
 )
 from .cli import app
@@ -22,8 +22,8 @@ __all__ = [
     "edit_entry",
     "find_related",
     "get_by_id",
+    "get_topic_tree",
     "list_entries",
     "mark_core",
-    "restore_entry",
     "toggle_core",
 ]

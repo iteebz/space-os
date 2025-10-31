@@ -126,7 +126,7 @@ def test_archive_entry_updates(mock_db):
 
 
 def test_restore_entry_clears_timestamp(mock_db):
-    knowledge.restore_entry("k-1")
+    knowledge.archive_entry("k-1", restore=True)
     assert mock_db.execute.called
 
 

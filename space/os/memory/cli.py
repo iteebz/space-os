@@ -48,13 +48,63 @@ def main_callback(
         typer.echo(ctx.get_help())
 
 
+@main_app.command("tree")
+def tree(
+    ctx: typer.Context,
+    topic: str = typer.Argument(None, help="Topic path to show subtree (optional)"),
+    show_all: bool = typer.Option(False, "--all", help="Include archived"),
+):
+    """Show topic hierarchy as tree.
+
+    Examples:
+      memory tree --as sentinel                      # Show all topics for agent
+      memory tree --as sentinel --topic observations # Show observations subtree
+    """
+    ident = ctx.obj.get("identity")
+    if not ident:
+        raise typer.BadParameter("--as required")
+    agent = spawn.get_agent(ident)
+    if not agent:
+        raise typer.BadParameter(f"Identity '{ident}' not registered.")
+    agent_id = agent.agent_id
+
+    tree_data = api.get_topic_tree(agent_id, topic, show_all)
+
+    def print_tree(node: dict, prefix: str = "", is_last: bool = True):
+        items = list(node.items())
+        for i, (key, subtree) in enumerate(items):
+            is_last_item = i == len(items) - 1
+            current_prefix = "└── " if is_last_item else "├── "
+            output.out_text(f"{prefix}{current_prefix}{key}", ctx.obj)
+            next_prefix = prefix + ("    " if is_last_item else "│   ")
+            if subtree:
+                print_tree(subtree, next_prefix, is_last_item)
+
+    if not tree_data:
+        output.out_text("No topics found.", ctx.obj)
+        return
+
+    output.out_text("Topic hierarchy:", ctx.obj)
+    print_tree(tree_data)
+
+
 @main_app.command("add")
 def add(
     ctx: typer.Context,
-    topic: str = typer.Argument(..., help="Topic name"),
+    topic: str = typer.Argument(..., help="Topic path (e.g., observations/tasks/priority)"),
     message: str = typer.Argument(..., help="The memory message"),
 ):
-    """Create new memory entry."""
+    """Create new memory entry.
+
+    Example:
+      memory add observations/tasks/urgent "Fix bug in caching layer" --as sentinel
+    """
+    from space.lib.paths import validate_domain_path
+
+    valid, error = validate_domain_path(topic)
+    if not valid:
+        raise typer.BadParameter(f"Invalid topic: {error}")
+
     ident = ctx.obj.get("identity")
     if not ident:
         raise typer.BadParameter("--as required")
@@ -66,7 +116,7 @@ def add(
     if ctx.obj.get("json_output"):
         typer.echo(output.out_json({"entry_id": entry_id}))
     else:
-        output.out_text(f"Added memory: {topic}", ctx.obj)
+        output.out_text(f"Added to {topic}: {entry_id[-8:]}", ctx.obj)
 
 
 @main_app.command("edit")
@@ -120,26 +170,58 @@ def list(
             display.show_context(identity)
 
 
+@main_app.command("query")
+def query(
+    ctx: typer.Context,
+    topic: str = typer.Argument(..., help="Topic path to query"),
+    show_all: bool = typer.Option(False, "--all", help="Show all entries"),
+    raw_output: bool = typer.Option(
+        False, "--raw", help="Output raw timestamps instead of humanized."
+    ),
+):
+    """Query memories by topic path.
+
+    Examples:
+      memory query observations/tasks --as sentinel          # Exact match
+      memory query observations/tasks --as sentinel --all    # Include archived
+    """
+    ident = ctx.obj.get("identity")
+    if not ident:
+        raise typer.BadParameter("--as required")
+    try:
+        entries = api.list_entries(ident, topic, show_all=show_all)
+    except ValueError as e:
+        output.emit_error("memory", None, "query", e)
+        raise typer.BadParameter(str(e)) from e
+
+    entries.sort(key=lambda e: (not e.core, e.timestamp), reverse=True)
+    if not entries:
+        output.out_text(f"No entries for topic '{topic}'", ctx.obj)
+        return
+
+    if ctx.obj.get("json_output"):
+        typer.echo(output.out_json([asdict(e) for e in entries]))
+    else:
+        output.out_text(f"Topic: {topic} ({len(entries)} entries)", ctx.obj)
+        output.out_text(format_memory_entries(entries, raw_output=raw_output), ctx.obj)
+
+
 @main_app.command("archive")
 def archive(
     ctx: typer.Context,
     uuid: str = typer.Argument(..., help="UUID of the entry to archive"),
     restore: bool = typer.Option(False, "--restore", help="Restore archived entry"),
 ):
-    """Archive or restore memory (--restore to undo)."""
+    """Archive or restore memory."""
     entry = api.get_by_id(uuid)
     if not entry:
         raise typer.BadParameter(f"Entry not found: {uuid}")
     try:
-        if restore:
-            api.restore_entry(uuid)
-            action = "restored"
-        else:
-            api.archive_entry(uuid)
-            action = "archived"
+        api.archive_entry(uuid, restore=restore)
+        action = "restored" if restore else "archived"
         output.out_text(f"{action} {uuid[-8:]}", ctx.obj)
     except ValueError as e:
-        output.emit_error("memory", entry.agent_id, "archive/restore", e)
+        output.emit_error("memory", entry.agent_id, "archive", e)
         raise typer.BadParameter(str(e)) from e
 
 

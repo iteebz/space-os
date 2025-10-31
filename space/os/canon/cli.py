@@ -1,82 +1,111 @@
-"""Space canon lookup - navigate and read documents from ~/space/canon."""
-
-from pathlib import Path
+"""Canon CLI: Persistent Context (read-only, git-backed)."""
 
 import typer
 
-from space.lib.paths import canon_path
+from space.lib import errors, output
+from space.os.canon import api
 
-app = typer.Typer(invoke_without_command=True, no_args_is_help=False)
+errors.install_error_handler("canon")
+
+app = typer.Typer(invoke_without_command=True, add_completion=False)
 
 
-@app.callback(invoke_without_command=True)
+@app.callback(context_settings={"help_option_names": ["-h", "--help"]})
 def canon_callback(
     ctx: typer.Context,
-    doc_path: str | None = typer.Argument(
-        None, help="Document path (e.g., INDEX.md or constitutions/zealot.md)"
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    """Navigate and read canon documents from ~/space/canon."""
-    if ctx.invoked_subcommand is not None:
+    """Persistent context layer. Human's shared truth, immutable via git."""
+    output.set_flags(ctx, json_output, quiet_output)
+    if ctx.obj is None:
+        ctx.obj = {}
+
+    if ctx.resilient_parsing:
+        return
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
+
+
+@app.command("tree")
+def tree(
+    ctx: typer.Context,
+    path: str = typer.Argument(None, help="Path to show subtree (optional)"),
+):
+    """Show canon hierarchy as tree.
+
+    Examples:
+      canon tree                              # Show all paths
+      canon tree research/safety              # Show research/safety subtree
+    """
+    tree_data = api.get_canon_entries()
+
+    if path:
+        parts = path.split("/")
+        for part in parts:
+            if part in tree_data:
+                tree_data = tree_data[part]
+            else:
+                output.out_text(f"Path not found: {path}", ctx.obj)
+                return
+
+    def print_tree(node: dict, prefix: str = "", is_last: bool = True):
+        items = list(node.items())
+        for i, (key, subtree) in enumerate(items):
+            is_last_item = i == len(items) - 1
+            current_prefix = "└── " if is_last_item else "├── "
+            output.out_text(f"{prefix}{current_prefix}{key}", ctx.obj)
+            next_prefix = prefix + ("    " if is_last_item else "│   ")
+            if subtree:
+                print_tree(subtree, next_prefix, is_last_item)
+
+    if not tree_data:
+        output.out_text("No canon documents found.", ctx.obj)
         return
 
-    canon_root = canon_path()
-    if not canon_root.exists():
-        typer.echo(f"Error: Canon directory not found at {canon_root}", err=True)
-        raise typer.Exit(1)
+    output.out_text("Canon hierarchy:", ctx.obj)
+    print_tree(tree_data)
 
-    if not doc_path:
-        _show_tree(canon_root)
+
+@app.command("inspect")
+def inspect(
+    ctx: typer.Context,
+    path: str = typer.Argument(
+        ..., help="Path to inspect (e.g., architecture/caching or architecture/caching.md)"
+    ),
+):
+    """View full canon document.
+
+    Examples:
+      canon inspect architecture/caching                   # View document
+      canon inspect research/safety/cooperative-alignment  # View nested path
+    """
+    if not path:
+        output.out_text("Path required", ctx.obj)
         return
 
-    _read_document(canon_root, doc_path)
-
-
-def _show_tree(canon_root: Path) -> None:
-    """Display tree of canon documents."""
-    typer.echo("\nCanon structure. Navigate with: space canon <path>")
-    typer.echo("Examples: space canon INDEX.md  |  space canon constitutions/zealot.md\n")
-    _print_tree(canon_root, canon_root, prefix="")
-
-
-def _print_tree(path: Path, root: Path, prefix: str, max_depth: int = 3, depth: int = 0) -> None:
-    """Recursively print directory tree."""
-    if depth >= max_depth:
+    entry = api.read_canon(path)
+    if not entry:
+        output.out_text(f"Not found: {path}", ctx.obj)
         return
 
-    items = sorted(path.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))
+    if ctx.obj.get("json_output"):
+        typer.echo(output.out_json({"path": entry.path, "content": entry.content}))
+        return
 
-    for i, item in enumerate(items):
-        if item.name.startswith("."):
-            continue
-
-        is_last = i == len(items) - 1
-        current_prefix = "└── " if is_last else "├── "
-        typer.echo(f"{prefix}{current_prefix}{item.name}")
-
-        if item.is_dir():
-            next_prefix = prefix + ("    " if is_last else "│   ")
-            _print_tree(item, root, next_prefix, max_depth, depth + 1)
+    output.out_text(entry.content, ctx.obj)
 
 
-def _read_document(canon_root: Path, doc_path: str) -> None:
-    """Read full document from canon."""
-    target = canon_root / doc_path
-    if not target.exists():
-        target = canon_root / f"{doc_path}.md"
-
-    if not target.exists():
-        typer.echo(f"Document not found: {doc_path}")
-        available = list(canon_root.rglob("*.md"))
-        if available:
-            typer.echo("\nDid you mean one of these?")
-            for f in sorted(available)[:5]:
-                typer.echo(f"  {f.relative_to(canon_root)}")
-        raise typer.Exit(1)
-
+def main() -> None:
+    """Entry point for canon command."""
     try:
-        content = target.read_text()
-        typer.echo(content)
-    except Exception as e:
-        typer.echo(f"Error reading document: {e}", err=True)
-        raise typer.Exit(1) from e
+        app()
+    except SystemExit:
+        raise
+    except BaseException as e:
+        raise SystemExit(1) from e
+
+
+__all__ = ["app", "main"]

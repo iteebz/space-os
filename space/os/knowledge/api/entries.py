@@ -42,12 +42,21 @@ def list_entries(show_all: bool = False) -> list[Knowledge]:
 
 
 def query_by_domain(domain: str, show_all: bool = False) -> list[Knowledge]:
-    """Query knowledge entries by domain."""
+    """Query knowledge entries by domain (supports wildcard paths like 'architecture/*')."""
     archive_filter = "" if show_all else "AND archived_at IS NULL"
+
+    if domain.endswith("/*"):
+        domain_prefix = domain[:-2]
+        where_clause = f"WHERE (domain = ? OR domain LIKE ?) {archive_filter}"
+        params = (domain_prefix, f"{domain_prefix}/%")
+    else:
+        where_clause = f"WHERE domain = ? {archive_filter}"
+        params = (domain,)
+
     with store.ensure("knowledge") as conn:
         rows = conn.execute(
-            f"SELECT knowledge_id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE domain = ? {archive_filter} ORDER BY created_at DESC",
-            (domain,),
+            f"SELECT knowledge_id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge {where_clause} ORDER BY created_at DESC",
+            params,
         ).fetchall()
     return [_row_to_knowledge(row) for row in rows]
 
@@ -110,20 +119,47 @@ def find_related(
     return scored[:limit]
 
 
-def archive_entry(entry_id: str) -> None:
-    """Archive a knowledge entry."""
-    now = datetime.now().isoformat()
-    with store.ensure("knowledge") as conn:
-        conn.execute(
-            "UPDATE knowledge SET archived_at = ? WHERE knowledge_id = ?",
-            (now, entry_id),
-        )
+def archive_entry(entry_id: str, restore: bool = False) -> None:
+    """Archive or restore a knowledge entry."""
+    if restore:
+        with store.ensure("knowledge") as conn:
+            conn.execute(
+                "UPDATE knowledge SET archived_at = NULL WHERE knowledge_id = ?",
+                (entry_id,),
+            )
+    else:
+        now = datetime.now().isoformat()
+        with store.ensure("knowledge") as conn:
+            conn.execute(
+                "UPDATE knowledge SET archived_at = ? WHERE knowledge_id = ?",
+                (now, entry_id),
+            )
 
 
-def restore_entry(entry_id: str) -> None:
-    """Restore an archived knowledge entry."""
+def get_domain_tree(parent_domain: str | None = None, show_all: bool = False) -> dict:
+    """Get hierarchical domain tree, optionally filtered by parent domain."""
+    archive_filter = "" if show_all else "WHERE archived_at IS NULL"
+
     with store.ensure("knowledge") as conn:
-        conn.execute(
-            "UPDATE knowledge SET archived_at = NULL WHERE knowledge_id = ?",
-            (entry_id,),
-        )
+        if parent_domain:
+            prefix = f"{parent_domain}/"
+            rows = conn.execute(
+                f"SELECT DISTINCT domain FROM knowledge WHERE domain LIKE ? {archive_filter} ORDER BY domain",
+                (f"{prefix}%",),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                f"SELECT DISTINCT domain FROM knowledge {archive_filter} ORDER BY domain"
+            ).fetchall()
+
+    domains = [row[0] for row in rows]
+    tree = {}
+    for domain in domains:
+        parts = domain.split("/")
+        current = tree
+        for part in parts:
+            if part not in current:
+                current[part] = {}
+            current = current[part]
+
+    return tree

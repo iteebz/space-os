@@ -5,9 +5,9 @@ from .entries import (
     edit_entry,
     find_related,
     get_by_id,
+    get_topic_tree,
     list_entries,
     mark_core,
-    restore_entry,
     toggle_core,
 )
 
@@ -18,8 +18,8 @@ __all__ = [
     "edit_entry",
     "find_related",
     "get_by_id",
+    "get_topic_tree",
     "list_entries",
     "mark_core",
-    "restore_entry",
     "toggle_core",
 ]

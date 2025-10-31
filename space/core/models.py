@@ -109,6 +109,15 @@ class Knowledge:
 
 
 @dataclass
+class Canon:
+    """A canon markdown document (read-only, git-backed)."""
+
+    path: str
+    content: str
+    created_at: str | None = None
+
+
+@dataclass
 class Agent:
     """An agent in the spawn registry."""
 

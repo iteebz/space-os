@@ -36,12 +36,22 @@ def main_callback(
 @app.command("add")
 def add(
     ctx: typer.Context,
+    domain: str = typer.Argument(..., help="Domain path (e.g., architecture/caching/redis)"),
     content: str = typer.Argument(..., help="The knowledge content"),
-    domain: str = typer.Option(..., help="Domain of the knowledge"),
     contributor: str = typer.Option(..., "--as", help="Agent identity"),
     confidence: float = typer.Option(None, help="Confidence score (0.0-1.0)"),
 ):
-    """Create new knowledge entry (--domain required)."""
+    """Add knowledge to a domain path. --as agent identity required.
+
+    Example:
+      knowledge add architecture/caching/redis "Redis uses single thread for consistency" --as sentinel
+    """
+    from space.lib.paths import validate_domain_path
+
+    valid, error = validate_domain_path(domain)
+    if not valid:
+        raise typer.BadParameter(f"Invalid domain: {error}")
+
     agent = spawn.get_agent(contributor)
     agent_id = agent.agent_id if agent else None
     if not agent_id:
@@ -51,9 +61,39 @@ def add(
     if ctx.obj.get("json_output"):
         typer.echo(output.out_json({"entry_id": entry_id}))
     else:
-        output.out_text(
-            f"Added knowledge entry {entry_id} for domain '{domain}' by '{contributor}'", ctx.obj
-        )
+        output.out_text(f"Added to {domain}: {entry_id[-8:]} by {contributor}", ctx.obj)
+
+
+@app.command("tree")
+def tree(
+    ctx: typer.Context,
+    domain: str = typer.Argument(None, help="Domain path to show subtree (optional)"),
+    show_all: bool = typer.Option(False, "--all", help="Include archived"),
+):
+    """Show domain hierarchy as tree.
+
+    Examples:
+      knowledge tree                      # Show all domains
+      knowledge tree architecture         # Show architecture subtree
+    """
+    tree_data = api.get_domain_tree(domain, show_all)
+
+    def print_tree(node: dict, prefix: str = "", is_last: bool = True):
+        items = list(node.items())
+        for i, (key, subtree) in enumerate(items):
+            is_last_item = i == len(items) - 1
+            current_prefix = "└── " if is_last_item else "├── "
+            output.out_text(f"{prefix}{current_prefix}{key}", ctx.obj)
+            next_prefix = prefix + ("    " if is_last_item else "│   ")
+            if subtree:
+                print_tree(subtree, next_prefix, is_last_item)
+
+    if not tree_data:
+        output.out_text("No domains found.", ctx.obj)
+        return
+
+    output.out_text("Domain hierarchy:", ctx.obj)
+    print_tree(tree_data)
 
 
 @app.command("list")
@@ -61,7 +101,7 @@ def list_entries(
     ctx: typer.Context,
     show_all: bool = typer.Option(False, "--all", help="Show all entries"),
 ):
-    """List all knowledge (--all includes archived)."""
+    """List all knowledge entries."""
     entries = api.list_entries(show_all=show_all)
     if not entries:
         if ctx.obj.get("json_output"):
@@ -80,7 +120,8 @@ def list_entries(
         agent = spawn.get_agent(e.agent_id)
         contributor = agent.identity if agent else e.agent_id[:8]
         output.out_text(
-            f"[{e.knowledge_id[-8:]}] {e.content[:50]}... ({contributor}){mark}", ctx.obj
+            f"[{e.knowledge_id[-8:]}] {e.domain} > {e.content[:50]}... ({contributor}){mark}",
+            ctx.obj,
         )
 
 
@@ -90,7 +131,12 @@ def query_domain(
     domain: str = typer.Argument(..., help="Domain to query"),
     show_all: bool = typer.Option(False, "--all", help="Show all entries"),
 ):
-    """Find entries for specific domain."""
+    """Find entries for specific domain.
+
+    Examples:
+      knowledge query architecture/caching           # Exact match
+      knowledge query architecture/caching --all     # Include archived
+    """
     entries = api.query_by_domain(domain, show_all=show_all)
     if not entries:
         output.out_text(f"No entries for domain '{domain}'", ctx.obj)
@@ -145,22 +191,18 @@ def archive(
     knowledge_id: str = typer.Argument(..., help="Knowledge ID to archive"),
     restore: bool = typer.Option(False, "--restore", help="Restore archived entry"),
 ):
-    """Archive or restore knowledge (--restore)."""
+    """Archive or restore knowledge."""
     entry = api.get_by_id(knowledge_id)
     if not entry:
         output.out_text(f"Not found: {knowledge_id}", ctx.obj)
         return
 
     try:
-        if restore:
-            api.restore_entry(knowledge_id)
-            action = "restored"
-        else:
-            api.archive_entry(knowledge_id)
-            action = "archived"
+        api.archive_entry(knowledge_id, restore=restore)
+        action = "restored" if restore else "archived"
         output.out_text(f"{action} {knowledge_id[-8:]}", ctx.obj)
     except ValueError as e:
-        output.emit_error("knowledge", entry.agent_id, "archive/restore", e)
+        output.emit_error("knowledge", entry.agent_id, "archive", e)
         raise typer.BadParameter(str(e)) from e
 
 

@@ -3,10 +3,10 @@ from .entries import (
     archive_entry,
     find_related,
     get_by_id,
+    get_domain_tree,
     list_entries,
     query_by_agent,
     query_by_domain,
-    restore_entry,
 )
 
 __all__ = [
@@ -14,8 +14,8 @@ __all__ = [
     "archive_entry",
     "find_related",
     "get_by_id",
+    "get_domain_tree",
     "list_entries",
     "query_by_agent",
     "query_by_domain",
-    "restore_entry",
 ]

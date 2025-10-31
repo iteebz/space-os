@@ -95,31 +95,55 @@ def delete_entry(memory_id: str) -> None:
         conn.execute("DELETE FROM memories WHERE memory_id = ?", (full_id,))
 
 
-def archive_entry(memory_id: str) -> None:
+def archive_entry(memory_id: str, restore: bool = False) -> None:
     full_id = resolve_id("memory", "memory_id", memory_id)
     entry = get_by_id(full_id)
     if not entry:
         raise ValueError(f"Entry with ID '{memory_id}' not found.")
-    now = datetime.now().isoformat()
-    with store.ensure("memory") as conn:
-        conn.execute(
-            "UPDATE memories SET archived_at = ? WHERE memory_id = ?",
-            (now, full_id),
-        )
+
+    if restore:
+        with store.ensure("memory") as conn:
+            conn.execute(
+                "UPDATE memories SET archived_at = NULL WHERE memory_id = ?",
+                (full_id,),
+            )
+    else:
+        now = datetime.now().isoformat()
+        with store.ensure("memory") as conn:
+            conn.execute(
+                "UPDATE memories SET archived_at = ? WHERE memory_id = ?",
+                (now, full_id),
+            )
 
 
-def restore_entry(memory_id: str, agent_id: str | None = None) -> None:
-    full_id = resolve_id("memory", "memory_id", memory_id)
-    entry = get_by_id(full_id)
-    if not entry:
-        raise ValueError(f"Entry with ID '{memory_id}' not found.")
-    if agent_id is None:
-        agent_id = entry.agent_id
+def get_topic_tree(agent_id: str, parent_topic: str | None = None, show_all: bool = False) -> dict:
+    """Get hierarchical topic tree for an agent, optionally filtered by parent topic."""
+    archive_filter = "" if show_all else "AND archived_at IS NULL"
+
     with store.ensure("memory") as conn:
-        conn.execute(
-            "UPDATE memories SET archived_at = NULL WHERE memory_id = ?",
-            (full_id,),
-        )
+        if parent_topic:
+            prefix = f"{parent_topic}/"
+            rows = conn.execute(
+                f"SELECT DISTINCT topic FROM memories WHERE agent_id = ? AND topic LIKE ? {archive_filter} ORDER BY topic",
+                (agent_id, f"{prefix}%"),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                f"SELECT DISTINCT topic FROM memories WHERE agent_id = ? {archive_filter} ORDER BY topic",
+                (agent_id,),
+            ).fetchall()
+
+    topics = [row[0] for row in rows]
+    tree = {}
+    for topic in topics:
+        parts = topic.split("/")
+        current = tree
+        for part in parts:
+            if part not in current:
+                current[part] = {}
+            current = current[part]
+
+    return tree
 
 
 def mark_core(memory_id: str, core: bool = True, agent_id: str | None = None) -> None:
