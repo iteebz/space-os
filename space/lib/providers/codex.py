@@ -106,3 +106,32 @@ class Codex(Provider):
         except (OSError, json.JSONDecodeError) as e:
             logger.error(f"Error parsing Codex messages from {file_path}: {e}")
         return messages
+
+    def extract_tokens(self, file_path: Path) -> tuple[int | None, int | None]:
+        """Extract input and output tokens from Codex JSONL.
+        
+        Codex stores tokens in token_count events under info.total_token_usage
+        Returns the most recent token counts found.
+        """
+        input_tokens = None
+        output_tokens = None
+        try:
+            with open(file_path) as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    try:
+                        obj = json.loads(line)
+                        if isinstance(obj, dict) and "payload" in obj:
+                            payload = obj["payload"]
+                            if payload.get("type") == "token_count" and "info" in payload:
+                                info = payload["info"]
+                                if isinstance(info, dict) and "total_token_usage" in info:
+                                    usage = info["total_token_usage"]
+                                    input_tokens = usage.get("input_tokens")
+                                    output_tokens = usage.get("output_tokens")
+                    except json.JSONDecodeError:
+                        continue
+        except OSError as e:
+            logger.error(f"Error extracting Codex tokens from {file_path}: {e}")
+        return (input_tokens, output_tokens)

@@ -69,3 +69,14 @@ class Provider(Protocol):
             List of {role, content, timestamp, byte_offset/message_index}
         """
         ...
+
+    def extract_tokens(self, file_path: Path) -> tuple[int | None, int | None]:
+        """Extract total input and output tokens from chat session.
+
+        Args:
+            file_path: Path to chat file (JSONL or JSON)
+
+        Returns:
+            Tuple of (input_tokens, output_tokens) or (None, None) if not available
+        """
+        ...

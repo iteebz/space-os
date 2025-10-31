@@ -123,8 +123,8 @@ def _insert_chat_record(chat: Chat) -> None:
             """
             INSERT OR REPLACE INTO chats
             (session_id, provider, identity, task_id, file_path, message_count,
-             tools_used, token_count, first_message_at, last_message_at, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             tools_used, input_tokens, output_tokens, first_message_at, last_message_at, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 chat.session_id,
@@ -134,7 +134,8 @@ def _insert_chat_record(chat: Chat) -> None:
                 chat.file_path,
                 chat.message_count,
                 chat.tools_used,
-                chat.token_count,
+                chat.input_tokens,
+                chat.output_tokens,
                 chat.first_message_at,
                 chat.last_message_at,
                 chat.created_at or None,
@@ -295,6 +296,8 @@ def sync_provider_chats(session_id: str | None = None, verbose: bool = False) ->
                                     pass
                     tools_used = _count_tool_uses(content_to_parse)
                     first_ts, last_ts = _extract_timestamps(content_to_parse, cli_name)
+                    
+                    input_tokens, output_tokens = provider.extract_tokens(src_file)
 
                     chat = Chat(
                         session_id=sid,
@@ -302,6 +305,8 @@ def sync_provider_chats(session_id: str | None = None, verbose: bool = False) ->
                         file_path=str(dest_file),
                         message_count=message_count,
                         tools_used=tools_used,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
                         first_message_at=first_ts,
                         last_message_at=last_ts,
                     )

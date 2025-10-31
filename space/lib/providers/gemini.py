@@ -164,3 +164,30 @@ class Gemini(Provider):
         except (OSError, json.JSONDecodeError) as e:
             logger.error(f"Error parsing Gemini messages from {file_path}: {e}")
         return messages
+
+    def extract_tokens(self, file_path: Path) -> tuple[int | None, int | None]:
+        """Extract input and output tokens from Gemini JSON (raw format).
+        
+        Gemini stores tokens in gemini message objects under tokens.{input,output}
+        Extracts from raw JSON before JSONL conversion.
+        """
+        input_total = 0
+        output_total = 0
+        found_any = False
+        try:
+            with open(file_path) as f:
+                data = json.load(f)
+            
+            if isinstance(data, dict) and "messages" in data:
+                for msg in data.get("messages", []):
+                    if msg.get("type") == "gemini" and "tokens" in msg:
+                        tokens = msg["tokens"]
+                        inp = tokens.get("input", 0)
+                        out = tokens.get("output", 0)
+                        if inp or out:
+                            input_total += inp
+                            output_total += out
+                            found_any = True
+        except (OSError, json.JSONDecodeError) as e:
+            logger.error(f"Error extracting Gemini tokens from {file_path}: {e}")
+        return (input_total if found_any else None, output_total if found_any else None)
