@@ -9,8 +9,8 @@ from space.lib.paths import canon_path
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False)
 
 
-@app.command(name="")  # This makes it the default command when no subcommand is given
-def canon_main_command(
+@app.callback(invoke_without_command=True)
+def canon_callback(
     ctx: typer.Context,
     doc_path: str | None = typer.Argument(
         None, help="Document path (e.g., INDEX.md or constitutions/zealot.md)"

@@ -26,7 +26,7 @@ bridge = "space.os.bridge.cli:main"
 spawn = "space.os.spawn.cli:main"
 memory = "space.os.memory.cli:main"
 knowledge = "space.os.knowledge.cli:main"
-context = "space.apps.context.cli:app"
+context = "space.os.context.cli:main"
 space = "space.cli:main"
 
 [tool.poetry.group.dev.dependencies]

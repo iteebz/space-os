@@ -2,7 +2,7 @@ import click
 import typer
 from typer.core import TyperGroup
 
-from space.apps import canon, chats, context, council, daemons, health, init, stats
+from space.apps import canon, chats, council, daemons, health, init, stats
 from space.lib import backup
 from space.os.spawn import api
 
@@ -37,43 +37,48 @@ app = typer.Typer(
 @app.callback(invoke_without_command=True)
 def common_options_callback(
     ctx: typer.Context,
-    identity: str = typer.Option(None, "--as", help="Agent identity to use."),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
-    quiet_output: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress non-essential output."
-    ),
 ):
     """Agent Orchestration System
 
     Manage agents, their memories, shared knowledge, and coordination."""
     from space.lib import output
 
-    output.set_flags(ctx, json_output, quiet_output)
+    output.set_flags(ctx, False, False)
 
     if ctx.obj is None:
         ctx.obj = {}
 
-    ctx.obj["identity"] = identity
-    ctx.obj["json"] = json_output
-    ctx.obj["quiet"] = quiet_output
+    ctx.obj["identity"] = None
+    ctx.obj["json"] = False
+    ctx.obj["quiet"] = False
 
     if ctx.invoked_subcommand is None:
-        if identity:
-            pass
-        else:
-            typer.echo(ctx.get_help())
+        typer.echo(ctx.get_help())
+        typer.echo("\nAgent primitives (direct agent access):")
+        typer.echo("  bridge    — async messaging and coordination")
+        typer.echo("  memory    — single-agent private working memory")
+        typer.echo("  knowledge — multi-agent shared discoveries")
+        typer.echo("  context   — unified retrieval across all primitives")
+        typer.echo("  spawn     — constitutional identity and lifecycle")
+        typer.echo("\nUsage: bridge/memory/knowledge/context/spawn --help")
 
 
-app.add_typer(init.app, name="init")
-app.add_typer(backup.app, name="backup")
-app.add_typer(health.app, name="health")
+app.add_typer(init.app, name="init", help="Initialize space workspace structure and databases.")
+app.add_typer(backup.app, name="backup", help="Backup and restore space data.")
+app.add_typer(health.app, name="health", help="Verify space-os lattice integrity.")
 
-app.add_typer(canon.app, name="canon")
-app.add_typer(chats.app, name="chats")
-app.add_typer(context.app, name="context")
-app.add_typer(council.app, name="council")
-app.add_typer(daemons.app, name="daemons")
-app.add_typer(stats.app, name="stats")
+app.add_typer(stats.app, name="stats", help="Show space overview and agent statistics.")
+app.add_typer(canon.app, name="canon", help="Navigate and read canon documents from ~/space/canon.")
+app.add_typer(chats.app, name="chats", help="Sync and view chat statistics across providers.")
+
+app.add_typer(
+    council.app, name="council", help="Join a bridge council - stream messages and respond live."
+)
+app.add_typer(
+    daemons.app,
+    name="daemons",
+    help="Space health heartbeat: run all daemons in parallel, or invoke subcommands.",
+)
 
 
 def main() -> None:
