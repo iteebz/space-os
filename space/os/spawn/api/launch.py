@@ -61,18 +61,16 @@ def spawn_agent(identity: str, extra_args: list[str] | None = None):
     else:
         launch_args = []
 
-    mcp_args = []
-
     if passthrough:
         context = spawn_prompt(identity, agent.model)
         full_command = (
-            command_tokens + [context] + model_args + launch_args + mcp_args + passthrough
+            command_tokens + [context] + model_args + launch_args + passthrough
         )
         display_command = (
             command_tokens + ['"<space_manual>"'] + model_args + launch_args + passthrough
         )
     else:
-        full_command = command_tokens + model_args + launch_args + mcp_args
+        full_command = command_tokens + model_args + launch_args
         display_command = command_tokens + model_args + launch_args
 
     click.echo(f"Executing: {' '.join(display_command)}")
