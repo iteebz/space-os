@@ -1,4 +1,12 @@
-"""Task operations: background spawn tracking."""
+"""Task operations: background spawn tracking.
+
+Tasks are sessions with is_task=True. Distinction from interactive spawns:
+- Tasks: Background execution, started by bridge mentions or CLI, non-interactive
+- Sessions: General spawn records (both interactive and task), the data model
+- Tasks API: Convenience layer for task-specific operations (create_task, start_task, fail_task)
+
+All tasks are sessions. Not all sessions are tasks. A session is a task iff is_task=True.
+"""
 
 from datetime import datetime
 

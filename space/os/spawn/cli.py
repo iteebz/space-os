@@ -41,6 +41,16 @@ def main_callback(
         typer.echo(ctx.get_help())
 
 
+def _resolve_identity(stat_identity: str) -> str:
+    """Resolve agent identity from stat record (may be UUID)."""
+    name = stat_identity or ""
+    if len(name) == 36 and name.count("-") == 4:
+        agent = api.get_agent(name)
+        if agent:
+            return agent.identity
+    return name
+
+
 @app.command()
 def agents(
     show_all: bool = typer.Option(False, "--all", help="Show archived agents"),
@@ -56,50 +66,37 @@ def agents(
             typer.echo("No agents found.")
         return
 
+    sorted_stats = sorted(stats, key=lambda a: a.identity or "")
+    agents_data = []
+
+    for s in sorted_stats:
+        agent_id = s.agent_id
+        if not agent_id:
+            continue
+
+        name = _resolve_identity(s.identity)
+        agent = api.get_agent(agent_id)
+
+        agents_data.append(
+            {
+                "identity": name,
+                "agent_id": agent_id,
+                "model": agent.model if agent and agent.model else "-",
+                "spawn_count": agent.spawn_count if agent else 0,
+            }
+        )
+
     if json_output:
-        agents_data = []
-        for s in sorted(stats, key=lambda a: a.identity or ""):
-            agent_id = s.agent_id
-            if not agent_id:
-                continue
-            name = s.identity or ""
-            if len(name) == 36 and name.count("-") == 4:
-                agent = api.get_agent(name)
-                if agent:
-                    name = agent.identity
-            agent = api.get_agent(agent_id)
-            agents_data.append(
-                {
-                    "identity": name,
-                    "agent_id": agent_id,
-                    "model": agent.model if agent and agent.model else "-",
-                    "description": agent.description if agent and agent.description else "-",
-                }
-            )
         typer.echo(json.dumps(agents_data))
     else:
-        typer.echo(f"{'IDENTITY':<20} {'AGENT_ID':<10} {'MODEL':<25} {'DESCRIPTION'}")
-
-        for s in sorted(stats, key=lambda a: a.identity or ""):
-            name = s.identity or ""
-            agent_id = s.agent_id
-            if not agent_id:
-                continue
-            short_id = agent_id[:8]
-
-            if len(name) == 36 and name.count("-") == 4:
-                agent = api.get_agent(name)
-                if agent:
-                    name = agent.identity
-
-            agent = api.get_agent(agent_id)
-            model = agent.model if agent and agent.model else "-"
-            desc = agent.description if agent and agent.description else "-"
-
-            typer.echo(f"{name:<20} {short_id:<10} {model:<25} {desc}")
-
+        typer.echo(f"{'IDENTITY':<20} {'AGENT_ID':<10} {'MODEL':<25} {'SPAWNS'}")
+        for data in agents_data:
+            short_id = data["agent_id"][:8]
+            typer.echo(
+                f"{data['identity']:<20} {short_id:<10} {data['model']:<25} {data['spawn_count']}"
+            )
         typer.echo()
-        typer.echo(f"Total: {len(stats)}")
+        typer.echo(f"Total: {len(agents_data)}")
 
 
 @app.command()
@@ -167,7 +164,7 @@ def update(
     model: str = typer.Option(None, "--model", "-m", help="Full model name"),
     constitution: str = typer.Option(None, "--constitution", "-c", help="Constitution filename"),
 ):
-    """Modify agent fields (description, model)."""
+    """Modify agent fields (constitution, model)."""
     try:
         api.update_agent(identity, constitution, model)
         typer.echo(f"✓ Updated {identity}")

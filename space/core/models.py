@@ -15,107 +15,6 @@ class TaskStatus(str, Enum):
 
 
 @dataclass
-class Message:
-    """A coordination message in the bridge."""
-
-    message_id: str
-    channel_id: str
-    agent_id: str
-    content: str
-    created_at: str
-
-
-@dataclass
-class Channel:
-    """A coordination channel."""
-
-    channel_id: str
-    name: str
-    topic: str | None = None
-    created_at: str | None = None
-    archived_at: str | None = None
-    members: list[str] = field(default_factory=list)
-    message_count: int = 0
-    last_activity: str | None = None
-    unread_count: int = 0
-
-
-@dataclass
-class Bookmark:
-    """Agent's bookmark for a channel."""
-
-    agent_id: str
-    channel_id: str
-    last_seen_id: str | None = None
-
-
-@dataclass
-class Export:
-    """Complete channel export for research."""
-
-    channel_id: str
-    channel_name: str
-    topic: str | None
-    created_at: str | None
-    members: list[str]
-    message_count: int
-    messages: list[Message]
-
-
-@dataclass
-class Memory:
-    memory_id: str
-    agent_id: str
-    message: str
-    created_at: str
-    topic: str | None = None
-    archived_at: str | None = None
-    core: bool = False
-    source: str = "manual"
-    bridge_channel: str | None = None
-    code_anchors: str | None = None
-    synthesis_note: str | None = None
-    supersedes: str | None = None
-    superseded_by: str | None = None
-
-
-@dataclass
-class ChatMessage:
-    """A message from CLI chat history (distinct from bridge Message)."""
-
-    id: int
-    cli: str
-    model: str | None
-    session_id: str
-    timestamp: str
-    identity: str | None
-    role: str
-    text: str
-
-
-@dataclass
-class Knowledge:
-    """A knowledge artifact."""
-
-    knowledge_id: str
-    domain: str
-    agent_id: str
-    content: str
-    confidence: float | None
-    created_at: str
-    archived_at: str | None = None
-
-
-@dataclass
-class Canon:
-    """A canon markdown document (read-only, git-backed)."""
-
-    path: str
-    content: str
-    created_at: str | None = None
-
-
-@dataclass
 class Agent:
     """An agent in the spawn registry."""
 
@@ -123,7 +22,7 @@ class Agent:
     identity: str
     model: str
     constitution: str | None = None
-    description: str | None = None
+    spawn_count: int = 0
     archived_at: str | None = None
     created_at: str | None = None
     last_active_at: str | None = None
@@ -142,12 +41,48 @@ class Agent:
 
 
 @dataclass
+class Channel:
+    """A coordination channel."""
+
+    channel_id: str
+    name: str
+    topic: str | None = None
+    created_at: str | None = None
+    archived_at: str | None = None
+    pinned_at: str | None = None
+    members: list[str] = field(default_factory=list)
+    message_count: int = 0
+    last_activity: str | None = None
+    unread_count: int = 0
+
+
+@dataclass
+class Message:
+    """A coordination message in the bridge."""
+
+    message_id: str
+    channel_id: str
+    agent_id: str
+    content: str
+    created_at: str
+
+
+@dataclass
+class Bookmark:
+    """Agent's bookmark for a channel."""
+
+    agent_id: str
+    channel_id: str
+    session_id: str | None = None
+    last_seen_id: str | None = None
+
+
+@dataclass
 class Session:
     """A session: single spawn invocation of an agent."""
 
     id: str
     agent_id: str
-    spawn_number: int
     status: TaskStatus | str = TaskStatus.PENDING
     is_task: bool = True
     constitution_hash: str | None = None
@@ -175,4 +110,66 @@ class Chat:
     first_message_at: str | None = None
     last_message_at: str | None = None
     session_id: str | None = None
+    created_at: str | None = None
+
+
+@dataclass
+class Memory:
+    """Agent memory: facts, journal, or extracted insights."""
+
+    memory_id: str
+    agent_id: str
+    message: str
+    topic: str
+    created_at: str
+    archived_at: str | None = None
+    core: bool = False
+    source: str = "manual"
+
+
+@dataclass
+class Knowledge:
+    """A knowledge artifact."""
+
+    knowledge_id: str
+    domain: str
+    agent_id: str
+    content: str
+    created_at: str
+    archived_at: str | None = None
+
+
+@dataclass
+class Export:
+    """Complete channel export for research."""
+
+    channel_id: str
+    channel_name: str
+    topic: str | None
+    created_at: str | None
+    members: list[str]
+    message_count: int
+    messages: list[Message]
+
+
+@dataclass
+class ChatMessage:
+    """A message from CLI chat history (distinct from bridge Message)."""
+
+    id: int
+    cli: str
+    model: str | None
+    session_id: str
+    timestamp: str
+    identity: str | None
+    role: str
+    text: str
+
+
+@dataclass
+class Canon:
+    """A canon markdown document (read-only, git-backed)."""
+
+    path: str
+    content: str
     created_at: str | None = None

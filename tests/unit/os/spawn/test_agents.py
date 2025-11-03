@@ -101,36 +101,13 @@ def test_register_agent_already_exists(mock_db):
         spawn.register_agent("agent1", "claude-haiku-4-5", "c.md")
 
 
-def test_describe_self_updates(mock_db):
-    mock_agent = Agent(
-        agent_id="a-1",
-        identity="agent1",
-        constitution="c.md",
-        model="claude-haiku-4-5",
-        description=None,
-        created_at="2024-01-01",
-    )
-    with patch("space.os.spawn.api.agents.get_agent", return_value=mock_agent):
-        spawn.describe_self("agent1", "I am agent1")
-        mock_db.execute.assert_called_with(
-            "UPDATE agents SET self_description = ? WHERE agent_id = ?",
-            ("I am agent1", "a-1"),
-        )
-
-
-def test_describe_self_missing_agent_raises_error(mock_db):
-    with patch("space.os.spawn.api.agents.get_agent", return_value=None):
-        with pytest.raises(ValueError, match="Agent 'missing' not found."):
-            spawn.describe_self("missing", "description")
-
-
 def test_rename_agent_updates(mock_db):
     mock_old_agent = Agent(
         agent_id="a-1",
         identity="old",
         constitution="c.md",
         model="claude-haiku-4-5",
-        description=None,
+        spawn_count=0,
         created_at="2024-01-01",
     )
     with patch("space.os.spawn.api.agents.get_agent") as mock_get_agent:
@@ -154,7 +131,7 @@ def test_rename_agent_new_exists_returns_false(mock_db):
         identity="old",
         constitution="c.md",
         model="claude-haiku-4-5",
-        description=None,
+        spawn_count=0,
         created_at="2024-01-01",
     )
     mock_new_agent = Agent(
@@ -162,7 +139,7 @@ def test_rename_agent_new_exists_returns_false(mock_db):
         identity="new",
         constitution="c.md",
         model="claude-haiku-4-5",
-        description=None,
+        spawn_count=0,
         created_at="2024-01-01",
     )
     with patch("space.os.spawn.api.agents.get_agent") as mock_get_agent:
@@ -177,7 +154,7 @@ def test_archive_agent_updates(mock_db):
         identity="agent1",
         constitution="c.md",
         model="claude-haiku-4-5",
-        description=None,
+        spawn_count=0,
         created_at="2024-01-01",
     )
     with patch("space.os.spawn.api.agents.get_agent", return_value=mock_agent):
@@ -226,7 +203,7 @@ def test_merge_agents_updates_all_dbs(mock_db):
         identity="from",
         constitution="c.md",
         model="claude-haiku-4-5",
-        description=None,
+        spawn_count=0,
         created_at="2024-01-01",
     )
     mock_to = Agent(
@@ -234,7 +211,7 @@ def test_merge_agents_updates_all_dbs(mock_db):
         identity="to",
         constitution="c.md",
         model="claude-haiku-4-5",
-        description=None,
+        spawn_count=0,
         created_at="2024-01-01",
     )
     with patch("space.os.spawn.api.agents.get_agent") as mock_get_agent:
@@ -264,7 +241,7 @@ def test_rename_agent_rejects_spaces(mock_db):
         identity="old",
         constitution="c.md",
         model="claude-haiku-4-5",
-        description=None,
+        spawn_count=0,
         created_at="2024-01-01",
     )
     with patch("space.os.spawn.api.agents.get_agent", return_value=mock_agent):
@@ -278,7 +255,7 @@ def test_clone_agent_rejects_spaces(mock_db):
         identity="original",
         constitution="c.md",
         model="claude-haiku-4-5",
-        description=None,
+        spawn_count=0,
         created_at="2024-01-01",
     )
     with patch("space.os.spawn.api.agents.get_agent", return_value=mock_agent):

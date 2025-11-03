@@ -26,7 +26,6 @@ def test_create_task_returns_session(mock_db, mock_resolve_agent):
     mock_session = Session(
         id="task-123",
         agent_id="agent-123",
-        spawn_number=1,
         status=TaskStatus.PENDING,
         is_task=True,
     )
@@ -40,7 +39,6 @@ def test_create_task_with_channel_id(mock_resolve_agent):
     mock_session = Session(
         id="task-123",
         agent_id="agent-123",
-        spawn_number=1,
         status=TaskStatus.PENDING,
         is_task=True,
         channel_id="ch-123",
@@ -64,7 +62,6 @@ def test_get_task_returns_session(mock_db):
         {
             "id": "t-1",
             "agent_id": "a-1",
-            "spawn_number": 1,
             "channel_id": None,
             "status": "pending",
             "is_task": True,
@@ -139,7 +136,6 @@ def test_list_tasks_returns_sessions(mock_db):
             {
                 "id": "t-1",
                 "agent_id": "a-1",
-                "spawn_number": 1,
                 "status": "running",
                 "is_task": True,
                 "constitution_hash": None,
@@ -153,7 +149,6 @@ def test_list_tasks_returns_sessions(mock_db):
             {
                 "id": "t-2",
                 "agent_id": "a-1",
-                "spawn_number": 2,
                 "status": "completed",
                 "is_task": True,
                 "constitution_hash": None,

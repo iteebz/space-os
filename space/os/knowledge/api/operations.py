@@ -1,5 +1,6 @@
 """Knowledge operations: discovered patterns and insights across domains."""
 
+import re
 from datetime import datetime
 
 from space.core.models import Knowledge
@@ -13,13 +14,32 @@ def _row_to_knowledge(row: dict) -> Knowledge:
     return from_row(row, Knowledge)
 
 
-def add_knowledge(domain: str, agent_id: str, content: str, confidence: float | None = None) -> str:
+def _validate_domain(domain: str) -> None:
+    """Validate knowledge domain format: lowercase, hyphens, forward slashes only."""
+    if not domain:
+        raise ValueError("Domain cannot be empty")
+    if not re.match(r"^[a-z0-9\-/]+$", domain):
+        raise ValueError(
+            f"Invalid domain '{domain}': use lowercase letters, numbers, hyphens, and forward slashes"
+        )
+
+
+def _archive_clause(show_all: bool, is_and: bool = False) -> str:
+    """Build archive filter: '' if show_all, else 'WHERE archived_at IS NULL' or 'AND archived_at IS NULL'."""
+    if show_all:
+        return ""
+    prefix = "AND" if is_and else "WHERE"
+    return f"{prefix} archived_at IS NULL"
+
+
+def add_knowledge(domain: str, agent_id: str, content: str) -> str:
     """Add knowledge entry in domain. Returns knowledge_id."""
+    _validate_domain(domain)
     knowledge_id = uuid7()
     with store.ensure("knowledge") as conn:
         conn.execute(
-            "INSERT INTO knowledge (knowledge_id, domain, agent_id, content, confidence) VALUES (?, ?, ?, ?, ?)",
-            (knowledge_id, domain, agent_id, content, confidence),
+            "INSERT INTO knowledge (knowledge_id, domain, agent_id, content) VALUES (?, ?, ?, ?)",
+            (knowledge_id, domain, agent_id, content),
         )
     spawn.api.touch_agent(agent_id)
     return knowledge_id
@@ -27,29 +47,29 @@ def add_knowledge(domain: str, agent_id: str, content: str, confidence: float | 
 
 def list_knowledge(show_all: bool = False) -> list[Knowledge]:
     """List all knowledge entries."""
-    archive_filter = "" if show_all else "WHERE archived_at IS NULL"
+    archive = _archive_clause(show_all)
     with store.ensure("knowledge") as conn:
         rows = conn.execute(
-            f"SELECT knowledge_id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge {archive_filter} ORDER BY created_at DESC"
+            f"SELECT knowledge_id, domain, agent_id, content, created_at, archived_at FROM knowledge {archive} ORDER BY created_at DESC"
         ).fetchall()
     return [_row_to_knowledge(row) for row in rows]
 
 
 def query_knowledge(domain: str, show_all: bool = False) -> list[Knowledge]:
     """Query knowledge entries by domain (supports wildcard paths like 'architecture/*')."""
-    archive_filter = "" if show_all else "AND archived_at IS NULL"
+    archive = _archive_clause(show_all, is_and=True)
 
     if domain.endswith("/*"):
         domain_prefix = domain[:-2]
-        where_clause = f"WHERE (domain = ? OR domain LIKE ?) {archive_filter}"
+        where_clause = f"WHERE (domain = ? OR domain LIKE ?) {archive}"
         params = (domain_prefix, f"{domain_prefix}/%")
     else:
-        where_clause = f"WHERE domain = ? {archive_filter}"
+        where_clause = f"WHERE domain = ? {archive}"
         params = (domain,)
 
     with store.ensure("knowledge") as conn:
         rows = conn.execute(
-            f"SELECT knowledge_id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge {where_clause} ORDER BY created_at DESC",
+            f"SELECT knowledge_id, domain, agent_id, content, created_at, archived_at FROM knowledge {where_clause} ORDER BY created_at DESC",
             params,
         ).fetchall()
     return [_row_to_knowledge(row) for row in rows]
@@ -57,10 +77,10 @@ def query_knowledge(domain: str, show_all: bool = False) -> list[Knowledge]:
 
 def query_knowledge_by_agent(agent_id: str, show_all: bool = False) -> list[Knowledge]:
     """Query knowledge entries by agent."""
-    archive_filter = "" if show_all else "AND archived_at IS NULL"
+    archive = _archive_clause(show_all, is_and=True)
     with store.ensure("knowledge") as conn:
         rows = conn.execute(
-            f"SELECT knowledge_id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE agent_id = ? {archive_filter} ORDER BY created_at DESC",
+            f"SELECT knowledge_id, domain, agent_id, content, created_at, archived_at FROM knowledge WHERE agent_id = ? {archive} ORDER BY created_at DESC",
             (agent_id,),
         ).fetchall()
     return [_row_to_knowledge(row) for row in rows]
@@ -70,7 +90,7 @@ def get_knowledge(entry_id: str) -> Knowledge | None:
     """Get knowledge entry by its UUID."""
     with store.ensure("knowledge") as conn:
         row = conn.execute(
-            "SELECT knowledge_id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE knowledge_id = ?",
+            "SELECT knowledge_id, domain, agent_id, content, created_at, archived_at FROM knowledge WHERE knowledge_id = ?",
             (entry_id,),
         ).fetchone()
     return _row_to_knowledge(row) if row else None
@@ -88,10 +108,10 @@ def find_related_knowledge(
     if not keywords:
         return []
 
-    archive_filter = "" if show_all else "AND archived_at IS NULL"
+    archive = _archive_clause(show_all, is_and=True)
     with store.ensure("knowledge") as conn:
         all_entries = conn.execute(
-            f"SELECT knowledge_id, domain, agent_id, content, confidence, created_at, archived_at FROM knowledge WHERE knowledge_id != ? {archive_filter}",
+            f"SELECT knowledge_id, domain, agent_id, content, created_at, archived_at FROM knowledge WHERE knowledge_id != ? {archive}",
             (entry.knowledge_id,),
         ).fetchall()
 

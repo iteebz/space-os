@@ -84,10 +84,6 @@ def _build_agent_info_blocks(identity: str, agent, agent_id: str | None) -> str:
     if not agent or not agent_id:
         return ""
 
-    if agent.description:
-        parts.append(f"**Your identity:** {agent.description}")
-        parts.append("")
-
     try:
         core_entries = memory.api.list_memories(identity, filter="core")
     except Exception:  # pragma: no cover - safeguard for unseeded DBs

@@ -37,18 +37,3 @@ def test_get_agent_by_identity(test_space):
 def test_get_agent_not_found(test_space):
     agent = spawn.get_agent("nonexistent-agent")
     assert agent is None
-
-
-def test_describe_self(test_space):
-    agent_id = spawn.register_agent("zealot", "claude-haiku-4-5", "zealot.md")
-    spawn.describe_self("zealot", "Custom behavior")
-    agent = spawn.get_agent(agent_id)
-    assert agent.description == "Custom behavior"
-
-
-def test_description_update(test_space):
-    agent_id = spawn.register_agent("zealot", "claude-haiku-4-5", "zealot.md")
-    spawn.describe_self("zealot", "First description")
-    spawn.describe_self("zealot", "Updated description")
-    agent = spawn.get_agent(agent_id)
-    assert agent.description == "Updated description"

@@ -43,13 +43,6 @@ def test_add_knowledge_returns_id(mock_db):
     assert result is not None
 
 
-def test_add_knowledge_with_confidence(mock_db):
-    knowledge.api.add_knowledge("architecture/caching", "agent-1", "content", confidence=0.95)
-    call_args = mock_db.execute.call_args_list[0]
-    params = call_args[0][1]
-    assert params[4] == 0.95
-
-
 def test_list_knowledge_returns_list(mock_db):
     mock_row = make_mock_row(
         {
@@ -57,7 +50,6 @@ def test_list_knowledge_returns_list(mock_db):
             "domain": "architecture/caching",
             "agent_id": "a-1",
             "content": "test",
-            "confidence": 0.9,
             "created_at": "2024-01-01",
             "archived_at": None,
         }
@@ -109,7 +101,6 @@ def test_get_knowledge_returns_entry(mock_db):
             "domain": "architecture/caching",
             "agent_id": "a-1",
             "content": "test",
-            "confidence": 0.9,
             "created_at": "2024-01-01",
             "archived_at": None,
         }
@@ -133,36 +124,6 @@ def test_archive_knowledge_updates(mock_db):
 def test_restore_knowledge_clears_timestamp(mock_db):
     knowledge.api.archive_knowledge("k-1", restore=True)
     assert mock_db.execute.called
-
-
-def test_find_related_knowledge_returns_scores(mock_db):
-    related_row = make_mock_row(
-        {
-            "knowledge_id": "k-2",
-            "domain": "architecture/caching/redis",
-            "agent_id": "a-1",
-            "content": "Redis LRU eviction policy",
-            "confidence": 0.8,
-            "created_at": "2024-01-02",
-            "archived_at": None,
-        }
-    )
-    mock_db.execute.return_value.fetchall.return_value = [related_row]
-
-    from space.core.models import Knowledge
-
-    entry = Knowledge(
-        knowledge_id="k-1",
-        domain="architecture/caching",
-        agent_id="a-1",
-        content="caching strategy Redis",
-        confidence=0.9,
-        created_at="2024-01-01",
-        archived_at=None,
-    )
-    result = knowledge.api.find_related_knowledge(entry)
-    assert len(result) > 0
-    assert isinstance(result[0], tuple)
 
 
 def test_get_domain_tree_builds_hierarchy(mock_db):

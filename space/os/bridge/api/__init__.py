@@ -2,6 +2,21 @@
 
 Functions handle all DB interactions and state management.
 Callers: commands/ layer only.
+
+Channel Lifecycle:
+  create_channel(name) -> Channel with channel_id, created_at
+  send_message(channel, content, agent_id) -> saves to messages table
+  recv_messages(channel) -> list of Message objects from channel
+  set_bookmark(agent, channel, message_id) -> track where agent last read
+  fetch_inbox(agent_id) -> list of channels with unread_count
+  toggle_pin_channel(name) -> sets/clears pinned_at timestamp
+  archive_channel(name) -> soft delete via archived_at
+
+Message Flow:
+  send_message writes to messages table, touches last_activity
+  recv_messages queries messages, returns newest first
+  set_bookmark records last_seen_id per agent/channel pair
+  Unread count derived from last_seen_id vs latest message
 """
 
 from .channels import (

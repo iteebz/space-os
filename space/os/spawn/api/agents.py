@@ -21,10 +21,7 @@ def _validate_identity(identity: str) -> None:
 
 
 def _row_to_agent(row: store.Row) -> Agent:
-    data = dict(row)
-    if "self_description" in data:
-        data["description"] = data.pop("self_description")
-    return from_row(data, Agent)
+    return from_row(row, Agent)
 
 
 @lru_cache(maxsize=256)
@@ -32,7 +29,7 @@ def _get_agent_by_name_cached(name: str) -> Agent | None:
     """Cached agent lookup by name."""
     with db.connect() as conn:
         row = conn.execute(
-            "SELECT agent_id, identity, constitution, model, self_description, archived_at, created_at FROM agents WHERE identity = ? AND archived_at IS NULL LIMIT 1",
+            "SELECT agent_id, identity, constitution, model, spawn_count, archived_at, created_at FROM agents WHERE identity = ? AND archived_at IS NULL LIMIT 1",
             (name,),
         ).fetchone()
         return _row_to_agent(row) if row else None
@@ -56,7 +53,7 @@ def get_agent(identifier: str) -> Agent | None:
     """Resolve agent by name or ID. Returns Agent object or None."""
     with db.connect() as conn:
         row = conn.execute(
-            "SELECT agent_id, identity, constitution, model, self_description, archived_at, created_at FROM agents WHERE (identity = ? OR agent_id = ?) AND archived_at IS NULL LIMIT 1",
+            "SELECT agent_id, identity, constitution, model, spawn_count, archived_at, created_at FROM agents WHERE (identity = ? OR agent_id = ?) AND archived_at IS NULL LIMIT 1",
             (identifier, identifier),
         ).fetchone()
         return _row_to_agent(row) if row else None
@@ -137,20 +134,6 @@ def clone_agent(src_identity: str, dst_identity: str) -> str:
         raise ValueError(f"Target identity '{dst_identity}' already exists")
 
     return register_agent(dst_identity, src_agent.model, src_agent.constitution)
-
-
-def describe_self(name: str, content: str) -> None:
-    """Set self-description for agent."""
-    agent = get_agent(name)
-    if not agent:
-        raise ValueError(f"Agent '{name}' not found.")
-
-    with db.connect() as conn:
-        conn.execute(
-            "UPDATE agents SET self_description = ? WHERE agent_id = ?",
-            (content, agent.agent_id),
-        )
-    _clear_cache()
 
 
 def rename_agent(old_name: str, new_name: str) -> bool:
@@ -278,7 +261,6 @@ __all__ = [
     "update_agent",
     "clone_agent",
     "ensure_agent",
-    "describe_self",
     "rename_agent",
     "archive_agent",
     "unarchive_agent",

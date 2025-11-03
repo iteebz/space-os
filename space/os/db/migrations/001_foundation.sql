@@ -9,8 +9,7 @@ CREATE TABLE IF NOT EXISTS agents (
     identity TEXT NOT NULL UNIQUE,
     constitution TEXT,
     model TEXT NOT NULL,
-    self_description TEXT,
-    spawns INTEGER NOT NULL DEFAULT 0,
+    spawn_count INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     last_active_at TEXT,
     archived_at TEXT
@@ -50,7 +49,6 @@ CREATE TABLE IF NOT EXISTS bookmarks (
 CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     agent_id TEXT NOT NULL,
-    spawn_number INTEGER NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
     is_task BOOLEAN NOT NULL DEFAULT 0,
     constitution_hash TEXT,
@@ -81,21 +79,13 @@ CREATE TABLE IF NOT EXISTS chats (
 CREATE TABLE IF NOT EXISTS memories (
     memory_id TEXT PRIMARY KEY,
     agent_id TEXT NOT NULL,
-    topic TEXT,
+    topic TEXT NOT NULL,
     source TEXT NOT NULL DEFAULT 'manual',
     message TEXT NOT NULL,
     core INTEGER NOT NULL DEFAULT 0,
-    code_anchors TEXT,
-    synthesis_note TEXT,
-    bridge_channel TEXT,
-    supersedes TEXT,
-    superseded_by TEXT,
     created_at TEXT NOT NULL,
     archived_at TEXT,
-    FOREIGN KEY (agent_id) REFERENCES agents(agent_id) ON DELETE CASCADE,
-    FOREIGN KEY (bridge_channel) REFERENCES channels(channel_id) ON DELETE SET NULL,
-    FOREIGN KEY (supersedes) REFERENCES memories(memory_id) ON DELETE SET NULL,
-    FOREIGN KEY (superseded_by) REFERENCES memories(memory_id) ON DELETE SET NULL
+    FOREIGN KEY (agent_id) REFERENCES agents(agent_id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS knowledge (
@@ -103,7 +93,6 @@ CREATE TABLE IF NOT EXISTS knowledge (
     agent_id TEXT NOT NULL,
     domain TEXT NOT NULL,
     content TEXT NOT NULL,
-    confidence REAL,
     created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%f', 'now')),
     archived_at TEXT,
     FOREIGN KEY (agent_id) REFERENCES agents(agent_id) ON DELETE CASCADE

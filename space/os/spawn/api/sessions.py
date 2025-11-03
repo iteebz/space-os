@@ -16,6 +16,8 @@ def create_session(
 ) -> Session:
     """Create a new session for agent spawn.
 
+    Atomically increments agent.spawn_count.
+
     Args:
         agent_id: Agent ID
         is_task: Whether this is a background task spawn
@@ -25,33 +27,27 @@ def create_session(
     Returns:
         Session object
     """
+    session_id = uuid7()
+    now = datetime.now().isoformat()
+
     with db.connect() as conn:
         cursor = conn.cursor()
 
-        session_id = uuid7()
-
-        cursor.execute("SELECT spawns FROM agents WHERE agent_id = ?", (agent_id,))
-        result = cursor.fetchone()
-        spawn_count = (result[0] if result else 0) + 1
+        cursor.execute(
+            "UPDATE agents SET spawn_count = spawn_count + 1, last_active_at = ? WHERE agent_id = ?",
+            (now, agent_id),
+        )
 
         cursor.execute(
             """
             INSERT INTO sessions
-            (id, agent_id, spawn_number, is_task, constitution_hash, channel_id)
+            (id, agent_id, is_task, constitution_hash, channel_id, created_at)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (session_id, agent_id, spawn_count, is_task, constitution_hash, channel_id),
+            (session_id, agent_id, is_task, constitution_hash, channel_id, now),
         )
 
-        cursor.execute(
-            "UPDATE agents SET spawns = ?, last_active_at = ? WHERE agent_id = ?",
-            (spawn_count, datetime.now().isoformat(), agent_id),
-        )
-
-        cursor.execute(
-            "SELECT * FROM sessions WHERE id = ?",
-            (session_id,),
-        )
+        cursor.execute("SELECT * FROM sessions WHERE id = ?", (session_id,))
         row = cursor.fetchone()
         return from_row(row, Session)
 
@@ -70,6 +66,6 @@ def get_spawn_count(agent_id: str) -> int:
     """Get total spawn count for agent."""
     with db.connect() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT spawns FROM agents WHERE agent_id = ?", (agent_id,))
+        cursor.execute("SELECT spawn_count FROM agents WHERE agent_id = ?", (agent_id,))
         result = cursor.fetchone()
         return result[0] if result else 0

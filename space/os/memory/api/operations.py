@@ -48,12 +48,12 @@ def list_memories(
 
     agent = spawn.get_agent(identity)
     if not agent:
-        raise ValueError(f"Agent '{identity}' not found.")
+        raise ValueError(f"Agent '{identity}' not found")
     agent_id = agent.agent_id
 
     with store.ensure("memory") as conn:
         params = [agent_id]
-        query = "SELECT memory_id, agent_id, message, topic, created_at, archived_at, core, source, bridge_channel, code_anchors, synthesis_note, supersedes, superseded_by FROM memories WHERE agent_id = ?"
+        query = "SELECT memory_id, agent_id, message, topic, created_at, archived_at, core, source FROM memories WHERE agent_id = ?"
 
         if topic:
             query += " AND topic = ?"
@@ -84,7 +84,7 @@ def edit_memory(memory_id: str, new_message: str) -> None:
     full_id = resolve_id("memory", "memory_id", memory_id)
     entry = get_memory(full_id)
     if not entry:
-        raise ValueError(f"Memory '{memory_id}' not found.")
+        raise ValueError(f"Memory '{memory_id}' not found")
     with store.ensure("memory") as conn:
         conn.execute(
             "UPDATE memories SET message = ? WHERE memory_id = ?",
@@ -98,7 +98,7 @@ def delete_memory(memory_id: str) -> None:
     full_id = resolve_id("memory", "memory_id", memory_id)
     entry = get_memory(full_id)
     if not entry:
-        raise ValueError(f"Memory '{memory_id}' not found.")
+        raise ValueError(f"Memory '{memory_id}' not found")
     with store.ensure("memory") as conn:
         conn.execute("DELETE FROM memories WHERE memory_id = ?", (full_id,))
 
@@ -108,7 +108,7 @@ def archive_memory(memory_id: str, restore: bool = False) -> None:
     full_id = resolve_id("memory", "memory_id", memory_id)
     entry = get_memory(full_id)
     if not entry:
-        raise ValueError(f"Memory '{memory_id}' not found.")
+        raise ValueError(f"Memory '{memory_id}' not found")
 
     if restore:
         with store.ensure("memory") as conn:
@@ -129,7 +129,7 @@ def mark_memory_core(memory_id: str, core: bool = True) -> None:
     """Mark memory as core (essential to agent identity)."""
     entry = get_memory(memory_id)
     if not entry:
-        raise ValueError(f"Memory '{memory_id}' not found.")
+        raise ValueError(f"Memory '{memory_id}' not found")
     with store.ensure("memory") as conn:
         conn.execute(
             "UPDATE memories SET core = ? WHERE memory_id = ?",
@@ -141,7 +141,7 @@ def toggle_memory_core(memory_id: str) -> bool:
     """Toggle core status. Returns True if now core, False if not."""
     entry = get_memory(memory_id)
     if not entry:
-        raise ValueError(f"Memory '{memory_id}' not found.")
+        raise ValueError(f"Memory '{memory_id}' not found")
     is_core = entry.core
     new_state = not is_core
     with store.ensure("memory") as conn:
@@ -176,8 +176,7 @@ def find_related_memories(
 
             query = f"""
                 SELECT m.memory_id, m.agent_id, m.message, m.topic, m.created_at,
-                       m.archived_at, m.core, m.source, m.bridge_channel,
-                       m.code_anchors, m.synthesis_note, m.supersedes, m.superseded_by, COUNT(k.keyword) as score
+                       m.archived_at, m.core, m.source, COUNT(k.keyword) as score
                 FROM memories m, keywords k
                 WHERE m.agent_id = ? AND m.memory_id != ? AND (m.message LIKE '%' || k.keyword || '%' OR m.topic LIKE '%' || k.keyword || '%') {archive_filter}
                 GROUP BY m.memory_id
@@ -200,7 +199,7 @@ def get_memory(memory_id: str) -> Memory | None:
 
     with store.ensure("memory") as conn:
         row = conn.execute(
-            "SELECT memory_id, agent_id, message, topic, created_at, archived_at, core, source, bridge_channel, code_anchors, synthesis_note, supersedes, superseded_by FROM memories WHERE memory_id = ?",
+            "SELECT memory_id, agent_id, message, topic, created_at, archived_at, core, source FROM memories WHERE memory_id = ?",
             (full_id,),
         ).fetchone()
     if not row:
