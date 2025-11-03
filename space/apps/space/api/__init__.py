@@ -1,5 +1,5 @@
 """Space orchestrator API: consolidated business logic."""
 
-from space.apps.space.api import chats, health, init, stats
+from space.apps.space.api import health, init, stats
 
-__all__ = ["chats", "health", "init", "stats"]
+__all__ = ["health", "init", "stats"]

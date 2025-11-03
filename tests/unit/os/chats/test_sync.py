@@ -4,7 +4,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from space.lib.sync import _gemini_json_to_jsonl
+from space.os.chats.api.sync import _gemini_json_to_jsonl
 
 
 def test_gemini_json_to_jsonl():

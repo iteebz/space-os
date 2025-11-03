@@ -132,53 +132,10 @@ def _get_spawn_stats() -> dict:
 
 
 def _get_chat_stats() -> dict:
-    """Get chat statistics from chats table."""
-    from space.core import db
+    """Get chat statistics from chats primitive."""
+    from space.os import chats
 
-    with db.connect() as conn:
-        total_chats = conn.execute("SELECT COUNT(*) FROM chats").fetchone()[0]
-        totals = conn.execute(
-            "SELECT COALESCE(SUM(message_count), 0), COALESCE(SUM(tools_used), 0), "
-            "COALESCE(SUM(input_tokens), 0), COALESCE(SUM(output_tokens), 0) FROM chats"
-        ).fetchone()
-
-        by_provider = conn.execute(
-            "SELECT provider, COUNT(*), COALESCE(SUM(message_count), 0), "
-            "COALESCE(SUM(tools_used), 0), COALESCE(SUM(input_tokens), 0), "
-            "COALESCE(SUM(output_tokens), 0) FROM chats GROUP BY provider"
-        ).fetchall()
-
-        by_agent = conn.execute(
-            "SELECT a.identity, COUNT(c.id), COALESCE(SUM(c.message_count), 0), "
-            "COALESCE(SUM(c.tools_used), 0), COALESCE(SUM(c.input_tokens), 0), "
-            "COALESCE(SUM(c.output_tokens), 0) FROM agents a LEFT JOIN chats c ON "
-            "c.session_id IN (SELECT id FROM sessions WHERE agent_id = a.agent_id) "
-            "GROUP BY a.agent_id ORDER BY COALESCE(SUM(c.message_count), 0) DESC"
-        ).fetchall()
-
-    def to_dict(row, keys):
-        return {k: row[i] for i, k in enumerate(keys)}
-
-    return {
-        "total_chats": total_chats,
-        "total_messages": totals[0],
-        "total_tools_used": totals[1],
-        "total_input_tokens": totals[2],
-        "total_output_tokens": totals[3],
-        "by_provider": {
-            row[0]: to_dict(
-                row[1:], ["chats", "messages", "tools_used", "input_tokens", "output_tokens"]
-            )
-            for row in by_provider
-        },
-        "by_agent": [
-            to_dict(
-                row,
-                ["identity", "chats", "messages", "tools_used", "input_tokens", "output_tokens"],
-            )
-            for row in by_agent
-        ],
-    }
+    return chats.api.operations.get_stats()
 
 
 def _safe_stats(fn, *args, **kwargs):

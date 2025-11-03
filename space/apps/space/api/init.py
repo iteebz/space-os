@@ -6,8 +6,8 @@ from pathlib import Path
 import typer
 
 from space.core import db
-from space.lib import paths, sync
-from space.os import spawn
+from space.lib import paths
+from space.os import chats, spawn
 from space.os.spawn import defaults as spawn_defaults
 
 app = typer.Typer()
@@ -159,7 +159,7 @@ def init():
     typer.echo("Syncing provider chats...")
     typer.echo(f"  {'Provider':<10} {'Discovered':<12} {'Synced'}")
 
-    sync.sync_provider_chats(on_progress=output.show_sync_progress)
+    chats.api.sync.sync_provider_chats(on_progress=output.show_sync_progress)
 
     _install_shortcuts()
 
