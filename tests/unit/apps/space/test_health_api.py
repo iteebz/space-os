@@ -3,13 +3,10 @@ from __future__ import annotations
 import sqlite3
 
 from space.apps.space.api import health as health_api
-from space.core import db
 from space.lib import paths, store
 
 
 def test_health_check_reports_ok(test_space):
-    db.register()
-
     ok, issues, counts = health_api.check_db()
 
     assert ok is True
@@ -24,10 +21,9 @@ def test_health_check_reports_ok(test_space):
 
 
 def test_health_check_detects_missing_db(test_space):
-    db.register()
     store.close_all()
 
-    db_path = paths.space_data() / health_api.DB_NAME
+    db_path = paths.dot_space() / health_api.DB_NAME
     db_path.unlink()
 
     ok, issues, counts = health_api.check_db()
@@ -38,13 +34,11 @@ def test_health_check_detects_missing_db(test_space):
 
 
 def test_health_check_detects_fk_violation(test_space):
-    db.register()
-
     channel_id = "channel-1"
     message_id = "ghost-message"
     missing_agent = "agent-ghost"
 
-    with store.ensure("space") as conn:
+    with store.ensure() as conn:
         conn.execute(
             """
             INSERT INTO channels (channel_id, name, created_at)
@@ -58,7 +52,7 @@ def test_health_check_detects_fk_violation(test_space):
 
     store.close_all()
 
-    db_path = paths.space_data() / health_api.DB_NAME
+    db_path = paths.dot_space() / health_api.DB_NAME
     raw = sqlite3.connect(db_path)
     try:
         raw.execute("PRAGMA foreign_keys = OFF")

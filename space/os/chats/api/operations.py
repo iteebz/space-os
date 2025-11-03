@@ -4,8 +4,7 @@ import contextlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from space.core import db
-from space.lib import paths, providers
+from space.lib import paths, providers, store
 
 
 def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[dict]:
@@ -99,7 +98,7 @@ def get_stats() -> dict:
 
     Returns aggregated chat metrics by provider and agent.
     """
-    with db.connect() as conn:
+    with store.ensure() as conn:
         total_chats = conn.execute("SELECT COUNT(*) FROM chats").fetchone()[0]
         totals = conn.execute(
             "SELECT COALESCE(SUM(message_count), 0), COALESCE(SUM(tools_used), 0), "

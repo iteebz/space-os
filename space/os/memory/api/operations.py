@@ -27,7 +27,7 @@ def add_memory(
     """Add memory entry. Returns memory_id."""
     memory_id = uuid7()
     now = datetime.now().isoformat()
-    with store.ensure("memory") as conn:
+    with store.ensure() as conn:
         conn.execute(
             "INSERT INTO memories (memory_id, agent_id, message, topic, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (memory_id, agent_id, message, topic, now, 1 if core else 0, source),
@@ -51,7 +51,7 @@ def list_memories(
         raise ValueError(f"Agent '{identity}' not found")
     agent_id = agent.agent_id
 
-    with store.ensure("memory") as conn:
+    with store.ensure() as conn:
         params = [agent_id]
         query = "SELECT memory_id, agent_id, message, topic, created_at, archived_at, core, source FROM memories WHERE agent_id = ?"
 
@@ -81,11 +81,11 @@ def list_memories(
 
 def edit_memory(memory_id: str, new_message: str) -> None:
     """Edit memory entry message."""
-    full_id = resolve_id("memory", "memory_id", memory_id)
+    full_id = resolve_id("memories", "memory_id", memory_id)
     entry = get_memory(full_id)
     if not entry:
         raise ValueError(f"Memory '{memory_id}' not found")
-    with store.ensure("memory") as conn:
+    with store.ensure() as conn:
         conn.execute(
             "UPDATE memories SET message = ? WHERE memory_id = ?",
             (new_message, full_id),
@@ -95,30 +95,30 @@ def edit_memory(memory_id: str, new_message: str) -> None:
 
 def delete_memory(memory_id: str) -> None:
     """Delete memory entry."""
-    full_id = resolve_id("memory", "memory_id", memory_id)
+    full_id = resolve_id("memories", "memory_id", memory_id)
     entry = get_memory(full_id)
     if not entry:
         raise ValueError(f"Memory '{memory_id}' not found")
-    with store.ensure("memory") as conn:
+    with store.ensure() as conn:
         conn.execute("DELETE FROM memories WHERE memory_id = ?", (full_id,))
 
 
 def archive_memory(memory_id: str, restore: bool = False) -> None:
     """Archive or restore memory entry."""
-    full_id = resolve_id("memory", "memory_id", memory_id)
+    full_id = resolve_id("memories", "memory_id", memory_id)
     entry = get_memory(full_id)
     if not entry:
         raise ValueError(f"Memory '{memory_id}' not found")
 
     if restore:
-        with store.ensure("memory") as conn:
+        with store.ensure() as conn:
             conn.execute(
                 "UPDATE memories SET archived_at = NULL WHERE memory_id = ?",
                 (full_id,),
             )
     else:
         now = datetime.now().isoformat()
-        with store.ensure("memory") as conn:
+        with store.ensure() as conn:
             conn.execute(
                 "UPDATE memories SET archived_at = ? WHERE memory_id = ?",
                 (now, full_id),
@@ -130,7 +130,7 @@ def mark_memory_core(memory_id: str, core: bool = True) -> None:
     entry = get_memory(memory_id)
     if not entry:
         raise ValueError(f"Memory '{memory_id}' not found")
-    with store.ensure("memory") as conn:
+    with store.ensure() as conn:
         conn.execute(
             "UPDATE memories SET core = ? WHERE memory_id = ?",
             (1 if core else 0, memory_id),
@@ -144,7 +144,7 @@ def toggle_memory_core(memory_id: str) -> bool:
         raise ValueError(f"Memory '{memory_id}' not found")
     is_core = entry.core
     new_state = not is_core
-    with store.ensure("memory") as conn:
+    with store.ensure() as conn:
         conn.execute(
             "UPDATE memories SET core = ? WHERE memory_id = ?",
             (1 if new_state else 0, memory_id),
@@ -169,7 +169,7 @@ def find_related_memories(
     agent_id = entry.agent_id
 
     archive_filter = "" if show_all else "AND archived_at IS NULL"
-    with store.ensure("memory") as conn:
+    with store.ensure() as conn:
         try:
             conn.execute("CREATE TEMPORARY TABLE keywords (keyword TEXT)")
             conn.executemany("INSERT INTO keywords VALUES (?)", [(k,) for k in keywords])
@@ -193,11 +193,11 @@ def find_related_memories(
 def get_memory(memory_id: str) -> Memory | None:
     """Get memory entry by ID."""
     try:
-        full_id = resolve_id("memory", "memory_id", memory_id)
+        full_id = resolve_id("memories", "memory_id", memory_id)
     except ValueError:
         return None
 
-    with store.ensure("memory") as conn:
+    with store.ensure() as conn:
         row = conn.execute(
             "SELECT memory_id, agent_id, message, topic, created_at, archived_at, core, source FROM memories WHERE memory_id = ?",
             (full_id,),
@@ -223,7 +223,7 @@ def get_agent_memories(
     Returns:
         List of Memory objects, ordered by creation time (newest first)
     """
-    with store.ensure("memory") as conn:
+    with store.ensure() as conn:
         query = "SELECT memory_id, agent_id, message, topic, created_at, archived_at, core, source FROM memories WHERE agent_id = ? AND archived_at IS NULL"
         params = [agent_id]
 
@@ -242,7 +242,7 @@ def get_agent_memories(
 
 def count_memories() -> tuple[int, int, int]:
     """Get memory counts: (total, active, archived)."""
-    with store.ensure("memory") as conn:
+    with store.ensure() as conn:
         total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
         active = conn.execute("SELECT COUNT(*) FROM memories WHERE archived_at IS NULL").fetchone()[
             0

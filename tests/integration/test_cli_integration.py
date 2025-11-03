@@ -1,6 +1,6 @@
 from typer.testing import CliRunner
 
-from space.core import db
+from space.lib import store
 from space.os import bridge, memory, spawn
 
 runner = CliRunner()
@@ -65,7 +65,7 @@ def test_spawn_rename_agent(test_space, default_agents):
     assert result.exit_code == 0
     assert "Renamed" in result.stdout
 
-    with db.connect() as conn:
+    with store.ensure() as conn:
         agent = conn.execute(
             "SELECT identity FROM agents WHERE identity = ?", ("new-name",)
         ).fetchone()

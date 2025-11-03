@@ -5,9 +5,8 @@ import logging
 import shutil
 from pathlib import Path
 
-from space.core import db
 from space.core.models import Chat
-from space.lib import paths, providers
+from space.lib import paths, providers, store
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +116,7 @@ def _gemini_json_to_jsonl(json_file: Path) -> str:
 def _insert_chat_record(chat: Chat) -> None:
     """Insert or update chat record in space.db."""
     try:
-        conn = db.connect()
+        conn = store.ensure()
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -155,7 +154,7 @@ def _link_chat_to_session(chat: Chat, cli_name: str) -> None:
         if not chat.created_at:
             return
 
-        conn = db.connect()
+        conn = store.ensure()
         cursor = conn.cursor()
 
         cursor.execute(

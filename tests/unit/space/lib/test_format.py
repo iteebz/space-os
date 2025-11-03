@@ -30,7 +30,7 @@ def test_format_memory_entries_basic():
     class Entry:
         topic = "test"
         memory_id = "abc12345def"
-        timestamp = datetime.now().isoformat()
+        created_at = datetime.now().isoformat()
         message = "msg"
         core = False
         archived_at = None

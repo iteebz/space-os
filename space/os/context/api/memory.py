@@ -7,7 +7,7 @@ from space.os import spawn
 def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[dict]:
     """Search memory entries by query, filtering by agent if identity provided."""
     results = []
-    with store.ensure("memory") as conn:
+    with store.ensure() as conn:
         sql_query = (
             "SELECT memory_id, agent_id, topic, message, created_at FROM memories "
             "WHERE (message LIKE ? OR topic LIKE ?)"

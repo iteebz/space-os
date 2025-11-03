@@ -23,7 +23,7 @@ def create_channel(name: str, topic: str | None = None) -> Channel:
         raise ValueError("Channel name is required")
 
     channel_id = uuid.uuid4().hex
-    with store.ensure("bridge") as conn:
+    with store.ensure() as conn:
         conn.execute(
             "INSERT INTO channels (channel_id, name, topic) VALUES (?, ?, ?)",
             (channel_id, name, topic),
@@ -43,7 +43,7 @@ def rename_channel(old_name: str, new_name: str) -> bool:
     """
     old_name = old_name.lstrip("#")
     new_name = new_name.lstrip("#")
-    with store.ensure("bridge") as conn:
+    with store.ensure() as conn:
         row = conn.execute(
             "SELECT channel_id FROM channels WHERE name = ?",
             (old_name,),
@@ -63,7 +63,7 @@ def rename_channel(old_name: str, new_name: str) -> bool:
 
 def archive_channel(name: str) -> None:
     """Archive channel by setting archived_at. Raises ValueError if not found."""
-    with store.ensure("bridge") as conn:
+    with store.ensure() as conn:
         cursor = conn.execute(
             "UPDATE channels SET archived_at = CURRENT_TIMESTAMP WHERE name = ? AND archived_at IS NULL",
             (name,),
@@ -74,7 +74,7 @@ def archive_channel(name: str) -> None:
 
 def restore_channel(name: str) -> None:
     """Restore an archived channel. Raises ValueError if not found."""
-    with store.ensure("bridge") as conn:
+    with store.ensure() as conn:
         cursor = conn.execute(
             "UPDATE channels SET archived_at = NULL WHERE name = ? AND archived_at IS NOT NULL",
             (name,),
@@ -85,7 +85,7 @@ def restore_channel(name: str) -> None:
 
 def toggle_pin_channel(name: str) -> bool:
     """Toggle pin status of a channel. Returns True if pinned, False if unpinned. Raises ValueError if not found."""
-    with store.ensure("bridge") as conn:
+    with store.ensure() as conn:
         row = conn.execute(
             "SELECT pinned_at FROM channels WHERE name = ?",
             (name,),
@@ -109,7 +109,7 @@ def toggle_pin_channel(name: str) -> bool:
 
 def delete_channel(name: str) -> None:
     """Hard delete channel and all messages. Raises ValueError if not found."""
-    with store.ensure("bridge") as conn:
+    with store.ensure() as conn:
         row = conn.execute(
             "SELECT channel_id FROM channels WHERE name = ?",
             (name,),
@@ -124,7 +124,7 @@ def delete_channel(name: str) -> None:
 
 def list_channels(all: bool = False) -> list[Channel]:
     """Get all channels."""
-    with store.ensure("bridge") as conn:
+    with store.ensure() as conn:
         archived_clause = "" if all else "AND c.archived_at IS NULL"
         query = f"""
             SELECT
@@ -149,7 +149,7 @@ def list_channels(all: bool = False) -> list[Channel]:
 def get_channel(channel: str | Channel) -> Channel | None:
     """Get a channel by its ID or name, including members."""
     channel_id = _to_channel_id(channel)
-    with store.ensure("bridge") as conn:
+    with store.ensure() as conn:
         row = conn.execute(
             "SELECT channel_id, name, topic, created_at, archived_at FROM channels WHERE channel_id = ? OR name = ?",
             (channel_id, channel_id),
@@ -175,7 +175,7 @@ def count_channels() -> tuple[int, int, int]:
     Active: channels not archived
     Archived: channels archived
     """
-    with store.ensure("bridge") as conn:
+    with store.ensure() as conn:
         distinct = conn.execute("SELECT COUNT(DISTINCT channel_id) FROM messages").fetchone()[0]
         total = conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0]
         active = conn.execute("SELECT COUNT(*) FROM channels WHERE archived_at IS NULL").fetchone()[

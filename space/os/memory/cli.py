@@ -249,7 +249,8 @@ def main() -> None:
         main_app()
     except SystemExit:
         raise
-    except BaseException as e:
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
         raise SystemExit(1) from e
 
 

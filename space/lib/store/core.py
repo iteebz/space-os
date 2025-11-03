@@ -13,6 +13,11 @@ T = TypeVar("T")
 Row = sqlite3.Row
 
 
+def database_exists(db_name: str) -> bool:
+    """Check if database file exists at dot_space location."""
+    return (paths.dot_space() / db_name).exists()
+
+
 def from_row(row: dict[str, Any] | Any, dataclass_type: type[T]) -> T:
     """Convert dict-like row to dataclass instance.
 
@@ -36,7 +41,7 @@ def ensure(name: str) -> sqlite3.Connection:
     if conn is not None:
         return conn
 
-    db_path = paths.space_data() / db_file
+    db_path = paths.dot_space() / db_file
     db_path.parent.mkdir(parents=True, exist_ok=True)
     migs = registry.get_migrations(name)
     migrations.ensure_schema(db_path, migs)

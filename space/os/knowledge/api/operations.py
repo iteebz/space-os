@@ -36,7 +36,7 @@ def add_knowledge(domain: str, agent_id: str, content: str) -> str:
     """Add knowledge entry in domain. Returns knowledge_id."""
     _validate_domain(domain)
     knowledge_id = uuid7()
-    with store.ensure("knowledge") as conn:
+    with store.ensure() as conn:
         conn.execute(
             "INSERT INTO knowledge (knowledge_id, domain, agent_id, content) VALUES (?, ?, ?, ?)",
             (knowledge_id, domain, agent_id, content),
@@ -48,7 +48,7 @@ def add_knowledge(domain: str, agent_id: str, content: str) -> str:
 def list_knowledge(show_all: bool = False) -> list[Knowledge]:
     """List all knowledge entries."""
     archive = _archive_clause(show_all)
-    with store.ensure("knowledge") as conn:
+    with store.ensure() as conn:
         rows = conn.execute(
             f"SELECT knowledge_id, domain, agent_id, content, created_at, archived_at FROM knowledge {archive} ORDER BY created_at DESC"
         ).fetchall()
@@ -67,7 +67,7 @@ def query_knowledge(domain: str, show_all: bool = False) -> list[Knowledge]:
         where_clause = f"WHERE domain = ? {archive}"
         params = (domain,)
 
-    with store.ensure("knowledge") as conn:
+    with store.ensure() as conn:
         rows = conn.execute(
             f"SELECT knowledge_id, domain, agent_id, content, created_at, archived_at FROM knowledge {where_clause} ORDER BY created_at DESC",
             params,
@@ -78,7 +78,7 @@ def query_knowledge(domain: str, show_all: bool = False) -> list[Knowledge]:
 def query_knowledge_by_agent(agent_id: str, show_all: bool = False) -> list[Knowledge]:
     """Query knowledge entries by agent."""
     archive = _archive_clause(show_all, is_and=True)
-    with store.ensure("knowledge") as conn:
+    with store.ensure() as conn:
         rows = conn.execute(
             f"SELECT knowledge_id, domain, agent_id, content, created_at, archived_at FROM knowledge WHERE agent_id = ? {archive} ORDER BY created_at DESC",
             (agent_id,),
@@ -88,7 +88,7 @@ def query_knowledge_by_agent(agent_id: str, show_all: bool = False) -> list[Know
 
 def get_knowledge(entry_id: str) -> Knowledge | None:
     """Get knowledge entry by its UUID."""
-    with store.ensure("knowledge") as conn:
+    with store.ensure() as conn:
         row = conn.execute(
             "SELECT knowledge_id, domain, agent_id, content, created_at, archived_at FROM knowledge WHERE knowledge_id = ?",
             (entry_id,),
@@ -109,7 +109,7 @@ def find_related_knowledge(
         return []
 
     archive = _archive_clause(show_all, is_and=True)
-    with store.ensure("knowledge") as conn:
+    with store.ensure() as conn:
         all_entries = conn.execute(
             f"SELECT knowledge_id, domain, agent_id, content, created_at, archived_at FROM knowledge WHERE knowledge_id != ? {archive}",
             (entry.knowledge_id,),
@@ -136,14 +136,14 @@ def find_related_knowledge(
 def archive_knowledge(entry_id: str, restore: bool = False) -> None:
     """Archive or restore knowledge entry."""
     if restore:
-        with store.ensure("knowledge") as conn:
+        with store.ensure() as conn:
             conn.execute(
                 "UPDATE knowledge SET archived_at = NULL WHERE knowledge_id = ?",
                 (entry_id,),
             )
     else:
         now = datetime.now().isoformat()
-        with store.ensure("knowledge") as conn:
+        with store.ensure() as conn:
             conn.execute(
                 "UPDATE knowledge SET archived_at = ? WHERE knowledge_id = ?",
                 (now, entry_id),
@@ -154,7 +154,7 @@ def get_domain_tree(parent_domain: str | None = None, show_all: bool = False) ->
     """Get hierarchical domain tree, optionally filtered by parent domain."""
     archive_filter = "" if show_all else "WHERE archived_at IS NULL"
 
-    with store.ensure("knowledge") as conn:
+    with store.ensure() as conn:
         if parent_domain:
             prefix = f"{parent_domain}/"
             rows = conn.execute(
@@ -181,7 +181,7 @@ def get_domain_tree(parent_domain: str | None = None, show_all: bool = False) ->
 
 def count_knowledge() -> tuple[int, int, int]:
     """Get knowledge counts: (total, active, archived)."""
-    with store.ensure("knowledge") as conn:
+    with store.ensure() as conn:
         total = conn.execute("SELECT COUNT(*) FROM knowledge").fetchone()[0]
         active = conn.execute(
             "SELECT COUNT(*) FROM knowledge WHERE archived_at IS NULL"

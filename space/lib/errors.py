@@ -9,7 +9,7 @@ def install_error_handler(source: str):
 
     def error_hook(exc_type, exc_value, exc_traceback):
         if exc_type.__name__ not in ("Exit", "Abort", "KeyboardInterrupt"):
-            f"{exc_type.__name__}: {str(exc_value)}"
+            print(f"{exc_type.__name__}: {str(exc_value)}", file=sys.stderr)
 
         original_hook(exc_type, exc_value, exc_traceback)
 
@@ -19,6 +19,6 @@ def install_error_handler(source: str):
 def log_error(source: str, agent_id: str | None, error: Exception, command: str = ""):
     """Log error to events with agent context and command."""
     if command:
-        f"{command}: {type(error).__name__}: {str(error)}"
+        print(f"{command}: {type(error).__name__}: {str(error)}", file=sys.stderr)
     else:
-        f"{type(error).__name__}: {str(error)}"
+        print(f"{type(error).__name__}: {str(error)}", file=sys.stderr)

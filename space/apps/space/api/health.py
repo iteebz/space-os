@@ -3,12 +3,11 @@ from __future__ import annotations
 import logging
 import sqlite3
 
-from space.lib import paths, store
+from space.lib import store
 
 logger = logging.getLogger(__name__)
 
 DB_NAME = "space.db"
-REGISTRY = "space"
 EXPECTED_TABLES = {
     "agents",
     "sessions",
@@ -19,10 +18,6 @@ EXPECTED_TABLES = {
     "chats",
 }
 IGNORED_TABLES = {"sqlite_sequence", "_migrations"}
-
-
-def _database_exists() -> bool:
-    return (paths.space_data() / DB_NAME).exists()
 
 
 def _check_foreign_keys(conn: sqlite3.Connection) -> list[str]:
@@ -42,12 +37,12 @@ def check_db() -> tuple[bool, list[str], dict[str, int]]:
     issues: list[str] = []
     counts: dict[str, int] = {}
 
-    if not _database_exists():
+    if not store.database_exists():
         issues.append(f"❌ {DB_NAME} missing")
         return False, issues, counts
 
     try:
-        with store.ensure(REGISTRY) as conn:
+        with store.ensure() as conn:
             actual_tables = {
                 row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
             }

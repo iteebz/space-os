@@ -39,9 +39,7 @@ def resolve_id(table: str, id_col: str, partial_id: str, *, error_context: str =
 
     table_map = {"memory": "memories"}
     actual_table = table_map.get(table, table)
-    registry_map = {"memory": "memory", "memories": "memory"}
-    registry_name = registry_map.get(table, table)
-    with store.ensure(registry_name) as conn:
+    with store.ensure() as conn:
         rows = conn.execute(
             f"SELECT {id_col} FROM {actual_table} WHERE {id_col} LIKE ?",
             (f"%{partial_id}",),

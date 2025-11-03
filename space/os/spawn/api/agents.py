@@ -4,7 +4,6 @@ import uuid
 from datetime import datetime
 from functools import lru_cache
 
-from space.core import db
 from space.core.models import Agent
 from space.lib import store
 from space.lib.store import from_row
@@ -27,7 +26,7 @@ def _row_to_agent(row: store.Row) -> Agent:
 @lru_cache(maxsize=256)
 def _get_agent_by_name_cached(name: str) -> Agent | None:
     """Cached agent lookup by name."""
-    with db.connect() as conn:
+    with store.ensure() as conn:
         row = conn.execute(
             "SELECT agent_id, identity, constitution, model, spawn_count, archived_at, created_at FROM agents WHERE identity = ? AND archived_at IS NULL LIMIT 1",
             (name,),
@@ -42,7 +41,7 @@ def _clear_cache():
 
 def touch_agent(agent_id: str) -> None:
     """Update last_active_at for an agent. Called after any agent operation."""
-    with db.connect() as conn:
+    with store.ensure() as conn:
         conn.execute(
             "UPDATE agents SET last_active_at = ? WHERE agent_id = ?",
             (datetime.now().isoformat(), agent_id),
@@ -51,7 +50,7 @@ def touch_agent(agent_id: str) -> None:
 
 def get_agent(identifier: str) -> Agent | None:
     """Resolve agent by name or ID. Returns Agent object or None."""
-    with db.connect() as conn:
+    with store.ensure() as conn:
         row = conn.execute(
             "SELECT agent_id, identity, constitution, model, spawn_count, archived_at, created_at FROM agents WHERE (identity = ? OR agent_id = ?) AND archived_at IS NULL LIMIT 1",
             (identifier, identifier),
@@ -71,7 +70,7 @@ def register_agent(identity: str, model: str, constitution: str | None = None) -
 
     agent_id = str(uuid.uuid4())
     now_iso = datetime.now().isoformat()
-    with db.connect() as conn:
+    with store.ensure() as conn:
         conn.execute(
             "INSERT INTO agents (agent_id, identity, constitution, model, created_at) VALUES (?, ?, ?, ?, ?)",
             (agent_id, identity, constitution, model, now_iso),
@@ -116,7 +115,7 @@ def update_agent(
 
     values.append(agent.agent_id)
     sql = f"UPDATE agents SET {', '.join(updates)} WHERE agent_id = ?"
-    with db.connect() as conn:
+    with store.ensure() as conn:
         conn.execute(sql, values)
     _clear_cache()
     return True
@@ -147,7 +146,7 @@ def rename_agent(old_name: str, new_name: str) -> bool:
     if new_agent:
         return False
 
-    with db.connect() as conn:
+    with store.ensure() as conn:
         conn.execute(
             "UPDATE agents SET identity = ? WHERE agent_id = ?", (new_name, old_agent.agent_id)
         )
@@ -162,7 +161,7 @@ def archive_agent(name: str) -> bool:
         return False
     agent_id = agent.agent_id
 
-    with db.connect() as conn:
+    with store.ensure() as conn:
         conn.execute(
             "UPDATE agents SET archived_at = ? WHERE agent_id = ?",
             (datetime.now().isoformat(), agent_id),
@@ -173,7 +172,7 @@ def archive_agent(name: str) -> bool:
 
 def unarchive_agent(name: str) -> bool:
     """Unarchive an agent. Returns True if unarchived, False if not found."""
-    with db.connect() as conn:
+    with store.ensure() as conn:
         row = conn.execute(
             "SELECT agent_id FROM agents WHERE identity = ? LIMIT 1", (name,)
         ).fetchone()
@@ -182,7 +181,7 @@ def unarchive_agent(name: str) -> bool:
     if not agent_id:
         return False
 
-    with db.connect() as conn:
+    with store.ensure() as conn:
         conn.execute("UPDATE agents SET archived_at = NULL WHERE agent_id = ?", (agent_id,))
     _clear_cache()
     return True
@@ -190,7 +189,7 @@ def unarchive_agent(name: str) -> bool:
 
 def list_agents() -> list[str]:
     """List all active agents."""
-    with db.connect() as conn:
+    with store.ensure() as conn:
         rows = conn.execute(
             "SELECT identity FROM agents WHERE archived_at IS NULL ORDER BY identity"
         ).fetchall()
@@ -210,7 +209,7 @@ def merge_agents(from_name: str, to_name: str) -> bool:
     if from_id == to_id:
         return False
 
-    with db.connect() as conn:
+    with store.ensure() as conn:
         conn.execute("UPDATE messages SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
         conn.execute("UPDATE sessions SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
         conn.execute("UPDATE knowledge SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
@@ -223,21 +222,21 @@ def merge_agents(from_name: str, to_name: str) -> bool:
 
 def agent_identities() -> dict[str, str]:
     """Get agent_id -> identity mapping."""
-    with db.connect() as conn:
+    with store.ensure() as conn:
         rows = conn.execute("SELECT agent_id, identity FROM agents").fetchall()
         return {row[0]: row[1] for row in rows}
 
 
 def archived_agents() -> set[str]:
     """Get set of archived agent IDs."""
-    with db.connect() as conn:
+    with store.ensure() as conn:
         rows = conn.execute("SELECT agent_id FROM agents WHERE archived_at IS NOT NULL").fetchall()
         return {row[0] for row in rows}
 
 
 def stats() -> dict:
     """Get spawn statistics."""
-    with db.connect() as conn:
+    with store.ensure() as conn:
         total_agents = conn.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
         active_agents = conn.execute(
             "SELECT COUNT(*) FROM agents WHERE archived_at IS NULL"

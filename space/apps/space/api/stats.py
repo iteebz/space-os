@@ -36,7 +36,7 @@ def _get_memory_stats() -> dict:
     from space.os import memory
 
     total, active, archived = memory.api.count_memories()
-    with store.ensure("memory") as conn:
+    with store.ensure() as conn:
         topics = conn.execute(
             "SELECT COUNT(DISTINCT topic) FROM memories WHERE archived_at IS NULL"
         ).fetchone()[0]
@@ -57,7 +57,7 @@ def _get_knowledge_stats() -> dict:
     from space.os import knowledge
 
     total, active, archived = knowledge.api.count_knowledge()
-    with store.ensure("knowledge") as conn:
+    with store.ensure() as conn:
         topics = conn.execute(
             "SELECT COUNT(DISTINCT domain) FROM knowledge WHERE archived_at IS NULL"
         ).fetchone()[0]
@@ -93,7 +93,7 @@ def _get_bridge_stats() -> dict:
     total_msgs, active_msgs, archived_msgs = bridge.api.messaging.count_messages()
     distinct_channels, active_channels, archived_channels = bridge.api.channels.count_channels()
 
-    with store.ensure("bridge") as conn:
+    with store.ensure() as conn:
         msg_by_agent = conn.execute(
             "SELECT agent_id, COUNT(*) FROM messages GROUP BY agent_id ORDER BY COUNT(*) DESC"
         ).fetchall()

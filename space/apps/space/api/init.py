@@ -5,8 +5,7 @@ from pathlib import Path
 
 import typer
 
-from space.core import db
-from space.lib import paths
+from space.lib import paths, store
 from space.os import chats, spawn
 from space.os.spawn import defaults as spawn_defaults
 
@@ -67,7 +66,8 @@ def init_default_agents():
     if not constitution_files:
         return
 
-    with db.connect():
+    db.register()
+    with store.ensure():
         with contextlib.suppress(ValueError):
             spawn.register_agent("human", "human", None)
 
@@ -89,7 +89,7 @@ def _get_bin_dir() -> Path:
 
 def _list_agent_identities() -> list[str]:
     """Get all registered agent identities from spawn DB."""
-    with db.connect():
+    with store.ensure():
         agents = spawn.api.list_agents()
     return [agent.identity for agent in agents]
 
@@ -136,9 +136,7 @@ def init():
     for cli in ["claude", "codex", "gemini"]:
         (chats_dir / cli).mkdir(exist_ok=True)
 
-    db.register()
-
-    with db.connect():
+    with store.ensure():
         pass
 
     typer.echo(f"✓ Initialized workspace at {root}")

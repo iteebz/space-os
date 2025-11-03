@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from space.core import db
 from space.lib import paths, store
 from space.os import bridge, spawn
 from space.os.spawn import defaults as spawn_defaults
@@ -41,9 +40,7 @@ def test_space(monkeypatch, tmp_path, request):
     monkeypatch.setattr(paths, "space_data", lambda: data_dir)
 
     store._reset_for_testing()
-    db._initialized = False
-    db.register()
-    with db.connect():
+    with store.ensure():
         pass
 
     yield workspace
@@ -86,7 +83,7 @@ class AgentHandle(str):
 
 
 def dump_agents_table():
-    with db.connect() as conn:
+    with store.ensure() as conn:
         print("DEBUG: Contents of agents table:")
         for row in conn.execute("SELECT agent_id, identity FROM agents").fetchall():
             print(f"  agent_id: {row['agent_id']}, identity: {row['identity']}")

@@ -56,7 +56,7 @@ def send_message(
     actual_channel_id = channel_obj.channel_id
 
     message_id = uuid7()
-    with store.ensure("bridge") as conn:
+    with store.ensure() as conn:
         conn.execute(
             "INSERT INTO messages (message_id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
             (message_id, actual_channel_id, agent_id, content),
@@ -102,7 +102,7 @@ def _build_pagination_query_and_params(
 def get_messages(channel: str | Channel) -> list[Message]:
     """Get all messages in a channel (used for context assembly during spawns)."""
     channel_id = _to_channel_id(channel)
-    with store.ensure("bridge") as conn:
+    with store.ensure() as conn:
         from . import channels
 
         channel_obj = channels.get_channel(channel_id)
@@ -130,7 +130,7 @@ def get_sender_history(identity: str, limit: int = 5) -> list[Message]:
     if not agent:
         raise ValueError(f"Identity '{identity}' not registered.")
     agent_id = agent.agent_id
-    with store.ensure("bridge") as conn:
+    with store.ensure() as conn:
         cursor = conn.execute(
             """
             SELECT m.message_id, m.channel_id, m.agent_id, m.content, m.created_at
@@ -158,7 +158,7 @@ def get_messages_before(channel: str | Channel, timestamp: str, limit: int = 1) 
     from . import channels
 
     channel_id = _to_channel_id(channel)
-    with store.ensure("bridge") as conn:
+    with store.ensure() as conn:
         channel_obj = channels.get_channel(channel_id)
         if not channel_obj:
             raise ValueError(f"Channel {channel_id} not found")
@@ -308,7 +308,7 @@ def count_messages() -> tuple[int, int, int]:
     Active: messages in non-archived channels
     Archived: messages in archived channels
     """
-    with store.ensure("bridge") as conn:
+    with store.ensure() as conn:
         total = conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
         archived = conn.execute(
             "SELECT COUNT(*) FROM messages m WHERE m.channel_id IN "

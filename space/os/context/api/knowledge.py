@@ -7,7 +7,7 @@ from space.os import spawn
 def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[dict]:
     """Search knowledge entries by query (shared across all agents)."""
     results = []
-    with store.ensure("knowledge") as conn:
+    with store.ensure() as conn:
         sql_query = (
             "SELECT knowledge_id, domain, agent_id, content, created_at FROM knowledge "
             "WHERE (content LIKE ? OR domain LIKE ?) AND archived_at IS NULL"

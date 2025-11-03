@@ -2,8 +2,8 @@
 
 from datetime import datetime
 
-from space.core import db
 from space.core.models import Session
+from space.lib import store
 from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
 
@@ -30,7 +30,7 @@ def create_session(
     session_id = uuid7()
     now = datetime.now().isoformat()
 
-    with db.connect() as conn:
+    with store.ensure() as conn:
         cursor = conn.cursor()
 
         cursor.execute(
@@ -54,7 +54,7 @@ def create_session(
 
 def end_session(session_id: str) -> None:
     """End a session."""
-    with db.connect() as conn:
+    with store.ensure() as conn:
         cursor = conn.cursor()
         cursor.execute(
             "UPDATE sessions SET ended_at = ? WHERE id = ?",
@@ -64,7 +64,7 @@ def end_session(session_id: str) -> None:
 
 def get_spawn_count(agent_id: str) -> int:
     """Get total spawn count for agent."""
-    with db.connect() as conn:
+    with store.ensure() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT spawn_count FROM agents WHERE agent_id = ?", (agent_id,))
         result = cursor.fetchone()
@@ -81,7 +81,7 @@ def get_sessions_for_agent(agent_id: str, limit: int | None = None) -> list[Sess
     Returns:
         List of Session objects
     """
-    with db.connect() as conn:
+    with store.ensure() as conn:
         query = """
             SELECT * FROM sessions
             WHERE agent_id = ?
@@ -106,7 +106,7 @@ def get_session(session_id: str) -> Session | None:
     Returns:
         Session object or None if not found
     """
-    with db.connect() as conn:
+    with store.ensure() as conn:
         row = conn.execute(
             "SELECT * FROM sessions WHERE id = ? OR id LIKE ? LIMIT 1",
             (session_id, f"{session_id}%"),

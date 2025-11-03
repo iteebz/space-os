@@ -8,7 +8,7 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
     """Search bridge messages by query (shared channels)."""
     results = []
 
-    with store.ensure("bridge") as conn:
+    with store.ensure() as conn:
         sql_query = (
             "SELECT m.message_id, m.channel_id, m.agent_id, m.content, m.created_at, c.name as channel_name "
             "FROM messages m JOIN channels c ON m.channel_id = c.channel_id "

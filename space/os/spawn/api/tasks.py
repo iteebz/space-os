@@ -10,8 +10,8 @@ All tasks are sessions. Not all sessions are tasks. A session is a task iff is_t
 
 from datetime import datetime
 
-from space.core import db
 from space.core.models import Session, TaskStatus
+from space.lib import store
 from space.lib.store import from_row
 
 from .agents import get_agent
@@ -46,7 +46,7 @@ def create_task(
 
 def get_task(task_id: str) -> Session | None:
     """Get a task session by ID."""
-    with db.connect() as conn:
+    with store.ensure() as conn:
         row = conn.execute(
             "SELECT * FROM sessions WHERE id = ?",
             (task_id,),
@@ -65,14 +65,14 @@ def start_task(task_id: str, pid: int | None = None) -> None:
         params.append(pid)
     params.append(task_id)
     query = f"UPDATE sessions SET {', '.join(updates)} WHERE id = ?"
-    with db.connect() as conn:
+    with store.ensure() as conn:
         conn.execute(query, params)
 
 
 def complete_task(task_id: str) -> None:
     """Mark task as completed."""
     now_iso = datetime.now().isoformat()
-    with db.connect() as conn:
+    with store.ensure() as conn:
         conn.execute(
             "UPDATE sessions SET status = ?, ended_at = ? WHERE id = ?",
             (TaskStatus.COMPLETED.value, now_iso, task_id),
@@ -82,7 +82,7 @@ def complete_task(task_id: str) -> None:
 def fail_task(task_id: str) -> None:
     """Mark task as failed."""
     now_iso = datetime.now().isoformat()
-    with db.connect() as conn:
+    with store.ensure() as conn:
         conn.execute(
             "UPDATE sessions SET status = ?, ended_at = ? WHERE id = ?",
             (TaskStatus.FAILED.value, now_iso, task_id),
@@ -115,6 +115,6 @@ def list_tasks(
 
     query += " ORDER BY created_at DESC"
 
-    with db.connect() as conn:
+    with store.ensure() as conn:
         rows = conn.execute(query, params).fetchall()
         return [from_row(row, Session) for row in rows]
