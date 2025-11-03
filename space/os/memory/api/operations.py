@@ -206,3 +206,46 @@ def get_memory(memory_id: str) -> Memory | None:
         return None
 
     return _row_to_memory(row)
+
+
+def get_agent_memories(
+    agent_id: str,
+    after_timestamp: str | None = None,
+    limit: int | None = None,
+) -> list[Memory]:
+    """Get memories for an agent by ID (low-level API for primitives/apps).
+
+    Args:
+        agent_id: Agent ID
+        after_timestamp: Optional ISO timestamp cutoff (memories after this time)
+        limit: Maximum number of memories to return
+
+    Returns:
+        List of Memory objects, ordered by creation time (newest first)
+    """
+    with store.ensure("memory") as conn:
+        query = "SELECT memory_id, agent_id, message, topic, created_at, archived_at, core, source FROM memories WHERE agent_id = ? AND archived_at IS NULL"
+        params = [agent_id]
+
+        if after_timestamp:
+            query += " AND created_at > ?"
+            params.append(after_timestamp)
+
+        query += " ORDER BY created_at DESC"
+        if limit:
+            query += " LIMIT ?"
+            params.append(limit)
+
+        rows = conn.execute(query, params).fetchall()
+        return [_row_to_memory(row) for row in rows]
+
+
+def count_memories() -> tuple[int, int, int]:
+    """Get memory counts: (total, active, archived)."""
+    with store.ensure("memory") as conn:
+        total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
+        active = conn.execute("SELECT COUNT(*) FROM memories WHERE archived_at IS NULL").fetchone()[
+            0
+        ]
+        archived = total - active
+    return total, active, archived

@@ -1,8 +1,7 @@
 """Trace dispatcher: routes queries to appropriate trace module."""
 
 from space.apps.trace.api import agents, channels, sessions
-from space.core import db
-from space.lib import store
+from space.os import bridge, spawn
 
 
 def _parse_explicit_query(query: str) -> tuple[str, str] | None:
@@ -33,25 +32,16 @@ def _identify_implicit_query(query: str) -> tuple[str, str]:
 
     Returns: (type, normalized_query)
     """
-    db.register()
+    agent = spawn.get_agent(query)
+    if agent:
+        return ("identity", agent.identity)
 
-    with db.connect() as conn:
-        if conn.execute("SELECT agent_id FROM agents WHERE identity = ?", (query,)).fetchone():
-            return ("identity", query)
-
-    with store.ensure("bridge") as conn:
-        if channel := conn.execute(
-            "SELECT channel_id FROM channels WHERE channel_id LIKE ? OR name = ?",
-            (f"{query}%", query),
-        ).fetchone():
-            return ("channel_id", channel[0])
-
-    with db.connect() as conn:
-        if session := conn.execute(
-            "SELECT session_id FROM sessions WHERE session_id LIKE ?",
-            (f"{query}%",),
-        ).fetchone():
-            return ("session_id", session[0])
+    try:
+        channel = bridge.get_channel(query)
+        if channel:
+            return ("channel_id", channel.channel_id)
+    except (ValueError, KeyError):
+        pass
 
     return ("unknown", query)
 
@@ -71,28 +61,25 @@ def identify_query_type(query: str) -> tuple[str, str]:
     explicit = _parse_explicit_query(query)
     if explicit:
         query_type, value = explicit
-        db.register()
         if query_type == "identity":
-            with db.connect() as conn:
-                if not conn.execute(
-                    "SELECT agent_id FROM agents WHERE identity = ?", (value,)
-                ).fetchone():
-                    raise ValueError(f"Agent '{value}' not found")
-        elif query_type == "session_id":
-            with db.connect() as conn:
-                if not conn.execute(
-                    "SELECT session_id FROM sessions WHERE session_id LIKE ?",
-                    (f"{value}%",),
-                ).fetchone():
-                    raise ValueError(f"Session '{value}' not found")
-        elif query_type == "channel_id":
-            with store.ensure("bridge") as conn:
-                if not conn.execute(
-                    "SELECT channel_id FROM channels WHERE channel_id LIKE ? OR name = ?",
-                    (f"{value}%", value),
-                ).fetchone():
-                    raise ValueError(f"Channel '{value}' not found")
-        return (query_type, value)
+            agent = spawn.get_agent(value)
+            if not agent:
+                raise ValueError(f"Agent '{value}' not found")
+            return (query_type, agent.identity)
+        if query_type == "session_id":
+            try:
+                sessions.trace_session(value)
+            except ValueError as e:
+                raise ValueError(f"Session '{value}' not found") from e
+            return (query_type, value)
+        if query_type == "channel_id":
+            try:
+                channel = bridge.get_channel(value)
+                if channel:
+                    return (query_type, channel.channel_id)
+            except Exception:
+                pass
+            raise ValueError(f"Channel '{value}' not found")
 
     query_type, normalized = _identify_implicit_query(query)
     if query_type == "unknown":

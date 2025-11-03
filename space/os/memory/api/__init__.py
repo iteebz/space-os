@@ -1,9 +1,11 @@
 from .operations import (
     add_memory,
     archive_memory,
+    count_memories,
     delete_memory,
     edit_memory,
     find_related_memories,
+    get_agent_memories,
     get_memory,
     list_memories,
     mark_memory_core,
@@ -13,9 +15,11 @@ from .operations import (
 __all__ = [
     "add_memory",
     "archive_memory",
+    "count_memories",
     "delete_memory",
     "edit_memory",
     "find_related_memories",
+    "get_agent_memories",
     "get_memory",
     "list_memories",
     "mark_memory_core",

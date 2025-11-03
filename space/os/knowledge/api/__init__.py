@@ -1,6 +1,7 @@
 from .operations import (
     add_knowledge,
     archive_knowledge,
+    count_knowledge,
     find_related_knowledge,
     get_domain_tree,
     get_knowledge,
@@ -12,6 +13,7 @@ from .operations import (
 __all__ = [
     "add_knowledge",
     "archive_knowledge",
+    "count_knowledge",
     "find_related_knowledge",
     "get_domain_tree",
     "get_knowledge",

@@ -1,7 +1,6 @@
 """Channel trace: active agents and participation history."""
 
-from space.core import db
-from space.lib import store
+from space.os import bridge, spawn
 
 
 def trace_channel(channel_id: str) -> dict:
@@ -13,40 +12,23 @@ def trace_channel(channel_id: str) -> dict:
     Returns:
         Dict with channel info and participant activity
     """
-    with store.ensure("bridge") as conn:
-        channel_row = conn.execute(
-            "SELECT channel_id, name FROM channels WHERE channel_id = ? OR name = ?",
-            (channel_id, channel_id),
-        ).fetchone()
+    channel = bridge.get_channel(channel_id)
+    if not channel:
+        raise ValueError(f"Channel '{channel_id}' not found")
 
-        if not channel_row:
-            raise ValueError(f"Channel '{channel_id}' not found")
+    actual_channel_id = channel.channel_id
+    channel_name = channel.name
 
-        actual_channel_id = channel_row[0]
-
-        agent_messages = conn.execute(
-            """
-            SELECT agent_id, content, created_at,
-                   ROW_NUMBER() OVER (PARTITION BY agent_id ORDER BY created_at DESC) as rn
-            FROM messages
-            WHERE channel_id = ?
-            """,
-            (actual_channel_id,),
-        ).fetchall()
-
-    db.register()
-    with db.connect() as conn:
-        agents_map = {
-            row[0]: row[1]
-            for row in conn.execute("SELECT agent_id, identity FROM agents").fetchall()
-        }
+    messages = bridge.get_messages(actual_channel_id)
+    agents_list = spawn.list_agents()
+    agents_map = {agent.agent_id: agent.identity for agent in agents_list}
 
     participant_data = {}
-    for agent_id, content, created_at, rn in agent_messages:
-        if agent_id not in participant_data:
-            participant_data[agent_id] = {
-                "last_message_at": created_at,
-                "last_message": content[:60] if rn == 1 else None,
+    for msg in messages:
+        if msg.agent_id not in participant_data:
+            participant_data[msg.agent_id] = {
+                "last_message_at": msg.created_at,
+                "last_message": msg.content[:60],
             }
 
     participants = [
@@ -66,6 +48,6 @@ def trace_channel(channel_id: str) -> dict:
     return {
         "type": "channel",
         "channel_id": actual_channel_id,
-        "channel_name": channel_row[1],
+        "channel_name": channel_name,
         "participants": participants,
     }

@@ -69,3 +69,46 @@ def get_spawn_count(agent_id: str) -> int:
         cursor.execute("SELECT spawn_count FROM agents WHERE agent_id = ?", (agent_id,))
         result = cursor.fetchone()
         return result[0] if result else 0
+
+
+def get_sessions_for_agent(agent_id: str, limit: int | None = None) -> list[Session]:
+    """Get all sessions for an agent, ordered by most recent first.
+
+    Args:
+        agent_id: Agent ID
+        limit: Maximum number of sessions to return (None for all)
+
+    Returns:
+        List of Session objects
+    """
+    with db.connect() as conn:
+        query = """
+            SELECT * FROM sessions
+            WHERE agent_id = ?
+            ORDER BY created_at DESC
+        """
+        params = (agent_id,)
+
+        if limit:
+            query += " LIMIT ?"
+            params = (agent_id, limit)
+
+        rows = conn.execute(query, params).fetchall()
+        return [from_row(row, Session) for row in rows]
+
+
+def get_session(session_id: str) -> Session | None:
+    """Get a single session by ID (supports partial ID match).
+
+    Args:
+        session_id: Session ID or partial ID (will be matched with LIKE)
+
+    Returns:
+        Session object or None if not found
+    """
+    with db.connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM sessions WHERE id = ? OR id LIKE ? LIMIT 1",
+            (session_id, f"{session_id}%"),
+        ).fetchone()
+        return from_row(row, Session) if row else None

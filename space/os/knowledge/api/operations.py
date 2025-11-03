@@ -177,3 +177,14 @@ def get_domain_tree(parent_domain: str | None = None, show_all: bool = False) ->
             current = current[part]
 
     return tree
+
+
+def count_knowledge() -> tuple[int, int, int]:
+    """Get knowledge counts: (total, active, archived)."""
+    with store.ensure("knowledge") as conn:
+        total = conn.execute("SELECT COUNT(*) FROM knowledge").fetchone()[0]
+        active = conn.execute(
+            "SELECT COUNT(*) FROM knowledge WHERE archived_at IS NULL"
+        ).fetchone()[0]
+        archived = total - active
+    return total, active, archived

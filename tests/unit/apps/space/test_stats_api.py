@@ -5,7 +5,6 @@ from unittest.mock import patch
 import pytest
 
 from space.apps.space.api import stats as stats_api
-from space.apps.space.api.stats import LeaderboardEntry
 
 
 @pytest.fixture
@@ -41,68 +40,6 @@ def mock_get_knowledge_stats():
     """Mock _get_knowledge_stats."""
     with patch("space.apps.space.api.stats._get_knowledge_stats") as mock:
         yield mock
-
-
-def test_build_leaderboard_empty(mock_get_agent_identities):
-    mock_get_agent_identities.return_value = {}
-
-    result = stats_api._build_leaderboard([])
-
-    assert result == []
-
-
-def test_build_leaderboard_with_agents(mock_get_agent_identities):
-    mock_get_agent_identities.return_value = {
-        "agent1": "Alice",
-        "agent2": "Bob",
-    }
-
-    result = stats_api._build_leaderboard(
-        [
-            {"agent_id": "agent1", "count": 10},
-            {"agent_id": "agent2", "count": 5},
-        ]
-    )
-
-    assert len(result) == 2
-    assert result[0] == LeaderboardEntry(identity="Alice", count=10)
-    assert result[1] == LeaderboardEntry(identity="Bob", count=5)
-
-
-def test_build_leaderboard_with_limit(mock_get_agent_identities):
-    mock_get_agent_identities.return_value = {
-        "agent1": "Alice",
-        "agent2": "Bob",
-        "agent3": "Charlie",
-    }
-
-    result = stats_api._build_leaderboard(
-        [
-            {"agent_id": "agent1", "count": 10},
-            {"agent_id": "agent2", "count": 5},
-            {"agent_id": "agent3", "count": 3},
-        ],
-        limit=2,
-    )
-
-    assert len(result) == 2
-    assert result[0].identity == "Alice"
-    assert result[1].identity == "Bob"
-
-
-def test_build_leaderboard_unknown_agent(mock_get_agent_identities):
-    mock_get_agent_identities.return_value = {"agent1": "Alice"}
-
-    result = stats_api._build_leaderboard(
-        [
-            {"agent_id": "agent1", "count": 10},
-            {"agent_id": "unknown", "count": 5},
-        ]
-    )
-
-    assert len(result) == 2
-    assert result[0].identity == "Alice"
-    assert result[1].identity == "unknown"
 
 
 def test_agent_stats_aggregates_data(

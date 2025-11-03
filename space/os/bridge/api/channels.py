@@ -166,3 +166,20 @@ def get_channel(channel: str | Channel) -> Channel | None:
         )
         channel.members = [p_row["agent_id"] for p_row in members_cursor.fetchall()]
         return channel
+
+
+def count_channels() -> tuple[int, int, int]:
+    """Get channel counts: (distinct_in_messages, active, archived).
+
+    Distinct: channels with messages (used in stats)
+    Active: channels not archived
+    Archived: channels archived
+    """
+    with store.ensure("bridge") as conn:
+        distinct = conn.execute("SELECT COUNT(DISTINCT channel_id) FROM messages").fetchone()[0]
+        total = conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0]
+        active = conn.execute("SELECT COUNT(*) FROM channels WHERE archived_at IS NULL").fetchone()[
+            0
+        ]
+        archived = total - active
+    return distinct, active, archived

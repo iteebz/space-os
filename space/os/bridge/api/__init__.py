@@ -7,6 +7,7 @@ Mention spawning: detect @identity in messages, spawn agents inline.
 
 from .channels import (
     archive_channel,
+    count_channels,
     create_channel,
     delete_channel,
     get_channel,
@@ -17,8 +18,10 @@ from .channels import (
 )
 from .mentions import spawn_from_mentions
 from .messaging import (
+    count_messages,
     format_messages,
     get_messages,
+    get_messages_before,
     get_sender_history,
     recv_messages,
     send_message,
@@ -27,11 +30,14 @@ from .messaging import (
 
 __all__ = [
     "archive_channel",
+    "count_channels",
+    "count_messages",
     "create_channel",
     "delete_channel",
     "format_messages",
     "get_channel",
     "get_messages",
+    "get_messages_before",
     "get_sender_history",
     "list_channels",
     "recv_messages",

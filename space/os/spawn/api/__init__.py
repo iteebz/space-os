@@ -19,6 +19,8 @@ from .prompt import build_spawn_context
 from .sessions import (
     create_session,
     end_session,
+    get_session,
+    get_sessions_for_agent,
     get_spawn_count,
 )
 from .tasks import complete_task, create_task, fail_task, get_task, list_tasks, start_task
@@ -39,6 +41,8 @@ __all__ = [
     "spawn_agent",
     "create_session",
     "end_session",
+    "get_session",
+    "get_sessions_for_agent",
     "get_spawn_count",
     "create_task",
     "get_task",

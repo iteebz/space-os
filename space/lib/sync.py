@@ -186,6 +186,7 @@ def _link_chat_to_session(chat: Chat, cli_name: str) -> None:
                 continue
     except Exception as e:
         logger.debug(f"Failed to link chat {chat.id} to session: {e}")
+        return
 
 
 def sync_provider_chats(

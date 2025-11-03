@@ -144,6 +144,38 @@ def get_sender_history(identity: str, limit: int = 5) -> list[Message]:
         return [_row_to_message(row) for row in cursor.fetchall()]
 
 
+def get_messages_before(channel: str | Channel, timestamp: str, limit: int = 1) -> list[Message]:
+    """Get messages in channel created before a given timestamp, ordered by most recent first.
+
+    Args:
+        channel: Channel name or ID
+        timestamp: ISO timestamp cutoff (messages before this time)
+        limit: Maximum number of messages to return
+
+    Returns:
+        List of Message objects, ordered by creation time (newest first)
+    """
+    from . import channels
+
+    channel_id = _to_channel_id(channel)
+    with store.ensure("bridge") as conn:
+        channel_obj = channels.get_channel(channel_id)
+        if not channel_obj:
+            raise ValueError(f"Channel {channel_id} not found")
+
+        cursor = conn.execute(
+            """
+            SELECT m.message_id, m.channel_id, m.agent_id, m.content, m.created_at
+            FROM messages m
+            WHERE m.channel_id = ? AND m.created_at < ?
+            ORDER BY m.created_at DESC
+            LIMIT ?
+            """,
+            (channel_obj.channel_id, timestamp, limit),
+        )
+        return [_row_to_message(row) for row in cursor.fetchall()]
+
+
 def recv_messages(
     channel: str | Channel, identity: str, ago: str | None = None
 ) -> tuple[list[Message], int, str | None, list[str]]:
@@ -267,3 +299,20 @@ def wait_for_message(
             return other_messages, len(other_messages), context, participants
 
         time.sleep(poll_interval)
+
+
+def count_messages() -> tuple[int, int, int]:
+    """Get message counts: (total, active, archived).
+
+    Total: all messages
+    Active: messages in non-archived channels
+    Archived: messages in archived channels
+    """
+    with store.ensure("bridge") as conn:
+        total = conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+        archived = conn.execute(
+            "SELECT COUNT(*) FROM messages m WHERE m.channel_id IN "
+            "(SELECT channel_id FROM channels WHERE archived_at IS NOT NULL)"
+        ).fetchone()[0]
+        active = total - archived
+    return total, active, archived
