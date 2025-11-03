@@ -155,26 +155,22 @@ def test_list_tasks_by_channel(test_space, default_agents):
 
 
 def test_mention_spawns_worker():
-    """Bridge detects @mention and builds task prompt."""
-    mock_agent = Agent(
-        agent_id="a-1",
-        identity="zealot",
-        constitution="zealot.md",
-        model="claude-haiku-4-5",
-        created_at="2024-01-01",
-    )
-    with (
-        patch("space.os.bridge.api.mentions.spawn_agents.get_agent") as mock_get_agent,
-        patch("space.os.bridge.api.mentions.paths.constitution") as mock_const_path,
-        patch("space.os.bridge.api.mentions._write_role_file"),
-    ):
+    """Bridge detects @mention and builds spawn context."""
+    from space.os.spawn.api.prompt import build_spawn_context
+
+    with patch("space.os.spawn.api.prompt.agents.get_agent") as mock_get_agent:
+        mock_agent = Agent(
+            agent_id="a-1",
+            identity="zealot",
+            constitution="zealot.md",
+            model="claude-haiku-4-5",
+            created_at="2024-01-01",
+        )
         mock_get_agent.return_value = mock_agent
-        mock_const_path.return_value.read_text.return_value = "# ZEALOT\nCore principles."
 
-        from space.os.bridge.api import mentions
-
-        result = mentions._build_prompt("zealot", "subagents-test", "@zealot question")
+        result = build_spawn_context("zealot", task="@zealot question", channel="subagents-test")
 
         assert result is not None
-        assert "[SPACE INSTRUCTIONS]" in result
+        assert "SPACE-OS PROTOCOL" in result
         assert "question" in result
+        assert "#subagents-test" in result

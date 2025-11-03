@@ -1,6 +1,7 @@
 from . import api
 from .api import (
     archive_agent,
+    build_spawn_context,
     clone_agent,
     complete_task,
     create_task,
@@ -14,7 +15,6 @@ from .api import (
     register_agent,
     rename_agent,
     spawn_agent,
-    spawn_prompt,
     start_task,
     unarchive_agent,
     update_agent,
@@ -34,7 +34,7 @@ __all__ = [
     "unarchive_agent",
     "list_agents",
     "merge_agents",
-    "spawn_prompt",
+    "build_spawn_context",
     "spawn_agent",
     "create_task",
     "get_task",

@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from space.core.models import Agent
 from space.os.bridge.api import mentions
+from space.os.spawn.api.prompt import build_spawn_context
 
 
 def test_parse_mentions_single():
@@ -34,59 +35,63 @@ def test_parse_mentions_none():
     assert parsed == []
 
 
-def test_build_prompt_success():
-    """Build prompt returns task instruction for agent."""
-    mock_agent = Agent(
-        agent_id="a-1",
-        identity="zealot",
-        constitution="zealot.md",
-        model="claude-haiku-4-5",
-        created_at="2024-01-01",
-    )
-    with (
-        patch("space.os.bridge.api.mentions.spawn_agents.get_agent") as mock_get_agent,
-        patch("space.os.bridge.api.mentions.paths.constitution") as mock_const_path,
-        patch("space.os.bridge.api.mentions._write_role_file") as mock_write,
-    ):
+def test_build_spawn_context_interactive():
+    """Build spawn context for interactive mode."""
+    with patch("space.os.spawn.api.prompt.agents.get_agent") as mock_get_agent:
+        mock_agent = Agent(
+            agent_id="a-1",
+            identity="zealot",
+            constitution="zealot.md",
+            model="claude-haiku-4-5",
+            created_at="2024-01-01",
+        )
         mock_get_agent.return_value = mock_agent
-        mock_const_path.return_value.read_text.return_value = "# ZEALOT\nCore principles."
 
-        result = mentions._build_prompt("zealot", "test-channel", "@zealot test message")
+        result = build_spawn_context("zealot")
 
         assert result is not None
-        assert "[SPACE INSTRUCTIONS]" in result
-        assert "test message" in result
-        mock_write.assert_called_once()
+        assert "You are zealot" in result
+        assert "SPACE-OS PROTOCOL" in result
+        assert "Context loaded. Ready to work" in result
 
 
-def test_build_prompt_failure():
-    """Failed build prompt returns None when agent not found."""
-    with patch("space.os.bridge.api.mentions.spawn_agents.get_agent") as mock_get_agent:
-        mock_get_agent.return_value = None
-
-        result = mentions._build_prompt("nonexistent", "test-channel", "test")
-
-        assert result is None
-
-
-def test_build_prompt_exception():
-    """Build prompt handles exceptions gracefully."""
-    mock_agent = Agent(
-        agent_id="a-1",
-        identity="zealot",
-        constitution="zealot.md",
-        model="claude-haiku-4-5",
-        created_at="2024-01-01",
-    )
-    with (
-        patch("space.os.bridge.api.mentions.spawn_agents.get_agent") as mock_get_agent,
-        patch("space.os.bridge.api.mentions.paths.constitution") as mock_const_path,
-    ):
-        mock_get_agent.return_value = mock_agent
-        mock_const_path.return_value.read_text.side_effect = FileNotFoundError(
-            "constitution not found"
+def test_build_spawn_context_with_task():
+    """Build spawn context with task instruction."""
+    with patch("space.os.spawn.api.prompt.agents.get_agent") as mock_get_agent:
+        mock_agent = Agent(
+            agent_id="a-1",
+            identity="zealot",
+            constitution="zealot.md",
+            model="claude-haiku-4-5",
+            created_at="2024-01-01",
         )
+        mock_get_agent.return_value = mock_agent
 
-        result = mentions._build_prompt("zealot", "test-channel", "test")
+        result = build_spawn_context("zealot", task="analyze this bug")
 
-        assert result is None
+        assert result is not None
+        assert "You are zealot" in result
+        assert "SPACE-OS PROTOCOL" in result
+        assert "analyze this bug" in result
+        assert "TASK:" in result
+
+
+def test_build_spawn_context_with_channel():
+    """Build spawn context with channel context."""
+    with patch("space.os.spawn.api.prompt.agents.get_agent") as mock_get_agent:
+        mock_agent = Agent(
+            agent_id="a-1",
+            identity="zealot",
+            constitution="zealot.md",
+            model="claude-haiku-4-5",
+            created_at="2024-01-01",
+        )
+        mock_get_agent.return_value = mock_agent
+
+        result = build_spawn_context("zealot", task="respond here", channel="bugs")
+
+        assert result is not None
+        assert "You are zealot" in result
+        assert "#bugs" in result
+        assert "bridge recv bugs" in result
+        assert "respond here" in result

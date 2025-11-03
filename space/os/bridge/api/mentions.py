@@ -10,35 +10,6 @@ from space.os.spawn.api.tasks import complete_task, create_task, fail_task, star
 
 log = logging.getLogger(__name__)
 
-AGENT_PROMPT_TEMPLATE = """{context}
-
-[SPACE INSTRUCTIONS]
-{task}
-
-Infer the actual task from bridge context. If ambiguous, ask for clarification."""
-
-
-def _write_role_file(provider: str, constitution: str) -> None:
-    """Write pure constitution to agent home dir file."""
-    filename_map = {
-        "claude": "CLAUDE.md",
-        "gemini": "GEMINI.md",
-        "codex": "AGENTS.md",
-    }
-    agent_dir_map = {
-        "claude": ".claude",
-        "gemini": ".gemini",
-        "codex": ".codex",
-    }
-    filename = filename_map.get(provider)
-    agent_dir = agent_dir_map.get(provider)
-    if not filename or not agent_dir:
-        raise ValueError(f"Unknown provider: {provider}")
-
-    target = Path.home() / agent_dir / filename
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(constitution)
-
 
 def _parse_mentions(content: str) -> list[str]:
     """Extract @identity mentions from content."""
@@ -47,23 +18,38 @@ def _parse_mentions(content: str) -> list[str]:
     return list(set(matches))
 
 
-def _build_prompt(identity: str, channel: str, content: str) -> str | None:
-    """Build agent prompt with task instruction."""
+def _inject_constitution(identity: str) -> bool:
+    """Inject agent constitution to provider home dir. Returns True if successful."""
     try:
         agent = spawn_agents.get_agent(identity)
-        if not agent:
-            log.warning(f"Identity {identity} not found in registry")
-            return None
+        if not agent or not agent.constitution:
+            return True
 
-        if agent.constitution:
-            const_path = paths.constitution(agent.constitution)
-            constitution = const_path.read_text()
-            _write_role_file(agent.provider, constitution)
+        const_path = paths.constitution(agent.constitution)
+        constitution = const_path.read_text()
 
-        return AGENT_PROMPT_TEMPLATE.format(context="", task=content)
+        filename_map = {
+            "claude": "CLAUDE.md",
+            "gemini": "GEMINI.md",
+            "codex": "AGENTS.md",
+        }
+        agent_dir_map = {
+            "claude": ".claude",
+            "gemini": ".gemini",
+            "codex": ".codex",
+        }
+        filename = filename_map.get(agent.provider)
+        agent_dir = agent_dir_map.get(agent.provider)
+        if not filename or not agent_dir:
+            raise ValueError(f"Unknown provider: {agent.provider}")
+
+        target = __import__("pathlib").Path.home() / agent_dir / filename
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(constitution)
+        return True
     except Exception as e:
-        log.error(f"Building prompt for {identity} failed: {e}", exc_info=True)
-        return None
+        log.error(f"Injecting constitution for {identity} failed: {e}", exc_info=True)
+        return False
 
 
 def spawn_from_mentions(channel_id: str, content: str, agent_id: str | None = None) -> None:
@@ -119,16 +105,20 @@ def _process_mentions(
 
     for identity in mentions:
         log.info(f"Spawning {identity}")
-        prompt = _build_prompt(identity, channel_name, content)
-        if prompt:
-            task_id = create_task(identity=identity, input=prompt, channel_id=channel_id)
-            start_task(task_id)
-            try:
-                spawn_agent(identity, extra_args=[prompt])
-                complete_task(task_id, output="Agent completed task")
-                log.info(f"Spawned {identity} successfully")
-            except Exception as e:
-                fail_task(task_id, stderr=str(e))
-                log.error(f"Spawn error for {identity}: {e}")
-        else:
-            log.warning(f"No prompt for {identity}")
+        agent = spawn_agents.get_agent(identity)
+        if not agent:
+            log.warning(f"Identity {identity} not found in registry")
+            continue
+
+        _inject_constitution(identity)
+
+        prompt = build_spawn_context(identity, task=content, channel=channel_name)
+        task_id = create_task(identity=identity, input=prompt, channel_id=channel_id)
+        start_task(task_id)
+        try:
+            spawn_agent(identity, extra_args=[prompt])
+            complete_task(task_id, output="Agent completed task")
+            log.info(f"Spawned {identity} successfully")
+        except Exception as e:
+            fail_task(task_id, stderr=str(e))
+            log.error(f"Spawn error for {identity}: {e}")

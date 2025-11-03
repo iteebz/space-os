@@ -15,7 +15,7 @@ from .agents import (
     update_agent,
 )
 from .launch import spawn_agent
-from .prompt import spawn_prompt
+from .prompt import build_spawn_context
 from .sessions import (
     create_session,
     end_session,
@@ -35,7 +35,7 @@ __all__ = [
     "list_agents",
     "merge_agents",
     "touch_agent",
-    "spawn_prompt",
+    "build_spawn_context",
     "spawn_agent",
     "create_session",
     "end_session",

@@ -14,7 +14,7 @@ from space.lib.providers import claude, codex, gemini
 
 from . import agents, sessions
 from .environment import build_launch_env
-from .prompt import spawn_prompt
+from .prompt import build_spawn_context
 
 
 def spawn_agent(identity: str, extra_args: list[str] | None = None):
@@ -69,14 +69,13 @@ def spawn_agent(identity: str, extra_args: list[str] | None = None):
         launch_args = []
 
     if passthrough:
-        context = spawn_prompt(identity, agent.model)
-        full_command = command_tokens + [context] + model_args + launch_args + passthrough
-        display_command = (
-            command_tokens + ['"<space_manual>"'] + model_args + launch_args + passthrough
-        )
+        context = build_spawn_context(identity, task=passthrough[0] if passthrough else None)
+        full_command = command_tokens + [context] + model_args + launch_args
+        display_command = command_tokens + ['"<context>"'] + model_args + launch_args
     else:
-        full_command = command_tokens + model_args + launch_args
-        display_command = command_tokens + model_args + launch_args
+        context = build_spawn_context(identity)
+        full_command = command_tokens + [context] + model_args + launch_args
+        display_command = command_tokens + ['"<context>"'] + model_args + launch_args
 
     click.echo(f"Executing: {' '.join(display_command)}")
     click.echo("")

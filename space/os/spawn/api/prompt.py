@@ -1,109 +1,118 @@
-"""Agent launching: unified context injection."""
+"""Agent launching: unified context injection and spawn context assembly."""
 
 from datetime import datetime
 
-from space.lib import paths
 from space.os import memory
 
 from . import agents, sessions
 
+SPAWN_CONTEXT_TEMPLATE = """\
+You are {identity}.
 
-def build_identity_prompt(identity: str, model: str | None = None) -> str:
-    """Build identity and space instructions for first prompt injection."""
-    parts = [f"You are {identity}."]
-    if model:
-        parts[0] += f" Your model is {model}."
-    parts.append("")
-    parts.append("space commands:")
-    parts.append("  run `space` for orientation (already in PATH)")
-    parts.append(f"  run `memory --as {identity}` to access memories")
-    return "\n".join(parts)
+{continuity}{protocol}{channel}{task}"""
+
+CONTINUITY_TEMPLATE = """\
+Spawn #{spawn_count}. {spawn_status}.
+{memories}
+"""
+
+MEMORIES_TEMPLATE = """\
+Core memories:
+{core_memories}
+"""
+
+PROTOCOL_TEMPLATE = """\
+SPACE-OS PROTOCOL:
+- Manage your own memory. Decide signal from noise.
+- Use 'memory add' to persist insights before context resets.
+- Interleave tools as needed: bridge (read/write), memory, knowledge, context.
+- Before you exit: memory journal --as {identity} to log your session.
+- Coordinate major decisions through bridge. Never decide alone.
+
+"""
+
+CHANNEL_TEMPLATE = """\
+CHANNEL CONTEXT:
+You are responding in #{channel}.
+First: run 'bridge recv {channel} --as {identity}' to load messages.
+
+"""
+
+TASK_TEMPLATE = """\
+TASK:
+{task}"""
+
+INTERACTIVE_TEMPLATE = "Context loaded. Ready to work. What are we tackling?"
 
 
-def spawn_prompt(identity: str, model: str | None = None) -> str:
-    """Build unified prompt context from MANUAL.md template with agent context filled in.
+def build_spawn_context(identity: str, task: str | None = None, channel: str | None = None) -> str:
+    """Assemble unified spawn context: identity + continuity + protocol + task/channel.
 
-    Replaces <identity> placeholders and inserts agent-specific context blocks.
+    Three modes:
+    - Interactive (task=None, channel=None): "What are we tackling?"
+    - Direct task (task="...", channel=None): Execute task instruction
+    - Channel task (task="...", channel="..."): Respond in channel with context
+
+    Args:
+        identity: Agent identity
+        task: Task instruction. None = interactive mode
+        channel: Channel name if @mention spawn (optional)
+
+    Returns:
+        Complete prompt for agent execution
     """
-    try:
-        agent = agents.get_agent(identity)
-    except ValueError:
-        agent = None
+    agent = agents.get_agent(identity)
     agent_id = agent.agent_id if agent else None
-    resolved_model = model
 
-    manual_path = paths.package_root().parent / "MANUAL.md"
-    if not manual_path.exists():
-        base = f"You are {identity}."
-        if resolved_model:
-            base += f" Your model is {resolved_model}."
-        return base
-
-    manual_text = manual_path.read_text()
-
+    continuity = ""
     if agent_id:
         try:
             spawn_count = sessions.get_spawn_count(agent_id)
-        except Exception:  # pragma: no cover - defensive because DB may be unavailable in tests
+        except Exception:
             spawn_count = 0
+
+        spawn_status = "First spawn"
+        try:
+            last_journal = memory.api.list_memories(identity, topic="journal", limit=1)
+            if last_journal:
+                entry = last_journal[0]
+                created_at = datetime.fromisoformat(entry.created_at)
+                from space.lib.format import format_duration
+
+                duration = format_duration((datetime.now() - created_at).total_seconds())
+                spawn_status = f"Last session {duration} ago"
+        except Exception:
+            pass
+
+        memories = ""
+        try:
+            core_entries = memory.api.list_memories(identity, filter="core")
+            if core_entries:
+                core_list = "\n".join([f"  - {e.message}" for e in core_entries[:3]])
+                memories = MEMORIES_TEMPLATE.format(core_memories=core_list)
+        except Exception:
+            pass
+
+        continuity = CONTINUITY_TEMPLATE.format(
+            spawn_count=spawn_count + 1, spawn_status=spawn_status, memories=memories
+        )
+
+    protocol = PROTOCOL_TEMPLATE.format(identity=identity)
+
+    channel_context = ""
+    if channel:
+        channel_context = CHANNEL_TEMPLATE.format(channel=channel, identity=identity)
+
+    task_context = ""
+    if task:
+        task_context = TASK_TEMPLATE.format(task=task)
     else:
-        spawn_count = 0
+        task_context = INTERACTIVE_TEMPLATE
 
-    spawn_status = "📝 First spawn"
-    try:
-        last_journal = memory.api.list_memories(identity, topic="journal", limit=1)
-        if last_journal:
-            entry = last_journal[0]
-            created_at = datetime.fromisoformat(entry.created_at)
-            from space.lib.format import format_duration
-
-            last_sleep_duration = format_duration((datetime.now() - created_at).total_seconds())
-            spawn_status = f"📝 Last session {last_sleep_duration} ago"
-    except Exception:  # pragma: no cover - defensive for missing memory DB
-        pass
-
-    template_vars = {
-        "identity": identity,
-        "spawn_count": spawn_count,
-        "spawn_status": spawn_status,
-        "model": f" Your model is {resolved_model}." if resolved_model else "",
-    }
-
-    output = manual_text
-    for var, value in template_vars.items():
-        output = output.replace(f"<{var}>", str(value))
-
-    agent_info_blocks = _build_agent_info_blocks(identity, agent, agent_id)
-    return output.replace("{{AGENT_INFO}}", agent_info_blocks or "")
-
-
-def _build_agent_info_blocks(identity: str, agent, agent_id: str | None) -> str:
-    """Build identity, memories, and bridge context blocks for template injection."""
-    parts = []
-
-    if not agent or not agent_id:
-        return ""
-
-    try:
-        core_entries = memory.api.list_memories(identity, filter="core")
-    except Exception:  # pragma: no cover - safeguard for unseeded DBs
-        core_entries = []
-    if core_entries:
-        parts.append("⭐ **Core memories:**")
-        for entry in core_entries[:3]:
-            parts.append(f"  [{entry.memory_id[-8:]}] {entry.message}")
-        parts.append("")
-
-    try:
-        recent = memory.api.list_memories(identity, filter="recent:7", limit=3)
-    except Exception:  # pragma: no cover - safeguard for unseeded DBs
-        recent = []
-    non_journal = [entry for entry in recent if entry.topic != "journal"]
-    if non_journal:
-        parts.append("📋 **Recent work (7d):**")
-        for entry in non_journal:
-            ts = datetime.fromisoformat(entry.created_at).strftime("%m-%d %H:%M")
-            parts.append(f"  [{ts}] {entry.topic}: {entry.message[:100]}")
-        parts.append("")
-
-    return "\n".join(parts)
+    return SPAWN_CONTEXT_TEMPLATE.format(
+        identity=identity,
+        continuity=continuity,
+        protocol=protocol,
+        channel=channel_context,
+        task=task_context,
+    )
