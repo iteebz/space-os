@@ -13,6 +13,7 @@ def create_session(
     is_task: bool = False,
     constitution_hash: str | None = None,
     channel_id: str | None = None,
+    session_id: str | None = None,
 ) -> Session:
     """Create a new session for agent spawn.
 
@@ -23,11 +24,13 @@ def create_session(
         is_task: Whether this is a background task spawn
         constitution_hash: Hash of the constitution file (if loaded)
         channel_id: Channel ID if triggered by bridge
+        session_id: Explicit session ID (e.g., from provider). If None, generates uuid7.
 
     Returns:
         Session object
     """
-    session_id = uuid7()
+    if session_id is None:
+        session_id = uuid7()
     now = datetime.now().isoformat()
 
     with store.ensure() as conn:

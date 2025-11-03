@@ -1,6 +1,8 @@
 """Agent launching: provider execution and lifecycle management."""
 
 import hashlib
+import json
+import logging
 import os
 import shlex
 import shutil
@@ -12,13 +14,15 @@ from space.lib import paths
 from space.lib.constitution import write_constitution
 from space.lib.providers import claude, codex, gemini
 
-from . import agents, sessions
+from . import agents, sessions, tasks
 from .environment import build_launch_env
 from .prompt import build_spawn_context
 
+logger = logging.getLogger(__name__)
 
-def spawn_agent(identity: str, extra_args: list[str] | None = None):
-    """Spawn an agent by identity from registry.
+
+def spawn_interactive(identity: str, extra_args: list[str] | None = None):
+    """Spawn an agent by identity from registry (interactive mode).
 
     Looks up agent, writes constitution to provider home dir,
     injects unified context via stdin, and executes the provider CLI.
@@ -108,6 +112,86 @@ def spawn_agent(identity: str, extra_args: list[str] | None = None):
             proc.wait()
         finally:
             sessions.end_session(session.id)
+
+
+def spawn_headless(identity: str, task: str, channel_id: str) -> None:
+    """Spawn an agent headlessly for bridge mention execution.
+
+    Args:
+        identity: Agent identity from registry
+        task: Task/prompt to execute
+        channel_id: Channel ID (for bridge context)
+    """
+    agent = agents.get_agent(identity)
+    if not agent:
+        raise ValueError(f"Agent '{identity}' not found in registry")
+
+    session = tasks.create_task(identity=identity, channel_id=channel_id, input=task)
+    tasks.start_task(session.id)
+
+    try:
+        if agent.provider == "claude":
+            _spawn_headless_claude(agent, task, session, channel_id)
+        elif agent.provider == "gemini":
+            _spawn_headless_gemini(agent, task, session, channel_id)
+        elif agent.provider == "codex":
+            _spawn_headless_codex(agent, task, session, channel_id)
+        else:
+            raise ValueError(f"Unknown provider: {agent.provider}")
+
+        tasks.complete_task(session.id)
+    except Exception as e:
+        logger.error(f"Headless spawn failed for {identity}: {e}", exc_info=True)
+        tasks.fail_task(session.id)
+        raise
+
+
+def _spawn_headless_claude(agent, task: str, session, channel_id: str) -> None:
+    """Execute headless Claude Code spawn with stream parsing and bridge posting."""
+    from space.os.bridge.api import messaging
+    from space.trace.api.stream_parser import parse_stream_json
+
+    provider_obj = claude
+    launch_args = provider_obj.launch_args(is_task=True)
+
+    cmd = ["claude", "--print", task, "--output-format", "json"] + launch_args
+
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(paths.space_root()))
+
+    if result.returncode != 0:
+        raise RuntimeError(f"Claude spawn failed: {result.stderr}")
+
+    try:
+        output = json.loads(result.stdout)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Failed to parse Claude output: {e}")
+
+    claude_session_id = output.get("session_id")
+    if not claude_session_id:
+        raise RuntimeError("No session_id in Claude output")
+
+    result_text = output.get("result", "")
+
+    messaging.send_message(
+        channel_id,
+        agent.identity,
+        f"✓ Completed\n```\n{result_text}\n```",
+    )
+
+
+def _spawn_headless_gemini(agent, task: str, session, channel_id: str) -> None:
+    """Execute headless Gemini spawn (descoped)."""
+    raise NotImplementedError("Gemini headless spawn not yet implemented")
+
+
+def _spawn_headless_codex(agent, task: str, session, channel_id: str) -> None:
+    """Execute headless Codex spawn (descoped)."""
+    raise NotImplementedError("Codex headless spawn not yet implemented")
+
+
+def spawn_agent(identity: str, extra_args: list[str] | None = None):
+    """Backward-compatible wrapper for spawn_interactive."""
+    return spawn_interactive(identity, extra_args)
 
 
 def _get_provider_command(provider: str) -> str:

@@ -5,7 +5,7 @@ import re
 
 from space.lib import paths
 from space.os.spawn.api import agents as spawn_agents
-from space.os.spawn.api.launch import spawn_agent
+from space.os.spawn.api.launch import spawn_headless
 from space.os.spawn.api.tasks import complete_task, create_task, fail_task, start_task
 
 log = logging.getLogger(__name__)
@@ -18,38 +18,6 @@ def _parse_mentions(content: str) -> list[str]:
     return list(set(matches))
 
 
-def _inject_constitution(identity: str) -> bool:
-    """Inject agent constitution to provider home dir. Returns True if successful."""
-    try:
-        agent = spawn_agents.get_agent(identity)
-        if not agent or not agent.constitution:
-            return True
-
-        const_path = paths.constitution(agent.constitution)
-        constitution = const_path.read_text()
-
-        filename_map = {
-            "claude": "CLAUDE.md",
-            "gemini": "GEMINI.md",
-            "codex": "AGENTS.md",
-        }
-        agent_dir_map = {
-            "claude": ".claude",
-            "gemini": ".gemini",
-            "codex": ".codex",
-        }
-        filename = filename_map.get(agent.provider)
-        agent_dir = agent_dir_map.get(agent.provider)
-        if not filename or not agent_dir:
-            raise ValueError(f"Unknown provider: {agent.provider}")
-
-        target = __import__("pathlib").Path.home() / agent_dir / filename
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(constitution)
-        return True
-    except Exception as e:
-        log.error(f"Injecting constitution for {identity} failed: {e}", exc_info=True)
-        return False
 
 
 def spawn_from_mentions(channel_id: str, content: str, agent_id: str | None = None) -> None:
@@ -82,7 +50,7 @@ def spawn_from_mentions(channel_id: str, content: str, agent_id: str | None = No
 def _process_mentions(
     channel_id: str, channel_name: str, content: str, sender_agent_id: str | None = None
 ) -> None:
-    """Process @mentions and spawn agents inline."""
+    """Process @mentions and spawn agents headlessly."""
     log.info(f"Processing channel={channel_name}, content={content[:50]}")
 
     mentions = _parse_mentions(content)
@@ -110,15 +78,8 @@ def _process_mentions(
             log.warning(f"Identity {identity} not found in registry")
             continue
 
-        _inject_constitution(identity)
-
-        prompt = build_spawn_context(identity, task=content, channel=channel_name)
-        task_id = create_task(identity=identity, input=prompt, channel_id=channel_id)
-        start_task(task_id)
         try:
-            spawn_agent(identity, extra_args=[prompt])
-            complete_task(task_id, output="Agent completed task")
+            spawn_headless(identity, task=content, channel_id=channel_id)
             log.info(f"Spawned {identity} successfully")
         except Exception as e:
-            fail_task(task_id, stderr=str(e))
             log.error(f"Spawn error for {identity}: {e}")

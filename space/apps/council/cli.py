@@ -69,7 +69,10 @@ class Council:
         self.channel_name = channel_name
         channel = bridge_api.get_channel(channel_name)
         if not channel:
-            raise ValueError(f"Channel '{channel_name}' not found")
+            raise typer.Exit(
+                f"Channel '{channel_name}' not found. Create it with:\n"
+                f"  bridge create {channel_name} --topic '<description>'"
+            )
         self.channel_id = channel.channel_id
         self.last_msg_id = None
         self.running = True
@@ -163,14 +166,15 @@ class Council:
             self.running = False
 
 
-app = typer.Typer()
+app = typer.Typer(invoke_without_command=True, no_args_is_help=True)
 
 
-@app.command()
-def join(channel: str = typer.Argument(..., help="Channel name")):
+@app.callback(invoke_without_command=True)
+def council_main(channel: str = typer.Argument(None, help="Channel name")):
     """Join a bridge council - stream messages and respond live."""
-    c = Council(channel)
-    asyncio.run(c.run())
+    if channel:
+        c = Council(channel)
+        asyncio.run(c.run())
 
 
 def main() -> None:
