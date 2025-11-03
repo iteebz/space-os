@@ -59,8 +59,8 @@ def populated_space(test_space):
         )
 
     # Register default channels for tests
-    bridge.api.channels.resolve_channel("ch-1")
-    bridge.api.channels.resolve_channel("ch-spawn-test-123")
+    bridge.api.channels.create_channel("ch-1")
+    bridge.api.channels.create_channel("ch-spawn-test-123")
     return test_space
 
 
@@ -72,21 +72,6 @@ def mock_db():
         mock_ensure.return_value.__enter__.return_value = mock_conn
         mock_ensure.return_value.__exit__.return_value = None
         yield mock_conn
-
-
-@pytest.fixture
-def mock_resolve_channel():
-    """Standardize channel resolution patching for bridge-focused tests."""
-
-    def _resolve(identifier):
-        channel_id = getattr(identifier, "channel_id", identifier)
-        if channel_id is None:
-            channel_id = ""
-        return MagicMock(channel_id=channel_id)
-
-    with patch("space.os.bridge.api.channels.resolve_channel") as mock:
-        mock.side_effect = _resolve
-        yield mock
 
 
 class AgentHandle(str):

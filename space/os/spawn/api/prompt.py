@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from space.lib import paths
-from space.os import bridge, memory
+from space.os import memory
 
 from . import agents, sessions
 
@@ -104,19 +104,6 @@ def _build_agent_info_blocks(identity: str, agent, agent_id: str | None) -> str:
         for entry in non_journal:
             ts = datetime.fromisoformat(entry.created_at).strftime("%m-%d %H:%M")
             parts.append(f"  [{ts}] {entry.topic}: {entry.message[:100]}")
-        parts.append("")
-
-    try:
-        inbox_channels = bridge.fetch_inbox(agent_id)
-    except Exception:  # pragma: no cover - safeguard for offline bridge
-        inbox_channels = []
-    if inbox_channels:
-        total_msgs = sum(ch.unread_count for ch in inbox_channels)
-        parts.append(f"📬 **{total_msgs} unread messages in {len(inbox_channels)} channels:**")
-        for channel in inbox_channels[:5]:
-            parts.append(f"  #{channel.name} ({channel.unread_count} unread)")
-        if len(inbox_channels) > 5:
-            parts.append(f"  ... and {len(inbox_channels) - 5} more")
         parts.append("")
 
     return "\n".join(parts)

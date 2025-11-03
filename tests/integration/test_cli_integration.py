@@ -91,12 +91,6 @@ def test_bridge_inbox_requires_identity():
     assert result.exit_code != 0
 
 
-def test_bridge_inbox_with_identity(test_space, default_agents):
-    """Inbox command with identity."""
-    result = runner.invoke(bridge.app, ["inbox", "--as", default_agents["zealot"]])
-    assert result.exit_code == 0
-
-
 def test_bridge_send_fails_missing_channel(test_space, default_agents):
     """Send fails when channel doesn't exist."""
     result = runner.invoke(
@@ -110,15 +104,3 @@ def test_bridge_recv_requires_identity():
     """Recv command requires --as identity."""
     result = runner.invoke(bridge.app, ["recv", "test-channel"])
     assert result.exit_code != 0
-
-
-def test_bridge_export_channel(test_space, default_agents):
-    """Export channel returns markdown format."""
-    alice_agent = default_agents["zealot"]
-    runner.invoke(bridge.app, ["create", "export-test"])
-    runner.invoke(bridge.app, ["send", "export-test", "hello world", "--as", alice_agent])
-
-    result = runner.invoke(bridge.app, ["export", "export-test"])
-    assert result.exit_code == 0
-    assert "export-test" in result.stdout
-    assert "hello world" in result.stdout

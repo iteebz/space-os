@@ -14,7 +14,6 @@ EXPECTED_TABLES = {
     "sessions",
     "channels",
     "messages",
-    "bookmarks",
     "memories",
     "knowledge",
     "chats",

@@ -35,7 +35,7 @@ def test_parse_mentions_none():
 
 
 def test_build_prompt_success():
-    """Build prompt returns prompt for worker to execute."""
+    """Build prompt returns task instruction for agent."""
     mock_agent = Agent(
         agent_id="a-1",
         identity="zealot",
@@ -54,7 +54,6 @@ def test_build_prompt_success():
         result = mentions._build_prompt("zealot", "test-channel", "@zealot test message")
 
         assert result is not None
-        assert "You are zealot." in result
         assert "[SPACE INSTRUCTIONS]" in result
         assert "test message" in result
         mock_write.assert_called_once()

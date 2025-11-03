@@ -1,4 +1,4 @@
-"""Message operations: send, receive, alerts, bookmarks."""
+"""Message operations: send, receive, format, history."""
 
 import sqlite3
 import time
@@ -99,8 +99,8 @@ def _build_pagination_query_and_params(
     return query, params
 
 
-def get_messages(channel: str | Channel, agent_id: str | None = None) -> list[Message]:
-    """Get messages, optionally filtering for new messages for a given agent."""
+def get_messages(channel: str | Channel) -> list[Message]:
+    """Get all messages in a channel (used for context assembly during spawns)."""
     channel_id = _to_channel_id(channel)
     with store.ensure("bridge") as conn:
         from . import channels
@@ -111,26 +111,15 @@ def get_messages(channel: str | Channel, agent_id: str | None = None) -> list[Me
 
         actual_channel_id = channel_obj.channel_id
 
-        last_seen_id = None
-        if agent_id:
-            row = conn.execute(
-                "SELECT last_seen_id FROM bookmarks WHERE agent_id = ? AND channel_id = ? AND session_id IS NULL",
-                (agent_id, actual_channel_id),
-            ).fetchone()
-            last_seen_id = row["last_seen_id"] if row else None
-
         base_query = """
             SELECT m.message_id, m.channel_id, m.agent_id, m.content, m.created_at
             FROM messages m
             JOIN channels c ON m.channel_id = c.channel_id
             WHERE m.channel_id = ? AND c.archived_at IS NULL
+            ORDER BY m.created_at
         """
 
-        query, params = _build_pagination_query_and_params(
-            conn, actual_channel_id, last_seen_id, base_query
-        )
-
-        cursor = conn.execute(query, params)
+        cursor = conn.execute(base_query, (actual_channel_id,))
         return [_row_to_message(row) for row in cursor.fetchall()]
 
 
@@ -155,23 +144,19 @@ def get_sender_history(identity: str, limit: int = 5) -> list[Message]:
         return [_row_to_message(row) for row in cursor.fetchall()]
 
 
-def set_bookmark(
-    agent_id: str, channel: str | Channel, last_seen_id: str, session_id: str | None = None
-) -> None:
-    """Mark message as read for agent."""
-    channel_id = _to_channel_id(channel)
-    with store.ensure("bridge") as conn:
-        conn.execute(
-            "INSERT OR REPLACE INTO bookmarks (agent_id, channel_id, session_id, last_seen_id) VALUES (?, ?, ?, ?)",
-            (agent_id, channel_id, session_id, last_seen_id),
-        )
-
-
 def recv_messages(
-    channel: str | Channel, identity: str
+    channel: str | Channel, identity: str, ago: str | None = None
 ) -> tuple[list[Message], int, str | None, list[str]]:
-    """Receive new messages and update bookmark."""
+    """Receive messages in channel, optionally filtered by time window.
 
+    Args:
+        channel: Channel name or ID.
+        identity: Receiver identity (validated but not used for filtering).
+        ago: Time window filter (e.g., '1h', '30m'). None = all messages.
+
+    Returns:
+        Tuple of (messages, count, topic, members)
+    """
     from space.os import spawn
 
     from . import channels
@@ -181,32 +166,82 @@ def recv_messages(
     agent = spawn.get_agent(identity)
     if not agent:
         raise ValueError(f"Identity '{identity}' not registered.")
-    agent_id = agent.agent_id
 
-    messages = get_messages(channel_id, agent_id)
+    messages = get_messages(channel_id)
+
+    if ago:
+        from datetime import datetime, timedelta
+
+        match = __import__("re").match(r"(\d+)([hm])", ago)
+        if not match:
+            raise ValueError("Invalid time format. Use '1h' or '30m'")
+        val, unit = int(match.group(1)), match.group(2)
+        delta = timedelta(hours=val if unit == "h" else 0, minutes=val if unit == "m" else 0)
+        cutoff = (datetime.now() - delta).isoformat()
+        messages = [m for m in messages if m.created_at > cutoff]
 
     unread_count = len(messages)
 
-    if messages:
-        set_bookmark(agent_id, channel_id, messages[-1].message_id)
+    channel_obj = channels.get_channel(channel_id)
 
-    channel = channels.get_channel(channel_id)
+    topic = channel_obj.topic if channel_obj else None
 
-    topic = channel.topic if channel else None
-
-    members = channel.members if channel else []
+    members = channel_obj.members if channel_obj else []
 
     return messages, unread_count, topic, members
 
 
+def format_messages(messages: list[Message], title: str = "Messages", as_json: bool = False) -> str:
+    """Format messages as markdown or JSON.
+
+    Args:
+        messages: List of Message objects.
+        title: Header title (markdown only).
+        as_json: If True, return JSON; otherwise return markdown.
+
+    Returns:
+        Formatted string (markdown or JSON).
+    """
+    import json
+
+    from space.os import spawn
+
+    if as_json:
+        return json.dumps(
+            [
+                {
+                    "message_id": msg.message_id,
+                    "agent_id": msg.agent_id,
+                    "content": msg.content,
+                    "created_at": msg.created_at,
+                }
+                for msg in messages
+            ],
+            indent=2,
+        )
+
+    lines = [f"# {title}\n"]
+    for msg in messages:
+        sender = spawn.get_agent(msg.agent_id)
+        sender_name = sender.identity if sender else msg.agent_id[:8]
+        from datetime import datetime
+
+        ts = datetime.fromisoformat(msg.created_at).strftime("%H:%M:%S")
+        lines.append(f"**{sender_name}** ({ts}):")
+        lines.append(msg.content)
+        lines.append("")
+    return "\n".join(lines)
+
+
 def wait_for_message(
-    channel: str | Channel, identity: str, poll_interval: float = 0.1
+    channel: str | Channel, identity: str, session_id: str, poll_interval: float = 0.1
 ) -> tuple[list[Message], int, str | None, list[str]]:
     """Wait for a new message from others in a channel (blocking).
 
     Args:
         channel: Channel name or ID.
         identity: Receiver identity.
+        session_id: Session ID for bookmark tracking.
         poll_interval: Polling interval in seconds.
 
     Returns:
@@ -225,7 +260,7 @@ def wait_for_message(
     channel_id = _to_channel_id(channel)
 
     while True:
-        msgs, count, context, participants = recv_messages(channel_id, agent_id)
+        msgs, count, context, participants = recv_messages(channel_id, identity, session_id)
         other_messages = [msg for msg in msgs if msg.agent_id != agent_id]
 
         if other_messages:

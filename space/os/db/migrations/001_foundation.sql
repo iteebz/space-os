@@ -34,17 +34,6 @@ CREATE TABLE IF NOT EXISTS messages (
     FOREIGN KEY (agent_id) REFERENCES agents(agent_id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS bookmarks (
-    agent_id TEXT NOT NULL,
-    channel_id TEXT NOT NULL,
-    session_id TEXT,
-    last_seen_id TEXT,
-    PRIMARY KEY (agent_id, channel_id),
-    FOREIGN KEY (agent_id) REFERENCES agents(agent_id) ON DELETE CASCADE,
-    FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE,
-    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
-    FOREIGN KEY (last_seen_id) REFERENCES messages(message_id) ON DELETE SET NULL
-);
 
 CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
@@ -105,8 +94,6 @@ CREATE INDEX IF NOT EXISTS idx_sessions_agent ON sessions(agent_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_active ON sessions(ended_at) WHERE ended_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_sessions_channel ON sessions(channel_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_is_task ON sessions(is_task);
-
-CREATE INDEX IF NOT EXISTS idx_bookmarks_session ON bookmarks(session_id);
 
 CREATE INDEX IF NOT EXISTS idx_chats_provider ON chats(provider);
 CREATE INDEX IF NOT EXISTS idx_chats_session ON chats(session_id);

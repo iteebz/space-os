@@ -4,8 +4,6 @@ import pytest
 
 from space.os import bridge
 
-pytestmark = pytest.mark.usefixtures("mock_resolve_channel")
-
 
 def make_mock_row(data):
     row = MagicMock()
@@ -100,19 +98,6 @@ def test_get_messages_fetches_all(mock_db, mock_get_channel):
     assert len(result) == 1
 
 
-def test_get_messages_with_agent_filters(mock_db, mock_get_channel):
-    mock_db.execute.side_effect = [
-        MagicMock(fetchone=lambda: make_mock_row({"last_seen_id": "m-0"})),
-        MagicMock(fetchone=lambda: make_mock_row({"created_at": "2024-01-01", "rowid": 1})),
-        MagicMock(fetchall=lambda: []),
-    ]
-
-    bridge.get_messages("ch-1", agent_id="a-1")
-
-    calls = [call[0][0] for call in mock_db.execute.call_args_list]
-    assert any("bookmarks" in call for call in calls)
-
-
 def test_get_messages_missing_channel_raises(mock_db, mock_get_channel):
     mock_get_channel.return_value = None
 
@@ -137,25 +122,6 @@ def test_recv_messages_returns_new(mock_db, mock_get_channel, mock_get_agent):
 
     assert len(messages) == 1
     assert count == 1
-
-
-def test_recv_messages_updates_bookmark(mock_db, mock_get_channel, mock_get_agent):
-    mock_row = make_mock_row(
-        {
-            "message_id": "m-1",
-            "channel_id": "ch-1",
-            "agent_id": "a-1",
-            "content": "msg",
-            "created_at": "2024-01-01T00:00:00",
-        }
-    )
-    mock_db.execute.return_value.fetchall.return_value = [mock_row]
-    mock_db.execute.return_value.fetchone.return_value = None
-
-    bridge.recv_messages("ch-1", "a-2")
-
-    calls = [call[0][0] for call in mock_db.execute.call_args_list]
-    assert any("bookmark" in call.lower() for call in calls)
 
 
 def test_recv_messages_count_zero_when_none(mock_db, mock_get_channel, mock_get_agent):

@@ -67,7 +67,10 @@ STREAM_ERROR_BACKOFF = 1.0
 class Council:
     def __init__(self, channel_name: str):
         self.channel_name = channel_name
-        self.channel_id = bridge_api.resolve_channel(channel_name).channel_id
+        channel = bridge_api.get_channel(channel_name)
+        if not channel:
+            raise ValueError(f"Channel '{channel_name}' not found")
+        self.channel_id = channel.channel_id
         self.last_msg_id = None
         self.running = True
         self._lock = asyncio.Lock()

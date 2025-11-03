@@ -216,79 +216,6 @@ def delete(
 
 
 @app.command()
-def export(
-    ctx: typer.Context,
-    channel: str = typer.Argument(..., help="Channel name or ID"),
-):
-    """Dump channel as markdown."""
-    try:
-        export_data = api.export_channel(channel)
-
-        if output_json(
-            {
-                "channel_id": export_data.channel_id,
-                "channel_name": export_data.channel_name,
-                "topic": export_data.topic,
-                "created_at": export_data.created_at,
-                "members": export_data.members,
-                "message_count": export_data.message_count,
-                "messages": [
-                    {
-                        "message_id": msg.message_id,
-                        "agent_id": msg.agent_id,
-                        "content": msg.content,
-                        "created_at": msg.created_at,
-                    }
-                    for msg in export_data.messages
-                ],
-            },
-            ctx,
-        ):
-            return
-
-        echo_if_output(f"# {export_data.channel_name}", ctx)
-        if export_data.topic:
-            echo_if_output(f"\n**Topic:** {export_data.topic}", ctx)
-
-        echo_if_output(f"\n## Messages ({export_data.message_count})", ctx)
-        for msg in export_data.messages:
-            echo_if_output(f"\n**{msg.agent_id}** ({msg.created_at}):", ctx)
-            echo_if_output(msg.content, ctx)
-
-    except Exception as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
-        raise typer.Exit(code=1) from e
-
-
-@app.command()
-def inbox(
-    ctx: typer.Context,
-    identity: str = typer.Option(..., "--as", help="Agent identity"),
-):
-    """List unread channels for agent."""
-    try:
-        agent = spawn.get_agent(identity)
-        if not agent:
-            raise ValueError(f"Identity '{identity}' not registered.")
-        chans = api.fetch_inbox(agent.agent_id)
-        if not chans:
-            output_json([], ctx) or echo_if_output("Inbox empty", ctx)
-            return
-
-        output_json([asdict(c) for c in chans], ctx) or None
-        if should_output(ctx):
-            echo_if_output(f"INBOX ({len(chans)}):", ctx)
-            for channel in chans:
-                last_activity, description = format_channel_row(channel)
-                echo_if_output(f"  {last_activity}: {description}", ctx)
-    except Exception as exc:
-        output_json({"status": "error", "message": str(exc)}, ctx) or echo_if_output(
-            f"❌ {exc}", ctx
-        )
-        raise typer.Exit(code=1) from exc
-
-
-@app.command()
 def pin(
     ctx: typer.Context,
     channels_arg: list[str] = typer.Argument(...),
@@ -317,29 +244,15 @@ def recv(
     ctx: typer.Context,
     channel: str = typer.Argument(..., help="Channel to read from"),
     identity: str = typer.Option(..., "--as", help="Receiver identity"),
+    ago: str = typer.Option(None, "--ago", help="Time window (e.g., 1h, 30m)"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON instead of markdown"),
 ):
-    """Read unread messages from channel."""
+    """Read messages from channel (markdown by default)."""
     try:
-        agent = spawn.get_agent(identity)
-        if not agent:
-            raise ValueError(f"Identity '{identity}' not registered.")
-        msgs, count, context, participants = api.recv_messages(channel, identity)
-
-        output_json(
-            {
-                "messages": [asdict(msg) for msg in msgs],
-                "count": count,
-                "context": context,
-                "participants": participants,
-            },
-            ctx,
-        ) or None
+        msgs, count, context, participants = api.recv_messages(channel, identity, ago)
         if should_output(ctx):
-            for msg in msgs:
-                sender = spawn.get_agent(msg.agent_id)
-                sender_name = sender.identity if sender else msg.agent_id[:8]
-                echo_if_output(f"[{sender_name}] {msg.content}", ctx)
-                echo_if_output("", ctx)
+            output = api.format_messages(msgs, context or "Messages", as_json=json_output)
+            typer.echo(output)
     except ValueError as e:
         output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
         raise typer.Exit(code=1) from e

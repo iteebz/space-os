@@ -38,30 +38,6 @@ def test_create_channel_returns_channel(mock_db):
     assert result.name == "general"
 
 
-def test_resolve_channel_finds_existing(mock_db):
-    mock_row = make_mock_row(
-        {
-            "channel_id": "ch-1",
-            "name": "general",
-            "topic": None,
-            "created_at": "2024-01-01",
-            "archived_at": None,
-        }
-    )
-    mock_db.execute.return_value.fetchone.return_value = mock_row
-    mock_db.execute.return_value.fetchall.return_value = []
-
-    result = bridge.resolve_channel("general")
-    assert result.channel_id == "ch-1"
-
-
-def test_resolve_channel_creates_missing(mock_db):
-    mock_db.execute.return_value.fetchone.return_value = None
-    bridge.resolve_channel("newch")
-    calls = [call[0][0] for call in mock_db.execute.call_args_list]
-    assert any("INSERT INTO channels" in call for call in calls)
-
-
 def test_rename_channel_updates(mock_db):
     mock_db.execute.return_value.fetchone.return_value = make_mock_row({"channel_id": "ch-1"})
     assert bridge.rename_channel("old", "new") is True
@@ -158,20 +134,3 @@ def test_get_channel_missing_returns_none(mock_db):
     mock_db.execute.return_value.fetchone.return_value = None
     result = bridge.get_channel("missing")
     assert result is None
-
-
-def test_export_channel_returns_export(mock_db):
-    with patch("space.os.bridge.api.channels.get_channel") as mock_get:
-        mock_channel = MagicMock(channel_id="ch-1", name="general", topic=None, members=["a-1"])
-        mock_get.return_value = mock_channel
-        with patch("space.os.bridge.api.channels.messaging.get_messages") as mock_msgs:
-            mock_msgs.return_value = []
-            result = bridge.export_channel("ch-1")
-            assert result.channel_id == "ch-1"
-
-
-def test_export_channel_missing_raises(mock_db):
-    with patch("space.os.bridge.api.channels.get_channel") as mock_get:
-        mock_get.return_value = None
-        with pytest.raises(ValueError, match="not found"):
-            bridge.export_channel("missing")

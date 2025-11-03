@@ -1,6 +1,6 @@
 """Spawn task lifecycle: creation, status transitions, agent/channel tracking."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from space.core.models import Agent, TaskStatus
 from space.os import bridge, spawn
@@ -155,7 +155,7 @@ def test_list_tasks_by_channel(test_space, default_agents):
 
 
 def test_mention_spawns_worker():
-    """Bridge detects @mention and returns prompt for spawning."""
+    """Bridge detects @mention and builds task prompt."""
     mock_agent = Agent(
         agent_id="a-1",
         identity="zealot",
@@ -164,21 +164,17 @@ def test_mention_spawns_worker():
         created_at="2024-01-01",
     )
     with (
-        patch("space.os.bridge.api.mentions.subprocess.run") as mock_run,
         patch("space.os.bridge.api.mentions.spawn_agents.get_agent") as mock_get_agent,
         patch("space.os.bridge.api.mentions.paths.constitution") as mock_const_path,
         patch("space.os.bridge.api.mentions._write_role_file"),
     ):
         mock_get_agent.return_value = mock_agent
         mock_const_path.return_value.read_text.return_value = "# ZEALOT\nCore principles."
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout="# subagents-test\n\n[alice] hello\n"
-        )
 
         from space.os.bridge.api import mentions
 
         result = mentions._build_prompt("zealot", "subagents-test", "@zealot question")
 
         assert result is not None
-        assert "You are zealot." in result
         assert "[SPACE INSTRUCTIONS]" in result
+        assert "question" in result

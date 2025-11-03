@@ -2,16 +2,12 @@
 
 import logging
 import re
-import subprocess
-import sys
-from pathlib import Path
 
 from space.lib import paths
 from space.os.spawn.api import agents as spawn_agents
-from space.os.spawn.api.prompt import spawn_prompt
+from space.os.spawn.api.launch import spawn_agent
 from space.os.spawn.api.tasks import complete_task, create_task, fail_task, start_task
 
-logging.basicConfig(level=logging.DEBUG, format="[worker] %(message)s")
 log = logging.getLogger(__name__)
 
 AGENT_PROMPT_TEMPLATE = """{context}
@@ -52,73 +48,55 @@ def _parse_mentions(content: str) -> list[str]:
 
 
 def _build_prompt(identity: str, channel: str, content: str) -> str | None:
-    """Build agent prompt with task instruction only, write constitution."""
+    """Build agent prompt with task instruction."""
     try:
         agent = spawn_agents.get_agent(identity)
         if not agent:
             log.warning(f"Identity {identity} not found in registry")
             return None
 
-        const_path = paths.constitution(agent.constitution)
-        constitution = const_path.read_text()
+        if agent.constitution:
+            const_path = paths.constitution(agent.constitution)
+            constitution = const_path.read_text()
+            _write_role_file(agent.provider, constitution)
 
-        _write_role_file(agent.provider, constitution)
-
-        identity_prompt = spawn_prompt(identity, agent.model)
-
-        return identity_prompt + "\n\n" + AGENT_PROMPT_TEMPLATE.format(context="", task=content)
+        return AGENT_PROMPT_TEMPLATE.format(context="", task=content)
     except Exception as e:
         log.error(f"Building prompt for {identity} failed: {e}", exc_info=True)
         return None
 
 
-def _get_task_timeout(identity: str) -> int:
-    """Get task timeout for identity. Uses default since config is gone."""
-    return 120
-
-
 def spawn_from_mentions(channel_id: str, content: str, agent_id: str | None = None) -> None:
-    """Spawn agents from @mentions in message content.
+    """Spawn agents from @mentions in message content (async, non-blocking).
 
     Args:
         channel_id: Channel where message was posted
         content: Message content with potential @mentions
         agent_id: If provided, skip processing mentions from this agent (prevents cascades)
     """
-    try:
-        from . import channels
+    import threading
 
-        channel = channels.get_channel(channel_id)
-        if not channel:
-            log.error(f"Channel {channel_id} not found")
-            return
-        channel_name = channel.name
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "space.os.bridge.api.mentions",
-                channel_id,
-                channel_name,
-                content,
-                agent_id or "",
-            ],
-            check=False,
-        )
-    except Exception as e:
-        log.error(f"Failed to spawn from mentions: {e}")
+    def _spawn_async():
+        try:
+            from . import channels
+
+            channel = channels.get_channel(channel_id)
+            if not channel:
+                log.error(f"Channel {channel_id} not found")
+                return
+            channel_name = channel.name
+            _process_mentions(channel_id, channel_name, content, agent_id)
+        except Exception as e:
+            log.error(f"Failed to spawn from mentions: {e}")
+
+    thread = threading.Thread(target=_spawn_async, daemon=True)
+    thread.start()
 
 
-def main():
-    if len(sys.argv) < 4:
-        log.error(f"Invalid args: {len(sys.argv)}, expected 4+. argv={sys.argv}")
-        return
-
-    channel_id = sys.argv[1]
-    channel_name = sys.argv[2]
-    content = sys.argv[3]
-    sender_agent_id = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] else None
-
+def _process_mentions(
+    channel_id: str, channel_name: str, content: str, sender_agent_id: str | None = None
+) -> None:
+    """Process @mentions and spawn agents inline."""
     log.info(f"Processing channel={channel_name}, content={content[:50]}")
 
     mentions = _parse_mentions(content)
@@ -139,58 +117,18 @@ def main():
             log.info("All mentions were from sender, skipping")
             return
 
-    results = []
     for identity in mentions:
         log.info(f"Spawning {identity}")
         prompt = _build_prompt(identity, channel_name, content)
         if prompt:
-            log.info(f"Got prompt, running spawn {identity}")
-            timeout = _get_task_timeout(identity)
+            task_id = create_task(identity=identity, input=prompt, channel_id=channel_id)
+            start_task(task_id)
             try:
-                task_id = create_task(identity=identity, input=prompt, channel_id=channel_id)
-                start_task(task_id)
-
-                result = subprocess.run(
-                    ["spawn", identity, prompt],
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout,
-                    stdin=subprocess.DEVNULL,
-                )
-
-                log.info(
-                    f"Spawn returncode={result.returncode}, stdout_len={len(result.stdout)}, stderr={result.stderr[:100]}"
-                )
-
-                if result.returncode == 0 and result.stdout.strip():
-                    complete_task(
-                        task_id,
-                        output=result.stdout.strip(),
-                    )
-                    results.append((identity, result.stdout.strip()))
-                else:
-                    fail_task(task_id, stderr=result.stderr)
-                    log.error(f"Spawn failed: {result.stderr}")
-            except subprocess.TimeoutExpired:
-                fail_task(
-                    task_id,
-                    stderr=f"Spawn timeout ({timeout}s)",
-                )
-                log.error(f"Spawn timeout for {identity}")
+                spawn_agent(identity, extra_args=[prompt])
+                complete_task(task_id, output="Agent completed task")
+                log.info(f"Spawned {identity} successfully")
             except Exception as e:
                 fail_task(task_id, stderr=str(e))
-                log.error(f"Spawn error: {e}")
+                log.error(f"Spawn error for {identity}: {e}")
         else:
             log.warning(f"No prompt for {identity}")
-
-    if results:
-        from . import messaging
-
-        for identity, output in results:
-            messaging.send_message(channel_id, identity, output)
-    elif mentions:
-        log.warning(f"No results from spawning {len(mentions)} agent(s))")
-
-
-if __name__ == "__main__":
-    main()

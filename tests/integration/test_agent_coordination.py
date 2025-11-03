@@ -45,36 +45,6 @@ def test_agent_posts_mid_execution(test_space, default_agents):
     assert len(messages) >= 4
 
 
-def test_agent_bookmark_isolation(test_space, default_agents):
-    """Each agent maintains independent bookmark; doesn't see other reads."""
-    channel_id = bridge.create_channel("shared-channel")
-    zealot_1_id = default_agents["zealot"]
-    zealot_2_id = default_agents["sentinel"]
-
-    bridge.send_message(channel_id, "zealot", "message 1")
-
-    new_z1, count_z1, _, _ = bridge.recv_messages(channel_id, zealot_1_id)
-    assert count_z1 == 1
-
-    bridge.send_message(channel_id, "zealot", "message 2")
-
-    new_z2, count_z2, _, _ = bridge.recv_messages(channel_id, zealot_2_id)
-    assert count_z2 == 2
-
-    new_z1_again, count_z1_again, _, _ = bridge.recv_messages(channel_id, zealot_1_id)
-    assert count_z1_again == 1
-
-    bridge.send_message(channel_id, "zealot", "message 3")
-
-    new_z1_final, count_z1_final, _, _ = bridge.recv_messages(channel_id, zealot_1_id)
-    assert count_z1_final == 1
-    assert "message 3" in new_z1_final[0].content
-
-    new_z2_final, count_z2_final, _, _ = bridge.recv_messages(channel_id, zealot_2_id)
-    assert count_z2_final == 1
-    assert "message 3" in new_z2_final[0].content
-
-
 def test_full_spawn_task_events_flow(test_space, default_agents):
     """Agent creation → task creation → events emission data flow."""
     agent_identity = default_agents["zealot"]
