@@ -1,39 +1,11 @@
 """Space orchestrator CLI: unified human interface."""
 
-import click
 import typer
-from typer.core import TyperGroup
 
 from space.apps.space import api
 from space.lib import backup, paths
-from space.os.spawn import api as spawn_api
 
-
-class SpawnGroup(TyperGroup):
-    """Custom group to support dynamic agent spawning."""
-
-    def get_command(self, ctx, cmd_name):
-        """Get command by name, or spawn agent if not found."""
-        cmd = super().get_command(ctx, cmd_name)
-        if cmd is not None:
-            return cmd
-
-        agent = spawn_api.get_agent(cmd_name)
-        if agent is None:
-            return None
-
-        @click.command(name=cmd_name)
-        @click.argument("task_input", required=False, nargs=-1)
-        def spawn_agent(task_input):
-            input_list = list(task_input) if task_input else []
-            spawn_api.spawn_agent(agent.identity, extra_args=input_list)
-
-        return spawn_agent
-
-
-app = typer.Typer(
-    invoke_without_command=True, no_args_is_help=False, cls=SpawnGroup, add_completion=False
-)
+app = typer.Typer(invoke_without_command=True, no_args_is_help=False, add_completion=False)
 
 
 @app.callback(invoke_without_command=True)
