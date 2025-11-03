@@ -32,15 +32,22 @@ class Claude(Provider):
         ]
 
     @staticmethod
-    def launch_args() -> list[str]:
-        """Return launch arguments for Claude."""
+    def launch_args(is_task: bool = False) -> list[str]:
+        """Return launch arguments for Claude.
+
+        Args:
+            is_task: Whether this is a task-based spawn. Only task spawns skip permissions.
+        """
         disallowed = [
             "NotebookRead",
             "NotebookEdit",
             "Task",
             "TodoWrite",
         ]
-        return ["--dangerously-skip-permissions", "--disallowedTools", ",".join(disallowed)]
+        args = ["--disallowedTools", ",".join(disallowed)]
+        if is_task:
+            args.insert(0, "--dangerously-skip-permissions")
+        return args
 
     def discover_chats(self) -> list[dict]:
         """Discover Claude chat sessions."""

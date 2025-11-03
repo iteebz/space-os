@@ -28,7 +28,7 @@ def _get_agent_by_name_cached(name: str) -> Agent | None:
     """Cached agent lookup by name."""
     with store.ensure() as conn:
         row = conn.execute(
-            "SELECT agent_id, identity, constitution, model, spawn_count, archived_at, created_at FROM agents WHERE identity = ? AND archived_at IS NULL LIMIT 1",
+            "SELECT agent_id, identity, constitution, model, role, spawn_count, archived_at, created_at FROM agents WHERE identity = ? AND archived_at IS NULL LIMIT 1",
             (name,),
         ).fetchone()
         return _row_to_agent(row) if row else None
@@ -52,13 +52,15 @@ def get_agent(identifier: str) -> Agent | None:
     """Resolve agent by name or ID. Returns Agent object or None."""
     with store.ensure() as conn:
         row = conn.execute(
-            "SELECT agent_id, identity, constitution, model, spawn_count, archived_at, created_at FROM agents WHERE (identity = ? OR agent_id = ?) AND archived_at IS NULL LIMIT 1",
+            "SELECT agent_id, identity, constitution, model, role, spawn_count, archived_at, created_at FROM agents WHERE (identity = ? OR agent_id = ?) AND archived_at IS NULL LIMIT 1",
             (identifier, identifier),
         ).fetchone()
         return _row_to_agent(row) if row else None
 
 
-def register_agent(identity: str, model: str, constitution: str | None = None) -> str:
+def register_agent(
+    identity: str, model: str, constitution: str | None = None, role: str | None = None
+) -> str:
     """Explicitly register an identity. Fails if identity already exists.
 
     Provider is inferred from model.
@@ -72,8 +74,8 @@ def register_agent(identity: str, model: str, constitution: str | None = None) -
     now_iso = datetime.now().isoformat()
     with store.ensure() as conn:
         conn.execute(
-            "INSERT INTO agents (agent_id, identity, constitution, model, created_at) VALUES (?, ?, ?, ?, ?)",
-            (agent_id, identity, constitution, model, now_iso),
+            "INSERT INTO agents (agent_id, identity, constitution, model, role, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (agent_id, identity, constitution, model, role, now_iso),
         )
     _clear_cache()
     touch_agent(agent_id)
@@ -91,6 +93,7 @@ def update_agent(
     identity: str,
     constitution: str | None = None,
     model: str | None = None,
+    role: str | None = None,
 ) -> bool:
     """Update agent fields. Only specified fields are modified.
 
@@ -109,6 +112,9 @@ def update_agent(
     if model is not None:
         updates.append("model = ?")
         values.append(model)
+    if role is not None:
+        updates.append("role = ?")
+        values.append(role)
 
     if not updates:
         return True

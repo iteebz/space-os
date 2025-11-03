@@ -22,6 +22,7 @@ class Agent:
     identity: str
     model: str
     constitution: str | None = None
+    role: str | None = None
     spawn_count: int = 0
     archived_at: str | None = None
     created_at: str | None = None

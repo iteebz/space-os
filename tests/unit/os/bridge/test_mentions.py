@@ -51,8 +51,8 @@ def test_build_spawn_context_interactive():
 
         assert result is not None
         assert "You are zealot" in result
-        assert "SPACE-OS PROTOCOL" in result
-        assert "Context loaded. Ready to work" in result
+        assert "PRIMITIVES" in result
+        assert "AGENT DISCOVERY" in result
 
 
 def test_build_spawn_context_with_task():
@@ -71,7 +71,7 @@ def test_build_spawn_context_with_task():
 
         assert result is not None
         assert "You are zealot" in result
-        assert "SPACE-OS PROTOCOL" in result
+        assert "PRIMITIVES" in result
         assert "analyze this bug" in result
         assert "TASK:" in result
 
@@ -92,6 +92,5 @@ def test_build_spawn_context_with_channel():
 
         assert result is not None
         assert "You are zealot" in result
-        assert "#bugs" in result
-        assert "bridge recv bugs" in result
+        assert "CHANNEL: #bugs" in result
         assert "respond here" in result

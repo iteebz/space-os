@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS agents (
     identity TEXT NOT NULL UNIQUE,
     constitution TEXT,
     model TEXT NOT NULL,
+    role TEXT,
     spawn_count INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     last_active_at TEXT,

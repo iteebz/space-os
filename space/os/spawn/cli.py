@@ -19,7 +19,7 @@ from space.os.spawn.api import tasks
 errors.install_error_handler("spawn")
 
 
-app = typer.Typer(invoke_without_command=True, add_completion=False)
+app = typer.Typer(invoke_without_command=True, add_completion=False, no_args_is_help=False)
 
 
 @app.callback(context_settings={"help_option_names": ["-h", "--help"]})
@@ -38,6 +38,13 @@ def main_callback(
     if ctx.resilient_parsing:
         return
     if ctx.invoked_subcommand is None:
+        if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
+            identity = sys.argv[1]
+            agent = api.get_agent(identity)
+            if agent:
+                extra_args = sys.argv[2:] if len(sys.argv) > 2 else None
+                api.spawn_agent(identity, extra_args=extra_args)
+                raise typer.Exit(0)
         typer.echo(ctx.get_help())
 
 
@@ -81,19 +88,19 @@ def agents(
             {
                 "identity": name,
                 "agent_id": agent_id,
+                "constitution": agent.constitution if agent and agent.constitution else "-",
                 "model": agent.model if agent and agent.model else "-",
-                "spawn_count": agent.spawn_count if agent else 0,
+                "role": agent.role if agent and agent.role else "-",
             }
         )
 
     if json_output:
         typer.echo(json.dumps(agents_data))
     else:
-        typer.echo(f"{'IDENTITY':<20} {'AGENT_ID':<10} {'MODEL':<25} {'SPAWNS'}")
+        typer.echo(f"{'IDENTITY':<15} {'CONSTITUTION':<15} {'MODEL':<20} {'ROLE':<15}")
         for data in agents_data:
-            short_id = data["agent_id"][:8]
             typer.echo(
-                f"{data['identity']:<20} {short_id:<10} {data['model']:<25} {data['spawn_count']}"
+                f"{data['identity']:<15} {data['constitution']:<15} {data['model']:<20} {data['role']:<15}"
             )
         typer.echo()
         typer.echo(f"Total: {len(agents_data)}")
@@ -108,10 +115,13 @@ def register(
     constitution: str | None = typer.Option(
         None, "--constitution", "-c", help="Constitution filename (e.g., zealot.md) - optional"
     ),
+    role: str | None = typer.Option(
+        None, "--role", "-r", help="Organizational role (e.g., executor, verifier, adversary)"
+    ),
 ):
     """Register a new agent."""
     try:
-        agent_id = api.register_agent(identity, model, constitution)
+        agent_id = api.register_agent(identity, model, constitution, role)
         typer.echo(f"✓ Registered {identity} ({agent_id[:8]})")
     except ValueError as e:
         typer.echo(f"❌ {e}", err=True)
@@ -161,16 +171,48 @@ def rename(old_name: str, new_name: str):
 @app.command()
 def update(
     identity: str,
-    model: str = typer.Option(None, "--model", "-m", help="Full model name"),
-    constitution: str = typer.Option(None, "--constitution", "-c", help="Constitution filename"),
+    model: str | None = typer.Option(None, "--model", "-m", help="Full model name"),
+    constitution: str | None = typer.Option(
+        None, "--constitution", "-c", help="Constitution filename"
+    ),
+    role: str | None = typer.Option(None, "--role", "-r", help="Organizational role"),
 ):
-    """Modify agent fields (constitution, model)."""
+    """Modify agent fields (constitution, model, role)."""
     try:
-        api.update_agent(identity, constitution, model)
+        api.update_agent(identity, constitution, model, role)
         typer.echo(f"✓ Updated {identity}")
     except ValueError as e:
         typer.echo(f"❌ {e}", err=True)
         raise typer.Exit(1) from e
+
+
+@app.command()
+def inspect(identity: str):
+    """View agent details and constitution."""
+    from space.lib import paths
+
+    agent = api.get_agent(identity)
+    if not agent:
+        typer.echo(f"❌ Agent not found: {identity}", err=True)
+        raise typer.Exit(1)
+
+    typer.echo(f"\nAgent: {agent.identity}")
+    typer.echo(f"ID: {agent.agent_id}")
+    typer.echo(f"Model: {agent.model}")
+    typer.echo(f"Constitution: {agent.constitution or '-'}")
+    typer.echo(f"Role: {agent.role or '-'}")
+    typer.echo(f"Spawns: {agent.spawn_count}")
+    typer.echo(f"Created: {agent.created_at}")
+    typer.echo(f"Last Active: {agent.last_active_at or '-'}")
+
+    if agent.constitution:
+        const_path = paths.constitution(agent.constitution)
+        if const_path.exists():
+            typer.echo(f"\n--- {agent.constitution} ---")
+            typer.echo(const_path.read_text())
+        else:
+            typer.echo(f"\n⚠️ Constitution file not found: {const_path}")
+    typer.echo()
 
 
 @app.command()
@@ -325,6 +367,13 @@ def dispatch_agent_from_name() -> NoReturn:
 def main() -> None:
     """Entry point for spawn command."""
     try:
+        if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
+            potential_identity = sys.argv[1]
+            agent = api.get_agent(potential_identity)
+            if agent:
+                extra_args = sys.argv[2:] if len(sys.argv) > 2 else None
+                api.spawn_agent(potential_identity, extra_args=extra_args)
+                return
         app()
     except SystemExit:
         raise

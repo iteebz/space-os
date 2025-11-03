@@ -63,6 +63,8 @@ def spawn_agent(identity: str, extra_args: list[str] | None = None):
     if provider_obj:
         if agent.provider == "gemini":
             launch_args = provider_obj.launch_args(has_prompt=bool(passthrough))
+        elif agent.provider == "claude":
+            launch_args = provider_obj.launch_args(is_task=bool(passthrough))
         else:
             launch_args = provider_obj.launch_args()
     else:

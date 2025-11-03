@@ -171,6 +171,6 @@ def test_mention_spawns_worker():
         result = build_spawn_context("zealot", task="@zealot question", channel="subagents-test")
 
         assert result is not None
-        assert "SPACE-OS PROTOCOL" in result
+        assert "PRIMITIVES" in result
         assert "question" in result
         assert "#subagents-test" in result

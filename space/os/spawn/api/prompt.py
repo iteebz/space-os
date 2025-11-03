@@ -1,62 +1,61 @@
 """Agent launching: unified context injection and spawn context assembly."""
 
-from datetime import datetime
-
 from space.os import memory
 
-from . import agents, sessions
+from . import agents
 
 SPAWN_CONTEXT_TEMPLATE = """\
 You are {identity}.
 
-{continuity}{protocol}{channel}{task}"""
+PRIMITIVES (actual API with examples):
+- memory add/list/search/core/inspect/archive: Working memory organized by --topic.
+  → memory add "resolved X via Y approach" --topic observations
+- bridge send/recv/wait: Immutable async coordination on named channels.
+  → bridge send general "here's my thinking on X"
+  → bridge recv general  (read others' thinking before deciding)
+- knowledge add/search: Shared discoveries persisted and queryable.
+- context search: Unified search across memory, knowledge, bridge, chats, canon.
+  → context search "precedent for X pattern" --as {identity}
 
-CONTINUITY_TEMPLATE = """\
-Spawn #{spawn_count}. {spawn_status}.
-{memories}
-"""
+AGENT DISCOVERY:
+→ spawn agents  (see all agents, their roles, and what they do)
+→ spawn inspect <agent-name>  (see full details)
+
+DECISION TREE:
+WHEN STUCK → spawn agents to find the right agent, then bridge send @agent_name
+WHEN LEARNING → memory add "insight" --topic observations
+WHEN SESSION DONE → memory add "session summary" --topic journal
+
+Your responsibility: bridge to other agents, manage your memory, learn from interactions.
+
+{memories}{task}{channel}"""
 
 MEMORIES_TEMPLATE = """\
-Core memories:
-{core_memories}
-"""
-
-PROTOCOL_TEMPLATE = """\
-SPACE-OS PROTOCOL:
-- Manage your own memory. Decide signal from noise.
-- Use 'memory add' to persist insights before context resets.
-- Interleave tools as needed: bridge (read/write), memory, knowledge, context.
-- Before you exit: memory journal --as {identity} to log your session.
-- Coordinate major decisions through bridge. Never decide alone.
-
+YOUR CONTINUITY:
+{memories_list}
 """
 
 CHANNEL_TEMPLATE = """\
-CHANNEL CONTEXT:
-You are responding in #{channel}.
-First: run 'bridge recv {channel} --as {identity}' to load messages.
 
+CHANNEL: #{channel}
 """
 
 TASK_TEMPLATE = """\
-TASK:
-{task}"""
 
-INTERACTIVE_TEMPLATE = "Context loaded. Ready to work. What are we tackling?"
+TASK:
+{task}
+"""
 
 
 def build_spawn_context(identity: str, task: str | None = None, channel: str | None = None) -> str:
-    """Assemble unified spawn context: identity + continuity + protocol + task/channel.
+    """Assemble spawn context: bootloader for agent execution.
 
-    Three modes:
-    - Interactive (task=None, channel=None): "What are we tackling?"
-    - Direct task (task="...", channel=None): Execute task instruction
-    - Channel task (task="...", channel="..."): Respond in channel with context
+    Provides: identity → space-os context → available primitives → continuity (memories) → task/channel
 
     Args:
         identity: Agent identity
-        task: Task instruction. None = interactive mode
-        channel: Channel name if @mention spawn (optional)
+        task: Task instruction (optional)
+        channel: Channel name if responding in channel (optional)
 
     Returns:
         Complete prompt for agent execution
@@ -64,55 +63,31 @@ def build_spawn_context(identity: str, task: str | None = None, channel: str | N
     agent = agents.get_agent(identity)
     agent_id = agent.agent_id if agent else None
 
-    continuity = ""
+    memories_context = ""
     if agent_id:
         try:
-            spawn_count = sessions.get_spawn_count(agent_id)
-        except Exception:
-            spawn_count = 0
-
-        spawn_status = "First spawn"
-        try:
-            last_journal = memory.api.list_memories(identity, topic="journal", limit=1)
-            if last_journal:
-                entry = last_journal[0]
-                created_at = datetime.fromisoformat(entry.created_at)
-                from space.lib.format import format_duration
-
-                duration = format_duration((datetime.now() - created_at).total_seconds())
-                spawn_status = f"Last session {duration} ago"
+            all_memories = memory.api.list_memories(identity, limit=20)
+            if all_memories:
+                mem_lines = []
+                for e in all_memories:
+                    marker = "★" if e.core else " "
+                    topic_tag = f"[{e.topic}]" if e.topic else ""
+                    mem_lines.append(f"  {marker} {topic_tag} {e.message}".strip())
+                memories_context = MEMORIES_TEMPLATE.format(memories_list="\n".join(mem_lines))
         except Exception:
             pass
-
-        memories = ""
-        try:
-            core_entries = memory.api.list_memories(identity, filter="core")
-            if core_entries:
-                core_list = "\n".join([f"  - {e.message}" for e in core_entries[:3]])
-                memories = MEMORIES_TEMPLATE.format(core_memories=core_list)
-        except Exception:
-            pass
-
-        continuity = CONTINUITY_TEMPLATE.format(
-            spawn_count=spawn_count + 1, spawn_status=spawn_status, memories=memories
-        )
-
-    protocol = PROTOCOL_TEMPLATE.format(identity=identity)
 
     channel_context = ""
     if channel:
-        channel_context = CHANNEL_TEMPLATE.format(channel=channel, identity=identity)
+        channel_context = CHANNEL_TEMPLATE.format(channel=channel)
 
     task_context = ""
     if task:
         task_context = TASK_TEMPLATE.format(task=task)
-    else:
-        task_context = INTERACTIVE_TEMPLATE
 
     return SPAWN_CONTEXT_TEMPLATE.format(
         identity=identity,
-        continuity=continuity,
-        protocol=protocol,
-        channel=channel_context,
+        memories=memories_context,
         task=task_context,
+        channel=channel_context,
     )
