@@ -3,13 +3,27 @@
 from datetime import datetime
 
 from space.core import db
+from space.core.models import Session
+from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
 
 
-def create_session(agent_id: str) -> str:
+def create_session(
+    agent_id: str,
+    is_task: bool = False,
+    constitution_hash: str | None = None,
+    channel_id: str | None = None,
+) -> Session:
     """Create a new session for agent spawn.
 
-    Returns session_id.
+    Args:
+        agent_id: Agent ID
+        is_task: Whether this is a background task spawn
+        constitution_hash: Hash of the constitution file (if loaded)
+        channel_id: Channel ID if triggered by bridge
+
+    Returns:
+        Session object
     """
     with db.connect() as conn:
         cursor = conn.cursor()
@@ -22,10 +36,11 @@ def create_session(agent_id: str) -> str:
 
         cursor.execute(
             """
-            INSERT INTO sessions (session_id, agent_id, spawn_number)
-            VALUES (?, ?, ?)
+            INSERT INTO sessions
+            (id, agent_id, spawn_number, is_task, constitution_hash, channel_id)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (session_id, agent_id, spawn_count),
+            (session_id, agent_id, spawn_count, is_task, constitution_hash, channel_id),
         )
 
         cursor.execute(
@@ -33,7 +48,12 @@ def create_session(agent_id: str) -> str:
             (spawn_count, datetime.now().isoformat(), agent_id),
         )
 
-        return session_id
+        cursor.execute(
+            "SELECT * FROM sessions WHERE id = ?",
+            (session_id,),
+        )
+        row = cursor.fetchone()
+        return from_row(row, Session)
 
 
 def end_session(session_id: str) -> None:
@@ -41,7 +61,7 @@ def end_session(session_id: str) -> None:
     with db.connect() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE sessions SET ended_at = ? WHERE session_id = ?",
+            "UPDATE sessions SET ended_at = ? WHERE id = ?",
             (datetime.now().isoformat(), session_id),
         )
 

@@ -42,7 +42,7 @@ class Claude(Provider):
         ]
         return ["--dangerously-skip-permissions", "--disallowedTools", ",".join(disallowed)]
 
-    def discover_sessions(self) -> list[dict]:
+    def discover_chats(self) -> list[dict]:
         """Discover Claude chat sessions."""
         sessions = []
         if not self.chats_dir.exists():

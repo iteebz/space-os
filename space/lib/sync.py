@@ -122,44 +122,37 @@ def _insert_chat_record(chat: Chat) -> None:
         cursor.execute(
             """
             INSERT OR REPLACE INTO chats
-            (chat_id, provider, identity, cli, session_id, file_path, message_count,
-             tools_used, input_tokens, output_tokens, first_message_at, last_message_at, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, model, provider, file_path, message_count,
+             input_tokens, output_tokens, tools_used, first_message_at, last_message_at, session_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                chat.chat_id,
+                chat.id,
+                chat.model,
                 chat.provider,
-                chat.identity,
-                chat.cli,
-                chat.session_id,
                 chat.file_path,
                 chat.message_count,
-                chat.tools_used,
                 chat.input_tokens,
                 chat.output_tokens,
+                chat.tools_used,
                 chat.first_message_at,
                 chat.last_message_at,
+                chat.session_id,
                 chat.created_at or None,
             ),
         )
         conn.commit()
     except Exception as e:
-        logger.warning(f"Failed to insert chat record for {chat.chat_id}: {e}")
+        logger.warning(f"Failed to insert chat record for {chat.id}: {e}")
 
 
 def _link_chat_to_session(chat: Chat, cli_name: str) -> None:
-    """Link chat to session based on identity and created_at timestamp.
+    """Link chat to session based on created_at timestamp.
 
-    Finds session with matching agent_id (via identity) and recent start time.
+    Finds session with matching provider and recent start time.
     """
     try:
-        from space.os.spawn import api as spawn_api
-
-        if not chat.identity:
-            return
-
-        agent = spawn_api.get_agent(chat.identity)
-        if not agent:
+        if not chat.created_at:
             return
 
         conn = db.connect()
@@ -167,33 +160,32 @@ def _link_chat_to_session(chat: Chat, cli_name: str) -> None:
 
         cursor.execute(
             """
-            SELECT session_id, started_at FROM sessions
-            WHERE agent_id = ? AND status = 'running'
-            ORDER BY started_at DESC LIMIT 1
+            SELECT id, created_at FROM sessions
+            WHERE status IN ('running', 'completed')
+            ORDER BY created_at DESC LIMIT 10
             """,
-            (agent.agent_id,),
         )
-        row = cursor.fetchone()
-        if not row:
+        rows = cursor.fetchall()
+        if not rows:
             return
 
-        session_id, started_at = row
-        if started_at and chat.created_at:
-            try:
-                from datetime import datetime
+        from datetime import datetime
 
-                session_start = datetime.fromisoformat(started_at)
-                chat_start = datetime.fromisoformat(chat.created_at)
+        chat_start = datetime.fromisoformat(chat.created_at)
+        for session_id, session_created_at in rows:
+            try:
+                session_start = datetime.fromisoformat(session_created_at)
                 if abs((chat_start - session_start).total_seconds()) < 60:
                     cursor.execute(
-                        "UPDATE chats SET session_id = ? WHERE chat_id = ?",
-                        (session_id, chat.chat_id),
+                        "UPDATE chats SET session_id = ? WHERE id = ?",
+                        (session_id, chat.id),
                     )
                     conn.commit()
+                    return
             except (ValueError, TypeError):
-                pass
+                continue
     except Exception as e:
-        logger.debug(f"Failed to link chat {chat.chat_id} to session: {e}")
+        logger.debug(f"Failed to link chat {chat.id} to session: {e}")
 
 
 def sync_provider_chats(
@@ -233,7 +225,7 @@ def sync_provider_chats(
             provider_class = getattr(providers, class_name)
             provider = provider_class()
 
-            sessions = provider.discover_sessions()
+            sessions = provider.discover_chats()
             if not sessions:
                 results[cli_name] = (0, 0)
                 continue
@@ -312,10 +304,17 @@ def sync_provider_chats(
 
                     input_tokens, output_tokens = provider.extract_tokens(src_file)
 
+                    model_map = {
+                        "claude": "claude-opus-4",
+                        "codex": "gpt-5",
+                        "gemini": "gemini-2.0",
+                    }
+                    model = model_map.get(cli_name, cli_name)
+
                     chat = Chat(
-                        chat_id=sid,
+                        id=sid,
+                        model=model,
                         provider=cli_name,
-                        cli=cli_name,
                         file_path=str(dest_file),
                         message_count=message_count,
                         tools_used=tools_used,

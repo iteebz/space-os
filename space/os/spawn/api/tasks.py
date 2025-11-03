@@ -1,128 +1,112 @@
-"""Task operations: create, get, update, list."""
+"""Task operations: background spawn tracking."""
 
-import logging
 from datetime import datetime
 
 from space.core import db
-from space.core.models import Task, TaskStatus
+from space.core.models import Session, TaskStatus
 from space.lib.store import from_row
 
 from .agents import get_agent
 from .sessions import create_session
 
-logger = logging.getLogger(__name__)
-
 
 def create_task(
-    identity: str | None = None,
-    input: str = "",
+    identity: str,
     channel_id: str | None = None,
-    role: str | None = None,
-) -> str:
-    ident = role or identity
-    if not ident:
-        raise ValueError("Either identity or role must be provided")
-    agent = get_agent(ident)
+    input: str | None = None,
+) -> Session:
+    """Create a background task session for an agent.
+
+    Args:
+        identity: Agent identity (matches constitution)
+        channel_id: Channel ID if triggered by bridge mention
+        input: Task prompt/description (not persisted, used for execution)
+
+    Returns:
+        Session object
+    """
+    agent = get_agent(identity)
     if not agent:
-        raise ValueError(f"Agent '{ident}' not found")
-    agent_id = agent.agent_id
-    session_id = create_session(agent_id)
-    with db.connect() as conn:
-        conn.execute(
-            """
-            UPDATE sessions SET channel_id = ?, input = ?, status = ?, triggered_by = ? WHERE session_id = ?
-            """,
-            (channel_id, input, "pending", "bridge", session_id),
-        )
-    return session_id
+        raise ValueError(f"Agent '{identity}' not found")
+
+    return create_session(
+        agent_id=agent.agent_id,
+        is_task=True,
+        channel_id=channel_id,
+    )
 
 
-def get_task(task_id: str) -> Task | None:
-    """Get task by ID."""
+def get_task(task_id: str) -> Session | None:
+    """Get a task session by ID."""
     with db.connect() as conn:
         row = conn.execute(
-            "SELECT session_id as task_id, agent_id, input, status, channel_id, output, stderr, pid, started_at, ended_at as completed_at, created_at FROM sessions WHERE session_id = ?",
+            "SELECT * FROM sessions WHERE id = ?",
             (task_id,),
         ).fetchone()
         if not row:
             return None
-        return from_row(row, Task)
+        return from_row(row, Session)
 
 
-def start_task(task_id: str, pid: int | None = None):
-    """Mark task as started."""
-    now_iso = datetime.now().isoformat()
-    updates = ["status = ?", "started_at = ?"]
-    params = [TaskStatus.RUNNING.value, now_iso]
+def start_task(task_id: str, pid: int | None = None) -> None:
+    """Mark task as started and optionally record PID."""
+    updates = ["status = ?"]
+    params = [TaskStatus.RUNNING.value]
     if pid is not None:
         updates.append("pid = ?")
         params.append(pid)
-
     params.append(task_id)
-    query = f"UPDATE sessions SET {', '.join(updates)} WHERE session_id = ?"
+    query = f"UPDATE sessions SET {', '.join(updates)} WHERE id = ?"
     with db.connect() as conn:
         conn.execute(query, params)
 
 
-def complete_task(task_id: str, output: str | None = None, stderr: str | None = None):
+def complete_task(task_id: str) -> None:
     """Mark task as completed."""
     now_iso = datetime.now().isoformat()
-    updates = ["status = ?", "ended_at = ?"]
-    params = [TaskStatus.COMPLETED.value, now_iso]
-    if output is not None:
-        updates.append("output = ?")
-        params.append(output)
-    if stderr is not None:
-        updates.append("stderr = ?")
-        params.append(stderr)
-
-    params.append(task_id)
-    query = f"UPDATE sessions SET {', '.join(updates)} WHERE session_id = ?"
     with db.connect() as conn:
-        conn.execute(query, params)
+        conn.execute(
+            "UPDATE sessions SET status = ?, ended_at = ? WHERE id = ?",
+            (TaskStatus.COMPLETED.value, now_iso, task_id),
+        )
 
 
-def fail_task(task_id: str, stderr: str | None = None):
+def fail_task(task_id: str) -> None:
     """Mark task as failed."""
     now_iso = datetime.now().isoformat()
-    updates = ["status = ?", "ended_at = ?"]
-    params = [TaskStatus.FAILED.value, now_iso]
-    if stderr is not None:
-        updates.append("stderr = ?")
-        params.append(stderr)
-
-    params.append(task_id)
-    query = f"UPDATE sessions SET {', '.join(updates)} WHERE session_id = ?"
     with db.connect() as conn:
-        conn.execute(query, params)
+        conn.execute(
+            "UPDATE sessions SET status = ?, ended_at = ? WHERE id = ?",
+            (TaskStatus.FAILED.value, now_iso, task_id),
+        )
 
 
 def list_tasks(
     status: str | None = None,
     identity: str | None = None,
-    role: str | None = None,
     channel_id: str | None = None,
-) -> list[Task]:
-    """List tasks with optional filters."""
-    query = "SELECT session_id as task_id, agent_id, input, status, channel_id, output, stderr, pid, started_at, ended_at as completed_at, created_at FROM sessions WHERE triggered_by = ? AND 1 = 1"
-    params = ["bridge"]
+) -> list[Session]:
+    """List background task sessions with optional filters."""
+    query = "SELECT * FROM sessions WHERE is_task = 1"
+    params = []
 
     if status is not None:
         query += " AND status = ?"
         params.append(status)
-    ident = role or identity
-    if ident is not None:
-        agent = get_agent(ident)
+
+    if identity is not None:
+        agent = get_agent(identity)
         if not agent:
             return []
         query += " AND agent_id = ?"
         params.append(agent.agent_id)
+
     if channel_id is not None:
         query += " AND channel_id = ?"
         params.append(channel_id)
 
-    query += " ORDER BY started_at DESC"
+    query += " ORDER BY created_at DESC"
 
     with db.connect() as conn:
         rows = conn.execute(query, params).fetchall()
-        return [from_row(row, Task) for row in rows]
+        return [from_row(row, Session) for row in rows]

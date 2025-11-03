@@ -40,7 +40,7 @@ class Gemini(Provider):
             args.append("--prompt-interactive")
         return args
 
-    def discover_sessions(self) -> list[dict]:
+    def discover_chats(self) -> list[dict]:
         """Discover Gemini chat sessions from actual chat files and logs.json index."""
         sessions = []
         if not self.tmp_dir.exists():

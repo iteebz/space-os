@@ -1,20 +1,30 @@
+"""Spawn task lifecycle: creation, status transitions, agent/channel tracking."""
+
 from unittest.mock import MagicMock, patch
 
+from space.core.models import Agent, TaskStatus
 from space.os import bridge, spawn
-from space.os.bridge.api import mentions
 
 
-def test_channel_groups_tasks(test_space, default_agents):
-    """Tasks in same channel preserve agent references."""
+def test_create_task_with_channel(test_space, default_agents):
+    """Task creation with channel stores both agent and channel references."""
+    channel = bridge.create_channel("investigation-channel")
+    zealot_id = default_agents["zealot"]
+
+    task = spawn.create_task(identity=zealot_id, channel_id=channel.channel_id)
+
+    assert task.channel_id == channel.channel_id
+    assert task.agent_id is not None
+    assert spawn.get_agent(task.agent_id).identity == zealot_id
+
+
+def test_tasks_in_same_channel(test_space, default_agents):
+    """Multiple tasks in same channel preserve individual agent references."""
     channel = bridge.create_channel("investigation-channel")
 
-    t1_id = spawn.create_task(default_agents["zealot"], "test", channel_id=channel.channel_id)
-    t2_id = spawn.create_task(default_agents["sentinel"], "test", channel_id=channel.channel_id)
-    t3_id = spawn.create_task(default_agents["zealot"], "test", channel_id=channel.channel_id)
-
-    t1 = spawn.get_task(t1_id)
-    t2 = spawn.get_task(t2_id)
-    t3 = spawn.get_task(t3_id)
+    t1 = spawn.create_task(identity=default_agents["zealot"], channel_id=channel.channel_id)
+    t2 = spawn.create_task(identity=default_agents["sentinel"], channel_id=channel.channel_id)
+    t3 = spawn.create_task(identity=default_agents["zealot"], channel_id=channel.channel_id)
 
     assert t1.channel_id == channel.channel_id
     assert t2.channel_id == channel.channel_id
@@ -26,63 +36,126 @@ def test_channel_groups_tasks(test_space, default_agents):
 
 
 def test_channel_isolation(test_space, default_agents):
-    """Tasks from different channels isolated."""
+    """Tasks from different channels are isolated."""
     channel_a = bridge.create_channel("channel-a")
     channel_b = bridge.create_channel("channel-b")
 
-    t_a = spawn.create_task(default_agents["zealot"], "test", channel_id=channel_a.channel_id)
-    t_b = spawn.create_task(default_agents["sentinel"], "test", channel_id=channel_b.channel_id)
+    t_a = spawn.create_task(identity=default_agents["zealot"], channel_id=channel_a.channel_id)
+    t_b = spawn.create_task(identity=default_agents["sentinel"], channel_id=channel_b.channel_id)
 
-    task_a = spawn.get_task(t_a)
-    task_b = spawn.get_task(t_b)
+    task_a = spawn.get_task(t_a.id)
+    task_b = spawn.get_task(t_b.id)
 
     assert task_a.channel_id == channel_a.channel_id
     assert task_b.channel_id == channel_b.channel_id
     assert task_a.channel_id != task_b.channel_id
 
 
-def test_retrieve_channel_history(test_space, default_agents):
-    """Retrieve task history preserves agent and output."""
-    channel = bridge.create_channel("investigation")
+def test_task_status_transitions(test_space, default_agents):
+    """Task status progresses: pending → running → completed."""
+    zealot_id = default_agents["zealot"]
+    task = spawn.create_task(identity=zealot_id)
 
-    task_outputs = [
-        (default_agents["zealot"], "started investigation"),
-        (default_agents["sentinel"], "gathered data"),
-        (default_agents["zealot"], "final report"),
-    ]
+    assert task.status == TaskStatus.PENDING
 
-    task_ids = []
-    for agent, output in task_outputs:
-        t_id = spawn.create_task(agent, "test", channel_id=channel.channel_id)
-        spawn.complete_task(t_id, output=output)
-        task_ids.append(t_id)
+    spawn.start_task(task.id)
+    running_task = spawn.get_task(task.id)
+    assert running_task.status == TaskStatus.RUNNING
 
-    for task_id, (agent, output) in zip(task_ids, task_outputs, strict=False):
-        task = spawn.get_task(task_id)
-        assert spawn.get_agent(task.agent_id).identity == agent
-        assert task.output == output
+    spawn.complete_task(task.id)
+    completed_task = spawn.get_task(task.id)
+    assert completed_task.status == TaskStatus.COMPLETED
+    assert completed_task.ended_at is not None
 
 
-def test_spawn_logs_metadata(test_space, default_agents):
-    """Spawn task stores all metadata (agent, channel, output, status)."""
-    channel = bridge.create_channel("subagents-test")
-    output = "response"
+def test_task_failure(test_space, default_agents):
+    """Task can transition from running to failed."""
+    zealot_id = default_agents["zealot"]
+    task = spawn.create_task(identity=zealot_id)
 
-    task_id = spawn.create_task(default_agents["zealot"], "test", channel_id=channel.channel_id)
-    spawn.complete_task(task_id, output=output)
+    spawn.start_task(task.id)
+    spawn.fail_task(task.id)
 
-    task = spawn.get_task(task_id)
+    failed_task = spawn.get_task(task.id)
+    assert failed_task.status == TaskStatus.FAILED
+    assert failed_task.ended_at is not None
 
-    assert spawn.get_agent(task.agent_id).identity == default_agents["zealot"]
-    assert task.channel_id == channel.channel_id
-    assert task.output == output
-    assert task.status == "completed"
+
+def test_task_with_pid(test_space, default_agents):
+    """Task can store PID for lifecycle management."""
+    zealot_id = default_agents["zealot"]
+    task = spawn.create_task(identity=zealot_id)
+
+    spawn.start_task(task.id, pid=12345)
+    running_task = spawn.get_task(task.id)
+    assert running_task.pid == 12345
+
+
+def test_list_tasks_all(test_space, default_agents):
+    """List all tasks returns all background task sessions."""
+    zealot_id = default_agents["zealot"]
+    t1 = spawn.create_task(identity=zealot_id)
+    t2 = spawn.create_task(identity=zealot_id)
+
+    all_tasks = spawn.list_tasks()
+    task_ids = {t.id for t in all_tasks}
+    assert t1.id in task_ids
+    assert t2.id in task_ids
+
+
+def test_list_tasks_by_status(test_space, default_agents):
+    """List tasks can filter by status."""
+    zealot_id = default_agents["zealot"]
+    t1 = spawn.create_task(identity=zealot_id)
+    t2 = spawn.create_task(identity=zealot_id)
+
+    spawn.complete_task(t1.id)
+
+    pending_tasks = spawn.list_tasks(status=TaskStatus.PENDING.value)
+    completed_tasks = spawn.list_tasks(status=TaskStatus.COMPLETED.value)
+
+    assert t1.id not in {t.id for t in pending_tasks}
+    assert t2.id in {t.id for t in pending_tasks}
+    assert t1.id in {t.id for t in completed_tasks}
+
+
+def test_list_tasks_by_identity(test_space, default_agents):
+    """List tasks can filter by agent identity."""
+    zealot_id = default_agents["zealot"]
+    sentinel_id = default_agents["sentinel"]
+
+    t_z = spawn.create_task(identity=zealot_id)
+    t_s = spawn.create_task(identity=sentinel_id)
+
+    zealot_tasks = spawn.list_tasks(identity=zealot_id)
+    sentinel_tasks = spawn.list_tasks(identity=sentinel_id)
+
+    task_ids_z = {t.id for t in zealot_tasks}
+    task_ids_s = {t.id for t in sentinel_tasks}
+
+    assert t_z.id in task_ids_z
+    assert t_z.id not in task_ids_s
+    assert t_s.id in task_ids_s
+    assert t_s.id not in task_ids_z
+
+
+def test_list_tasks_by_channel(test_space, default_agents):
+    """List tasks can filter by channel."""
+    channel = bridge.create_channel("test-channel")
+    zealot_id = default_agents["zealot"]
+
+    t_in_channel = spawn.create_task(identity=zealot_id, channel_id=channel.channel_id)
+    t_no_channel = spawn.create_task(identity=zealot_id)
+
+    channel_tasks = spawn.list_tasks(channel_id=channel.channel_id)
+    task_ids = {t.id for t in channel_tasks}
+
+    assert t_in_channel.id in task_ids
+    assert t_no_channel.id not in task_ids
 
 
 def test_mention_spawns_worker():
     """Bridge detects @mention and returns prompt for spawning."""
-    from space.core.models import Agent
-
     mock_agent = Agent(
         agent_id="a-1",
         identity="zealot",
@@ -102,77 +175,10 @@ def test_mention_spawns_worker():
             returncode=0, stdout="# subagents-test\n\n[alice] hello\n"
         )
 
+        from space.os.bridge.api import mentions
+
         result = mentions._build_prompt("zealot", "subagents-test", "@zealot question")
 
         assert result is not None
         assert "You are zealot." in result
         assert "[SPACE INSTRUCTIONS]" in result
-
-
-def test_task_provenance_chain(test_space, default_agents):
-    """Task entry tracks full provenance: agent_id, channel_id, output, status, timestamps."""
-    channel = bridge.create_channel("investigation")
-    output = "findings"
-
-    task_id = spawn.create_task(default_agents["zealot"], "test", channel_id=channel.channel_id)
-    spawn.complete_task(task_id, output=output)
-
-    task = spawn.get_task(task_id)
-
-    assert task.task_id == task_id
-    assert spawn.get_agent(task.agent_id).identity == default_agents["zealot"]
-    assert task.channel_id == channel.channel_id
-    assert task.output == output
-    assert task.status == "completed"
-    assert task.created_at is not None
-    assert task.completed_at is not None
-
-
-def test_task_pending_to_running(test_space, default_agents):
-    task_id = spawn.create_task(role=default_agents["zealot"], input="list repos")
-
-    task = spawn.get_task(task_id)
-    assert task.status == "pending"
-    spawn.start_task(task_id)
-    task = spawn.get_task(task_id)
-    assert task.status == "running"
-    assert task.started_at is not None
-
-
-def test_task_running_to_completed(test_space, default_agents):
-    task_id = spawn.create_task(role=default_agents["zealot"], input="list repos")
-    spawn.start_task(task_id)
-
-    output = "repo1\nrepo2\nrepo3"
-    spawn.complete_task(task_id, output=output)
-
-    task = spawn.get_task(task_id)
-    assert task.status == "completed"
-    assert task.output == output
-    assert task.completed_at is not None
-    assert task.duration is not None
-    assert task.duration >= 0
-
-
-def test_task_running_to_failed(test_space, default_agents):
-    task_id = spawn.create_task(role=default_agents["zealot"], input="run command")
-    spawn.start_task(task_id)
-
-    stderr = "command not found"
-    spawn.fail_task(task_id, stderr=stderr)
-
-    task = spawn.get_task(task_id)
-    assert task.status == "failed"
-    assert task.stderr == stderr
-    assert task.output is None
-    assert task.completed_at is not None
-
-
-def test_task_pending_to_timeout(test_space, default_agents):
-    task_id = spawn.create_task(role=default_agents["zealot"], input="slow task")
-
-    spawn.fail_task(task_id)
-    task = spawn.get_task(task_id)
-    assert task.status == "failed"
-    assert task.started_at is None
-    assert task.completed_at is not None

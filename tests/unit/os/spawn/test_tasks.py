@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from space.core.models import TaskStatus
+from space.core.models import Session, TaskStatus
 from space.os import spawn
 
 
@@ -22,60 +22,64 @@ def mock_resolve_agent():
         yield mock
 
 
-def test_create_task_inserts_record(mock_db, mock_resolve_agent):
-    with patch("space.os.spawn.api.tasks.create_session", return_value="session-123"):
-        spawn.create_task(identity="test-role", input="do work")
-
-        calls = [call[0][0] for call in mock_db.execute.call_args_list]
-        session_call = [call for call in calls if "UPDATE sessions" in call][0]
-        assert "UPDATE sessions" in session_call
-
-
-def test_create_task_with_channel_id(mock_db, mock_resolve_agent):
-    with patch("space.os.spawn.api.tasks.create_session", return_value="session-123"):
-        spawn.create_task(identity="test-role", input="work", channel_id="ch-123")
-
-        calls = [
-            call[0] for call in mock_db.execute.call_args_list if "UPDATE sessions" in call[0][0]
-        ]
-        assert calls
-        args = calls[0][1]
-        assert args[0] == "ch-123"
+def test_create_task_returns_session(mock_db, mock_resolve_agent):
+    mock_session = Session(
+        id="task-123",
+        agent_id="agent-123",
+        spawn_number=1,
+        status=TaskStatus.PENDING,
+        is_task=True,
+    )
+    with patch("space.os.spawn.api.tasks.create_session", return_value=mock_session):
+        result = spawn.create_task(identity="test-role")
+        assert result == mock_session
+        assert result.is_task is True
 
 
-def test_create_task_returns_id(mock_db, mock_resolve_agent):
-    with patch("space.os.spawn.api.tasks.create_session", return_value="session-123"):
-        result = spawn.create_task(identity="test-role", input="work")
-        assert result == "session-123"
+def test_create_task_with_channel_id(mock_resolve_agent):
+    mock_session = Session(
+        id="task-123",
+        agent_id="agent-123",
+        spawn_number=1,
+        status=TaskStatus.PENDING,
+        is_task=True,
+        channel_id="ch-123",
+    )
+    with patch("space.os.spawn.api.tasks.create_session", return_value=mock_session) as mock_create:
+        spawn.create_task(identity="test-role", channel_id="ch-123")
+        mock_create.assert_called_once()
+        call_kwargs = mock_create.call_args[1]
+        assert call_kwargs.get("channel_id") == "ch-123"
 
 
 def test_create_task_unknown_role_raises(mock_resolve_agent):
     mock_resolve_agent.return_value = None
 
     with pytest.raises(ValueError, match="not found"):
-        spawn.create_task(identity="unknown", input="work")
+        spawn.create_task(identity="unknown")
 
 
-def test_get_task_returns_task(mock_db):
+def test_get_task_returns_session(mock_db):
     mock_row = make_mock_row(
         {
-            "task_id": "t-1",
+            "id": "t-1",
             "agent_id": "a-1",
+            "spawn_number": 1,
             "channel_id": None,
-            "input": "test",
-            "output": None,
-            "stderr": None,
             "status": "pending",
-            "created_at": "2024-01-01T00:00:00",
-            "started_at": None,
-            "completed_at": None,
+            "is_task": True,
+            "constitution_hash": None,
             "pid": None,
+            "created_at": "2024-01-01T00:00:00",
+            "ended_at": None,
         }
     )
     mock_db.execute.return_value.fetchone.return_value = mock_row
 
     result = spawn.get_task("t-1")
     assert result is not None
+    assert result.id == "t-1"
+    assert result.is_task is True
 
 
 def test_get_task_missing_returns_none(mock_db):
@@ -116,22 +120,10 @@ def test_complete_task_updates_status(mock_db):
 def test_complete_task_sets_completed(mock_db):
     spawn.complete_task("t-1")
 
+    calls = [call[0][0] for call in mock_db.execute.call_args_list if "UPDATE" in call[0][0]]
     args = [call[0][1] for call in mock_db.execute.call_args_list if "UPDATE" in call[0][0]][0]
     assert TaskStatus.COMPLETED.value in args
-
-
-def test_complete_task_with_output(mock_db):
-    spawn.complete_task("t-1", output="success")
-
-    args = [call[0][1] for call in mock_db.execute.call_args_list if "UPDATE" in call[0][0]][0]
-    assert "success" in args
-
-
-def test_complete_task_with_stderr(mock_db):
-    spawn.complete_task("t-1", stderr="error msg")
-
-    args = [call[0][1] for call in mock_db.execute.call_args_list if "UPDATE" in call[0][0]][0]
-    assert "error msg" in args
+    assert any("ended_at" in call for call in calls)
 
 
 def test_fail_task_sets_failed(mock_db):
@@ -141,8 +133,40 @@ def test_fail_task_sets_failed(mock_db):
     assert TaskStatus.FAILED.value in args
 
 
-def test_fail_task_with_stderr(mock_db):
-    spawn.fail_task("t-1", stderr="test failed")
+def test_list_tasks_returns_sessions(mock_db):
+    mock_rows = [
+        make_mock_row(
+            {
+                "id": "t-1",
+                "agent_id": "a-1",
+                "spawn_number": 1,
+                "status": "running",
+                "is_task": True,
+                "constitution_hash": None,
+                "channel_id": None,
+                "pid": None,
+                "created_at": "2024-01-01T00:00:00",
+                "ended_at": None,
+            }
+        ),
+        make_mock_row(
+            {
+                "id": "t-2",
+                "agent_id": "a-1",
+                "spawn_number": 2,
+                "status": "completed",
+                "is_task": True,
+                "constitution_hash": None,
+                "channel_id": None,
+                "pid": None,
+                "created_at": "2024-01-02T00:00:00",
+                "ended_at": "2024-01-02T00:10:00",
+            }
+        ),
+    ]
+    mock_db.execute.return_value.fetchall.return_value = mock_rows
 
-    args = [call[0][1] for call in mock_db.execute.call_args_list if "UPDATE" in call[0][0]][0]
-    assert "test failed" in args
+    results = spawn.list_tasks()
+    assert len(results) == 2
+    assert results[0].id == "t-1"
+    assert results[1].id == "t-2"

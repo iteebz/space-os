@@ -1,5 +1,6 @@
 """Agent launching: provider execution and lifecycle management."""
 
+import hashlib
 import os
 import shlex
 import shutil
@@ -32,9 +33,11 @@ def spawn_agent(identity: str, extra_args: list[str] | None = None):
         raise ValueError(f"Agent '{identity}' not found in registry")
 
     constitution_text = None
+    constitution_hash = None
     if agent.constitution:
         const_path = paths.constitution(agent.constitution)
         constitution_text = const_path.read_text()
+        constitution_hash = hashlib.sha256(constitution_text.encode()).hexdigest()
 
     provider_cmd = _get_provider_command(agent.provider)
     if constitution_text:
@@ -50,7 +53,11 @@ def spawn_agent(identity: str, extra_args: list[str] | None = None):
     model_args = ["--model", agent.model]
 
     click.echo(f"Spawning {identity}...\n")
-    session_id = sessions.create_session(agent.agent_id)
+    session = sessions.create_session(
+        agent_id=agent.agent_id,
+        is_task=bool(passthrough),
+        constitution_hash=constitution_hash,
+    )
 
     provider_obj = {"claude": claude, "gemini": gemini, "codex": codex}.get(agent.provider)
     if provider_obj:
@@ -84,7 +91,7 @@ def spawn_agent(identity: str, extra_args: list[str] | None = None):
         try:
             proc.communicate()
         finally:
-            sessions.end_session(session_id)
+            sessions.end_session(session.id)
     else:
         import sys
 
@@ -99,7 +106,7 @@ def spawn_agent(identity: str, extra_args: list[str] | None = None):
         try:
             proc.wait()
         finally:
-            sessions.end_session(session_id)
+            sessions.end_session(session.id)
 
 
 def _get_provider_command(provider: str) -> str:

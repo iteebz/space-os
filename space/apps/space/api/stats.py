@@ -224,7 +224,7 @@ def _get_chat_stats() -> dict:
         ).fetchall()
 
         by_agent = conn.execute(
-            "SELECT a.identity, COUNT(c.session_id) as chat_count, COALESCE(SUM(c.message_count), 0) as messages, COALESCE(SUM(c.tools_used), 0) as tools_used, COALESCE(SUM(c.input_tokens), 0) as input_tokens, COALESCE(SUM(c.output_tokens), 0) as output_tokens FROM agents a LEFT JOIN chats c ON c.identity = a.identity GROUP BY a.agent_id ORDER BY messages DESC"
+            "SELECT a.identity, COUNT(c.id) as chat_count, COALESCE(SUM(c.message_count), 0) as messages, COALESCE(SUM(c.tools_used), 0) as tools_used, COALESCE(SUM(c.input_tokens), 0) as input_tokens, COALESCE(SUM(c.output_tokens), 0) as output_tokens FROM agents a LEFT JOIN chats c ON c.session_id IN (SELECT id FROM sessions WHERE agent_id = a.agent_id) GROUP BY a.agent_id ORDER BY messages DESC"
         ).fetchall()
 
     return {

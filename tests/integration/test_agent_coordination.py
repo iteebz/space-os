@@ -87,15 +87,16 @@ def test_full_spawn_task_events_flow(test_space, default_agents):
     assert agent is not None
     agent_id = agent.agent_id
 
-    task_id = spawn.create_task(agent_identity, "test input")
-    assert task_id is not None
-
-    task = spawn.get_task(task_id)
+    task = spawn.create_task(identity=agent_identity, input="test input")
     assert task is not None
-    assert task.agent_id == agent_id
-    assert isinstance(task.agent_id, str)
+    assert task.id is not None
 
-    spawn.complete_task(task_id, output="test output")
-    updated_task = spawn.get_task(task_id)
+    retrieved_task = spawn.get_task(task.id)
+    assert retrieved_task is not None
+    assert retrieved_task.agent_id == agent_id
+    assert isinstance(retrieved_task.agent_id, str)
+
+    spawn.complete_task(task.id)
+    updated_task = spawn.get_task(task.id)
     assert updated_task.status == "completed"
     assert updated_task.agent_id == agent_id

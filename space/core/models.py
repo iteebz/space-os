@@ -1,7 +1,6 @@
 """Shared data models and types."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
 
 
@@ -143,52 +142,37 @@ class Agent:
 
 
 @dataclass
-class Task:
-    """A task spawned by an agent."""
+class Session:
+    """A session: single spawn invocation of an agent."""
 
-    task_id: str
+    id: str
     agent_id: str
-    input: str
+    spawn_number: int
     status: TaskStatus | str = TaskStatus.PENDING
+    is_task: bool = True
+    constitution_hash: str | None = None
     channel_id: str | None = None
-    output: str | None = None
-    stderr: str | None = None
     pid: int | None = None
-    started_at: str | None = None
-    completed_at: str | None = None
     created_at: str | None = None
-    duration: float | None = None
+    ended_at: str | None = None
 
-    def __post_init__(self):
-        """Calculate duration from timestamps if not provided."""
-        if self.duration is None and self.started_at and self.completed_at:
-            try:
-                start = datetime.fromisoformat(self.started_at)
-                end = datetime.fromisoformat(self.completed_at)
-                self.duration = (end - start).total_seconds()
-            except (ValueError, TypeError) as e:
-                import logging
 
-                logger = logging.getLogger(__name__)
-                logger.warning(
-                    f"Could not calculate task duration due to malformed timestamps: {e}"
-                )
+Task = Session
 
 
 @dataclass
 class Chat:
     """A chat session tracked for audit trail."""
 
-    chat_id: str
+    id: str
+    model: str
     provider: str
     file_path: str
-    cli: str | None = None
-    identity: str | None = None
-    session_id: str | None = None
-    message_count: int | None = None
+    message_count: int = 0
     tools_used: int = 0
-    input_tokens: int | None = None
-    output_tokens: int | None = None
+    input_tokens: int = 0
+    output_tokens: int = 0
     first_message_at: str | None = None
     last_message_at: str | None = None
+    session_id: str | None = None
     created_at: str | None = None

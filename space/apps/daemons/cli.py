@@ -14,14 +14,14 @@ DAEMON_TASKS = [
 ]
 
 
-def _run_all_daemons(role: str = "zealot") -> None:
+def _run_all_daemons(identity: str = "zealot") -> None:
     """Run all configured daemons in parallel."""
     typer.echo("🔄 Space health heartbeat: running daemons in parallel\n")
 
     def spawn_daemon(daemon_type: str, description: str) -> tuple[str, str, str]:
         """Spawn a single daemon and return (daemon_type, task_id, status)."""
         try:
-            task_id = api.create_daemon_task(daemon_type, role=role)
+            task_id = api.create_daemon_task(daemon_type, identity=identity)
             return (daemon_type, task_id, "spawned")
         except Exception as e:
             return (daemon_type, "", f"error: {e}")
@@ -54,8 +54,8 @@ def main_callback(ctx: typer.Context) -> None:
     """Space health heartbeat: run all daemons in parallel, or invoke subcommands."""
     if ctx.invoked_subcommand is None:
         # Retrieve identity from ctx.obj
-        role = ctx.obj.get("identity", "zealot")  # Default to zealot if not provided
-        _run_all_daemons(role=role)
+        identity = ctx.obj.get("identity", "zealot")  # Default to zealot if not provided
+        _run_all_daemons(identity=identity)
 
 
 @app.command("upkeep")
@@ -66,9 +66,9 @@ def upkeep(
     ),
 ):
     """Spawn upkeep daemon: repository hygiene, memory compaction, artifact checksumming."""
-    role = ctx.obj.get("identity", "zealot")
+    identity = ctx.obj.get("identity", "zealot")
     try:
-        task_id = api.create_daemon_task("upkeep", role=role)
+        task_id = api.create_daemon_task("upkeep", identity=identity)
         typer.echo(f"✓ Daemon spawned: {task_id[:8]}")
 
         if wait_for_completion:
@@ -92,15 +92,15 @@ def status(
         typer.echo("No active daemon tasks")
         return
 
-    typer.echo(f"{'ID':<8} {'Role':<12} {'Status':<12} {'Input':<30}")
+    typer.echo(f"{'ID':<8} {'Identity':<12} {'Status':<12} {'Input':<30}")
     typer.echo("-" * 70)
 
     for task in daemon_tasks:
         task_id = task.task_id[:8]
-        role = (task.agent_id or "unknown")[:11]
+        identity = (task.agent_id or "unknown")[:11]
         stat = task.status
         task_input = (task.input or "")[:29]
-        typer.echo(f"{task_id:<8} {role:<12} {stat:<12} {task_input:<30}")
+        typer.echo(f"{task_id:<8} {identity:<12} {stat:<12} {task_input:<30}")
 
 
 def main() -> None:

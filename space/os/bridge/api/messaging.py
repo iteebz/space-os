@@ -114,7 +114,7 @@ def get_messages(channel: str | Channel, agent_id: str | None = None) -> list[Me
         last_seen_id = None
         if agent_id:
             row = conn.execute(
-                "SELECT last_seen_id FROM bookmarks WHERE agent_id = ? AND channel_id = ? AND session_id = ''",
+                "SELECT last_seen_id FROM bookmarks WHERE agent_id = ? AND channel_id = ? AND session_id IS NULL",
                 (agent_id, actual_channel_id),
             ).fetchone()
             last_seen_id = row["last_seen_id"] if row else None
@@ -163,7 +163,7 @@ def set_bookmark(
     with store.ensure("bridge") as conn:
         conn.execute(
             "INSERT OR REPLACE INTO bookmarks (agent_id, channel_id, session_id, last_seen_id) VALUES (?, ?, ?, ?)",
-            (agent_id, channel_id, session_id or "", last_seen_id),
+            (agent_id, channel_id, session_id, last_seen_id),
         )
 
 

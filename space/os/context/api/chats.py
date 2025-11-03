@@ -17,7 +17,7 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
         provider_results = []
         try:
             provider = getattr(providers, cli_name)()
-            sessions = provider.discover_sessions()
+            sessions = provider.discover_chats()
 
             for session in sessions:
                 try:

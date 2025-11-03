@@ -50,7 +50,7 @@ class Provider(Protocol):
     Unified interface for both chat discovery and agent spawning.
     """
 
-    def discover_sessions(self) -> list[dict]:
+    def discover_chats(self) -> list[dict]:
         """Discover chat sessions.
 
         Returns:

@@ -38,64 +38,60 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE TABLE IF NOT EXISTS bookmarks (
     agent_id TEXT NOT NULL,
     channel_id TEXT NOT NULL,
-    session_id TEXT NOT NULL DEFAULT '',
+    session_id TEXT,
     last_seen_id TEXT,
-    PRIMARY KEY (agent_id, channel_id, session_id),
+    PRIMARY KEY (agent_id, channel_id),
     FOREIGN KEY (agent_id) REFERENCES agents(agent_id) ON DELETE CASCADE,
     FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE,
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
     FOREIGN KEY (last_seen_id) REFERENCES messages(message_id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
-    session_id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY,
     agent_id TEXT NOT NULL,
-    chat_id TEXT,
-    channel_id TEXT,
-    triggered_by TEXT NOT NULL DEFAULT 'cli',
     spawn_number INTEGER NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
-    input TEXT,
-    output TEXT,
-    stderr TEXT,
+    is_task BOOLEAN NOT NULL DEFAULT 0,
+    constitution_hash TEXT,
+    channel_id TEXT,
     pid INTEGER,
-    started_at TEXT,
-    ended_at TEXT,
     created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%f', 'now')),
+    ended_at TEXT,
     FOREIGN KEY (agent_id) REFERENCES agents(agent_id) ON DELETE CASCADE,
     FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS chats (
-    chat_id TEXT PRIMARY KEY,
-    cli TEXT,
-    provider TEXT,
-    identity TEXT,
-    session_id TEXT,
-    file_path TEXT,
+    id TEXT PRIMARY KEY,
+    model TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    file_path TEXT NOT NULL,
     message_count INTEGER DEFAULT 0,
     input_tokens INTEGER DEFAULT 0,
     output_tokens INTEGER DEFAULT 0,
     tools_used INTEGER DEFAULT 0,
     first_message_at TEXT,
     last_message_at TEXT,
+    session_id TEXT,
     created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%f', 'now')),
-    FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE SET NULL
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS memories (
     memory_id TEXT PRIMARY KEY,
     agent_id TEXT NOT NULL,
-    message TEXT NOT NULL,
     topic TEXT,
-    created_at TEXT NOT NULL,
-    archived_at TEXT,
-    core INTEGER NOT NULL DEFAULT 0,
     source TEXT NOT NULL DEFAULT 'manual',
-    bridge_channel TEXT,
+    message TEXT NOT NULL,
+    core INTEGER NOT NULL DEFAULT 0,
     code_anchors TEXT,
     synthesis_note TEXT,
+    bridge_channel TEXT,
     supersedes TEXT,
     superseded_by TEXT,
+    created_at TEXT NOT NULL,
+    archived_at TEXT,
     FOREIGN KEY (agent_id) REFERENCES agents(agent_id) ON DELETE CASCADE,
     FOREIGN KEY (bridge_channel) REFERENCES channels(channel_id) ON DELETE SET NULL,
     FOREIGN KEY (supersedes) REFERENCES memories(memory_id) ON DELETE SET NULL,
@@ -104,8 +100,8 @@ CREATE TABLE IF NOT EXISTS memories (
 
 CREATE TABLE IF NOT EXISTS knowledge (
     knowledge_id TEXT PRIMARY KEY,
-    domain TEXT NOT NULL,
     agent_id TEXT NOT NULL,
+    domain TEXT NOT NULL,
     content TEXT NOT NULL,
     confidence REAL,
     created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%f', 'now')),
@@ -118,13 +114,12 @@ CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id);
 
 CREATE INDEX IF NOT EXISTS idx_sessions_agent ON sessions(agent_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_active ON sessions(ended_at) WHERE ended_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_sessions_triggered ON sessions(triggered_by);
 CREATE INDEX IF NOT EXISTS idx_sessions_channel ON sessions(channel_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_is_task ON sessions(is_task);
 
 CREATE INDEX IF NOT EXISTS idx_bookmarks_session ON bookmarks(session_id);
 
-CREATE INDEX IF NOT EXISTS idx_chats_identity ON chats(identity);
-CREATE INDEX IF NOT EXISTS idx_chats_cli ON chats(cli);
+CREATE INDEX IF NOT EXISTS idx_chats_provider ON chats(provider);
 CREATE INDEX IF NOT EXISTS idx_chats_session ON chats(session_id);
 
 CREATE INDEX IF NOT EXISTS idx_memories_agent_created ON memories(agent_id, created_at);

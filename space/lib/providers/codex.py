@@ -24,7 +24,7 @@ class Codex(Provider):
         """Return launch arguments for Codex."""
         return ["--dangerously-bypass-approvals-and-sandbox"]
 
-    def discover_sessions(self) -> list[dict]:
+    def discover_chats(self) -> list[dict]:
         """Discover Codex chat sessions."""
         sessions = []
         if not self.sessions_dir.exists():

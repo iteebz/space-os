@@ -5,26 +5,26 @@ from space.os.spawn.api import agents, tasks
 
 def create_daemon_task(
     daemon_type: str,
-    role: str = "zealot",
+    identity: str = "zealot",
     channel_id: str | None = None,
 ) -> str:
     """Create a daemon task for a given type (upkeep, maintenance, etc).
 
     Args:
         daemon_type: Type of daemon task (upkeep, maintenance, verification, etc)
-        role: Constitutional identity to run task (default: zealot)
+        identity: Agent identity to run task (default: zealot)
         channel_id: Optional bridge channel for coordination
 
     Returns:
         task_id for tracking
     """
-    agent = agents.get_agent(role)
+    agent = agents.get_agent(identity)
     if not agent:
-        raise ValueError(f"Agent '{role}' not found")
+        raise ValueError(f"Agent '{identity}' not found")
 
     task_input = f"Execute daemon task: {daemon_type}"
     return tasks.create_task(
-        identity=role,
+        identity=identity,
         input=task_input,
         channel_id=channel_id,
     )

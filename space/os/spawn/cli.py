@@ -204,12 +204,12 @@ def merge(id_from: str, id_to: str):
 @app.command(name="tasks")
 def show_tasks(
     status: str | None = None,
-    role: str | None = None,
+    identity: str | None = None,
     all: bool = typer.Option(
         False, "--all", "-a", help="Show all tasks (including completed/failed)"
     ),
 ):
-    """List tasks (filter by status/role).
+    """List tasks (filter by status/identity).
 
     Default: Show pending and running tasks only.
     With --all/-a: Show all tasks including completed/failed/timeout.
@@ -219,10 +219,10 @@ def show_tasks(
 
     if status and "|" in status:
         statuses = status.split("|")
-        all_tasks = tasks.list_tasks(status=None, role=role)
+        all_tasks = tasks.list_tasks(status=None, identity=identity)
         tasks_list = [t for t in all_tasks if t.status in statuses]
     else:
-        tasks_list = tasks.list_tasks(status=status, role=role)
+        tasks_list = tasks.list_tasks(status=status, identity=identity)
 
     if not tasks_list:
         typer.echo("No tasks.")
