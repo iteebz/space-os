@@ -23,8 +23,9 @@ from .spawns import (
     get_spawn_count,
     get_spawns_for_agent,
     link_session_to_spawn,
+    pause_spawn,
+    resume_spawn,
 )
-from .tasks import complete_task, create_task, fail_task, get_task, list_tasks, start_task
 
 __all__ = [
     "get_agent",
@@ -46,12 +47,8 @@ __all__ = [
     "get_spawns_for_agent",
     "link_session_to_spawn",
     "get_spawn_count",
-    "create_task",
-    "get_task",
-    "list_tasks",
-    "start_task",
-    "complete_task",
-    "fail_task",
+    "pause_spawn",
+    "resume_spawn",
     "agent_identities",
     "archived_agents",
     "stats",

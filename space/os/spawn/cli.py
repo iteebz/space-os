@@ -14,7 +14,7 @@ from space.core.models import TaskStatus
 from space.lib import errors, output
 from space.os.spawn import api
 from space.os.spawn import models as models_module
-from space.os.spawn.api import tasks
+from space.os.spawn.api import spawns
 
 errors.install_error_handler("spawn")
 
@@ -245,108 +245,102 @@ def show_tasks(
     status: str | None = None,
     identity: str | None = None,
     all: bool = typer.Option(
-        False, "--all", "-a", help="Show all tasks (including completed/failed)"
+        False, "--all", "-a", help="Show all spawns (including completed/failed)"
     ),
 ):
-    """List tasks (filter by status/identity).
+    """List spawns (filter by status/identity).
 
-    Default: Show pending and running tasks only.
-    With --all/-a: Show all tasks including completed/failed/timeout.
+    Default: Show pending and running spawns only.
+    With --all/-a: Show all spawns including completed/failed/timeout.
     """
     if not all and status is None:
         status = "pending|running"
 
-    if status and "|" in status:
-        statuses = status.split("|")
-        all_tasks = tasks.list_tasks(status=None, identity=identity)
-        tasks_list = [t for t in all_tasks if t.status in statuses]
-    else:
-        tasks_list = tasks.list_tasks(status=status, identity=identity)
+    # Get agent if filtering by identity
+    agent = None
+    if identity:
+        agent = api.get_agent(identity)
+        if not agent:
+            typer.echo(f"❌ Agent not found: {identity}", err=True)
+            raise typer.Exit(1)
 
-    if not tasks_list:
-        typer.echo("No tasks.")
+    # Get spawns
+    if agent:
+        all_spawns = spawns.get_spawns_for_agent(agent.agent_id)
+    else:
+        # For now, just get empty list if no agent specified
+        # Could extend to get all spawns across agents
+        typer.echo("Please specify --identity to list spawns")
         return
 
-    typer.echo(f"{'ID':<8} {'Identity':<12} {'Status':<12} {'Duration':<10} {'Created':<20}")
-    typer.echo("-" * 70)
+    # Filter by status
+    if status and "|" in status:
+        statuses = status.split("|")
+        spawns_list = [s for s in all_spawns if s.status in statuses]
+    else:
+        spawns_list = [s for s in all_spawns if status is None or s.status == status]
 
-    durations = []
-    for task in tasks_list:
-        task_id = task.task_id[:8]
-        ident = (task.agent_id or "unknown")[:11]
-        stat = task.status
-        dur = f"{task.duration:.1f}s" if task.duration else "-"
-        created = task.created_at[:19] if task.created_at else "-"
-        typer.echo(f"{task_id:<8} {ident:<12} {stat:<12} {dur:<10} {created:<20}")
-        if task.duration:
-            durations.append(task.duration)
+    if not spawns_list:
+        typer.echo("No spawns.")
+        return
 
-    if durations:
-        typer.echo("-" * 70)
-        avg_dur = sum(durations) / len(durations)
-        min_dur = min(durations)
-        max_dur = max(durations)
-        typer.echo(f"Avg: {avg_dur:.1f}s | Min: {min_dur:.1f}s | Max: {max_dur:.1f}s")
+    typer.echo(f"{'ID':<8} {'Status':<12} {'Created':<20}")
+    typer.echo("-" * 40)
+
+    for spawn_obj in spawns_list:
+        spawn_id = spawn_obj.id[:8]
+        stat = spawn_obj.status
+        created = spawn_obj.created_at[:19] if spawn_obj.created_at else "-"
+        typer.echo(f"{spawn_id:<8} {stat:<12} {created:<20}")
 
 
 @app.command()
-def logs(task_id: str):
-    """Show full task details (input, output, stderr)."""
-    task = tasks.get_task(task_id)
-    if not task:
-        typer.echo(f"❌ Task not found: {task_id}", err=True)
+def logs(spawn_id: str):
+    """Show spawn details."""
+    spawn_obj = spawns.get_spawn(spawn_id)
+    if not spawn_obj:
+        typer.echo(f"❌ Spawn not found: {spawn_id}", err=True)
         raise typer.Exit(1)
-    if not task.agent_id:
-        typer.echo(f"❌ Task has invalid agent_id: {task_id}", err=True)
+    if not spawn_obj.agent_id:
+        typer.echo(f"❌ Spawn has invalid agent_id: {spawn_id}", err=True)
         raise typer.Exit(1)
 
-    typer.echo(f"\n📋 Task: {task.task_id}")
-    typer.echo(f"Identity: {task.agent_id}")
-    typer.echo(f"Status: {task.status}")
+    typer.echo(f"\n📋 Spawn: {spawn_obj.id}")
+    typer.echo(f"Agent: {spawn_obj.agent_id}")
+    typer.echo(f"Status: {spawn_obj.status}")
+    typer.echo(f"Is Task: {spawn_obj.is_task}")
 
-    if task.channel_id:
-        typer.echo(f"Channel: {task.channel_id}")
+    if spawn_obj.channel_id:
+        typer.echo(f"Channel: {spawn_obj.channel_id}")
 
-    typer.echo(f"Created: {task.created_at}")
-    if task.started_at:
-        typer.echo(f"Started: {task.started_at}")
-    if task.completed_at:
-        typer.echo(f"Completed: {task.completed_at}")
-    if task.duration is not None:
-        typer.echo(f"Duration: {task.duration:.2f}s")
+    if spawn_obj.session_id:
+        typer.echo(f"Session: {spawn_obj.session_id}")
 
-    typer.echo("\n--- Input ---")
-    typer.echo(task.input)
-
-    if task.output:
-        typer.echo("\n--- Output ---")
-        typer.echo(task.output)
-
-    if task.stderr:
-        typer.echo("\n--- Stderr ---")
-        typer.echo(task.stderr)
+    typer.echo(f"Created: {spawn_obj.created_at}")
+    if spawn_obj.ended_at:
+        typer.echo(f"Ended: {spawn_obj.ended_at}")
 
     typer.echo()
 
 
 @app.command()
-def kill(task_id: str):
-    """Stop running task."""
-    task = tasks.get_task(task_id)
-    if not task:
-        typer.echo(f"❌ Task not found: {task_id}", err=True)
+def kill(spawn_id: str):
+    """Stop running spawn."""
+    spawn_obj = spawns.get_spawn(spawn_id)
+    if not spawn_obj:
+        typer.echo(f"❌ Spawn not found: {spawn_id}", err=True)
         raise typer.Exit(1)
 
-    if task.status in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.TIMEOUT):
-        typer.echo(f"⚠️ Task already {task.status}, nothing to kill")
+    if spawn_obj.status in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.TIMEOUT):
+        typer.echo(f"⚠️ Spawn already {spawn_obj.status}, nothing to kill")
         return
 
-    if task.pid:
+    if spawn_obj.pid:
         with contextlib.suppress(OSError, ProcessLookupError):
-            os.kill(task.pid, signal.SIGTERM)
+            os.kill(spawn_obj.pid, signal.SIGTERM)
 
-    tasks.fail_task(task_id, stderr="Killed by user")
-    typer.echo(f"✓ Task {task_id[:8]} killed")
+    spawns.update_status(spawn_id, TaskStatus.FAILED)
+    typer.echo(f"✓ Spawn {spawn_id[:8]} killed")
 
 
 def dispatch_agent_from_name() -> NoReturn:

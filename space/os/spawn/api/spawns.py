@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from space.core.models import Spawn
+from space.core.models import Spawn, TaskStatus
 from space.lib import store
 from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
@@ -54,7 +54,7 @@ def create_spawn(
         return from_row(row, Spawn)
 
 
-def update_spawn_status(spawn_id: str, status: str) -> None:
+def update_status(spawn_id: str, status: str) -> None:
     """Update spawn status and set ended_at if terminal state."""
     now = datetime.now().isoformat()
     with store.ensure() as conn:
@@ -141,3 +141,49 @@ def get_spawn(spawn_id: str) -> Spawn | None:
             (spawn_id, f"{spawn_id}%"),
         ).fetchone()
         return from_row(row, Spawn) if row else None
+
+
+def pause_spawn(spawn_id: str) -> Spawn:
+    """Pause a running spawn for mid-task steering.
+
+    Args:
+        spawn_id: Spawn ID to pause
+
+    Returns:
+        Updated Spawn object
+
+    Raises:
+        ValueError: If spawn not found or not in running state
+    """
+    spawn = get_spawn(spawn_id)
+    if not spawn:
+        raise ValueError(f"Spawn {spawn_id} not found")
+    if spawn.status != TaskStatus.RUNNING:
+        raise ValueError(f"Cannot pause: spawn status is {spawn.status}, not running")
+
+    update_status(spawn_id, TaskStatus.PAUSED)
+    return get_spawn(spawn_id)
+
+
+def resume_spawn(spawn_id: str) -> Spawn:
+    """Resume a paused spawn, reusing session context.
+
+    Args:
+        spawn_id: Spawn ID to resume
+
+    Returns:
+        Updated Spawn object
+
+    Raises:
+        ValueError: If spawn not found, not paused, or has no session_id
+    """
+    spawn = get_spawn(spawn_id)
+    if not spawn:
+        raise ValueError(f"Spawn {spawn_id} not found")
+    if spawn.status != TaskStatus.PAUSED:
+        raise ValueError(f"Cannot resume: spawn status is {spawn.status}, not paused")
+    if not spawn.session_id:
+        raise ValueError("Cannot resume: spawn has no session_id")
+
+    update_status(spawn_id, TaskStatus.RUNNING)
+    return get_spawn(spawn_id)

@@ -129,7 +129,7 @@ def spawn_headless(identity: str, task: str, channel_id: str) -> None:
         raise ValueError(f"Agent '{identity}' not found in registry")
 
     spawn = spawns.create_spawn(agent_id=agent.agent_id, is_task=True, channel_id=channel_id)
-    spawns.update_spawn_status(spawn.id, "running")
+    spawns.update_status(spawn.id, "running")
 
     channel = channels.get_channel(channel_id) if channel_id else None
     channel_name = channel.name if channel else None
@@ -144,10 +144,10 @@ def spawn_headless(identity: str, task: str, channel_id: str) -> None:
         else:
             raise ValueError(f"Unknown provider: {agent.provider}")
 
-        spawns.update_spawn_status(spawn.id, "completed")
+        spawns.update_status(spawn.id, "completed")
     except Exception as e:
         logger.error(f"Headless spawn failed for {identity}: {e}", exc_info=True)
-        spawns.update_spawn_status(spawn.id, "failed")
+        spawns.update_status(spawn.id, "failed")
         raise
 
 

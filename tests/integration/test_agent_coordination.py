@@ -1,4 +1,5 @@
 from space.os import bridge, spawn
+from space.os.spawn.api import spawns
 
 
 def test_agent_posts_mid_execution(test_space, default_agents):
@@ -57,16 +58,16 @@ def test_full_spawn_task_events_flow(test_space, default_agents):
     assert agent is not None
     agent_id = agent.agent_id
 
-    task = spawn.create_task(identity=agent_identity, input="test input")
+    task = spawns.create_spawn(agent_id=agent_id, is_task=True)
     assert task is not None
     assert task.id is not None
 
-    retrieved_task = spawn.get_task(task.id)
+    retrieved_task = spawns.get_spawn(task.id)
     assert retrieved_task is not None
     assert retrieved_task.agent_id == agent_id
     assert isinstance(retrieved_task.agent_id, str)
 
-    spawn.complete_task(task.id)
-    updated_task = spawn.get_task(task.id)
+    spawns.update_status(task.id, "completed")
+    updated_task = spawns.get_spawn(task.id)
     assert updated_task.status == "completed"
     assert updated_task.agent_id == agent_id

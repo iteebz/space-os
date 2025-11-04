@@ -9,6 +9,7 @@ class TaskStatus(str, Enum):
 
     PENDING = "pending"
     RUNNING = "running"
+    PAUSED = "paused"
     COMPLETED = "completed"
     FAILED = "failed"
     TIMEOUT = "timeout"
