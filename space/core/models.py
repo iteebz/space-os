@@ -71,11 +71,11 @@ class Session:
     session_id: str
     provider: str
     model: str
-    file_path: str
     message_count: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
     tool_count: int = 0
+    source_path: str | None = None
     first_message_at: str | None = None
     last_message_at: str | None = None
 

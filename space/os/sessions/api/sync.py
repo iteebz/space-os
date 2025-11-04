@@ -133,19 +133,19 @@ def _insert_session_record(session: Session) -> None:
         cursor.execute(
             """
             INSERT OR REPLACE INTO sessions
-            (session_id, model, provider, file_path, message_count,
-             input_tokens, output_tokens, tool_count, first_message_at, last_message_at)
+            (session_id, model, provider, message_count,
+             input_tokens, output_tokens, tool_count, source_path, first_message_at, last_message_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 session.session_id,
                 session.model,
                 session.provider,
-                session.file_path,
                 session.message_count,
                 session.input_tokens,
                 session.output_tokens,
                 session.tool_count,
+                session.source_path,
                 session.first_message_at,
                 session.last_message_at,
             ),
@@ -246,15 +246,16 @@ def sync_provider_sessions(
                         )
                         continue
 
+                    dest_file = dest_dir / f"{sid}.jsonl"
+                    content_to_parse = None
+
                     if should_copy:
                         if cli_name == "gemini":
-                            dest_file = dest_dir / f"{sid}.jsonl"
                             jsonl_content = _to_jsonl(src_file)
                             dest_file.parent.mkdir(parents=True, exist_ok=True)
                             dest_file.write_text(jsonl_content)
                             content_to_parse = jsonl_content
                         else:
-                            dest_file = dest_dir / src_file.name
                             dest_file.parent.mkdir(parents=True, exist_ok=True)
                             shutil.copy2(src_file, dest_file)
                             content_to_parse = dest_file.read_text()
@@ -262,9 +263,6 @@ def sync_provider_sessions(
                         sync_state[state_key] = {"mtime": src_mtime, "size": file_size}
                         synced_count += 1
                     else:
-                        dest_file = dest_dir / (
-                            f"{sid}.jsonl" if cli_name == "gemini" else src_file.name
-                        )
                         if not dest_file.exists():
                             continue
                         content_to_parse = dest_file.read_text()
@@ -294,11 +292,11 @@ def sync_provider_sessions(
                         session_id=sid,
                         model=model,
                         provider=cli_name,
-                        file_path=str(dest_file),
                         message_count=message_count,
                         tool_count=tool_count,
                         input_tokens=input_tokens,
                         output_tokens=output_tokens,
+                        source_path=str(src_file),
                         first_message_at=first_ts,
                         last_message_at=last_ts,
                     )

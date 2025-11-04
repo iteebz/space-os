@@ -39,11 +39,11 @@ CREATE TABLE IF NOT EXISTS sessions (
     session_id TEXT PRIMARY KEY,
     provider TEXT NOT NULL,
     model TEXT NOT NULL,
-    file_path TEXT NOT NULL UNIQUE,
     message_count INTEGER DEFAULT 0,
     input_tokens INTEGER DEFAULT 0,
     output_tokens INTEGER DEFAULT 0,
     tool_count INTEGER DEFAULT 0,
+    source_path TEXT,
     first_message_at TEXT,
     last_message_at TEXT
 );
