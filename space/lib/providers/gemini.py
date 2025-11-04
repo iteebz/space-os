@@ -191,3 +191,54 @@ class Gemini(Provider):
         except (OSError, json.JSONDecodeError) as e:
             logger.error(f"Error extracting Gemini tokens from {file_path}: {e}")
         return (input_total if found_any else None, output_total if found_any else None)
+
+    def headless_session_id(self, output: str) -> str | None:
+        """Extract session_id from Gemini --output-format stream-json response.
+
+        Gemini returns JSONL stream with first event type=init containing session_id.
+        """
+        try:
+            lines = output.strip().split("\n")
+            if not lines:
+                return None
+            first_line = lines[0]
+            data = json.loads(first_line)
+            if isinstance(data, dict) and data.get("type") == "init":
+                return data.get("session_id")
+        except (json.JSONDecodeError, ValueError, IndexError) as e:
+            logger.error(f"Failed to parse Gemini headless output: {e}")
+        return None
+
+    def json_to_jsonl(self, json_file: Path) -> str:
+        """Convert Gemini JSON session to JSONL format.
+
+        Gemini stores sessions as JSON, but space-os uses JSONL uniformly.
+
+        Args:
+            json_file: Path to Gemini JSON session file
+
+        Returns:
+            JSONL string (one JSON object per line)
+        """
+        try:
+            with open(json_file) as f:
+                data = json.load(f)
+
+            lines = []
+            if isinstance(data, dict) and "messages" in data:
+                for msg in data.get("messages", []):
+                    role = msg.get("role")
+                    if role not in ("user", "model"):
+                        continue
+                    lines.append(
+                        json.dumps(
+                            {
+                                "role": "assistant" if role == "model" else "user",
+                                "content": msg.get("content", ""),
+                                "timestamp": msg.get("timestamp"),
+                            }
+                        )
+                    )
+            return "\n".join(lines) + "\n" if lines else ""
+        except (OSError, json.JSONDecodeError):
+            return ""

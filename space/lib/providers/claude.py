@@ -140,3 +140,16 @@ class Claude(Provider):
         except OSError as e:
             logger.error(f"Error extracting Claude tokens from {file_path}: {e}")
         return (input_total if found_any else None, output_total if found_any else None)
+
+    def headless_session_id(self, output: str) -> str | None:
+        """Extract session_id from Claude --output-format json response.
+
+        Claude returns a JSON object with session_id at root level.
+        """
+        try:
+            data = json.loads(output)
+            if isinstance(data, dict):
+                return data.get("session_id")
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.error(f"Failed to parse Claude headless output: {e}")
+        return None

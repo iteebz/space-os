@@ -88,25 +88,29 @@ Agent registry. No changes needed.
 - Update all queries to new table names
 - Keep both tables for now (no data loss)
 
-### Phase 2: Session Linking (Deferred)
-Link `spawns.session_id` to `sessions.session_id` for all spawns:
+### Phase 2: Session Linking
+Link `spawns.session_id` to `sessions.session_id` for all spawns. Critical for agent autonomy.
 
-**Headless spawns** (easy):
-- `spawn_headless()` calls `claude --print --output-format json`
-- Immediately parse JSON response, extract `session_id`
-- Insert spawn with session_id set
+**Both paths unified:** `spawn_headless()` with `--stream-json` for headless + interactive spawns.
 
-**Interactive spawns** (harder):
-- When spawn starts, generate `spawn_id`
-- Inject bootloader message with spawn_id (e.g., "Spawn ABC123 starting")
-- Filewatcher monitors provider chat dir (e.g., `~/.claude/sessions/`)
-- When new session file appears (mtime <1 minute, size >0):
-  - Parse file for our bootloader message with spawn_id
-  - Match spawn_id to existing spawn
-  - Extract `session_id` from provider file
-  - Update spawn record with session_id
+**Headless spawns**:
+- `spawn_headless()` calls `claude --print --stream-json`
+- Parse JSON stream, extract final `session_id`
+- Insert spawn with session_id immediately set
 
-Time window: Check within 60 seconds of spawn creation. If no match by then, mark as orphaned (can retry later).
+**Interactive spawns**:
+- Spawn created with `spawn_id` (uuid7, truncated to spawn_id[:8] for marker)
+- Inject spawn marker into bootstrap context (searchable in JSONL)
+- Async linker task: scan provider session dir for newest files
+- Algorithm: Sort session files by `|file.mtime - spawn.created_at|` ascending
+- Match: Find first file with spawn_id marker, extract session_id
+- Update: Link spawn_id → session_id in spawns table
+- No retry daemon (leave session_id NULL if not found, acceptable failure mode)
+
+**Linker core module:** `space/os/sessions/api/linker.py`
+- `find_session_for_spawn(spawn_id, provider, created_at)` → session_id or None
+- `link_spawn_to_session(spawn_id, session_id)` → update DB
+- Provider-aware: Query agent to get provider, scan correct session dir
 
 ## Code Changes Required
 
@@ -129,6 +133,22 @@ Time window: Check within 60 seconds of spawn creation. If no match by then, mar
 - Add test for interactive spawn → session linking (via mock filewatcher)
 
 ## Future Primitives
+
+### Agent Self-Reflection via Session History
+With Phase 2 complete, agents can query their own execution:
+```
+agent> sessions <spawn_id>
+# Returns full JSONL session log from that spawn
+# Agent can analyze: "what did I just do?", "what worked?", "what failed?"
+```
+
+Enables:
+- **Self-aware agents:** Agents read their own session logs, learn from execution
+- **Agent-to-agent learning:** Agents read each other's sessions (with permissions), coordinate
+- **No --resume needed:** Agents can inject session history into memory/knowledge primitives
+- **Full autonomy:** 1:100 scaling—agents become self-steering via session introspection
+
+Future: `sessions --grep <pattern> --agent <id>` for cross-agent session search.
 
 ### Pause/Resume for Mid-Task Steering
 Current model: spawn → execute → end. No interruption point.
@@ -153,35 +173,12 @@ This is a Phase 3+ primitive. Needs:
 - Logic: Detect pause signal, capture state, resume with --resume flag
 - Testing: Verify context is preserved across pause/resume boundary
 
-## Deferred Questions
+## Open Questions (Deferred)
 
-1. **Should spawns ever be created without session_id?**
-   - Current answer: No. Always link immediately (headless) or defer (interactive filewatcher).
-   - Alternative: Allow orphaned spawns, attempt retroactive linking later.
-   - Decision: No orphans. Always link. Simplifies queries.
-
-2. **What if filewatcher never finds the session?**
-   - Spawn record exists but session_id is NULL indefinitely
-   - Could mark as "session_missing" status
-   - Could have async job that retries periodically
-   - Decision: Deferred. Handle in Phase 3 if it becomes a problem.
-
-3. **Multi-provider spawns?**
-   - Currently one spawn = one agent = one provider
-   - What if Agent can use multiple providers? (e.g., Claude for reasoning, Gemini for images)
-   - Spawn should link to multiple sessions?
-   - Decision: Out of scope. Current model is 1:1.
-
-4. **Session retention policy?**
-   - Sessions are immutable (read-only from provider perspective)
-   - Keep forever? Archive old ones?
-   - Decision: Deferred. Decide with retention policy spike.
-
-5. **Pause/Resume implementation details?**
-   - How to detect pause signal from interactive spawn? (user Ctrl+Z? explicit command?)
-   - Should paused_at be tracked separately or inferred from status transitions?
-   - Can we preserve agent's working directory state across pause/resume?
-   - Decision: Deferred. Design as separate spike after Phase 1+2 complete.
+1. **Interactive spawn filewatcher**: When needed for interactive spawns, implement async task that monitors provider session dirs by identity + closest mtime matching.
+2. **Session retention policy**: Archive old sessions or keep forever? Deferred until storage becomes a concern.
+3. **Multi-provider spawns**: Currently 1:1 (spawn → agent → provider). Future: agents spanning multiple providers?
+4. **Pause/Resume design**: Details on detecting pause signal, state preservation across resume boundaries. Phase 3 spike.
 
 ## Progress Tracking
 
@@ -220,21 +217,29 @@ This is a Phase 3+ primitive. Needs:
 - [x] No regressions
 - [x] Clean cut: zero backward-compat cruft
 
-### Deferred to Phase 2 (Session Linking)
+### Phase 2: Session Linking ✅ COMPLETE
 
-**Session Linking Strategy:**
-- Headless spawns: session_id extracted immediately from --output-format json
-- Interactive spawns: Need filewatcher + bootloader injection to link session_id retroactively
-  - Inject spawn_id in context message when spawn starts
-  - Monitor provider session files (mtime <1 minute)
-  - Match spawn_id in file content, extract session_id
-  - Update spawn record with link
+**Implementation:**
+- Extended `Provider` protocol with `headless_session_id(output: str) -> str | None`
+- All three providers extract session_id from headless output:
+  - Claude: JSON response, root field `session_id`
+  - Gemini: JSONL stream, first event `type: init`, field `session_id`
+  - Codex: JSONL stream, first event `type: thread.started`, field `thread_id`
+- Created `space/os/sessions/api/linker.py`:
+  - `link_spawn_to_session(spawn_id, session_id)` → updates spawns table
+  - `find_session_for_spawn(spawn_id, provider, created_at)` → for interactive fallback (deferred)
+- Updated `space/os/spawn/api/launch.py`:
+  - Unified headless path for all providers (Claude/Gemini/Codex)
+  - Session extraction + linker integration
+  - Agent-driven channel messaging (no manual posting by launcher)
+- Moved Gemini JSON→JSONL conversion to provider class for cohesion
+- 231 tests passing (6 linker unit tests + all integration tests)
 
-### Phase 2: Session Linking (Deferred)
-- [ ] Headless: Update spawn_headless() to extract and link session_id
-- [ ] Interactive: Implement filewatcher + bootloader injection
-- [ ] Add tests for both paths
-- [ ] Verify linking works end-to-end
+**Key Design Decisions:**
+- No marker injection: Unnecessary (session_id extracted immediately from structured output)
+- Agent-driven messaging: Agents receive channel name in bootloader context, post own results via `bridge send`
+- Interactive fallback: Filewatcher deferred (works when needed for interactive spawns)
+- Graceful degradation: FK constraint failures logged, session_id nullable
 
 ### Phase 3: Pause/Resume Primitives (Deferred)
 - [ ] Design pause_spawn() and resume_spawn() functions

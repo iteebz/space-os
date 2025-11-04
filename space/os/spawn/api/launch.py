@@ -14,7 +14,7 @@ from space.lib import paths
 from space.lib.constitution import write_constitution
 from space.lib.providers import claude, codex, gemini
 
-from . import agents, spawns, tasks
+from . import agents, spawns
 from .environment import build_launch_env
 from .prompt import build_spawn_context
 
@@ -122,38 +122,47 @@ def spawn_headless(identity: str, task: str, channel_id: str) -> None:
         task: Task/prompt to execute
         channel_id: Channel ID (for bridge context)
     """
+    from space.os.bridge.api import channels
+
     agent = agents.get_agent(identity)
     if not agent:
         raise ValueError(f"Agent '{identity}' not found in registry")
 
-    session = tasks.create_task(identity=identity, channel_id=channel_id, input=task)
-    tasks.start_task(session.id)
+    spawn = spawns.create_spawn(agent_id=agent.agent_id, is_task=True, channel_id=channel_id)
+    spawns.update_spawn_status(spawn.id, "running")
+
+    channel = channels.get_channel(channel_id) if channel_id else None
+    channel_name = channel.name if channel else None
 
     try:
         if agent.provider == "claude":
-            _spawn_headless_claude(agent, task, session, channel_id)
+            _spawn_headless_claude(agent, task, spawn, channel_name)
         elif agent.provider == "gemini":
-            _spawn_headless_gemini(agent, task, session, channel_id)
+            _spawn_headless_gemini(agent, task, spawn, channel_name)
         elif agent.provider == "codex":
-            _spawn_headless_codex(agent, task, session, channel_id)
+            _spawn_headless_codex(agent, task, spawn, channel_name)
         else:
             raise ValueError(f"Unknown provider: {agent.provider}")
 
-        tasks.complete_task(session.id)
+        spawns.update_spawn_status(spawn.id, "completed")
     except Exception as e:
         logger.error(f"Headless spawn failed for {identity}: {e}", exc_info=True)
-        tasks.fail_task(session.id)
+        spawns.update_spawn_status(spawn.id, "failed")
         raise
 
 
-def _spawn_headless_claude(agent, task: str, session, channel_id: str) -> None:
-    """Execute headless Claude Code spawn with stream parsing and bridge posting."""
-    from space.os.bridge.api import messaging
+def _spawn_headless_claude(agent, task: str, spawn, channel_name: str | None) -> None:
+    """Execute headless Claude Code spawn with session linking.
+
+    If spawned from a channel (@mention), agent should post results to that channel.
+    """
+    from space.os.sessions.api import linker
 
     provider_obj = claude
     launch_args = provider_obj.launch_args(is_task=True)
 
-    cmd = ["claude", "--print", task, "--output-format", "json"] + launch_args
+    context = build_spawn_context(agent.identity, task=task, channel=channel_name)
+    cmd = ["claude", "--print", context, "--output-format", "json"] + launch_args
 
     result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(paths.space_root()))
 
@@ -169,23 +178,58 @@ def _spawn_headless_claude(agent, task: str, session, channel_id: str) -> None:
     if not claude_session_id:
         raise RuntimeError("No session_id in Claude output")
 
-    result_text = output.get("result", "")
-
-    messaging.send_message(
-        channel_id,
-        agent.identity,
-        f"✓ Completed\n```\n{result_text}\n```",
-    )
+    linker.link_spawn_to_session(spawn.id, claude_session_id)
 
 
-def _spawn_headless_gemini(agent, task: str, session, channel_id: str) -> None:
-    """Execute headless Gemini spawn (descoped)."""
-    raise NotImplementedError("Gemini headless spawn not yet implemented")
+def _spawn_headless_gemini(agent, task: str, spawn, channel_name: str | None) -> None:
+    """Execute headless Gemini spawn with session linking.
+
+    Note: Gemini session syncing to ~/.space/sessions/ deferred (handled by sync_provider_sessions).
+    If spawned from a channel (@mention), agent should post results to that channel.
+    """
+    from space.os.sessions.api import linker
+
+    provider_obj = gemini
+    launch_args = provider_obj.launch_args(has_prompt=True)
+
+    context = build_spawn_context(agent.identity, task=task, channel=channel_name)
+    cmd = ["gemini", context, "--output-format", "stream-json"] + launch_args
+
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(paths.space_root()))
+
+    if result.returncode != 0:
+        raise RuntimeError(f"Gemini spawn failed: {result.stderr}")
+
+    gemini_session_id = provider_obj.headless_session_id(result.stdout)
+    if not gemini_session_id:
+        raise RuntimeError("No session_id in Gemini output")
+
+    linker.link_spawn_to_session(spawn.id, gemini_session_id)
 
 
-def _spawn_headless_codex(agent, task: str, session, channel_id: str) -> None:
-    """Execute headless Codex spawn (descoped)."""
-    raise NotImplementedError("Codex headless spawn not yet implemented")
+def _spawn_headless_codex(agent, task: str, spawn, channel_name: str | None) -> None:
+    """Execute headless Codex spawn with session linking.
+
+    If spawned from a channel (@mention), agent should post results to that channel.
+    """
+    from space.os.sessions.api import linker
+
+    provider_obj = codex
+    launch_args = provider_obj.launch_args()
+
+    context = build_spawn_context(agent.identity, task=task, channel=channel_name)
+    cmd = ["codex", "exec", "--json", context] + launch_args
+
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(paths.space_root()))
+
+    if result.returncode != 0:
+        raise RuntimeError(f"Codex spawn failed: {result.stderr}")
+
+    codex_session_id = provider_obj.headless_session_id(result.stdout)
+    if not codex_session_id:
+        raise RuntimeError("No session_id in Codex output")
+
+    linker.link_spawn_to_session(spawn.id, codex_session_id)
 
 
 def spawn_agent(identity: str, extra_args: list[str] | None = None):

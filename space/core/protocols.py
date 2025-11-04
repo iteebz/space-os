@@ -80,3 +80,16 @@ class Provider(Protocol):
             Tuple of (input_tokens, output_tokens) or (None, None) if not available
         """
         ...
+
+    def headless_session_id(self, output: str) -> str | None:
+        """Extract session_id from headless execution output.
+
+        Provider-specific parsing of structured output (JSON/JSONL).
+
+        Args:
+            output: Raw stdout from headless execution
+
+        Returns:
+            session_id if found, None otherwise
+        """
+        ...

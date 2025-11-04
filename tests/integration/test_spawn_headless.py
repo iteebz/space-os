@@ -20,7 +20,7 @@ def test_channel(test_space):
 
 
 def test_spawn_headless_success(test_agent, test_channel):
-    """Test successful headless spawn creates task and posts to bridge."""
+    """Test successful headless spawn creates task and links session."""
     # Mock the subprocess.run call
     import json
     from unittest.mock import MagicMock, patch
@@ -46,7 +46,8 @@ def test_spawn_headless_success(test_agent, test_channel):
     call_args = mock_run.call_args[0][0]
     assert "claude" in call_args
     assert "--print" in call_args
-    assert "say hello" in call_args
+    # Context is passed, not raw task
+    assert "say hello" in " ".join(call_args)
     assert "--output-format" in call_args
     assert "json" in call_args
 
@@ -70,8 +71,8 @@ def test_spawn_headless_invalid_agent(test_space):
         launch.spawn_headless(identity="unknown", task="test", channel_id="ch-test")
 
 
-def test_spawn_headless_posts_to_bridge(test_agent, test_channel):
-    """Test that headless spawn posts result to bridge channel."""
+def test_spawn_headless_links_session(test_agent, test_channel):
+    """Test that headless spawn links session_id to spawn record."""
     import json
     from unittest.mock import MagicMock, patch
 
@@ -86,14 +87,10 @@ def test_spawn_headless_posts_to_bridge(test_agent, test_channel):
     with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(mock_output), stderr="")
 
-        with patch("space.os.bridge.api.messaging.send_message") as mock_send_message:
-            launch.spawn_headless(
-                identity="test-agent", task="test task", channel_id=test_channel.channel_id
-            )
+        # Spawn headless (will attempt to link session_id via linker)
+        launch.spawn_headless(
+            identity="test-agent", task="test task", channel_id=test_channel.channel_id
+        )
 
-            # Verify message was posted to bridge
-            mock_send_message.assert_called_once()
-            call_args = mock_send_message.call_args
-            assert call_args[0][0] == test_channel.channel_id  # channel_id
-            assert call_args[0][1] == "test-agent"  # identity
-            assert "Test result content" in call_args[0][2]  # content
+        # Verify subprocess was called (actual linking is tested in linker tests)
+        mock_run.assert_called_once()

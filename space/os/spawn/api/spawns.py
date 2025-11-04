@@ -54,6 +54,23 @@ def create_spawn(
         return from_row(row, Spawn)
 
 
+def update_spawn_status(spawn_id: str, status: str) -> None:
+    """Update spawn status and set ended_at if terminal state."""
+    now = datetime.now().isoformat()
+    with store.ensure() as conn:
+        cursor = conn.cursor()
+        if status in ("completed", "failed"):
+            cursor.execute(
+                "UPDATE spawns SET status = ?, ended_at = ? WHERE id = ?",
+                (status, now, spawn_id),
+            )
+        else:
+            cursor.execute(
+                "UPDATE spawns SET status = ? WHERE id = ?",
+                (status, spawn_id),
+            )
+
+
 def end_spawn(spawn_id: str) -> None:
     """End a spawn."""
     with store.ensure() as conn:

@@ -38,6 +38,7 @@ YOUR CONTINUITY:
 CHANNEL_TEMPLATE = """\
 
 CHANNEL: #{channel}
+Post progress and results to this channel using: bridge send {channel} "<message>"
 """
 
 TASK_TEMPLATE = """\

@@ -135,3 +135,20 @@ class Codex(Provider):
         except OSError as e:
             logger.error(f"Error extracting Codex tokens from {file_path}: {e}")
         return (input_tokens, output_tokens)
+
+    def headless_session_id(self, output: str) -> str | None:
+        """Extract session_id (thread_id) from Codex --json response.
+
+        Codex returns JSONL stream with first event type=thread.started containing thread_id.
+        """
+        try:
+            lines = output.strip().split("\n")
+            if not lines:
+                return None
+            first_line = lines[0]
+            data = json.loads(first_line)
+            if isinstance(data, dict) and data.get("type") == "thread.started":
+                return data.get("thread_id")
+        except (json.JSONDecodeError, ValueError, IndexError) as e:
+            logger.error(f"Failed to parse Codex headless output: {e}")
+        return None
