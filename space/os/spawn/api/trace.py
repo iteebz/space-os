@@ -112,7 +112,8 @@ def trace_spawn(spawn_id: str) -> dict:
         try:
             from space.os.sessions.api import sync
 
-            sync.sync_session(spawn_obj.session_id)
+            sync.ingest(spawn_obj.session_id)
+            sync.index(spawn_obj.session_id)
         except Exception:
             pass
 

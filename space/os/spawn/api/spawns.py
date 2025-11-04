@@ -74,7 +74,8 @@ def update_status(spawn_id: str, status: str) -> None:
                 try:
                     from space.os.sessions.api import sync
 
-                    sync.sync_session(spawn.session_id)
+                    sync.ingest(spawn.session_id)
+                    sync.index(spawn.session_id)
                 except Exception as e:
                     import logging
 

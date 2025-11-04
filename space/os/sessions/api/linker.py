@@ -79,7 +79,7 @@ def link_spawn_to_session(spawn_id: str, session_id: str | None) -> None:
 
         # Sync this specific session from provider (e.g., ~/.claude/projects/)
         # This creates/updates the session record in the DB
-        sync.sync_session(session_id=session_id)
+        sync.ingest(session_id=session_id)
 
         # Now link spawn to session (FK constraint satisfied)
         with store.ensure() as conn:

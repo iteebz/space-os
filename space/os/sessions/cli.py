@@ -56,13 +56,13 @@ def sync_cmd():
     def on_progress(event):
         nonlocal last_sync_count, last_index_count, sync_done, index_spinner
         if event.phase == "sync":
-            count = event.total_synced
+            count = event.synced
             if count != last_sync_count:
                 last_sync_count = count
-                sync_spinner.update(f"Syncing {count} files...")
+                sync_spinner.update(f"Ingesting {count} files...")
         elif event.phase == "index":
             if not sync_done:
-                sync_spinner.finish(f"Synced {last_sync_count} files")
+                sync_spinner.finish(f"Ingested {last_sync_count} files")
                 sync_done = True
                 index_spinner = Spinner()
             count = event.indexed
@@ -75,7 +75,7 @@ def sync_cmd():
     if index_spinner:
         index_spinner.finish(f"Indexed {last_index_count} files")
     elif not sync_done:
-        sync_spinner.finish(f"Synced {last_sync_count} files")
+        sync_spinner.finish(f"Ingested {last_sync_count} files")
 
     after = {p: count_files(p) for p in ["claude", "codex", "gemini"]}
 

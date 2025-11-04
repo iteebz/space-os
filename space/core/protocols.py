@@ -51,8 +51,7 @@ class Provider(Protocol):
     Unified interface for both chat discovery and agent spawning.
     """
 
-    @staticmethod
-    def discover_sessions() -> list[dict]:
+    def discover(self) -> list[dict]:
         """Discover provider sessions.
 
         Returns:
@@ -60,21 +59,44 @@ class Provider(Protocol):
         """
         ...
 
-    @staticmethod
-    def parse_messages(file_path: Path, from_offset: int = 0) -> list[dict]:
-        """Parse messages from chat session file.
+    def ingest(self, session: dict, dest_dir: Path) -> bool:
+        """Ingest one session: copy/convert to destination directory.
 
         Args:
-            file_path: Path to chat file (JSONL or JSON)
-            from_offset: Byte offset or message index to start from
+            session: Session dict with keys: session_id, file_path, cli, etc.
+            dest_dir: Destination directory (e.g., ~/.space/sessions/provider/)
 
         Returns:
-            List of {role, content, timestamp, byte_offset/message_index}
+            True if ingested successfully, False otherwise
         """
         ...
 
-    @staticmethod
-    def extract_tokens(file_path: Path) -> tuple[int | None, int | None]:
+    def index(self, session_id: str) -> int:
+        """Index one session into database.
+
+        Args:
+            session_id: Session ID to index
+
+        Returns:
+            Number of messages indexed
+        """
+        ...
+
+    def parse(self, file_path: Path, from_offset: int = 0) -> "list[SessionEvent]":
+        """Parse provider session file to unified event format.
+
+        Extracts tool calls, tool results, text responses, and other execution events.
+
+        Args:
+            file_path: Path to session JSONL or JSON file
+            from_offset: Byte offset or message index to start from
+
+        Returns:
+            List of SessionEvent objects in chronological order
+        """
+        ...
+
+    def tokens(self, file_path: Path) -> tuple[int | None, int | None]:
         """Extract total input and output tokens from chat session.
 
         Args:
@@ -85,8 +107,7 @@ class Provider(Protocol):
         """
         ...
 
-    @staticmethod
-    def session_id(output: str) -> str | None:
+    def session_id(self, output: str) -> str | None:
         """Extract session_id from execution output.
 
         Provider-specific parsing of structured output (JSON/JSONL).
@@ -96,19 +117,5 @@ class Provider(Protocol):
 
         Returns:
             session_id if found, None otherwise
-        """
-        ...
-
-    @staticmethod
-    def parse_jsonl(file_path: Path | str) -> "list[SessionEvent]":
-        """Parse provider session JSONL to unified event format.
-
-        Extracts tool calls, tool results, text responses, and other execution events.
-
-        Args:
-            file_path: Path to synced session JSONL file (~/.space/sessions/{provider}/{session_id}.jsonl)
-
-        Returns:
-            List of SessionEvent objects in chronological order
         """
         ...

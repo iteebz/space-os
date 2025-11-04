@@ -9,16 +9,11 @@ from pathlib import Path
 import typer
 
 from space.lib import paths, store
+from space.lib.store.sqlite import resolve
 
 logger = logging.getLogger(__name__)
 
 app = typer.Typer()
-
-
-@app.callback(invoke_without_command=True)
-def callback(ctx: typer.Context):
-    if ctx.invoked_subcommand is None:
-        backup(quiet_output=False)
 
 
 def _backup_data_snapshot(timestamp: str, quiet_output: bool) -> dict:
@@ -34,13 +29,10 @@ def _backup_data_snapshot(timestamp: str, quiet_output: bool) -> dict:
 
     with contextlib.suppress(Exception):
         store.close_all()
+    
+    resolve(src)
 
     for db_file in src.glob("*.db"):
-        try:
-            with sqlite3.connect(db_file) as conn:
-                conn.execute("PRAGMA wal_checkpoint(RESTART)")
-        except sqlite3.DatabaseError:
-            pass
         shutil.copy2(db_file, backup_path / db_file.name)
 
     os.chmod(backup_path, 0o555)
@@ -61,6 +53,9 @@ def _backup_sessions(quiet_output: bool) -> dict:
 
     before = {p: count_provider_files(backup_path, p) for p in ["claude", "codex", "gemini"]}
 
+    if backup_path.exists():
+        os.chmod(backup_path, 0o755)
+    
     backup_path.mkdir(parents=True, exist_ok=True)
 
     if src.exists():
@@ -91,10 +86,8 @@ def _backup_sessions(quiet_output: bool) -> dict:
 def _get_backup_stats(backup_path: Path) -> dict:
     stats = {}
     for db_file in backup_path.glob("*.db"):
-        if db_file.name == "cogency.db":
-            continue
         try:
-            with sqlite3.connect(db_file) as conn:
+            with sqlite3.connect(f"file:{db_file}?mode=ro", uri=True) as conn:
                 cursor = conn.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name != '_migrations'"
                 )
@@ -119,6 +112,12 @@ def _get_backup_stats(backup_path: Path) -> dict:
     return stats
 
 
+@app.callback(invoke_without_command=True)
+def callback(ctx: typer.Context):
+    if ctx.invoked_subcommand is None:
+        _do_backup(quiet_output=False)
+
+
 @app.command()
 def backup(
     quiet_output: bool = typer.Option(
@@ -130,17 +129,26 @@ def backup(
     Data backups are immutable and timestamped: ~/.space_backups/data/{timestamp}/
     Session backups mirror structure: ~/.space_backups/sessions/{provider}/*.jsonl (additive)
     """
+    _do_backup(quiet_output)
 
+
+def _do_backup(quiet_output: bool = False):
+    """Perform the backup operation."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    _backup_data_snapshot(timestamp, quiet_output)
+    data_stats = _backup_data_snapshot(timestamp, quiet_output)
     session_stats = _backup_sessions(quiet_output)
 
     if not quiet_output:
-        providers = ["claude", "codex", "gemini"]
-        after = session_stats.get("after", {})
-        counts = ", ".join(f"{p} ({after.get(p, 0)})" for p in providers)
         typer.echo(f"✓ Data: {paths.backup_snapshot(timestamp)}")
-        typer.echo(f"✓ Sessions: {counts}")
+        for db, info in data_stats.items():
+            if "error" in info:
+                typer.echo(f"  {db}: {info['error']}")
+            else:
+                typer.echo(f"  {db}: {info['tables']} tables, {info['rows']} rows")
+
+        added = session_stats.get("added", {})
+        total_added = sum(added.values())
+        typer.echo(f"✓ Sessions: +{total_added} files")
 
 
 def main() -> None:

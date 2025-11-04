@@ -203,7 +203,7 @@ def test_trace_spawn_syncs_session():
     from unittest.mock import MagicMock
 
     with patch("space.os.spawn.api.get_spawn") as mock_get_spawn:
-        with patch("space.os.sessions.api.sync.sync_session") as mock_sync:
+        with patch("space.os.sessions.api.sync.ingest") as mock_sync:
             spawn_obj = MagicMock()
             spawn_obj.id = "abc12345-def6-7890-ghij-klmnopqrstuv"
             spawn_obj.session_id = "sess-123"

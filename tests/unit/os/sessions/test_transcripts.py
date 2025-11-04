@@ -33,7 +33,9 @@ class TestIndexTranscripts:
             ]
         )
 
-        count = sync._index_transcripts(sid, "claude", jsonl)
+        with store.ensure() as conn:
+            count = sync._index_transcripts(sid, "claude", jsonl, conn)
+            conn.commit()
         assert count == 2
 
         with store.ensure() as conn:
@@ -70,7 +72,9 @@ class TestIndexTranscripts:
             }
         )
 
-        sync._index_transcripts(sid, "claude", jsonl)
+        with store.ensure() as conn:
+            sync._index_transcripts(sid, "claude", jsonl, conn)
+            conn.commit()
 
         with store.ensure() as conn:
             content = conn.execute(
@@ -104,7 +108,9 @@ class TestIndexTranscripts:
             ]
         )
 
-        count = sync._index_transcripts(sid, "claude", jsonl)
+        with store.ensure() as conn:
+            count = sync._index_transcripts(sid, "claude", jsonl, conn)
+            conn.commit()
         assert count == 1
 
         # Cleanup
@@ -233,7 +239,9 @@ class TestIntegration:
             ]
         )
 
-        sync._index_transcripts(sid, "claude", jsonl)
+        with store.ensure() as conn:
+            sync._index_transcripts(sid, "claude", jsonl, conn)
+            conn.commit()
 
         results = [r for r in operations.search("integration") if r["session_id"] == sid]
         assert len(results) == 2

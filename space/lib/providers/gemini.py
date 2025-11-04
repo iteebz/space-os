@@ -50,8 +50,12 @@ class Gemini(Provider):
         return ["--output-format", "stream-json", "--allowed-tools"] + allowed
 
     @staticmethod
-    def discover_sessions() -> list[dict]:
-        """Discover Gemini sessions from actual chat files and logs.json index."""
+    def discover() -> list[dict]:
+        """Discover Gemini sessions from actual chat files and logs.json index.
+
+        Note: Gemini reuses sessionIds across different conversations.
+        We use file stem (filename without extension) as unique key instead.
+        """
         sessions = []
         if not Gemini.TMP_DIR.exists():
             return sessions
@@ -89,14 +93,18 @@ class Gemini(Provider):
                     try:
                         with open(chat_file) as f:
                             chat_data = json.load(f)
-                        session_id = chat_data.get("sessionId")
-                        if not session_id:
+                        gemini_session_id = chat_data.get("sessionId")
+                        if not gemini_session_id:
                             continue
+
+                        # Use filename as unique session_id (handles Gemini's sessionId reuse bug)
+                        # Filename format: session-YYYY-MM-DDTHH-MM-{gemini_session_id}.json
+                        unique_session_id = chat_file.stem
 
                         sessions.append(
                             {
                                 "cli": "gemini",
-                                "session_id": session_id,
+                                "session_id": unique_session_id,
                                 "file_path": str(chat_file),
                                 "project_hash": project_hash,
                                 "created_at": chat_file.stat().st_ctime,
@@ -104,7 +112,7 @@ class Gemini(Provider):
                                 "last_updated": chat_data.get("lastUpdated"),
                                 "message_count": len(chat_data.get("messages", [])),
                                 "file_size": file_size,
-                                "first_message": session_metadata.get(session_id, {}).get(
+                                "first_message": session_metadata.get(gemini_session_id, {}).get(
                                     "first_message", ""
                                 ),
                             }
@@ -116,68 +124,77 @@ class Gemini(Provider):
         return sessions
 
     @staticmethod
-    def parse_messages(file_path: Path, from_offset: int = 0) -> list[dict]:
-        """
-        Parse messages from Gemini JSON or JSONL.
-
-        Handles both:
-        - Raw JSON format from provider (single JSON object with messages array)
-        - JSONL format from vault (one JSON object per line)
-        from_offset is byte offset (like Claude/Codex).
-        """
-        messages = []
+    def ingest(session: dict, dest_dir: Path) -> bool:
+        """Ingest one Gemini session: convert JSON to JSONL."""
         try:
-            with open(file_path, "rb") as f:
-                f.seek(from_offset)
-                content = f.read().decode("utf-8")
+            session_id = session.get("session_id")
+            src_file = Path(session.get("file_path", ""))
 
-            if content.strip().startswith("[") or content.strip().startswith("{"):
-                try:
-                    data = json.loads(content)
-                    if isinstance(data, dict) and "messages" in data:
-                        for msg in data.get("messages", []):
-                            role = msg.get("role")
-                            if role not in ("user", "model"):
-                                continue
-                            messages.append(
-                                {
-                                    "message_id": None,
-                                    "role": "assistant" if role == "model" else "user",
-                                    "content": msg.get("content", ""),
-                                    "timestamp": msg.get("timestamp"),
-                                    "byte_offset": 0,
-                                }
-                            )
-                        return messages
-                except (json.JSONDecodeError, ValueError) as e:
-                    logger.error(f"Error parsing Gemini JSON content from {file_path}: {e}")
+            if not session_id or not src_file.exists():
+                return False
 
-            with open(file_path, "rb") as f:
-                f.seek(from_offset)
+            dest_file = dest_dir / f"{session_id}.jsonl"
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            jsonl_content = Gemini.to_jsonl(src_file)
+            dest_file.write_text(jsonl_content)
+            return bool(jsonl_content)
+        except Exception as e:
+            logger.error(f"Error ingesting Gemini session {session.get('session_id')}: {e}")
+        return False
+
+    @staticmethod
+    def index(session_id: str) -> int:
+        """Index one Gemini session into database."""
+        from space.os.sessions.api.sync import _index_transcripts
+
+        sessions_dir = Path.home() / ".space" / "sessions" / "gemini"
+        jsonl_file = sessions_dir / f"{session_id}.jsonl"
+
+        if not jsonl_file.exists():
+            return 0
+
+        try:
+            content = jsonl_file.read_text()
+            return _index_transcripts(session_id, "gemini", content)
+        except Exception as e:
+            logger.error(f"Error indexing Gemini session {session_id}: {e}")
+        return 0
+
+    @staticmethod
+    def parse(file_path: Path, from_offset: int = 0) -> list[SessionEvent]:
+        """Parse Gemini session file to unified event format."""
+        file_path = Path(file_path)
+        events = []
+
+        if not file_path.exists():
+            return events
+
+        try:
+            with open(file_path) as f:
                 for line in f:
                     if not line.strip():
                         continue
-                    offset = f.tell() - len(line)
-                    data = json.loads(line)
-                    role = data.get("role")
-                    if role not in ("user", "assistant"):
+
+                    try:
+                        obj = json.loads(line)
+                    except json.JSONDecodeError:
                         continue
 
-                    messages.append(
-                        {
-                            "message_id": None,
-                            "role": role,
-                            "content": data.get("content", ""),
-                            "timestamp": data.get("timestamp"),
-                            "byte_offset": offset,
-                        }
-                    )
-        except (OSError, json.JSONDecodeError) as e:
-            logger.error(f"Error parsing Gemini messages from {file_path}: {e}")
-        return messages
+                    msg_type = obj.get("type")
+                    timestamp = obj.get("timestamp")
+
+                    if msg_type == "model":
+                        events.extend(Gemini._parse_model_message(obj.get("parts", []), timestamp))
+                    elif msg_type == "user":
+                        events.extend(Gemini._parse_user_message(obj.get("parts", []), timestamp))
+
+        except OSError:
+            pass
+
+        return events
 
     @staticmethod
-    def extract_tokens(file_path: Path) -> tuple[int | None, int | None]:
+    def tokens(file_path: Path) -> tuple[int | None, int | None]:
         """Extract input and output tokens from Gemini JSON (raw format).
 
         Gemini stores tokens in gemini message objects under tokens.{input,output}
@@ -221,46 +238,6 @@ class Gemini(Provider):
         except (json.JSONDecodeError, ValueError, IndexError) as e:
             logger.error(f"Failed to parse Gemini headless output: {e}")
         return None
-
-    @staticmethod
-    def parse_jsonl(file_path: Path | str) -> list[SessionEvent]:
-        """Parse Gemini session JSONL to unified event format.
-
-        Args:
-            file_path: Path to Gemini session JSONL
-
-        Returns:
-            List of Event objects in chronological order
-        """
-        file_path = Path(file_path)
-        events = []
-
-        if not file_path.exists():
-            return events
-
-        try:
-            with open(file_path) as f:
-                for line in f:
-                    if not line.strip():
-                        continue
-
-                    try:
-                        obj = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-
-                    msg_type = obj.get("type")
-                    timestamp = obj.get("timestamp")
-
-                    if msg_type == "model":
-                        events.extend(Gemini._parse_model_message(obj.get("parts", []), timestamp))
-                    elif msg_type == "user":
-                        events.extend(Gemini._parse_user_message(obj.get("parts", []), timestamp))
-
-        except OSError:
-            pass
-
-        return events
 
     @staticmethod
     def _parse_model_message(parts: list, timestamp: str | None) -> list[SessionEvent]:
@@ -311,7 +288,8 @@ class Gemini(Provider):
 
         return events
 
-    def json_to_jsonl(self, json_file: Path) -> str:
+    @staticmethod
+    def to_jsonl(json_file: Path) -> str:
         """Convert Gemini JSON session to JSONL format.
 
         Gemini stores sessions as JSON, but space-os uses JSONL uniformly.
@@ -329,13 +307,13 @@ class Gemini(Provider):
             lines = []
             if isinstance(data, dict) and "messages" in data:
                 for msg in data.get("messages", []):
-                    role = msg.get("role")
-                    if role not in ("user", "model"):
+                    msg_type = msg.get("type")
+                    if msg_type not in ("user", "model"):
                         continue
                     lines.append(
                         json.dumps(
                             {
-                                "role": "assistant" if role == "model" else "user",
+                                "role": "assistant" if msg_type == "model" else "user",
                                 "content": msg.get("content", ""),
                                 "timestamp": msg.get("timestamp"),
                             }

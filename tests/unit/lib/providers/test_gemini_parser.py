@@ -30,7 +30,7 @@ def test_parse_function_call():
         temp_path = Path(f.name)
 
     try:
-        events = Gemini.parse_jsonl(temp_path)
+        events = Gemini.parse(temp_path)
 
         assert len(events) == 1
         assert events[0].type == "tool_call"
@@ -64,7 +64,7 @@ def test_parse_function_result():
         temp_path = Path(f.name)
 
     try:
-        events = Gemini.parse_jsonl(temp_path)
+        events = Gemini.parse(temp_path)
 
         assert len(events) == 1
         assert events[0].type == "tool_result"
@@ -90,7 +90,7 @@ def test_parse_text_response():
         temp_path = Path(f.name)
 
     try:
-        events = Gemini.parse_jsonl(temp_path)
+        events = Gemini.parse(temp_path)
 
         assert len(events) == 1
         assert events[0].type == "text"
@@ -123,7 +123,7 @@ def test_parse_mixed_parts():
         temp_path = Path(f.name)
 
     try:
-        events = Gemini.parse_jsonl(temp_path)
+        events = Gemini.parse(temp_path)
 
         assert len(events) == 2
         assert events[0].type == "text"
@@ -138,7 +138,7 @@ def test_parse_empty_file():
         temp_path = Path(f.name)
 
     try:
-        events = Gemini.parse_jsonl(temp_path)
+        events = Gemini.parse(temp_path)
         assert events == []
     finally:
         temp_path.unlink()
@@ -146,5 +146,92 @@ def test_parse_empty_file():
 
 def test_parse_missing_file():
     """Boundary: Handle missing file gracefully."""
-    events = Gemini.parse_jsonl("/nonexistent/path.jsonl")
+    events = Gemini.parse("/nonexistent/path.jsonl")
     assert events == []
+
+
+def test_to_jsonl():
+    """Convert Gemini JSON to JSONL format."""
+    gemini_json = {
+        "sessionId": "test-123",
+        "messages": [
+            {"type": "user", "content": "Hello", "timestamp": "2025-01-01T00:00:00Z"},
+            {"type": "model", "content": "Hi there", "timestamp": "2025-01-01T00:00:01Z"},
+        ],
+    }
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(gemini_json, f)
+        temp_path = Path(f.name)
+
+    try:
+        result = Gemini.to_jsonl(temp_path)
+        lines = result.strip().split("\n")
+
+        assert len(lines) == 2
+        msg1 = json.loads(lines[0])
+        msg2 = json.loads(lines[1])
+
+        assert msg1["role"] == "user"
+        assert msg1["content"] == "Hello"
+        assert msg2["role"] == "assistant"
+        assert msg2["content"] == "Hi there"
+    finally:
+        temp_path.unlink()
+
+
+def test_to_jsonl_empty():
+    """Handle empty Gemini JSON gracefully."""
+    empty_json = {"sessionId": "test-456", "messages": []}
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(empty_json, f)
+        temp_path = Path(f.name)
+
+    try:
+        result = Gemini.to_jsonl(temp_path)
+        assert result == ""
+    finally:
+        temp_path.unlink()
+
+
+def test_to_jsonl_malformed():
+    """Gracefully handle malformed Gemini JSON."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        f.write("not valid json")
+        temp_path = Path(f.name)
+
+    try:
+        result = Gemini.to_jsonl(temp_path)
+        assert result == ""
+    finally:
+        temp_path.unlink()
+
+
+def test_ingest():
+    """Ingest one Gemini session: convert JSON to JSONL."""
+    gemini_json = {
+        "sessionId": "test-ingest",
+        "messages": [
+            {"type": "user", "content": "Hello", "timestamp": "2025-01-01T00:00:00Z"},
+            {"type": "model", "content": "Hi there", "timestamp": "2025-01-01T00:00:01Z"},
+        ],
+    }
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        src_file = Path(tmpdir) / "source.json"
+        json.dump(gemini_json, src_file.open("w"))
+
+        dest_dir = Path(tmpdir) / "dest"
+        session = {
+            "session_id": "test-ingest",
+            "file_path": str(src_file),
+        }
+
+        success = Gemini.ingest(session, dest_dir)
+
+        assert success
+        assert (dest_dir / "test-ingest.jsonl").exists()
+        content = (dest_dir / "test-ingest.jsonl").read_text()
+        lines = content.strip().split("\n")
+        assert len(lines) == 2

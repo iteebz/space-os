@@ -33,7 +33,7 @@ def test_parse_tool_call():
         temp_path = Path(f.name)
 
     try:
-        events = Codex.parse_jsonl(temp_path)
+        events = Codex.parse(temp_path)
 
         assert len(events) == 2
         assert events[0].type == "text"
@@ -62,7 +62,7 @@ def test_parse_tool_result():
         temp_path = Path(f.name)
 
     try:
-        events = Codex.parse_jsonl(temp_path)
+        events = Codex.parse(temp_path)
 
         assert len(events) == 1
         assert events[0].type == "tool_result"
@@ -98,7 +98,7 @@ def test_parse_malformed_json_arguments():
         temp_path = Path(f.name)
 
     try:
-        events = Codex.parse_jsonl(temp_path)
+        events = Codex.parse(temp_path)
 
         assert len(events) == 1
         assert events[0].type == "tool_call"
@@ -141,7 +141,7 @@ def test_parse_multiple_tool_calls():
         temp_path = Path(f.name)
 
     try:
-        events = Codex.parse_jsonl(temp_path)
+        events = Codex.parse(temp_path)
 
         assert len(events) == 3
         assert events[0].type == "text"
@@ -159,7 +159,7 @@ def test_parse_empty_file():
         temp_path = Path(f.name)
 
     try:
-        events = Codex.parse_jsonl(temp_path)
+        events = Codex.parse(temp_path)
         assert events == []
     finally:
         temp_path.unlink()
@@ -167,5 +167,5 @@ def test_parse_empty_file():
 
 def test_parse_missing_file():
     """Boundary: Handle missing file gracefully."""
-    events = Codex.parse_jsonl("/nonexistent/path.jsonl")
+    events = Codex.parse("/nonexistent/path.jsonl")
     assert events == []

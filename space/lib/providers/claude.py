@@ -2,6 +2,7 @@
 
 import json
 import logging
+import shutil
 from pathlib import Path
 
 from space.core.models import AgentMessage, SessionEvent, ToolCall, ToolResult
@@ -70,7 +71,7 @@ class Claude(Provider):
         ]
 
     @staticmethod
-    def discover_sessions() -> list[dict]:
+    def discover() -> list[dict]:
         """Discover Claude sessions."""
         sessions = []
         if not Claude.SESSIONS_DIR.exists():
@@ -88,52 +89,78 @@ class Claude(Provider):
         return sessions
 
     @staticmethod
-    def parse_messages(file_path: Path, from_offset: int = 0) -> list[dict]:
-        """Parse messages from Claude JSONL."""
-        messages = []
+    def ingest(session: dict, dest_dir: Path) -> bool:
+        """Ingest one Claude session: copy to destination."""
         try:
-            with open(file_path, "rb") as f:
-                f.seek(from_offset)
+            session_id = session.get("session_id")
+            src_file = Path(session.get("file_path", ""))
+
+            if not session_id or not src_file.exists():
+                return False
+
+            dest_file = dest_dir / f"{session_id}.jsonl"
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_file, dest_file)
+            return True
+        except Exception as e:
+            logger.error(f"Error ingesting Claude session {session.get('session_id')}: {e}")
+        return False
+
+    @staticmethod
+    def index(session_id: str) -> int:
+        """Index one Claude session into database."""
+        from space.os.sessions.api.sync import _index_transcripts
+
+        sessions_dir = Path.home() / ".space" / "sessions" / "claude"
+        jsonl_file = sessions_dir / f"{session_id}.jsonl"
+
+        if not jsonl_file.exists():
+            return 0
+
+        try:
+            content = jsonl_file.read_text()
+            return _index_transcripts(session_id, "claude", content)
+        except Exception as e:
+            logger.error(f"Error indexing Claude session {session_id}: {e}")
+        return 0
+
+    @staticmethod
+    def parse(file_path: Path, from_offset: int = 0) -> list[SessionEvent]:
+        """Parse Claude session file to unified event format."""
+        file_path = Path(file_path)
+        events = []
+
+        if not file_path.exists():
+            return events
+
+        try:
+            with open(file_path) as f:
                 for line in f:
                     if not line.strip():
                         continue
-                    offset = f.tell() - len(line)
-                    data = json.loads(line)
-                    role = data.get("type")
-                    if role not in ("user", "assistant", "tool"):
-                        continue
-                    message_obj = data.get("message", {})
-                    content = ""
-                    if isinstance(message_obj, dict):
-                        content_raw = message_obj.get("content", "")
-                        if isinstance(content_raw, list):
-                            content = "\n".join(
-                                item.get("text", "")
-                                for item in content_raw
-                                if isinstance(item, dict) and item.get("type") == "text"
-                            )
-                        else:
-                            content = content_raw
-                    else:
-                        content = message_obj
 
-                    msg = {
-                        "message_id": data.get("uuid"),
-                        "role": role,
-                        "content": content,
-                        "timestamp": data.get("timestamp"),
-                        "cwd": data.get("cwd"),
-                        "byte_offset": offset,
-                    }
-                    if role == "tool":
-                        msg["tool_type"] = "tool_result"
-                    messages.append(msg)
-        except (OSError, json.JSONDecodeError) as e:
-            logger.error(f"Error parsing Claude messages from {file_path}: {e}")
-        return messages
+                    try:
+                        obj = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    msg_type = obj.get("type")
+                    timestamp = obj.get("timestamp")
+
+                    if msg_type == "assistant":
+                        events.extend(
+                            Claude._parse_assistant_message(obj.get("message", {}), timestamp)
+                        )
+                    elif msg_type == "user":
+                        events.extend(Claude._parse_user_message(obj.get("message", {}), timestamp))
+
+        except OSError:
+            pass
+
+        return events
 
     @staticmethod
-    def extract_tokens(file_path: Path) -> tuple[int | None, int | None]:
+    def tokens(file_path: Path) -> tuple[int | None, int | None]:
         """Extract input and output tokens from Claude JSONL.
 
         Claude stores tokens in message.usage.{input,output}_tokens
@@ -177,48 +204,6 @@ class Claude(Provider):
         except (json.JSONDecodeError, ValueError) as e:
             logger.error(f"Failed to parse Claude headless output: {e}")
         return None
-
-    @staticmethod
-    def parse_jsonl(file_path: Path | str) -> list[SessionEvent]:
-        """Parse Claude session JSONL to unified event format.
-
-        Args:
-            file_path: Path to Claude session JSONL
-
-        Returns:
-            List of Event objects in chronological order
-        """
-        file_path = Path(file_path)
-        events = []
-
-        if not file_path.exists():
-            return events
-
-        try:
-            with open(file_path) as f:
-                for line in f:
-                    if not line.strip():
-                        continue
-
-                    try:
-                        obj = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-
-                    msg_type = obj.get("type")
-                    timestamp = obj.get("timestamp")
-
-                    if msg_type == "assistant":
-                        events.extend(
-                            Claude._parse_assistant_message(obj.get("message", {}), timestamp)
-                        )
-                    elif msg_type == "user":
-                        events.extend(Claude._parse_user_message(obj.get("message", {}), timestamp))
-
-        except OSError:
-            pass
-
-        return events
 
     @staticmethod
     def _parse_assistant_message(message: dict, timestamp: str | None) -> list[SessionEvent]:
