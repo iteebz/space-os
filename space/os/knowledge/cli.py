@@ -51,7 +51,7 @@ def add(
       knowledge add architecture/caching/redis "Redis uses single thread for consistency" --as sentinel
     """
     from space.lib.paths import validate_domain_path
-    
+
     contributor = ctx.obj.get("identity")
     if not contributor:
         raise typer.BadParameter("--as required")

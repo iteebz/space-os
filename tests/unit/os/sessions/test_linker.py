@@ -57,15 +57,20 @@ def test_parse_spawn_marker_returns_none():
 
 
 def test_link_spawn_to_session_updates_db():
-    """Verify session_id update to spawns table."""
-    with patch("space.os.sessions.api.linker.store.ensure") as mock_store:
-        mock_conn = MagicMock()
-        mock_store.return_value.__enter__.return_value = mock_conn
+    """Verify session_id update to spawns table after sync."""
+    with patch("space.os.sessions.api.sync.sync_provider_sessions") as mock_sync:
+        with patch("space.os.sessions.api.linker.store.ensure") as mock_store:
+            mock_conn = MagicMock()
+            mock_store.return_value.__enter__.return_value = mock_conn
 
-        linker.link_spawn_to_session("test-spawn-123", "session-456")
+            linker.link_spawn_to_session("test-spawn-123", "session-456")
 
-        mock_conn.execute.assert_called_once()
-        call_args = mock_conn.execute.call_args[0]
-        assert "UPDATE spawns" in call_args[0]
-        assert "session_id" in call_args[0]
-        assert call_args[1] == ("session-456", "test-spawn-123")
+            # Verify sync was called to create session record
+            mock_sync.assert_called_once_with(session_id="session-456")
+
+            # Verify execute was called with UPDATE spawns
+            mock_conn.execute.assert_called_once()
+            call_args = mock_conn.execute.call_args[0]
+            assert "UPDATE spawns" in call_args[0]
+            assert "session_id" in call_args[0]
+            assert call_args[1] == ("session-456", "test-spawn-123")

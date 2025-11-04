@@ -40,6 +40,15 @@ class Gemini(Provider):
             args.append("--prompt-interactive")
         return args
 
+    @staticmethod
+    def task_launch_args() -> list[str]:
+        """Return launch arguments for task-based Gemini execution.
+
+        Task mode uses stream-json output format, returns JSONL with session_id in first event.
+        """
+        allowed = Gemini.allowed_tools()
+        return ["--output-format", "stream-json", "--allowed-tools"] + allowed
+
     def discover_chats(self) -> list[dict]:
         """Discover Gemini chat sessions from actual chat files and logs.json index."""
         sessions = []

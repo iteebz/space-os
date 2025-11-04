@@ -14,7 +14,7 @@ from .agents import (
     unarchive_agent,
     update_agent,
 )
-from .launch import spawn_headless, spawn_interactive
+from .launch import spawn_interactive, spawn_task
 from .prompt import build_spawn_context
 from .spawns import (
     create_spawn,
@@ -26,6 +26,7 @@ from .spawns import (
     pause_spawn,
     resume_spawn,
 )
+from .trace import trace as trace_query
 
 __all__ = [
     "get_agent",
@@ -41,7 +42,7 @@ __all__ = [
     "touch_agent",
     "build_spawn_context",
     "spawn_interactive",
-    "spawn_headless",
+    "spawn_task",
     "create_spawn",
     "end_spawn",
     "get_spawn",
@@ -53,4 +54,5 @@ __all__ = [
     "agent_identities",
     "archived_agents",
     "stats",
+    "trace_query",
 ]

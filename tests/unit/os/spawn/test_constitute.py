@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from space.core.models import Spawn, TaskStatus
-from space.os.spawn.api.constitute import constitute, PROVIDER_MAP
+from space.os.spawn.api.constitute import PROVIDER_MAP, constitute
 
 
 @pytest.fixture

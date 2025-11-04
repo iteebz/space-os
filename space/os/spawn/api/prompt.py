@@ -28,7 +28,7 @@ WHEN SESSION DONE → memory add "session summary" --topic journal
 
 Your responsibility: bridge to other agents, manage your memory, learn from interactions.
 
-{memories}{task}{channel}"""
+{memories}{task}{channel}{task_mode}"""
 
 MEMORIES_TEMPLATE = """\
 YOUR CONTINUITY:
@@ -47,16 +47,27 @@ TASK:
 {task}
 """
 
+TASK_MODE_TEMPLATE = """\
 
-def build_spawn_context(identity: str, task: str | None = None, channel: str | None = None) -> str:
+EXECUTION MODE: Task-based spawn (non-interactive).
+IMPORTANT: Always cd to ~/space/ first before executing commands. Example:
+  cd ~/space && your-command-here
+Verify with: cd ~/space && pwd
+"""
+
+
+def build_spawn_context(
+    identity: str, task: str | None = None, channel: str | None = None, is_task: bool = False
+) -> str:
     """Assemble spawn context: bootloader for agent execution.
 
-    Provides: identity → space-os context → available primitives → continuity (memories) → task/channel
+    Provides: identity → space-os context → available primitives → continuity (memories) → task/channel → execution mode notice
 
     Args:
         identity: Agent identity
         task: Task instruction (optional)
         channel: Channel name if responding in channel (optional)
+        is_task: Whether this is a task-based spawn (sets execution mode notice)
 
     Returns:
         Complete prompt for agent execution
@@ -86,9 +97,14 @@ def build_spawn_context(identity: str, task: str | None = None, channel: str | N
     if task:
         task_context = TASK_TEMPLATE.format(task=task)
 
+    task_mode_context = ""
+    if is_task:
+        task_mode_context = TASK_MODE_TEMPLATE
+
     return SPAWN_CONTEXT_TEMPLATE.format(
         identity=identity,
         memories=memories_context,
         task=task_context,
         channel=channel_context,
+        task_mode=task_mode_context,
     )

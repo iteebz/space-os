@@ -24,6 +24,14 @@ class Codex(Provider):
         """Return launch arguments for Codex."""
         return ["--dangerously-bypass-approvals-and-sandbox"]
 
+    @staticmethod
+    def task_launch_args() -> list[str]:
+        """Return launch arguments for task-based Codex execution.
+
+        Task mode uses --json flag, returns JSONL with thread_id in first event.
+        """
+        return ["--json", "--dangerously-bypass-approvals-and-sandbox"]
+
     def discover_chats(self) -> list[dict]:
         """Discover Codex chat sessions."""
         sessions = []

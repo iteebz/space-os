@@ -31,25 +31,37 @@ def display_agent_trace(result: dict) -> None:
 
 
 def display_session_trace(result: dict) -> None:
-    """Display session trace: full execution context."""
-    short_id = result["short_id"]
+    """Display spawn/session trace: execution context."""
+    spawn_id = result.get("spawn_id") or result.get("short_id", "?")
     identity = result["identity"]
-    status = result["status"]
+    status = result["status"].lower()
 
-    status_marker = "✓" if status == "COMPLETED" else "✗"
-    typer.echo(f"\n{status_marker} Session {short_id} ({identity})\n")
+    status_marker = "✓" if "complet" in status else "✗"
+    typer.echo(f"\n{status_marker} Spawn {spawn_id} ({identity})\n")
 
-    if result.get("triggered_by"):
-        typer.echo(f"Triggered by: {result['triggered_by']}")
+    if result.get("created_at"):
+        typer.echo(f"Created: {fmt.humanize_timestamp(result['created_at'])}")
 
     if result.get("started_at"):
         typer.echo(f"Started: {fmt.humanize_timestamp(result['started_at'])}")
 
+    if result.get("ended_at"):
+        typer.echo(f"Ended: {fmt.humanize_timestamp(result['ended_at'])}")
+
     if result.get("duration_seconds"):
         typer.echo(f"Duration: {result['duration_seconds']:.1f}s")
 
+    if result.get("triggered_by"):
+        typer.echo(f"Triggered by: {result['triggered_by']}")
+
+    if result.get("session_id"):
+        typer.echo(f"Session: {result['session_id'][:8]}")
+
     if result.get("channel_id"):
         typer.echo(f"Channel: #{result['channel_id'][:8]}")
+
+    if result.get("is_task"):
+        typer.echo("Type: Task")
 
     typer.echo()
 

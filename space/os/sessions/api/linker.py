@@ -53,7 +53,17 @@ def find_session_for_spawn(spawn_id: str, provider: str, created_at: str) -> str
 
 
 def link_spawn_to_session(spawn_id: str, session_id: str | None) -> None:
-    """Update spawn record with session_id.
+    """Link spawn to session by syncing provider data.
+
+    Ensures FK constraint is satisfied by triggering sync_provider_sessions
+    before updating the spawn record. This approach elegantly handles the timing
+    issue: session doesn't exist in DB until provider sync runs.
+
+    Notes:
+    - Calls sync_provider_sessions(session_id) to create session record
+    - Session record synced from provider files (e.g., ~/.claude/projects/)
+    - Links are idempotent: safe to call multiple times
+    - If sync fails, gracefully continues (session may sync later)
 
     Args:
         spawn_id: Full spawn UUID7
@@ -64,6 +74,14 @@ def link_spawn_to_session(spawn_id: str, session_id: str | None) -> None:
         return
 
     try:
+        # Import here to avoid circular dependency
+        from . import sync
+
+        # Sync this specific session from provider (e.g., ~/.claude/projects/)
+        # This creates/updates the session record in the DB
+        sync.sync_provider_sessions(session_id=session_id)
+
+        # Now link spawn to session (FK constraint satisfied)
         with store.ensure() as conn:
             conn.execute(
                 "UPDATE spawns SET session_id = ? WHERE id = ?",
@@ -74,7 +92,7 @@ def link_spawn_to_session(spawn_id: str, session_id: str | None) -> None:
     except Exception as e:
         logger.warning(
             f"Failed to link spawn {spawn_id} to session {session_id}: {e}. "
-            "Session may not exist yet or FK constraint failed."
+            "Spawn created but session_id not linked. Will retry during provider sync."
         )
 
 

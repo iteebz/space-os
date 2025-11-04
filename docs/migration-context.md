@@ -99,18 +99,11 @@ Link `spawns.session_id` to `sessions.session_id` for all spawns. Critical for a
 - Insert spawn with session_id immediately set
 
 **Interactive spawns**:
-- Spawn created with `spawn_id` (uuid7, truncated to spawn_id[:8] for marker)
-- Inject spawn marker into bootstrap context (searchable in JSONL)
-- Async linker task: scan provider session dir for newest files
-- Algorithm: Sort session files by `|file.mtime - spawn.created_at|` ascending
-- Match: Find first file with spawn_id marker, extract session_id
-- Update: Link spawn_id → session_id in spawns table
-- No retry daemon (leave session_id NULL if not found, acceptable failure mode)
+- Spawn created with `spawn_id` (uuid7)
+- Session linking deferred (session_id remains NULL, acceptable for interactive mode)
 
 **Linker core module:** `space/os/sessions/api/linker.py`
-- `find_session_for_spawn(spawn_id, provider, created_at)` → session_id or None
-- `link_spawn_to_session(spawn_id, session_id)` → update DB
-- Provider-aware: Query agent to get provider, scan correct session dir
+- `link_spawn_to_session(spawn_id, session_id)` → update DB (task spawns only)
 
 ## Code Changes Required
 
@@ -257,10 +250,9 @@ This is a Phase 3+ primitive. Needs:
 - 231 tests passing (6 linker unit tests + all integration tests)
 
 **Key Design Decisions:**
-- No marker injection: Unnecessary (session_id extracted immediately from structured output)
+- Session_id extracted immediately from structured output (task spawns)
 - Agent-driven messaging: Agents receive channel name in bootloader context, post own results via `bridge send`
-- Interactive fallback: Filewatcher deferred (works when needed for interactive spawns)
-- Graceful degradation: FK constraint failures logged, session_id nullable
+- Graceful degradation: FK constraint failures logged, session_id nullable for interactive spawns
 
 ### Phase 3: Agent Self-Reflection & Pause/Resume ✅ COMPLETE
 
@@ -290,3 +282,40 @@ This is a Phase 3+ primitive. Needs:
 - [x] 223 tests passing (no regressions)
 - [x] test_spawn_lifecycle.py: 16 tests covering all spawn lifecycle transitions
 - [x] Pause/resume tests validate state machine constraints
+
+### Phase 3.5: Constitution Isolation & Linker Refinement ✅ COMPLETE
+
+**Constitution Isolation (Multi-Agent Safety):**
+- [x] Solved critical MAS flaw: concurrent agent spawns no longer share constitution
+- [x] Two-mode spawn system:
+  - **Interactive spawns** (`spawn_interactive()`): Launch from `~/space/`, read CLAUDE.md via `@file` commands
+  - **Task spawns** (`spawn_task()`): Launch from `~/.space/spawns/{identity}/`, isolated constitution
+- [x] Per-identity constitution directories: `~/.space/spawns/{identity}/CLAUDE.md`
+- [x] New `constitute()` function in spawn domain: routes constitution based on spawn mode
+- [x] Task spawns get execution mode notice: "Always cd to ~/space/ first before executing commands"
+- [x] No cleanup needed: identity-based scoping is persistent
+
+**Rename to Task Terminology:**
+- [x] Consistent naming with schema: `spawn_headless()` → `spawn_task()`
+- [x] Provider-specific launch args: `headless_launch_args()` → `task_launch_args()`
+- [x] Test file: `test_spawn_headless.py` → `test_spawn_task.py`
+- [x] All CLI routing updated to explicit `spawn_task()` / `spawn_interactive()` calls
+
+**Session Linker Elegance:**
+- [x] Fixed FK constraint issue: linker now triggers `sync_provider_sessions(session_id)`
+- [x] Clean solution: session record created by sync BEFORE linking (no PRAGMA tricks)
+- [x] Graceful degradation: if sync fails, logs warning but spawn still created (session_id retries later)
+- [x] Design aligns with Phase 2 notes: "Graceful degradation: FK constraint failures logged, session_id nullable"
+- [x] Updated `link_spawn_to_session()` docstring to explain the elegant approach
+
+**Code Organization:**
+- [x] Created `space/os/spawn/api/constitute.py`: Centralized constitution writing
+- [x] Moved constitution logic from lib/ to spawn domain (cleaner separation of concerns)
+- [x] PROVIDER_MAP in constitute.py: Maps providers to constitution filenames (CLAUDE.md, GEMINI.md, AGENTS.md)
+
+**Tests:**
+- [x] 219 tests passing (no regressions)
+- [x] test_spawn_task.py: 4 tests for task spawn execution with session linking
+- [x] test_constitute.py: 4 tests for constitution setup (interactive vs headless)
+- [x] test_linker.py: Updated to verify sync is called before linking
+- [x] test_cli_integration.py: Fixed bridge send test to use correct callback option order

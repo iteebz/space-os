@@ -8,8 +8,6 @@ import shlex
 import shutil
 import subprocess
 
-import click
-
 from space.lib import paths
 from space.lib.providers import claude, codex, gemini
 
@@ -87,9 +85,10 @@ def spawn_interactive(identity: str, extra_args: list[str] | None = None):
     click.echo("")
 
     if passthrough:
+        spawn_dir = paths.identity_dir(agent.identity)
         popen_kwargs = {
             "env": env,
-            "cwd": str(spawn_path),
+            "cwd": str(spawn_dir),
             "stdin": subprocess.PIPE,
         }
         proc = subprocess.Popen(full_command, **popen_kwargs)
@@ -99,6 +98,7 @@ def spawn_interactive(identity: str, extra_args: list[str] | None = None):
             spawns.end_spawn(spawn.id)
     else:
         import sys
+
         popen_kwargs = {
             "env": env,
             "cwd": str(paths.space_root()),
@@ -115,13 +115,16 @@ def spawn_interactive(identity: str, extra_args: list[str] | None = None):
             spawns.end_spawn(spawn.id)
 
 
-def spawn_headless(identity: str, task: str, channel_id: str) -> None:
-    """Spawn an agent headlessly for bridge mention execution.
+def spawn_task(identity: str, task: str, channel_id: str):
+    """Spawn an agent as a task-based execution (non-interactive).
 
     Args:
         identity: Agent identity from registry
         task: Task/prompt to execute
-        channel_id: Channel ID (for bridge context)
+        channel_id: Channel ID (for bridge context, optional)
+
+    Returns:
+        Spawn object
     """
     from space.os.bridge.api import channels
 
@@ -135,7 +138,12 @@ def spawn_headless(identity: str, task: str, channel_id: str) -> None:
         constitution_text = const_path.read_text()
         constitution_hash = hashlib.sha256(constitution_text.encode()).hexdigest()
 
-    spawn = spawns.create_spawn(agent_id=agent.agent_id, is_task=True, channel_id=channel_id, constitution_hash=constitution_hash)
+    spawn = spawns.create_spawn(
+        agent_id=agent.agent_id,
+        is_task=True,
+        channel_id=channel_id,
+        constitution_hash=constitution_hash,
+    )
     spawns.update_status(spawn.id, "running")
 
     constitute(spawn, agent)
@@ -145,44 +153,51 @@ def spawn_headless(identity: str, task: str, channel_id: str) -> None:
 
     try:
         if agent.provider == "claude":
-            _spawn_headless_claude(agent, task, spawn, channel_name)
+            _spawn_task_claude(agent, task, spawn, channel_name)
         elif agent.provider == "gemini":
-            _spawn_headless_gemini(agent, task, spawn, channel_name)
+            _spawn_task_gemini(agent, task, spawn, channel_name)
         elif agent.provider == "codex":
-            _spawn_headless_codex(agent, task, spawn, channel_name)
+            _spawn_task_codex(agent, task, spawn, channel_name)
         else:
             raise ValueError(f"Unknown provider: {agent.provider}")
 
         spawns.update_status(spawn.id, "completed")
+        return spawn
     except Exception as e:
         logger.error(f"Headless spawn failed for {identity}: {e}", exc_info=True)
         spawns.update_status(spawn.id, "failed")
         raise
 
 
-def _spawn_headless_claude(agent, task: str, spawn, channel_name: str | None) -> None:
-    """Execute headless Claude Code spawn with session linking.
+def _spawn_task_claude(agent, task: str, spawn, channel_name: str | None) -> None:
+    """Execute task-based Claude Code spawn with session linking.
 
     If spawned from a channel (@mention), agent should post results to that channel.
     """
+    import sys
+
     from space.os.sessions.api import linker
 
     provider_obj = claude
-    launch_args = provider_obj.launch_args(is_task=True)
+    launch_args = provider_obj.task_launch_args()
 
-    context = build_spawn_context(agent.identity, task=task, channel=channel_name)
+    context = build_spawn_context(agent.identity, task=task, channel=channel_name, is_task=True)
     add_dir_args = ["--add-dir", str(paths.space_root())]
-    cmd = ["claude", "--print", context, "--output-format", "json"] + add_dir_args + launch_args
+    cmd = ["claude"] + launch_args + add_dir_args
 
     spawn_dir = paths.identity_dir(agent.identity)
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(spawn_dir))
+    result = subprocess.run(
+        cmd, input=context, capture_output=True, text=True, cwd=str(spawn_dir), timeout=300
+    )
 
     if result.returncode != 0:
+        sys.stderr.write(f"Claude spawn failed: {result.stderr}\n")
         raise RuntimeError(f"Claude spawn failed: {result.stderr}")
 
     try:
         output = json.loads(result.stdout)
     except json.JSONDecodeError as e:
+        sys.stderr.write(f"Failed to parse Claude output: {result.stdout}\n")
         raise RuntimeError(f"Failed to parse Claude output: {e}") from e
 
     claude_session_id = output.get("session_id")
@@ -191,26 +206,35 @@ def _spawn_headless_claude(agent, task: str, spawn, channel_name: str | None) ->
 
     linker.link_spawn_to_session(spawn.id, claude_session_id)
 
+    result_text = output.get("result", "")
+    if result_text:
+        sys.stdout.write(result_text + "\n")
 
-def _spawn_headless_gemini(agent, task: str, spawn, channel_name: str | None) -> None:
-    """Execute headless Gemini spawn with session linking.
+
+def _spawn_task_gemini(agent, task: str, spawn, channel_name: str | None) -> None:
+    """Execute task-based Gemini spawn with session linking.
 
     Note: Gemini session syncing to ~/.space/sessions/ deferred (handled by sync_provider_sessions).
     If spawned from a channel (@mention), agent should post results to that channel.
     """
+    import sys
+
     from space.os.sessions.api import linker
 
     provider_obj = gemini
-    launch_args = provider_obj.launch_args(has_prompt=True)
+    launch_args = provider_obj.task_launch_args()
 
-    context = build_spawn_context(agent.identity, task=task, channel=channel_name)
+    context = build_spawn_context(agent.identity, task=task, channel=channel_name, is_task=True)
     add_dir_args = ["--add-dir", str(paths.space_root())]
-    cmd = ["gemini", context, "--output-format", "stream-json"] + add_dir_args + launch_args
+    cmd = ["gemini"] + launch_args + add_dir_args
 
     spawn_dir = paths.identity_dir(agent.identity)
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(spawn_dir))
+    result = subprocess.run(
+        cmd, input=context, capture_output=True, text=True, cwd=str(spawn_dir), timeout=300
+    )
 
     if result.returncode != 0:
+        sys.stderr.write(f"Gemini spawn failed: {result.stderr}\n")
         raise RuntimeError(f"Gemini spawn failed: {result.stderr}")
 
     gemini_session_id = provider_obj.headless_session_id(result.stdout)
@@ -220,24 +244,29 @@ def _spawn_headless_gemini(agent, task: str, spawn, channel_name: str | None) ->
     linker.link_spawn_to_session(spawn.id, gemini_session_id)
 
 
-def _spawn_headless_codex(agent, task: str, spawn, channel_name: str | None) -> None:
-    """Execute headless Codex spawn with session linking.
+def _spawn_task_codex(agent, task: str, spawn, channel_name: str | None) -> None:
+    """Execute task-based Codex spawn with session linking.
 
     If spawned from a channel (@mention), agent should post results to that channel.
     """
+    import sys
+
     from space.os.sessions.api import linker
 
     provider_obj = codex
-    launch_args = provider_obj.launch_args()
+    launch_args = provider_obj.task_launch_args()
 
-    context = build_spawn_context(agent.identity, task=task, channel=channel_name)
+    context = build_spawn_context(agent.identity, task=task, channel=channel_name, is_task=True)
     add_dir_args = ["--add-dir", str(paths.space_root())]
-    cmd = ["codex", "exec", "--json", context] + add_dir_args + launch_args
+    cmd = ["codex", "exec"] + launch_args + add_dir_args
 
     spawn_dir = paths.identity_dir(agent.identity)
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(spawn_dir))
+    result = subprocess.run(
+        cmd, input=context, capture_output=True, text=True, cwd=str(spawn_dir), timeout=300
+    )
 
     if result.returncode != 0:
+        sys.stderr.write(f"Codex spawn failed: {result.stderr}\n")
         raise RuntimeError(f"Codex spawn failed: {result.stderr}")
 
     codex_session_id = provider_obj.headless_session_id(result.stdout)

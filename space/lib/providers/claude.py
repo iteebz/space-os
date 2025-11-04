@@ -49,6 +49,26 @@ class Claude(Provider):
             args.insert(0, "--dangerously-skip-permissions")
         return args
 
+    @staticmethod
+    def task_launch_args() -> list[str]:
+        """Return launch arguments for task-based Claude execution.
+
+        Task mode uses stdin input and JSON output format.
+        """
+        disallowed = [
+            "NotebookRead",
+            "NotebookEdit",
+            "Task",
+            "TodoWrite",
+        ]
+        return [
+            "--dangerously-skip-permissions",
+            "--output-format",
+            "json",
+            "--disallowedTools",
+            ",".join(disallowed),
+        ]
+
     def discover_chats(self) -> list[dict]:
         """Discover Claude chat sessions."""
         sessions = []

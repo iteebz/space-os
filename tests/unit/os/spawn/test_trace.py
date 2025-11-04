@@ -4,14 +4,14 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from space.apps.trace.cli import app
+from space.os.spawn.cli import app
 
 runner = CliRunner()
 
 
 def test_trace_agent_identity():
     """Trace command with agent identity shows recent spawns."""
-    with patch("space.apps.trace.api.trace") as mock_trace:
+    with patch("space.os.spawn.api.trace_query") as mock_trace:
         mock_trace.return_value = {
             "type": "identity",
             "identity": "zealot",
@@ -36,7 +36,7 @@ def test_trace_agent_identity():
             ],
         }
 
-        result = runner.invoke(app, ["zealot"])
+        result = runner.invoke(app, ["trace", "zealot"])
 
     assert result.exit_code == 0
     assert "zealot" in result.stdout
@@ -47,7 +47,7 @@ def test_trace_agent_identity():
 
 def test_trace_session_id():
     """Trace command with session ID shows full context."""
-    with patch("space.apps.trace.api.trace") as mock_trace:
+    with patch("space.os.spawn.api.trace_query") as mock_trace:
         mock_trace.return_value = {
             "type": "session",
             "session_id": "7a6a07de-1234-5678-90ab-cdef12345678",
@@ -74,7 +74,7 @@ def test_trace_session_id():
             },
         }
 
-        result = runner.invoke(app, ["7a6a07de"])
+        result = runner.invoke(app, ["trace", "7a6a07de"])
 
     assert result.exit_code == 0
     assert "7a6a07de" in result.stdout
@@ -88,7 +88,7 @@ def test_trace_session_id():
 
 def test_trace_channel_id():
     """Trace command with channel ID shows participants."""
-    with patch("space.apps.trace.api.trace") as mock_trace:
+    with patch("space.os.spawn.api.trace_query") as mock_trace:
         mock_trace.return_value = {
             "type": "channel",
             "channel_id": "channel-123",
@@ -109,7 +109,7 @@ def test_trace_channel_id():
             ],
         }
 
-        result = runner.invoke(app, ["general"])
+        result = runner.invoke(app, ["trace", "general"])
 
     assert result.exit_code == 0
     assert "general" in result.stdout
@@ -120,7 +120,7 @@ def test_trace_channel_id():
 
 def test_trace_no_args_shows_help():
     """Trace command with no arguments shows help."""
-    result = runner.invoke(app, [])
+    result = runner.invoke(app, ["trace"])
 
     assert result.exit_code == 0
     assert "Trace execution" in result.stdout or "Usage" in result.stdout
@@ -128,10 +128,10 @@ def test_trace_no_args_shows_help():
 
 def test_trace_invalid_query_error():
     """Trace command with invalid query shows error."""
-    with patch("space.apps.trace.api.trace") as mock_trace:
+    with patch("space.os.spawn.api.trace_query") as mock_trace:
         mock_trace.side_effect = ValueError("Query 'invalid-query' not found")
 
-        result = runner.invoke(app, ["invalid-query"])
+        result = runner.invoke(app, ["trace", "invalid-query"])
 
     assert result.exit_code == 1
     assert "not found" in result.stdout or "not found" in result.stderr
@@ -139,7 +139,7 @@ def test_trace_invalid_query_error():
 
 def test_trace_agent_no_spawns():
     """Trace for agent with no spawns shows appropriate message."""
-    with patch("space.apps.trace.api.trace") as mock_trace:
+    with patch("space.os.spawn.api.trace_query") as mock_trace:
         mock_trace.return_value = {
             "type": "identity",
             "identity": "new-agent",
@@ -147,7 +147,7 @@ def test_trace_agent_no_spawns():
             "recent_spawns": [],
         }
 
-        result = runner.invoke(app, ["new-agent"])
+        result = runner.invoke(app, ["trace", "new-agent"])
 
     assert result.exit_code == 0
     assert "No spawns found" in result.stdout
@@ -155,7 +155,7 @@ def test_trace_agent_no_spawns():
 
 def test_trace_channel_no_activity():
     """Trace for channel with no activity shows appropriate message."""
-    with patch("space.apps.trace.api.trace") as mock_trace:
+    with patch("space.os.spawn.api.trace_query") as mock_trace:
         mock_trace.return_value = {
             "type": "channel",
             "channel_id": "channel-999",
@@ -163,7 +163,7 @@ def test_trace_channel_no_activity():
             "participants": [],
         }
 
-        result = runner.invoke(app, ["empty"])
+        result = runner.invoke(app, ["trace", "empty"])
 
     assert result.exit_code == 0
     assert "No activity" in result.stdout
@@ -171,7 +171,7 @@ def test_trace_channel_no_activity():
 
 def test_trace_session_with_error():
     """Trace for failed session shows error details."""
-    with patch("space.apps.trace.api.trace") as mock_trace:
+    with patch("space.os.spawn.api.trace_query") as mock_trace:
         mock_trace.return_value = {
             "type": "session",
             "session_id": "failed-session-id",
@@ -190,7 +190,7 @@ def test_trace_session_with_error():
             "last_memory_mutation": None,
         }
 
-        result = runner.invoke(app, ["failed-session-id"])
+        result = runner.invoke(app, ["trace", "failed-session-id"])
 
     assert result.exit_code == 0
     assert "failed" in result.stdout.lower() or "✗" in result.stdout

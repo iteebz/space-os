@@ -94,10 +94,10 @@ def test_bridge_inbox_requires_identity():
 def test_bridge_send_fails_missing_channel(test_space, default_agents):
     """Send fails when channel doesn't exist."""
     result = runner.invoke(
-        bridge.app, ["send", "nonexistent-channel", "hello", "--as", default_agents["zealot"]]
+        bridge.app, ["--as", default_agents["zealot"], "send", "nonexistent-channel", "hello"]
     )
     assert result.exit_code != 0
-    assert "not found" in result.stdout
+    assert "not found" in result.output
 
 
 def test_bridge_recv_requires_identity():

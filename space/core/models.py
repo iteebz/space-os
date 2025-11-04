@@ -3,7 +3,6 @@ from enum import Enum
 
 
 class TaskStatus(str, Enum):
-
     PENDING = "pending"
     RUNNING = "running"
     PAUSED = "paused"
@@ -14,7 +13,6 @@ class TaskStatus(str, Enum):
 
 @dataclass
 class Agent:
-
     agent_id: str
     identity: str
     model: str
@@ -39,7 +37,6 @@ class Agent:
 
 @dataclass
 class Channel:
-
     channel_id: str
     name: str
     topic: str | None = None
@@ -54,7 +51,6 @@ class Channel:
 
 @dataclass
 class Message:
-
     message_id: str
     channel_id: str
     agent_id: str
@@ -64,7 +60,6 @@ class Message:
 
 @dataclass
 class Bookmark:
-
     agent_id: str
     channel_id: str
     session_id: str | None = None
@@ -73,7 +68,6 @@ class Bookmark:
 
 @dataclass
 class Session:
-
     session_id: str
     provider: str
     model: str
@@ -88,7 +82,6 @@ class Session:
 
 @dataclass
 class Spawn:
-
     id: str
     agent_id: str
     status: TaskStatus | str = TaskStatus.PENDING
@@ -103,7 +96,6 @@ class Spawn:
 
 @dataclass
 class Memory:
-
     memory_id: str
     agent_id: str
     message: str
@@ -116,7 +108,6 @@ class Memory:
 
 @dataclass
 class Knowledge:
-
     knowledge_id: str
     domain: str
     agent_id: str
@@ -127,7 +118,6 @@ class Knowledge:
 
 @dataclass
 class Export:
-
     channel_id: str
     channel_name: str
     topic: str | None
@@ -139,7 +129,6 @@ class Export:
 
 @dataclass
 class ChatMessage:
-
     id: int
     cli: str
     model: str | None
@@ -152,7 +141,6 @@ class ChatMessage:
 
 @dataclass
 class Canon:
-
     path: str
     content: str
     created_at: str | None = None
@@ -160,7 +148,6 @@ class Canon:
 
 @dataclass
 class AgentStats:
-
     agent_id: str
     identity: str
     events: int
@@ -175,7 +162,6 @@ class AgentStats:
 
 @dataclass
 class BridgeStats:
-
     available: bool
     total: int = 0
     active: int = 0
@@ -187,7 +173,6 @@ class BridgeStats:
 
 @dataclass
 class MemoryStats:
-
     available: bool
     total: int = 0
     active: int = 0
@@ -197,7 +182,6 @@ class MemoryStats:
 
 @dataclass
 class KnowledgeStats:
-
     available: bool
     total: int = 0
     active: int = 0
@@ -207,7 +191,6 @@ class KnowledgeStats:
 
 @dataclass
 class SpawnStats:
-
     available: bool
     total: int = 0
     agents: int = 0
@@ -216,7 +199,6 @@ class SpawnStats:
 
 @dataclass
 class SessionStats:
-
     available: bool
     total_sessions: int = 0
     total_messages: int = 0
@@ -229,7 +211,6 @@ class SessionStats:
 
 @dataclass
 class SpaceStats:
-
     bridge: BridgeStats
     memory: MemoryStats
     knowledge: KnowledgeStats

@@ -1,10 +1,6 @@
 """Tests for constitution file management."""
 
-import pytest
-
 from space.os.spawn.api.constitute import PROVIDER_MAP
-
-
 
 
 def test_provider_map_completeness():

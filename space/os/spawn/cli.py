@@ -14,6 +14,11 @@ from space.core.models import TaskStatus
 from space.lib import errors, output, providers
 from space.os.spawn import api
 from space.os.spawn.api import spawns
+from space.os.spawn.formatting import (
+    display_agent_trace,
+    display_channel_trace,
+    display_session_trace,
+)
 
 errors.install_error_handler("spawn")
 
@@ -43,7 +48,10 @@ def main_callback(
             if agent:
                 extra_args = sys.argv[2:] if len(sys.argv) > 2 else None
                 if extra_args:
-                    api.spawn_headless(identity, " ".join(extra_args), channel_id=None)
+                    typer.echo(f"Spawning {identity}...\n")
+                    spawn = api.spawn_task(identity, " ".join(extra_args), channel_id=None)
+                    typer.echo(f"\nSpawn ID: {spawn.id[:8]}")
+                    typer.echo(f"Track: spawn trace {spawn.id[:8]}")
                 else:
                     api.spawn_interactive(identity)
                 raise typer.Exit(0)
@@ -343,6 +351,35 @@ def kill(spawn_id: str):
     typer.echo(f"✓ Spawn {spawn_id[:8]} killed")
 
 
+@app.command()
+def trace(query: str = typer.Argument(None)):
+    """Trace execution: agent spawns, session context, or channel activity.
+
+    Query syntax:
+    - Explicit: agent:zealot, session:7a6a07de, channel:general (recommended)
+    - Implicit: zealot, 7a6a07de, general (auto-inferred)
+    """
+    if query is None:
+        typer.echo("Usage: spawn trace [QUERY]")
+        typer.echo("Query syntax:")
+        typer.echo("  - Explicit: agent:zealot, session:7a6a07de, channel:general")
+        typer.echo("  - Implicit: zealot, 7a6a07de, general (auto-inferred)")
+        raise typer.Exit(0)
+
+    try:
+        result = api.trace_query(query)
+    except ValueError as e:
+        typer.echo(f"✗ {e}", err=True)
+        raise typer.Exit(1) from e
+
+    if result["type"] == "identity":
+        display_agent_trace(result)
+    elif result["type"] == "session":
+        display_session_trace(result)
+    elif result["type"] == "channel":
+        display_channel_trace(result)
+
+
 def dispatch_agent_from_name() -> NoReturn:
     """Entry point: route command name (argv[0]) to agent if registered."""
     prog_name = sys.argv[0].split("/")[-1]
@@ -355,7 +392,7 @@ def dispatch_agent_from_name() -> NoReturn:
 
     args = sys.argv[1:] if len(sys.argv) > 1 else []
     if args:
-        api.spawn_headless(agent.identity, " ".join(args), channel_id=None)
+        api.spawn_task(agent.identity, " ".join(args), channel_id=None)
     else:
         api.spawn_interactive(agent.identity)
     sys.exit(0)
@@ -370,7 +407,12 @@ def main() -> None:
             if agent:
                 extra_args = sys.argv[2:] if len(sys.argv) > 2 else None
                 if extra_args:
-                    api.spawn_headless(potential_identity, " ".join(extra_args), channel_id=None)
+                    typer.echo(f"Spawning {potential_identity}...\n")
+                    spawn = api.spawn_task(
+                        potential_identity, " ".join(extra_args), channel_id=None
+                    )
+                    typer.echo(f"\nSpawn ID: {spawn.id[:8]}")
+                    typer.echo(f"Track: spawn trace {spawn.id[:8]}")
                 else:
                     api.spawn_interactive(potential_identity)
                 return

@@ -1,4 +1,3 @@
-
 import sqlite3
 from dataclasses import fields
 from typing import Any, TypeVar
