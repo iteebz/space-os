@@ -173,12 +173,33 @@ This is a Phase 3+ primitive. Needs:
 - Logic: Detect pause signal, capture state, resume with --resume flag
 - Testing: Verify context is preserved across pause/resume boundary
 
+### Phase 4: Bridge Integration ✅ COMPLETE
+
+**Pause/Resume via Bridge:**
+- [x] Wire `!<identity>` command to call `spawns.pause_spawn()`
+- [x] Wire `@<identity>` resume detection: check for paused spawn in channel before creating fresh spawn
+- [x] If paused spawn found: call `spawns.resume_spawn()` instead of fresh context assembly
+- [x] Preserve full conversation context across pause/resume boundary (session_id preserved through state transition)
+
+**Implementation:**
+- Created `_parse_pause_commands()` in bridge/api/mentions.py to extract `!identity` patterns
+- Created `_process_pause_commands()` to pause all running spawns for a given identity
+- Updated `_process_mentions()` to:
+  1. Check for paused spawns matching the identity
+  2. Attempt resume if paused spawn exists
+  3. Fall back to fresh spawn if resume fails (e.g., no session_id)
+- All pause/resume state transitions validated via spawns API
+- Session context preserved: paused → running maintains original session_id for full conversation history
+
+**Tests:**
+- `test_pause_via_bridge_command`: Verify `!identity` pauses running spawn
+- `test_resume_via_bridge_mention_no_session`: Verify @mention cannot resume without session_id (graceful failure)
+- `test_bridge_pause_resume_round_trip`: Full cycle pause and pause detection via bridge
+- 226 tests passing (3 new bridge integration tests)
+
 ## Open Questions (Deferred)
 
-1. **Interactive spawn filewatcher**: When needed for interactive spawns, implement async task that monitors provider session dirs by identity + closest mtime matching.
-2. **Session retention policy**: Archive old sessions or keep forever? Deferred until storage becomes a concern.
-3. **Multi-provider spawns**: Currently 1:1 (spawn → agent → provider). Future: agents spanning multiple providers?
-4. **Pause/Resume design**: Details on detecting pause signal, state preservation across resume boundaries. Phase 3 spike.
+1. **Multi-provider spawns**: Currently 1:1 (spawn → agent → provider). Future: agents spanning multiple providers?
 
 ## Progress Tracking
 
@@ -241,8 +262,31 @@ This is a Phase 3+ primitive. Needs:
 - Interactive fallback: Filewatcher deferred (works when needed for interactive spawns)
 - Graceful degradation: FK constraint failures logged, session_id nullable
 
-### Phase 3: Pause/Resume Primitives (Deferred)
-- [ ] Design pause_spawn() and resume_spawn() functions
-- [ ] Schema: decide on paused_at field vs status-only tracking
-- [ ] Integration with --resume flag in provider CLIs
-- [ ] Testing: verify context preservation across pause/resume
+### Phase 3: Agent Self-Reflection & Pause/Resume ✅ COMPLETE
+
+**Agent Self-Reflection:**
+- [x] Created `sessions` CLI primitive (top-level command alongside bridge, memory, context)
+- [x] Commands:
+  - `sessions <identity>`: List agent's recent spawns (20 most recent)
+  - `sessions <spawn_id>`: Display full JSONL session log + metadata
+  - `sessions sync`: Sync provider sessions to ~/.space/sessions/
+- [x] Agents can introspect own execution: `sessions <spawn_id>` returns full conversation history
+
+**Pause/Resume API:**
+- [x] Added `TaskStatus.PAUSED` to core/models.py
+- [x] Implemented `spawns.pause_spawn()` and `spawns.resume_spawn()`
+- [x] State machine: pending → running → paused → running → completed/failed/timeout
+- [x] Resume requires valid session_id (context preservation across pause boundary)
+- [x] Graceful validation: prevents invalid state transitions
+- [x] Tests: 7 new lifecycle tests + 6 pause/resume tests
+
+**Code Cleanup:**
+- [x] Deleted `space/os/spawn/api/tasks.py` (redundant wrapper)
+- [x] Migrated all callers to `spawns.create_spawn(is_task=True)`
+- [x] Renamed `update_spawn_status()` → `update_status()` (cleaner API)
+- [x] Moved provider models to `space/lib/providers/MODELS` dict (removed spawn/models.py pollution)
+
+**Tests:**
+- [x] 223 tests passing (no regressions)
+- [x] test_spawn_lifecycle.py: 16 tests covering all spawn lifecycle transitions
+- [x] Pause/resume tests validate state machine constraints

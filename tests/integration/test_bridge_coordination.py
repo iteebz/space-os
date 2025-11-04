@@ -1,3 +1,6 @@
+import time
+
+from space.core.models import TaskStatus
 from space.os import bridge, spawn
 from space.os.spawn.api import spawns
 
@@ -53,7 +56,6 @@ def test_full_spawn_task_events_flow(test_space, default_agents):
     assert isinstance(agent_identity, str)
     assert len(agent_identity) > 0
 
-    # Get the actual agent object to get the real agent_id (UUID)
     agent = spawn.get_agent(agent_identity)
     assert agent is not None
     agent_id = agent.agent_id
@@ -71,3 +73,61 @@ def test_full_spawn_task_events_flow(test_space, default_agents):
     updated_task = spawns.get_spawn(task.id)
     assert updated_task.status == "completed"
     assert updated_task.agent_id == agent_id
+
+
+def test_pause_via_bridge_command(test_space, default_agents):
+    """!identity pause command pauses running spawn."""
+    dev_channel_id = bridge.create_channel("pause-test", "Testing pause")
+    zealot_id = default_agents["zealot"]
+    sentinel_id = default_agents["sentinel"]
+    agent = spawn.get_agent(zealot_id)
+
+    task = spawns.create_spawn(agent_id=agent.agent_id, is_task=True)
+    spawns.update_status(task.id, TaskStatus.RUNNING)
+
+    assert spawns.get_spawn(task.id).status == TaskStatus.RUNNING
+
+    bridge.send_message(dev_channel_id, sentinel_id, f"!{zealot_id}")
+    time.sleep(0.2)
+
+    paused_task = spawns.get_spawn(task.id)
+    assert paused_task.status == TaskStatus.PAUSED
+
+
+def test_resume_via_bridge_mention_no_session(test_space, default_agents):
+    """@identity mention without session_id cannot resume (requires session context)."""
+    dev_channel_id = bridge.create_channel("resume-no-session", "Testing resume without session")
+    zealot_id = default_agents["zealot"]
+    sentinel_id = default_agents["sentinel"]
+    agent = spawn.get_agent(zealot_id)
+
+    task = spawns.create_spawn(agent_id=agent.agent_id, is_task=True)
+    spawns.update_status(task.id, TaskStatus.PAUSED)
+
+    assert spawns.get_spawn(task.id).status == TaskStatus.PAUSED
+
+    bridge.send_message(dev_channel_id, sentinel_id, f"@{zealot_id} resume the task")
+    time.sleep(0.2)
+
+    paused_task = spawns.get_spawn(task.id)
+    assert paused_task.status == TaskStatus.PAUSED
+
+
+def test_bridge_pause_resume_round_trip(test_space, default_agents):
+    """Pause and resume via bridge preserves status across agent."""
+    dev_channel_id = bridge.create_channel("pause-resume-rt", "Testing pause/resume")
+    zealot_id = default_agents["zealot"]
+    sentinel_id = default_agents["sentinel"]
+    agent = spawn.get_agent(zealot_id)
+
+    task1 = spawns.create_spawn(agent_id=agent.agent_id, is_task=True)
+    spawns.update_status(task1.id, TaskStatus.RUNNING)
+
+    original = spawns.get_spawn(task1.id)
+    assert original.status == TaskStatus.RUNNING
+
+    bridge.send_message(dev_channel_id, sentinel_id, f"!{zealot_id}")
+    time.sleep(0.2)
+
+    paused = spawns.get_spawn(task1.id)
+    assert paused.status == TaskStatus.PAUSED
