@@ -11,10 +11,10 @@ import subprocess
 import click
 
 from space.lib import paths
-from space.lib.constitution import write_constitution
 from space.lib.providers import claude, codex, gemini
 
 from . import agents, spawns
+from .constitute import constitute
 from .environment import build_launch_env
 from .prompt import build_spawn_context
 
@@ -44,13 +44,9 @@ def spawn_interactive(identity: str, extra_args: list[str] | None = None):
         constitution_hash = hashlib.sha256(constitution_text.encode()).hexdigest()
 
     provider_cmd = _get_provider_command(agent.provider)
-    if constitution_text:
-        _write_constitution(agent.provider, constitution_text)
-
     command_tokens = _parse_command(provider_cmd)
     env = build_launch_env()
-    workspace_root = paths.space_root()
-    env["PWD"] = str(workspace_root)
+    env["PWD"] = str(paths.space_root())
     command_tokens[0] = _resolve_executable(command_tokens[0], env)
 
     passthrough = extra_args or []
@@ -63,6 +59,8 @@ def spawn_interactive(identity: str, extra_args: list[str] | None = None):
         constitution_hash=constitution_hash,
     )
 
+    constitute(spawn, agent)
+
     provider_obj = {"claude": claude, "gemini": gemini, "codex": codex}.get(agent.provider)
     if provider_obj:
         if agent.provider == "gemini":
@@ -74,14 +72,16 @@ def spawn_interactive(identity: str, extra_args: list[str] | None = None):
     else:
         launch_args = []
 
+    add_dir_args = ["--add-dir", str(paths.space_root())]
+
     if passthrough:
         context = build_spawn_context(identity, task=passthrough[0] if passthrough else None)
-        full_command = command_tokens + [context] + model_args + launch_args
-        display_command = command_tokens + ['"<context>"'] + model_args + launch_args
+        full_command = command_tokens + add_dir_args + [context] + model_args + launch_args
+        display_command = command_tokens + add_dir_args + ['"<context>"'] + model_args + launch_args
     else:
         context = build_spawn_context(identity)
-        full_command = command_tokens + [context] + model_args + launch_args
-        display_command = command_tokens + ['"<context>"'] + model_args + launch_args
+        full_command = command_tokens + add_dir_args + model_args + launch_args
+        display_command = full_command
 
     click.echo(f"Executing: {' '.join(display_command)}")
     click.echo("")
@@ -89,7 +89,7 @@ def spawn_interactive(identity: str, extra_args: list[str] | None = None):
     if passthrough:
         popen_kwargs = {
             "env": env,
-            "cwd": str(workspace_root),
+            "cwd": str(spawn_path),
             "stdin": subprocess.PIPE,
         }
         proc = subprocess.Popen(full_command, **popen_kwargs)
@@ -99,16 +99,17 @@ def spawn_interactive(identity: str, extra_args: list[str] | None = None):
             spawns.end_spawn(spawn.id)
     else:
         import sys
-
         popen_kwargs = {
             "env": env,
-            "cwd": str(workspace_root),
-            "stdin": sys.stdin,
+            "cwd": str(paths.space_root()),
+            "stdin": subprocess.PIPE,
             "stdout": sys.stdout,
             "stderr": sys.stderr,
         }
         proc = subprocess.Popen(full_command, **popen_kwargs)
         try:
+            proc.stdin.write(context.encode() + b"\n")
+            proc.stdin.close()
             proc.wait()
         finally:
             spawns.end_spawn(spawn.id)
@@ -128,8 +129,16 @@ def spawn_headless(identity: str, task: str, channel_id: str) -> None:
     if not agent:
         raise ValueError(f"Agent '{identity}' not found in registry")
 
-    spawn = spawns.create_spawn(agent_id=agent.agent_id, is_task=True, channel_id=channel_id)
+    constitution_hash = None
+    if agent.constitution:
+        const_path = paths.constitution(agent.constitution)
+        constitution_text = const_path.read_text()
+        constitution_hash = hashlib.sha256(constitution_text.encode()).hexdigest()
+
+    spawn = spawns.create_spawn(agent_id=agent.agent_id, is_task=True, channel_id=channel_id, constitution_hash=constitution_hash)
     spawns.update_status(spawn.id, "running")
+
+    constitute(spawn, agent)
 
     channel = channels.get_channel(channel_id) if channel_id else None
     channel_name = channel.name if channel else None
@@ -162,9 +171,11 @@ def _spawn_headless_claude(agent, task: str, spawn, channel_name: str | None) ->
     launch_args = provider_obj.launch_args(is_task=True)
 
     context = build_spawn_context(agent.identity, task=task, channel=channel_name)
-    cmd = ["claude", "--print", context, "--output-format", "json"] + launch_args
+    add_dir_args = ["--add-dir", str(paths.space_root())]
+    cmd = ["claude", "--print", context, "--output-format", "json"] + add_dir_args + launch_args
 
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(paths.space_root()))
+    spawn_dir = paths.identity_dir(agent.identity)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(spawn_dir))
 
     if result.returncode != 0:
         raise RuntimeError(f"Claude spawn failed: {result.stderr}")
@@ -193,9 +204,11 @@ def _spawn_headless_gemini(agent, task: str, spawn, channel_name: str | None) ->
     launch_args = provider_obj.launch_args(has_prompt=True)
 
     context = build_spawn_context(agent.identity, task=task, channel=channel_name)
-    cmd = ["gemini", context, "--output-format", "stream-json"] + launch_args
+    add_dir_args = ["--add-dir", str(paths.space_root())]
+    cmd = ["gemini", context, "--output-format", "stream-json"] + add_dir_args + launch_args
 
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(paths.space_root()))
+    spawn_dir = paths.identity_dir(agent.identity)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(spawn_dir))
 
     if result.returncode != 0:
         raise RuntimeError(f"Gemini spawn failed: {result.stderr}")
@@ -218,9 +231,11 @@ def _spawn_headless_codex(agent, task: str, spawn, channel_name: str | None) -> 
     launch_args = provider_obj.launch_args()
 
     context = build_spawn_context(agent.identity, task=task, channel=channel_name)
-    cmd = ["codex", "exec", "--json", context] + launch_args
+    add_dir_args = ["--add-dir", str(paths.space_root())]
+    cmd = ["codex", "exec", "--json", context] + add_dir_args + launch_args
 
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(paths.space_root()))
+    spawn_dir = paths.identity_dir(agent.identity)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(spawn_dir))
 
     if result.returncode != 0:
         raise RuntimeError(f"Codex spawn failed: {result.stderr}")
@@ -230,11 +245,6 @@ def _spawn_headless_codex(agent, task: str, spawn, channel_name: str | None) -> 
         raise RuntimeError("No session_id in Codex output")
 
     linker.link_spawn_to_session(spawn.id, codex_session_id)
-
-
-def spawn_agent(identity: str, extra_args: list[str] | None = None):
-    """Backward-compatible wrapper for spawn_interactive."""
-    return spawn_interactive(identity, extra_args)
 
 
 def _get_provider_command(provider: str) -> str:
@@ -248,15 +258,6 @@ def _get_provider_command(provider: str) -> str:
     if not cmd:
         raise ValueError(f"Unknown provider: {provider}")
     return cmd
-
-
-def _write_constitution(provider: str, constitution: str) -> None:
-    """Write constitution to provider home dir and verify write succeeded."""
-    path = write_constitution(provider, constitution)
-    with open(path) as f:
-        os.fsync(f.fileno())
-    if path.read_text() != constitution:
-        raise RuntimeError(f"Failed to write constitution to {path}")
 
 
 def _parse_command(command: str | list[str]) -> list[str]:

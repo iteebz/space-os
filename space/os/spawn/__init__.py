@@ -11,7 +11,8 @@ from .api import (
     register_agent,
     rename_agent,
     resume_spawn,
-    spawn_agent,
+    spawn_headless,
+    spawn_interactive,
     unarchive_agent,
     update_agent,
 )

@@ -42,7 +42,10 @@ def main_callback(
             agent = api.get_agent(identity)
             if agent:
                 extra_args = sys.argv[2:] if len(sys.argv) > 2 else None
-                api.spawn_agent(identity, extra_args=extra_args)
+                if extra_args:
+                    api.spawn_headless(identity, " ".join(extra_args), channel_id=None)
+                else:
+                    api.spawn_interactive(identity)
                 raise typer.Exit(0)
         typer.echo(ctx.get_help())
 
@@ -351,7 +354,10 @@ def dispatch_agent_from_name() -> NoReturn:
         sys.exit(1)
 
     args = sys.argv[1:] if len(sys.argv) > 1 else []
-    api.spawn_agent(agent.identity, extra_args=args)
+    if args:
+        api.spawn_headless(agent.identity, " ".join(args), channel_id=None)
+    else:
+        api.spawn_interactive(agent.identity)
     sys.exit(0)
 
 
@@ -363,7 +369,10 @@ def main() -> None:
             agent = api.get_agent(potential_identity)
             if agent:
                 extra_args = sys.argv[2:] if len(sys.argv) > 2 else None
-                api.spawn_agent(potential_identity, extra_args=extra_args)
+                if extra_args:
+                    api.spawn_headless(potential_identity, " ".join(extra_args), channel_id=None)
+                else:
+                    api.spawn_interactive(potential_identity)
                 return
         app()
     except SystemExit:
