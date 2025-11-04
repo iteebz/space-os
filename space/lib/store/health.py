@@ -1,4 +1,3 @@
-"""Database health checks and backup safeguards."""
 
 import logging
 import sqlite3
@@ -8,18 +7,12 @@ logger = logging.getLogger(__name__)
 
 
 def check_backup_has_data(backup_path: Path, db_name: str, min_rows: int = 1) -> bool:
-    """Check if a backup database has actual data.
+    """Check if backup database has data (excluding schema tables).
 
     Args:
-            backup_path: Path to backup directory
-            db_name: Database filename (e.g., 'space.db')
-            min_rows: Minimum expected rows (excluding schema tables)
-
-    Returns:
-            True if data exists, False otherwise
-
-    Raises:
-            FileNotFoundError if backup doesn't exist
+        backup_path: Path to backup directory
+        db_name: Database filename (e.g., 'space.db')
+        min_rows: Minimum expected rows
     """
     db_file = backup_path / db_name
     if not db_file.exists():
@@ -60,11 +53,7 @@ def check_backup_has_data(backup_path: Path, db_name: str, min_rows: int = 1) ->
 
 
 def get_backup_stats(backup_path: Path, db_name: str) -> dict:
-    """Get row counts for all tables in backup database.
-
-    Returns:
-            Dict like {'table_name': row_count, ...}
-    """
+    """Get row counts for all tables in backup database."""
     db_file = backup_path / db_name
     if not db_file.exists():
         return {}
@@ -89,15 +78,12 @@ def get_backup_stats(backup_path: Path, db_name: str) -> dict:
 
 
 def compare_snapshots(before: dict, after: dict, threshold: float = 0.8) -> list[str]:
-    """Compare before/after snapshots and find concerning changes.
+    """Find data loss between snapshots exceeding threshold (default 80%).
 
     Args:
-            before: {'db_name': row_count, ...}
-            after: {'db_name': row_count, ...}
-            threshold: Alert if any DB lost more than this fraction (0.8 = 80%)
-
-    Returns:
-            List of warning messages
+        before: {'db_name': row_count, ...}
+        after: {'db_name': row_count, ...}
+        threshold: Max allowed loss fraction (0.8 = 80%)
     """
     warnings = []
 

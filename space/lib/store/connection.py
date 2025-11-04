@@ -1,4 +1,3 @@
-"""Database connection lifecycle: initialization, migrations, caching."""
 
 import sqlite3
 import threading
@@ -26,8 +25,7 @@ def database_exists() -> bool:
 def from_row(row: dict[str, Any] | Any, dataclass_type: type[T]) -> T:
     """Convert dict-like row to dataclass instance.
 
-    Matches row keys to dataclass field names. Works with any dict-like object
-    (sqlite3.Row, dict, etc.) allowing backend-agnostic conversions.
+    Backend-agnostic: works with sqlite3.Row, dict, or any dict-like object.
     """
     field_names = {f.name for f in fields(dataclass_type)}
     row_dict = dict(row) if not isinstance(row, dict) else row
@@ -36,10 +34,9 @@ def from_row(row: dict[str, Any] | Any, dataclass_type: type[T]) -> T:
 
 
 def ensure() -> sqlite3.Connection:
-    """Ensure space.db exists and return cached connection.
+    """Ensure space.db exists with schema/migrations applied.
 
-    Initializes schema and applies migrations on first call.
-    Subsequent calls return cached connection via threading.local().
+    Returns cached connection via threading.local().
     """
     global _migrations_loaded
 
@@ -70,7 +67,6 @@ def close_all() -> None:
 
 
 def _reset_for_testing() -> None:
-    """Reset connection cache and migration state (test-only)."""
     global _migrations_loaded
     _migrations_loaded = False
     close_all()

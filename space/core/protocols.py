@@ -1,5 +1,3 @@
-"""Protocols defining interfaces for pluggable implementations."""
-
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable

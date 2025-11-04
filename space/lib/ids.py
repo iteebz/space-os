@@ -1,5 +1,3 @@
-"""ID utilities: generation, resolution, formatting."""
-
 from __future__ import annotations
 
 from space.lib import store
@@ -62,18 +60,11 @@ def resolve_id(table: str, id_col: str, partial_id: str, *, error_context: str =
 
 
 def truncate_uuid(uuid: str, length: int = 8) -> str:
-    """Return first N characters of UUID (default 8 hex digits).
+    """Return first N characters of UUID.
 
     Args:
-        uuid: Full UUID string (must be non-empty and contain only valid UUID chars)
-        length: Number of characters to return (default 8, must be 1-36)
-
-    Returns:
-        Truncated UUID string
-
-    Raises:
-        ValueError: If uuid is empty or contains invalid characters
-        ValueError: If length is not in range 1-36
+        uuid: Full UUID string
+        length: Number of characters (1-36, default 8)
     """
     if not uuid:
         raise ValueError("UUID cannot be empty")

@@ -1,5 +1,3 @@
-"""Codec utilities for encoding/decoding data."""
-
 import base64
 import binascii
 

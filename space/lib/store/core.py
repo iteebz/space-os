@@ -1,4 +1,3 @@
-"""Core store functionality - connection management."""
 
 import sqlite3
 from dataclasses import fields
@@ -21,8 +20,7 @@ def database_exists(db_name: str) -> bool:
 def from_row(row: dict[str, Any] | Any, dataclass_type: type[T]) -> T:
     """Convert dict-like row to dataclass instance.
 
-    Matches row keys to dataclass field names. Works with any dict-like object
-    (sqlite3.Row, dict, etc.) allowing backend-agnostic conversions.
+    Backend-agnostic: works with sqlite3.Row, dict, or any dict-like object.
     """
     field_names = {f.name for f in fields(dataclass_type)}
     row_dict = dict(row) if not isinstance(row, dict) else row

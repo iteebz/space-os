@@ -15,7 +15,6 @@ def _row_to_knowledge(row: dict) -> Knowledge:
 
 
 def _validate_domain(domain: str) -> None:
-    """Validate knowledge domain format: lowercase, hyphens, forward slashes only."""
     if not domain:
         raise ValueError("Domain cannot be empty")
     if not re.match(r"^[a-z0-9\-/]+$", domain):
@@ -25,7 +24,6 @@ def _validate_domain(domain: str) -> None:
 
 
 def _archive_clause(show_all: bool, is_and: bool = False) -> str:
-    """Build archive filter: '' if show_all, else 'WHERE archived_at IS NULL' or 'AND archived_at IS NULL'."""
     if show_all:
         return ""
     prefix = "AND" if is_and else "WHERE"
@@ -33,7 +31,6 @@ def _archive_clause(show_all: bool, is_and: bool = False) -> str:
 
 
 def add_knowledge(domain: str, agent_id: str, content: str) -> str:
-    """Add knowledge entry in domain. Returns knowledge_id."""
     _validate_domain(domain)
     knowledge_id = uuid7()
     with store.ensure() as conn:
@@ -46,7 +43,6 @@ def add_knowledge(domain: str, agent_id: str, content: str) -> str:
 
 
 def list_knowledge(show_all: bool = False) -> list[Knowledge]:
-    """List all knowledge entries."""
     archive = _archive_clause(show_all)
     with store.ensure() as conn:
         rows = conn.execute(
@@ -56,7 +52,6 @@ def list_knowledge(show_all: bool = False) -> list[Knowledge]:
 
 
 def query_knowledge(domain: str, show_all: bool = False) -> list[Knowledge]:
-    """Query knowledge entries by domain (supports wildcard paths like 'architecture/*')."""
     archive = _archive_clause(show_all, is_and=True)
 
     if domain.endswith("/*"):
@@ -76,7 +71,6 @@ def query_knowledge(domain: str, show_all: bool = False) -> list[Knowledge]:
 
 
 def query_knowledge_by_agent(agent_id: str, show_all: bool = False) -> list[Knowledge]:
-    """Query knowledge entries by agent."""
     archive = _archive_clause(show_all, is_and=True)
     with store.ensure() as conn:
         rows = conn.execute(
@@ -87,7 +81,6 @@ def query_knowledge_by_agent(agent_id: str, show_all: bool = False) -> list[Know
 
 
 def get_knowledge(entry_id: str) -> Knowledge | None:
-    """Get knowledge entry by its UUID."""
     with store.ensure() as conn:
         row = conn.execute(
             "SELECT knowledge_id, domain, agent_id, content, created_at, archived_at FROM knowledge WHERE knowledge_id = ?",
@@ -99,7 +92,6 @@ def get_knowledge(entry_id: str) -> Knowledge | None:
 def find_related_knowledge(
     entry: Knowledge, limit: int = 5, show_all: bool = False
 ) -> list[tuple[Knowledge, int]]:
-    """Find knowledge related by keyword similarity."""
     from space.lib.text_utils import stopwords
 
     tokens = set(entry.content.lower().split()) | set(entry.domain.lower().split())

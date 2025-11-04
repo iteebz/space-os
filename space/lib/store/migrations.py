@@ -1,5 +1,3 @@
-"""Database schema migrations and initialization."""
-
 import logging
 import sqlite3
 from collections.abc import Callable
@@ -44,7 +42,6 @@ def ensure_schema(
     db_path: Path,
     migs: list[tuple[str, str | Callable]] | None = None,
 ) -> None:
-    """Ensure schema exists and apply migrations."""
     with connect(db_path) as conn:
         conn.execute("PRAGMA journal_mode=WAL")
         if migs:
@@ -92,7 +89,6 @@ def migrate(conn: sqlite3.Connection, migs: list[tuple[str, str | Callable]]) ->
 
 
 def _get_table_count(conn: sqlite3.Connection, table: str) -> int:
-    """Get row count for table, returns 0 if table doesn't exist."""
     try:
         cursor = conn.execute(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?",
@@ -112,13 +108,10 @@ def _check_migration_safety(
     """Verify row count after migration, raise if data loss exceeds threshold.
 
     Args:
-            conn: Database connection
-            table: Table name to check
-            before: Row count before migration
-            allow_loss: Max rows permitted to be lost (e.g., duplicates removed)
-
-    Raises:
-            ValueError: If data loss detected exceeds allow_loss
+        conn: Database connection
+        table: Table name to check
+        before: Row count before migration
+        allow_loss: Max rows permitted lost (default: 0)
     """
     after = _get_table_count(conn, table)
     lost = before - after

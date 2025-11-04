@@ -22,7 +22,6 @@ def callback(ctx: typer.Context):
 
 
 def _backup_data_snapshot(timestamp: str, quiet_output: bool) -> dict:
-    """Backup ~/.space/data to timestamped snapshot."""
     src = paths.space_data()
     if not src.exists():
         if not quiet_output:
@@ -41,7 +40,6 @@ def _backup_data_snapshot(timestamp: str, quiet_output: bool) -> dict:
 
 
 def _backup_sessions_latest(quiet_output: bool) -> None:
-    """Backup ~/.space/sessions to ~/.space_backups/sessions (mirrored structure, additive)."""
     src = paths.sessions_dir()
     if not src.exists():
         return
@@ -67,7 +65,6 @@ def _backup_sessions_latest(quiet_output: bool) -> None:
 
 
 def _get_backup_stats(backup_path: Path) -> dict:
-    """Get row counts for all databases in backup."""
     stats = {}
     for db_file in backup_path.glob("*.db"):
         if db_file.name == "cogency.db":
@@ -99,7 +96,6 @@ def _get_backup_stats(backup_path: Path) -> dict:
 
 
 def _format_backup_stats(backup_stats: dict) -> str:
-    """Format backup statistics for display."""
     lines = ["\nBackup stats:", "  Database               Tables  Rows", "  " + "─" * 40]
     for db_name in sorted(backup_stats.keys()):
         stats = backup_stats[db_name]

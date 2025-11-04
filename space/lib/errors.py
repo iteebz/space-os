@@ -1,10 +1,7 @@
-"""Error capture for CLI commands."""
-
 import sys
 
 
 def install_error_handler(source: str):
-    """Install sys.excepthook to log uncaught exceptions."""
     original_hook = sys.excepthook
 
     def error_hook(exc_type, exc_value, exc_traceback):
@@ -17,7 +14,6 @@ def install_error_handler(source: str):
 
 
 def log_error(source: str, agent_id: str | None, error: Exception, command: str = ""):
-    """Log error to events with agent context and command."""
     if command:
         print(f"{command}: {type(error).__name__}: {str(error)}", file=sys.stderr)
     else:

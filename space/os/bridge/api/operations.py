@@ -6,7 +6,6 @@ from space.os import spawn
 
 
 def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[dict]:
-    """Search bridge messages by query (shared channels)."""
     results = []
 
     with store.ensure() as conn:
@@ -36,7 +35,6 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
 
 
 def stats() -> BridgeStats:
-    """Get bridge statistics."""
     with store.ensure() as conn:
         total_messages = conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
         total_channels = conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0]

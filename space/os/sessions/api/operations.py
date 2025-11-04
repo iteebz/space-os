@@ -9,12 +9,10 @@ from space.lib import paths, providers, store
 
 
 def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[dict]:
-    """Search provider session logs directly (stateless, ephemeral discovery)."""
     results = []
     query_lower = query.lower()
 
     def _discover_and_search_provider(cli_name: str) -> list[dict]:
-        """Discover and search a single provider's sessions."""
         provider_results = []
         try:
             provider = getattr(providers, cli_name)()

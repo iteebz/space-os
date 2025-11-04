@@ -10,7 +10,6 @@ from space.lib.store import from_row
 
 
 def _validate_identity(identity: str) -> None:
-    """Validate agent identity format. Raises ValueError if invalid."""
     if not identity:
         raise ValueError("Identity cannot be empty")
     if " " in identity:
@@ -25,7 +24,6 @@ def _row_to_agent(row: store.Row) -> Agent:
 
 @lru_cache(maxsize=256)
 def _get_agent_by_name_cached(name: str) -> Agent | None:
-    """Cached agent lookup by name."""
     with store.ensure() as conn:
         row = conn.execute(
             "SELECT agent_id, identity, constitution, model, role, spawn_count, archived_at, created_at FROM agents WHERE identity = ? AND archived_at IS NULL LIMIT 1",
@@ -35,12 +33,10 @@ def _get_agent_by_name_cached(name: str) -> Agent | None:
 
 
 def _clear_cache():
-    """Invalidate agent cache."""
     _get_agent_by_name_cached.cache_clear()
 
 
 def touch_agent(agent_id: str) -> None:
-    """Update last_active_at for an agent. Called after any agent operation."""
     with store.ensure() as conn:
         conn.execute(
             "UPDATE agents SET last_active_at = ? WHERE agent_id = ?",
@@ -49,7 +45,6 @@ def touch_agent(agent_id: str) -> None:
 
 
 def get_agent(identifier: str) -> Agent | None:
-    """Resolve agent by name or ID. Returns Agent object or None."""
     with store.ensure() as conn:
         row = conn.execute(
             "SELECT agent_id, identity, constitution, model, role, spawn_count, archived_at, created_at FROM agents WHERE (identity = ? OR agent_id = ?) AND archived_at IS NULL LIMIT 1",
@@ -128,7 +123,6 @@ def update_agent(
 
 
 def clone_agent(src_identity: str, dst_identity: str) -> str:
-    """Clone an agent: new agent_id, copied constitution/model."""
     _validate_identity(dst_identity)
     src_agent = get_agent(src_identity)
     if not src_agent:
@@ -142,7 +136,6 @@ def clone_agent(src_identity: str, dst_identity: str) -> str:
 
 
 def rename_agent(old_name: str, new_name: str) -> bool:
-    """Rename an agent. Fails if new_name exists."""
     _validate_identity(new_name)
     old_agent = get_agent(old_name)
     if not old_agent:
@@ -161,7 +154,6 @@ def rename_agent(old_name: str, new_name: str) -> bool:
 
 
 def archive_agent(name: str) -> bool:
-    """Archive an agent. Returns True if archived, False if not found."""
     agent = get_agent(name)
     if not agent:
         return False
@@ -177,7 +169,6 @@ def archive_agent(name: str) -> bool:
 
 
 def unarchive_agent(name: str) -> bool:
-    """Unarchive an agent. Returns True if unarchived, False if not found."""
     with store.ensure() as conn:
         row = conn.execute(
             "SELECT agent_id FROM agents WHERE identity = ? LIMIT 1", (name,)
@@ -194,7 +185,6 @@ def unarchive_agent(name: str) -> bool:
 
 
 def list_agents() -> list[str]:
-    """List all active agents."""
     with store.ensure() as conn:
         rows = conn.execute(
             "SELECT identity FROM agents WHERE archived_at IS NULL ORDER BY identity"

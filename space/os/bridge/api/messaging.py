@@ -15,7 +15,6 @@ def _row_to_message(row: store.Row) -> Message:
 
 
 def _to_channel_id(channel: str | Channel) -> str:
-    """Extract channel_id from Channel object or return string as-is."""
     return channel.channel_id if isinstance(channel, Channel) else channel
 
 
@@ -100,7 +99,6 @@ def _build_pagination_query_and_params(
 
 
 def get_messages(channel: str | Channel) -> list[Message]:
-    """Get all messages in a channel (used for context assembly during spawns)."""
     channel_id = _to_channel_id(channel)
     with store.ensure() as conn:
         from . import channels

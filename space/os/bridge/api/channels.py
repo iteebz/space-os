@@ -13,12 +13,10 @@ def _row_to_channel(row: store.Row) -> Channel:
 
 
 def _to_channel_id(channel: str | Channel) -> str:
-    """Extract channel_id from Channel object or return string as-is."""
     return channel.channel_id if isinstance(channel, Channel) else channel
 
 
 def create_channel(name: str, topic: str | None = None) -> Channel:
-    """Create channel. Returns Channel object."""
     if not name:
         raise ValueError("Channel name is required")
 
@@ -62,7 +60,6 @@ def rename_channel(old_name: str, new_name: str) -> bool:
 
 
 def archive_channel(name: str) -> None:
-    """Archive channel by setting archived_at. Raises ValueError if not found."""
     with store.ensure() as conn:
         cursor = conn.execute(
             "UPDATE channels SET archived_at = CURRENT_TIMESTAMP WHERE name = ? AND archived_at IS NULL",
@@ -73,7 +70,6 @@ def archive_channel(name: str) -> None:
 
 
 def restore_channel(name: str) -> None:
-    """Restore an archived channel. Raises ValueError if not found."""
     with store.ensure() as conn:
         cursor = conn.execute(
             "UPDATE channels SET archived_at = NULL WHERE name = ? AND archived_at IS NOT NULL",

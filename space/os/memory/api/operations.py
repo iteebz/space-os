@@ -24,7 +24,6 @@ def add_memory(
     core: bool = False,
     source: str = "manual",
 ) -> str:
-    """Add memory entry. Returns memory_id."""
     memory_id = uuid7()
     now = datetime.now().isoformat()
     with store.ensure() as conn:
@@ -43,7 +42,6 @@ def list_memories(
     limit: int | None = None,
     filter: str | None = None,
 ) -> list[Memory]:
-    """List memory entries. filter='core' or 'recent:days' (e.g., 'recent:7')."""
     from space.os import spawn
 
     agent = spawn.get_agent(identity)
@@ -80,7 +78,6 @@ def list_memories(
 
 
 def edit_memory(memory_id: str, new_message: str) -> None:
-    """Edit memory entry message."""
     full_id = resolve_id("memories", "memory_id", memory_id)
     entry = get_memory(full_id)
     if not entry:
@@ -94,7 +91,6 @@ def edit_memory(memory_id: str, new_message: str) -> None:
 
 
 def delete_memory(memory_id: str) -> None:
-    """Delete memory entry."""
     full_id = resolve_id("memories", "memory_id", memory_id)
     entry = get_memory(full_id)
     if not entry:
@@ -104,7 +100,6 @@ def delete_memory(memory_id: str) -> None:
 
 
 def archive_memory(memory_id: str, restore: bool = False) -> None:
-    """Archive or restore memory entry."""
     full_id = resolve_id("memories", "memory_id", memory_id)
     entry = get_memory(full_id)
     if not entry:
@@ -126,7 +121,6 @@ def archive_memory(memory_id: str, restore: bool = False) -> None:
 
 
 def mark_memory_core(memory_id: str, core: bool = True) -> None:
-    """Mark memory as core (essential to agent identity)."""
     entry = get_memory(memory_id)
     if not entry:
         raise ValueError(f"Memory '{memory_id}' not found")
@@ -138,7 +132,6 @@ def mark_memory_core(memory_id: str, core: bool = True) -> None:
 
 
 def toggle_memory_core(memory_id: str) -> bool:
-    """Toggle core status. Returns True if now core, False if not."""
     entry = get_memory(memory_id)
     if not entry:
         raise ValueError(f"Memory '{memory_id}' not found")

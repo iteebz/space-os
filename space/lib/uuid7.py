@@ -1,14 +1,3 @@
-"""UUID v7 generation for time-ordered distributed IDs.
-
-Implements RFC 9562 UUID v7 spec with monotonic counter:
-- 48-bit Unix timestamp (milliseconds)
-- 4-bit version (0111 = 7)
-- 12-bit monotonic counter (increments within same millisecond)
-- 2-bit variant (10)
-- 62-bit random
-
-Provides chronological ordering + global uniqueness without coordination.
-"""
 
 from __future__ import annotations
 
@@ -62,14 +51,6 @@ def uuid7() -> str:
 
 
 def short_id(full_uuid: str) -> str:
-    """Return last 8 chars of UUID for display/matching.
-
-    UUID7 structure: [48-bit timestamp][74-bit random]
-    First chars = timestamp-dominated (low entropy, visual clustering)
-    Last chars = high entropy suffix (good collision resistance)
-
-    Like git short refs: keep full UUID in DB, display short for humans.
-    """
     return full_uuid[-8:]
 
 

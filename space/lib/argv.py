@@ -1,20 +1,13 @@
-"""Flexible argument positioning for CLI options."""
-
 import sys
 from typing import Optional
 
 
 def flex_args(option_name: str, option_short: Optional[str] = None) -> None:
-    """Allow option to appear before or after subcommand.
-    
-    Reorders argv so --option value always precedes subcommand.
-    Example: Both work identically:
-        memory list --as hailot-1
-        memory --as hailot-1 list
-    
+    """Reorder argv so option precedes subcommand.
+
     Args:
         option_name: Long option name (e.g., "as" for "--as")
-        option_short: Short option name (e.g., "a" for "-a"), optional
+        option_short: Short option name (e.g., "a" for "-a")
     """
     args = sys.argv[1:]
     if not args:

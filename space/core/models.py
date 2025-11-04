@@ -1,11 +1,8 @@
-"""Shared data models and types."""
-
 from dataclasses import dataclass, field
 from enum import Enum
 
 
 class TaskStatus(str, Enum):
-    """Valid task statuses."""
 
     PENDING = "pending"
     RUNNING = "running"
@@ -17,7 +14,6 @@ class TaskStatus(str, Enum):
 
 @dataclass
 class Agent:
-    """An agent in the spawn registry."""
 
     agent_id: str
     identity: str
@@ -31,7 +27,6 @@ class Agent:
 
     @property
     def provider(self) -> str:
-        """Infer provider from model string."""
         model_lower = self.model.lower()
         if model_lower.startswith("gpt-"):
             return "codex"
@@ -44,7 +39,6 @@ class Agent:
 
 @dataclass
 class Channel:
-    """A coordination channel."""
 
     channel_id: str
     name: str
@@ -60,7 +54,6 @@ class Channel:
 
 @dataclass
 class Message:
-    """A coordination message in the bridge."""
 
     message_id: str
     channel_id: str
@@ -71,7 +64,6 @@ class Message:
 
 @dataclass
 class Bookmark:
-    """Agent's bookmark for a channel."""
 
     agent_id: str
     channel_id: str
@@ -81,7 +73,6 @@ class Bookmark:
 
 @dataclass
 class Session:
-    """A session: provider-native chat activity."""
 
     session_id: str
     provider: str
@@ -97,7 +88,6 @@ class Session:
 
 @dataclass
 class Spawn:
-    """A spawn: space-specific agent invocation (interactive or headless)."""
 
     id: str
     agent_id: str
@@ -113,7 +103,6 @@ class Spawn:
 
 @dataclass
 class Memory:
-    """Agent memory: facts, journal, or extracted insights."""
 
     memory_id: str
     agent_id: str
@@ -127,7 +116,6 @@ class Memory:
 
 @dataclass
 class Knowledge:
-    """A knowledge artifact."""
 
     knowledge_id: str
     domain: str
@@ -139,7 +127,6 @@ class Knowledge:
 
 @dataclass
 class Export:
-    """Complete channel export for research."""
 
     channel_id: str
     channel_name: str
@@ -152,7 +139,6 @@ class Export:
 
 @dataclass
 class ChatMessage:
-    """A message from CLI chat history (distinct from bridge Message)."""
 
     id: int
     cli: str
@@ -166,7 +152,6 @@ class ChatMessage:
 
 @dataclass
 class Canon:
-    """A canon markdown document (read-only, git-backed)."""
 
     path: str
     content: str
@@ -175,7 +160,6 @@ class Canon:
 
 @dataclass
 class AgentStats:
-    """Statistics for a single agent."""
 
     agent_id: str
     identity: str
@@ -191,7 +175,6 @@ class AgentStats:
 
 @dataclass
 class BridgeStats:
-    """Bridge communication statistics."""
 
     available: bool
     total: int = 0
@@ -204,7 +187,6 @@ class BridgeStats:
 
 @dataclass
 class MemoryStats:
-    """Agent memory statistics."""
 
     available: bool
     total: int = 0
@@ -215,7 +197,6 @@ class MemoryStats:
 
 @dataclass
 class KnowledgeStats:
-    """Shared knowledge statistics."""
 
     available: bool
     total: int = 0
@@ -226,7 +207,6 @@ class KnowledgeStats:
 
 @dataclass
 class SpawnStats:
-    """Agent spawn statistics."""
 
     available: bool
     total: int = 0
@@ -236,7 +216,6 @@ class SpawnStats:
 
 @dataclass
 class SessionStats:
-    """Provider session statistics."""
 
     available: bool
     total_sessions: int = 0
@@ -250,7 +229,6 @@ class SessionStats:
 
 @dataclass
 class SpaceStats:
-    """Unified space statistics across all primitives."""
 
     bridge: BridgeStats
     memory: MemoryStats

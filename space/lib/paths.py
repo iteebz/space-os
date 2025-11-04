@@ -2,31 +2,22 @@ from pathlib import Path
 
 
 def space_root() -> Path:
-    """Returns the space root directory, ~/space."""
     return Path.home() / "space"
 
 
 def dot_space() -> Path:
-    """Returns the .space directory, ~/.space."""
     return Path.home() / ".space"
 
 
 def space_data() -> Path:
-    """Returns the data directory, ~/.space/data."""
     return dot_space() / "data"
 
 
 def package_root() -> Path:
-    """Returns space package root directory."""
     return Path(__file__).resolve().parent.parent
 
 
 def constitution(constitution_file: str) -> Path:
-    """Returns the full path to a constitution file.
-
-    Checks canon first (SSOT), falls back to local.
-    Constitution file should include extension (e.g., "zealot.md").
-    """
     canon = canon_path() / "constitutions" / constitution_file
     if canon.exists():
         return canon
@@ -34,43 +25,34 @@ def constitution(constitution_file: str) -> Path:
 
 
 def canon_path() -> Path:
-    """Returns path to human's canonical values, ~/space/canon."""
     return space_root() / "canon"
 
 
 def sessions_dir() -> Path:
-    """Returns the sessions directory, ~/.space/sessions."""
     return dot_space() / "sessions"
 
 
+def spawns_dir() -> Path:
+    return dot_space() / "spawns"
+
+
+def identity_dir(identity: str) -> Path:
+    return spawns_dir() / identity
+
+
 def backups_dir() -> Path:
-    """Returns the backups directory, ~/.space_backups (read-only)."""
     return Path.home() / ".space_backups"
 
 
 def backup_snapshot(timestamp: str) -> Path:
-    """Returns immutable path to timestamped backup snapshot.
-
-    Args:
-        timestamp: ISO format or YYYYMMDDhhmmss format
-
-    Returns:
-        Path like ~/.space_backups/data/20251025_001530/
-    """
     return backups_dir() / "data" / timestamp
 
 
 def backup_sessions_dir() -> Path:
-    """Returns path to session backups (mirrors ~/.space/sessions/ structure).
-
-    Returns:
-        Path like ~/.space_backups/sessions/
-    """
     return backups_dir() / "sessions"
 
 
 def validate_backup_path(backup_path: Path) -> bool:
-    """Validate backup path is within backups/ to prevent traversal."""
     try:
         backup_path.resolve().relative_to(backups_dir().resolve())
         return True
@@ -79,11 +61,6 @@ def validate_backup_path(backup_path: Path) -> bool:
 
 
 def validate_domain_path(domain: str) -> tuple[bool, str]:
-    """Validate domain/topic path format.
-
-    Returns:
-        (is_valid, error_message)
-    """
     if not domain:
         return False, "Domain/topic cannot be empty"
     if domain.startswith("/") or domain.endswith("/"):
