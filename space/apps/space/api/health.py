@@ -16,8 +16,17 @@ EXPECTED_TABLES = {
     "messages",
     "memories",
     "knowledge",
+    "transcripts",
 }
-IGNORED_TABLES = {"sqlite_sequence", "_migrations"}
+IGNORED_TABLES = {
+    "sqlite_sequence",
+    "_migrations",
+    "transcripts_fts",
+    "transcripts_fts_config",
+    "transcripts_fts_data",
+    "transcripts_fts_docsize",
+    "transcripts_fts_idx",
+}
 
 
 def _check_foreign_keys(conn: sqlite3.Connection) -> list[str]:

@@ -1,63 +1,65 @@
 """Session operations: search and statistics."""
 
-import contextlib
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
+import logging
 
 from space.core.models import SessionStats
-from space.lib import paths, providers, store
+from space.lib import paths, store
+
+logger = logging.getLogger(__name__)
 
 
 def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[dict]:
+    """Search transcripts via FTS5 (implicit episodic memory).
+
+    Args:
+        query: Search query (supports FTS5 syntax: phrase, boolean, wildcards, NEAR)
+        identity: Unused in Phase 1 (reserved for Phase 2 identity filtering)
+        all_agents: Unused in Phase 1 (reserved for Phase 2 multi-agent filtering)
+
+    Returns:
+        List of results matching the query, sorted by relevance + recency.
+        Each result has: source, cli, session_id, identity, role, text, timestamp, reference
+    """
     results = []
-    query_lower = query.lower()
 
-    def _discover_and_search_provider(cli_name: str) -> list[dict]:
-        provider_results = []
-        try:
-            provider = getattr(providers, cli_name)()
-            sessions = provider.discover_chats()
+    try:
+        with store.ensure() as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                    t.session_id,
+                    t.provider,
+                    t.role,
+                    t.content,
+                    t.timestamp
+                FROM transcripts t
+                WHERE t.rowid IN (
+                    SELECT rowid FROM transcripts_fts WHERE transcripts_fts MATCH ?
+                )
+                ORDER BY t.timestamp DESC
+                LIMIT 50
+                """,
+                (query,),
+            ).fetchall()
 
-            for session in sessions:
-                try:
-                    file_path = Path(session["file_path"])
-                    if not file_path.exists():
-                        continue
+            for row in rows:
+                session_id, provider, role, content, timestamp = row
 
-                    session_id = session["session_id"]
-                    messages = provider.parse_messages(file_path)
+                results.append(
+                    {
+                        "source": "chat",
+                        "cli": provider,
+                        "session_id": session_id,
+                        "identity": None,
+                        "role": role,
+                        "text": content,
+                        "timestamp": timestamp,
+                        "reference": f"chat:{provider}:{session_id}",
+                    }
+                )
 
-                    for msg in messages:
-                        content = msg.get("content", "")
-                        if query_lower in content.lower():
-                            provider_results.append(
-                                {
-                                    "source": "provider-sessions",
-                                    "cli": cli_name,
-                                    "session_id": session_id,
-                                    "identity": None,
-                                    "role": msg.get("role"),
-                                    "text": content,
-                                    "timestamp": msg.get("timestamp"),
-                                    "reference": f"provider-sessions:{cli_name}:{session_id}",
-                                }
-                            )
-                except Exception:
-                    pass
-
-        except Exception:
-            pass
-
-        return provider_results
-
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = {
-            executor.submit(_discover_and_search_provider, cli): cli
-            for cli in ("claude", "codex", "gemini")
-        }
-        for future in as_completed(futures):
-            with contextlib.suppress(Exception):
-                results.extend(future.result())
+    except Exception as e:
+        logger.warning(f"Transcript search failed for query '{query}': {e}")
 
     return results
 

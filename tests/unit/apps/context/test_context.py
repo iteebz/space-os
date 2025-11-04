@@ -189,7 +189,7 @@ def test_collect_current_state_memory_excluded_without_identity():
         assert len(result["memory"]) == 0
         assert len(result["knowledge"]) == 1
         assert len(result["bridge"]) == 1
-        assert len(result["provider_chats"]) == 1
+        assert len(result["sessions"]) == 1
         assert len(result["canon"]) == 1
         m_mem.assert_not_called()
 
@@ -228,6 +228,6 @@ def test_collect_current_state_memory_included_with_identity():
         assert len(result["memory"]) == 1
         assert len(result["knowledge"]) == 1
         assert len(result["bridge"]) == 1
-        assert len(result["provider_chats"]) == 1
+        assert len(result["sessions"]) == 1
         assert len(result["canon"]) == 1
         m_mem.assert_called_once()

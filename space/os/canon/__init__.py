@@ -1,3 +1,5 @@
 """Canon: human persistent context layer, @-referenceable markdown (git-backed for provenance)."""
 
-__all__ = []
+from . import api
+
+__all__ = ["api"]

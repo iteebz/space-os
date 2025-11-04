@@ -103,7 +103,7 @@ def collect_current_state(query: str, identity: str | None, all_agents: bool) ->
 
     Memory is only included if --as <identity> is specified (private working memory).
     """
-    results = {"memory": [], "knowledge": [], "bridge": [], "provider_chats": [], "canon": []}
+    results = {"memory": [], "knowledge": [], "bridge": [], "sessions": [], "canon": []}
 
     if identity:
         results["memory"] = [
@@ -136,7 +136,7 @@ def collect_current_state(query: str, identity: str | None, all_agents: bool) ->
         for r in bridge.api.search(query, identity, all_agents)
     ]
 
-    results["provider_chats"] = [
+    results["sessions"] = [
         {
             "cli": r["cli"],
             "session_id": r["session_id"],

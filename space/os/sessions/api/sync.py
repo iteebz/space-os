@@ -125,6 +125,83 @@ def _to_jsonl(json_file: Path) -> str:
         return ""
 
 
+def _index_transcripts(session_id: str, provider: str, content: str) -> int:
+    """Index session JSONL content into transcripts table for FTS5 search.
+
+    Parses user and assistant messages from JSONL and populates the transcripts table.
+    Tool calls and results are skipped (noise reduction for search).
+
+    Args:
+        session_id: Session UUID
+        provider: Provider name (claude, codex, gemini)
+        content: JSONL content (one JSON object per line)
+
+    Returns:
+        Number of messages indexed
+    """
+    indexed_count = 0
+
+    try:
+        from datetime import datetime
+
+        with store.ensure() as conn:
+            for msg_idx, line in enumerate(content.strip().split("\n")):
+                if not line.strip():
+                    continue
+
+                try:
+                    msg_data = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                role = msg_data.get("role", "").lower()
+                if role not in ("user", "assistant"):
+                    continue
+
+                msg_content = msg_data.get("content", "")
+                if isinstance(msg_content, list):
+                    msg_content = "\n".join(
+                        [
+                            block.get("text", "")
+                            if isinstance(block, dict) and block.get("type") == "text"
+                            else ""
+                            for block in msg_content
+                        ]
+                    ).strip()
+
+                msg_content = str(msg_content)
+                if not msg_content:
+                    continue
+
+                timestamp_str = msg_data.get("timestamp")
+                timestamp_int = 0
+
+                if timestamp_str:
+                    try:
+                        dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                        timestamp_int = int(dt.timestamp())
+                    except (ValueError, AttributeError):
+                        timestamp_int = 0
+
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO transcripts
+                    (session_id, message_index, provider, role, content, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (session_id, msg_idx, provider, role, msg_content, timestamp_int),
+                )
+
+                indexed_count += 1
+
+            conn.commit()
+
+    except Exception as e:
+        logger.warning(f"Failed to index transcripts for session {session_id}: {e}")
+
+    return indexed_count
+
+
 def _insert_session_record(session: Session) -> None:
     """Insert or update session record in space.db."""
     try:
@@ -301,6 +378,9 @@ def sync_provider_sessions(
                         last_message_at=last_ts,
                     )
                     _insert_session_record(session_record)
+
+                    if content_to_parse:
+                        _index_transcripts(sid, cli_name, content_to_parse)
 
                 except (OSError, Exception) as e:
                     logger.warning(f"Failed to process {sid}: {e}")
