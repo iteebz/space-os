@@ -217,7 +217,7 @@ def merge_agents(from_name: str, to_name: str) -> bool:
 
     with store.ensure() as conn:
         conn.execute("UPDATE messages SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
-        conn.execute("UPDATE sessions SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
+        conn.execute("UPDATE spawns SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
         conn.execute("UPDATE knowledge SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
         conn.execute("UPDATE memories SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
         conn.execute("DELETE FROM agents WHERE agent_id = ?", (from_id,))

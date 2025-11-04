@@ -40,13 +40,13 @@ def _backup_data_snapshot(timestamp: str, quiet_output: bool) -> dict:
     return _get_backup_stats(backup_path)
 
 
-def _backup_chats_latest(quiet_output: bool) -> None:
-    """Backup ~/.space/chats to ~/.space_backups/chats/latest (append-only, never deletes)."""
-    src = paths.chats_dir()
+def _backup_sessions_latest(quiet_output: bool) -> None:
+    """Backup ~/.space/sessions to ~/.space_backups/sessions (mirrored structure, additive)."""
+    src = paths.sessions_dir()
     if not src.exists():
         return
 
-    backup_path = paths.backup_chats_latest()
+    backup_path = paths.backup_sessions_dir()
     backup_path.mkdir(parents=True, exist_ok=True)
 
     for provider_dir in src.iterdir():
@@ -56,16 +56,12 @@ def _backup_chats_latest(quiet_output: bool) -> None:
         backup_provider_dir = backup_path / provider_dir.name
         backup_provider_dir.mkdir(exist_ok=True)
 
-        for chat_file in provider_dir.rglob("*"):
-            if not chat_file.is_file():
+        for session_file in provider_dir.iterdir():
+            if not session_file.is_file():
                 continue
 
-            rel_path = chat_file.relative_to(provider_dir)
-            backup_file = backup_provider_dir / rel_path
-            backup_file.parent.mkdir(parents=True, exist_ok=True)
-
-            if not backup_file.exists() or chat_file.stat().st_mtime > backup_file.stat().st_mtime:
-                shutil.copy2(chat_file, backup_file)
+            backup_file = backup_provider_dir / session_file.name
+            shutil.copy2(session_file, backup_file)
 
     os.chmod(backup_path, 0o555)
 
@@ -123,29 +119,29 @@ def backup(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    """Backup ~/.space/data and ~/.space/chats to ~/.space_backups/.
+    """Backup ~/.space/data and ~/.space/sessions to ~/.space_backups/.
 
     Data backups are immutable and timestamped: ~/.space_backups/data/{timestamp}/
-    Chat backups are latest-only: ~/.space_backups/chats/latest/ (overwrites)
+    Session backups mirror structure: ~/.space_backups/sessions/{provider}/*.jsonl (additive)
     """
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_stats = _backup_data_snapshot(timestamp, quiet_output)
-    _backup_chats_latest(quiet_output)
+    _backup_sessions_latest(quiet_output)
 
     if json_output:
         typer.echo(
             json.dumps(
                 {
                     "data_backup": str(paths.backup_snapshot(timestamp)),
-                    "chats_backup": str(paths.backup_chats_latest()),
+                    "sessions_backup": str(paths.backup_sessions_dir()),
                     "stats": backup_stats,
                 }
             )
         )
     elif not quiet_output:
         typer.echo(f"✓ Backed up data to {paths.backup_snapshot(timestamp)}")
-        typer.echo(f"✓ Backed up chats to {paths.backup_chats_latest()}")
+        typer.echo(f"✓ Backed up sessions to {paths.backup_sessions_dir()}")
         if backup_stats:
             typer.echo(_format_backup_stats(backup_stats))
 

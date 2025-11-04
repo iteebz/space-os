@@ -3,7 +3,7 @@
 import typer
 
 from space.apps.space import api
-from space.lib import backup, paths
+from space.lib import backup
 
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False, add_completion=False)
 
@@ -97,10 +97,10 @@ overview"""
             f"  knowledge · {s.knowledge.active} active · {archived_k} archived · {s.knowledge.topics} domains"
         )
 
-    if s.chats and s.chats.available and s.chats.total_chats > 0:
-        total_tokens = s.chats.input_tokens + s.chats.output_tokens
+    if s.sessions and s.sessions.available and s.sessions.total_sessions > 0:
+        total_tokens = s.sessions.input_tokens + s.sessions.output_tokens
         lines.append(
-            f"  chats · {s.chats.total_chats} sessions · {s.chats.total_messages} messages · {s.chats.total_tools_used} tools · {total_tokens:,} tokens"
+            f"  sessions · {s.sessions.total_sessions} total · {s.sessions.total_messages} messages · {s.sessions.total_tools_used} tools · {total_tokens:,} tokens"
         )
 
     if s.agents:
@@ -117,98 +117,6 @@ overview"""
             lines.append("  " + " · ".join(parts))
 
     typer.echo("\n".join(lines) + "\n")
-
-
-chats_app = typer.Typer()
-
-
-@chats_app.callback(invoke_without_command=True)
-def chats_callback(ctx: typer.Context):
-    if ctx.invoked_subcommand is None:
-        ctx.invoke(chats_stats)
-
-
-@chats_app.command()
-def sync():
-    """Sync chats from ~/.claude, ~/.codex, ~/.gemini to ~/.space/chats/."""
-    from space.lib import output
-
-    typer.echo("Syncing chats...")
-    typer.echo(f"{'Provider':<10} {'Discovered':<12} {'Synced'}")
-    typer.echo("-" * 40)
-
-    results = api.chats.sync_all_providers(on_progress=output.show_sync_progress)
-
-    typer.echo("-" * 40)
-
-    total_discovered = 0
-    total_synced = 0
-
-    for provider in ("claude", "codex", "gemini"):
-        discovered, synced = results.get(provider, (0, 0))
-        total_discovered += discovered
-        total_synced += synced
-
-    typer.echo(f"{'TOTAL':<10} {total_discovered:<12} {total_synced}")
-    typer.echo()
-    typer.echo("✓ Chat sync complete")
-
-
-@chats_app.command()
-def resync(session_id: str):
-    """Resync a specific chat session, updating metadata and linking to task."""
-    results = api.chats.resync_chat(session_id)
-
-    typer.echo(f"✓ Chat resync complete for {session_id}")
-    typer.echo()
-    typer.echo(f"{'Provider':<10} {'Discovered':<12} {'Synced'}")
-    typer.echo("-" * 40)
-
-    total_discovered = 0
-    total_synced = 0
-
-    for provider in ("claude", "codex", "gemini"):
-        discovered, synced = results.get(provider, (0, 0))
-        total_discovered += discovered
-        total_synced += synced
-        if discovered > 0 or synced > 0:
-            status = "✓" if synced > 0 else "-"
-            typer.echo(f"{provider:<10} {discovered:<12} {synced:<12} {status}")
-
-    if total_discovered > 0:
-        typer.echo("-" * 40)
-        typer.echo(f"{'TOTAL':<10} {total_discovered:<12} {total_synced}")
-    else:
-        typer.echo("No chats found with that session ID")
-
-
-@chats_app.command(name="stats")
-def chats_stats():
-    """Show chat statistics across providers."""
-    provider_stats = api.chats.get_provider_stats()
-
-    if not provider_stats:
-        typer.echo("No chats synced yet. Run: space chats sync")
-        return
-
-    typer.echo("Chat statistics:")
-    typer.echo()
-    typer.echo(f"{'Provider':<12} {'Sessions':<12} {'Size (MB)'}")
-    typer.echo("-" * 40)
-
-    total_files = 0
-    total_size = 0
-
-    for provider in sorted(provider_stats.keys()):
-        stats_dict = provider_stats[provider]
-        total_files += stats_dict["files"]
-        total_size += stats_dict["size_mb"]
-        typer.echo(f"{provider:<12} {stats_dict['files']:<12} {stats_dict['size_mb']:>10.1f}")
-
-    typer.echo("-" * 40)
-    typer.echo(f"{'TOTAL':<12} {total_files:<12} {total_size:>10.1f}")
-    typer.echo()
-    typer.echo(f"Location: {paths.chats_dir()}")
 
 
 health_app = typer.Typer()
@@ -240,7 +148,6 @@ def health_cmd():
 app.add_typer(init_app, name="init", help="Initialize space workspace structure and databases.")
 app.add_typer(backup.app, name="backup", help="Backup and restore space data.")
 app.add_typer(stats_app, name="stats", help="Show space overview and agent statistics.")
-app.add_typer(chats_app, name="chats", help="Sync and view chat statistics across providers.")
 app.add_typer(health_app, name="health", help="Verify space-os lattice integrity.")
 
 

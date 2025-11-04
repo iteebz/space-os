@@ -38,14 +38,9 @@ def canon_path() -> Path:
     return space_root() / "canon"
 
 
-def chats_db() -> Path:
-    """Returns path to unified chat history, ~/.space/data/chats.db."""
-    return space_data() / "chats.db"
-
-
-def chats_dir() -> Path:
-    """Returns the chats directory, ~/.space/chats."""
-    return dot_space() / "chats"
+def sessions_dir() -> Path:
+    """Returns the sessions directory, ~/.space/sessions."""
+    return dot_space() / "sessions"
 
 
 def backups_dir() -> Path:
@@ -65,13 +60,13 @@ def backup_snapshot(timestamp: str) -> Path:
     return backups_dir() / "data" / timestamp
 
 
-def backup_chats_latest() -> Path:
-    """Returns path to latest chat backup (single copy, overwrites).
+def backup_sessions_dir() -> Path:
+    """Returns path to session backups (mirrors ~/.space/sessions/ structure).
 
     Returns:
-        Path like ~/.space_backups/chats/latest/
+        Path like ~/.space_backups/sessions/
     """
-    return backups_dir() / "chats" / "latest"
+    return backups_dir() / "sessions"
 
 
 def validate_backup_path(backup_path: Path) -> bool:

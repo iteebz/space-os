@@ -80,38 +80,34 @@ class Bookmark:
 
 @dataclass
 class Session:
-    """A session: single spawn invocation of an agent."""
+    """A session: provider-native chat activity."""
+
+    session_id: str
+    provider: str
+    model: str
+    file_path: str
+    message_count: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    tool_count: int = 0
+    first_message_at: str | None = None
+    last_message_at: str | None = None
+
+
+@dataclass
+class Spawn:
+    """A spawn: space-specific agent invocation (interactive or headless)."""
 
     id: str
     agent_id: str
     status: TaskStatus | str = TaskStatus.PENDING
-    is_task: bool = True
+    is_task: bool = False
     constitution_hash: str | None = None
     channel_id: str | None = None
     pid: int | None = None
-    created_at: str | None = None
-    ended_at: str | None = None
-
-
-Task = Session
-
-
-@dataclass
-class Chat:
-    """A chat session tracked for audit trail."""
-
-    id: str
-    model: str
-    provider: str
-    file_path: str
-    message_count: int = 0
-    tools_used: int = 0
-    input_tokens: int = 0
-    output_tokens: int = 0
-    first_message_at: str | None = None
-    last_message_at: str | None = None
     session_id: str | None = None
     created_at: str | None = None
+    ended_at: str | None = None
 
 
 @dataclass
@@ -238,11 +234,11 @@ class SpawnStats:
 
 
 @dataclass
-class ChatStats:
-    """Chat session statistics."""
+class SessionStats:
+    """Provider session statistics."""
 
     available: bool
-    total_chats: int = 0
+    total_sessions: int = 0
     total_messages: int = 0
     total_tools_used: int = 0
     input_tokens: int = 0
@@ -259,5 +255,5 @@ class SpaceStats:
     memory: MemoryStats
     knowledge: KnowledgeStats
     spawn: SpawnStats
-    chats: ChatStats | None = None
+    sessions: SessionStats | None = None
     agents: list[AgentStats] | None = None

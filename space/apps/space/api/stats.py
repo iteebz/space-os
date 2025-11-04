@@ -5,9 +5,9 @@ import logging
 from space.core.models import (
     AgentStats,
     BridgeStats,
-    ChatStats,
     KnowledgeStats,
     MemoryStats,
+    SessionStats,
     SpaceStats,
     SpawnStats,
 )
@@ -131,11 +131,11 @@ def _get_spawn_stats() -> dict:
     return spawn.api.stats()
 
 
-def _get_chat_stats() -> dict:
-    """Get chat statistics from chats primitive."""
-    from space.os import chats
+def _get_session_stats() -> dict:
+    """Get session statistics from sessions primitive."""
+    from space.os import sessions
 
-    return chats.api.operations.get_stats()
+    return sessions.api.operations.get_stats()
 
 
 def _safe_stats(fn, *args, **kwargs):
@@ -258,20 +258,19 @@ def spawn_stats() -> SpawnStats:
     return SpawnStats(available=True, **stats_data) if stats_data else SpawnStats(available=False)
 
 
-def chat_stats() -> ChatStats:
-    stats_data = _safe_stats(_get_chat_stats)
+def session_stats() -> SessionStats:
+    stats_data = _safe_stats(_get_session_stats)
     if not stats_data:
-        return ChatStats(available=False)
+        return SessionStats(available=False)
 
-    return ChatStats(
+    return SessionStats(
         available=True,
-        total_chats=stats_data["total_chats"],
+        total_sessions=stats_data["total_sessions"],
         total_messages=stats_data["total_messages"],
         total_tools_used=stats_data["total_tools_used"],
         input_tokens=stats_data["total_input_tokens"],
         output_tokens=stats_data["total_output_tokens"],
         by_provider=stats_data["by_provider"],
-        by_agent=stats_data["by_agent"],
     )
 
 
@@ -281,6 +280,6 @@ def collect(agent_limit: int = None) -> SpaceStats:
         memory=memory_stats(),
         knowledge=knowledge_stats(),
         spawn=spawn_stats(),
-        chats=chat_stats(),
+        sessions=session_stats(),
         agents=agent_stats(limit=agent_limit),
     )

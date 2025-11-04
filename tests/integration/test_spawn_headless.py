@@ -2,23 +2,21 @@
 
 import pytest
 
-from space.os.bridge.api import channels, messaging
+from space.os.bridge.api import channels
 from space.os.spawn.api import agents, launch
-from space.lib import store
 
 
 @pytest.fixture
 def test_agent(test_space):
     """Create a test agent."""
-    agent_id = agents.register_agent("test-agent", "claude-haiku-4-5", None)
+    agents.register_agent("test-agent", "claude-haiku-4-5", None)
     return agents.get_agent("test-agent")
 
 
 @pytest.fixture
 def test_channel(test_space):
     """Create a test channel."""
-    ch = channels.create_channel("test-channel", topic="Test channel for headless spawning")
-    return ch
+    return channels.create_channel("test-channel", topic="Test channel for headless spawning")
 
 
 def test_spawn_headless_success(test_agent, test_channel):
@@ -36,9 +34,7 @@ def test_spawn_headless_success(test_agent, test_channel):
     }
 
     with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout=json.dumps(mock_output), stderr=""
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(mock_output), stderr="")
 
         # Execute headless spawn
         launch.spawn_headless(
@@ -88,13 +84,9 @@ def test_spawn_headless_posts_to_bridge(test_agent, test_channel):
     }
 
     with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout=json.dumps(mock_output), stderr=""
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps(mock_output), stderr="")
 
-        with patch(
-            "space.os.bridge.api.messaging.send_message"
-        ) as mock_send_message:
+        with patch("space.os.bridge.api.messaging.send_message") as mock_send_message:
             launch.spawn_headless(
                 identity="test-agent", task="test task", channel_id=test_channel.channel_id
             )

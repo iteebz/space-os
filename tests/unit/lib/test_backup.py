@@ -4,27 +4,27 @@ from unittest.mock import patch
 from space.lib.backup import _get_backup_stats, backup
 
 
-@patch("space.lib.backup.paths.backup_chats_latest")
+@patch("space.lib.backup.paths.backup_sessions_dir")
 @patch("space.lib.backup.paths.backup_snapshot")
-@patch("space.lib.backup.paths.chats_dir")
+@patch("space.lib.backup.paths.sessions_dir")
 @patch("space.lib.backup.paths.space_data")
 def test_backup_creates_timestamped_data_dir(
-    mock_space_data, mock_chats_dir, mock_backup_snapshot, mock_backup_chats_latest, tmp_path
+    mock_space_data, mock_sessions_dir, mock_backup_snapshot, mock_backup_sessions_dir, tmp_path
 ):
     """Backup creates timestamped data directory."""
     src_data = tmp_path / "data"
     src_data.mkdir()
     (src_data / "test.db").write_text("")
 
-    src_chats = tmp_path / "chats"
-    src_chats.mkdir()
+    src_sessions = tmp_path / "sessions"
+    src_sessions.mkdir()
 
     backup_dir = tmp_path / "backups"
 
     mock_space_data.return_value = src_data
-    mock_chats_dir.return_value = src_chats
+    mock_sessions_dir.return_value = src_sessions
     mock_backup_snapshot.side_effect = lambda ts: backup_dir / "data" / ts
-    mock_backup_chats_latest.return_value = backup_dir / "chats" / "latest"
+    mock_backup_sessions_dir.return_value = backup_dir / "sessions"
 
     backup(quiet_output=True)
 
@@ -32,15 +32,15 @@ def test_backup_creates_timestamped_data_dir(
     data_backups = list((backup_dir / "data").glob("*"))
     assert len(data_backups) == 1
     assert data_backups[0].is_dir()
-    assert (backup_dir / "chats" / "latest").exists()
+    assert (backup_dir / "sessions").exists()
 
 
-@patch("space.lib.backup.paths.backup_chats_latest")
+@patch("space.lib.backup.paths.backup_sessions_dir")
 @patch("space.lib.backup.paths.backup_snapshot")
-@patch("space.lib.backup.paths.chats_dir")
+@patch("space.lib.backup.paths.sessions_dir")
 @patch("space.lib.backup.paths.space_data")
 def test_backup_copies_db_files(
-    mock_space_data, mock_chats_dir, mock_backup_snapshot, mock_backup_chats_latest, tmp_path
+    mock_space_data, mock_sessions_dir, mock_backup_snapshot, mock_backup_sessions_dir, tmp_path
 ):
     """Backup copies all .db files to data snapshot."""
     src_data = tmp_path / "data"
@@ -52,15 +52,15 @@ def test_backup_copies_db_files(
     conn.commit()
     conn.close()
 
-    src_chats = tmp_path / "chats"
-    src_chats.mkdir()
+    src_sessions = tmp_path / "sessions"
+    src_sessions.mkdir()
 
     backup_dir = tmp_path / "backups"
 
     mock_space_data.return_value = src_data
-    mock_chats_dir.return_value = src_chats
+    mock_sessions_dir.return_value = src_sessions
     mock_backup_snapshot.side_effect = lambda ts: backup_dir / "data" / ts
-    mock_backup_chats_latest.return_value = backup_dir / "chats" / "latest"
+    mock_backup_sessions_dir.return_value = backup_dir / "sessions"
 
     backup(quiet_output=True)
 
@@ -87,38 +87,34 @@ def test_backup_stats_counts_rows(tmp_path):
     assert stats["test.db"]["tables"] == 1
 
 
-@patch("space.lib.backup.paths.validate_backup_path")
-@patch("space.lib.backup.paths.backup_chats_latest")
-@patch("space.lib.backup.paths.chats_dir")
-def test_backup_chats_append_only(
-    mock_chats_dir, mock_backup_chats_latest, mock_validate, tmp_path
-):
-    """Chat backup is append-only: new files added, updated files copied, old files retained."""
-    from space.lib.backup import _backup_chats_latest
+@patch("space.lib.backup.paths.backup_sessions_dir")
+@patch("space.lib.backup.paths.sessions_dir")
+def test_backup_sessions_mirror_structure(mock_sessions_dir, mock_backup_sessions_dir, tmp_path):
+    """Session backup mirrors structure and is additive (overwrites updated files)."""
+    from space.lib.backup import _backup_sessions_latest
 
-    src_chats = tmp_path / "chats"
-    src_chats.mkdir()
-    (src_chats / "claude").mkdir()
-    (src_chats / "codex").mkdir()
+    src_sessions = tmp_path / "sessions"
+    src_sessions.mkdir()
+    (src_sessions / "claude").mkdir()
+    (src_sessions / "codex").mkdir()
 
     backup_dir = tmp_path / "backup"
 
-    mock_chats_dir.return_value = src_chats
-    mock_backup_chats_latest.return_value = backup_dir
-    mock_validate.return_value = True
+    mock_sessions_dir.return_value = src_sessions
+    mock_backup_sessions_dir.return_value = backup_dir
 
-    (src_chats / "claude" / "session1.jsonl").write_text("msg1")
-    (src_chats / "codex" / "session2.jsonl").write_text("msg2")
+    (src_sessions / "claude" / "session1.jsonl").write_text("msg1")
+    (src_sessions / "codex" / "session2.jsonl").write_text("msg2")
 
-    _backup_chats_latest(quiet_output=True)
+    _backup_sessions_latest(quiet_output=True)
 
     assert (backup_dir / "claude" / "session1.jsonl").read_text() == "msg1"
     assert (backup_dir / "codex" / "session2.jsonl").read_text() == "msg2"
 
-    (src_chats / "claude" / "session3.jsonl").write_text("msg3")
-    (src_chats / "claude" / "session1.jsonl").write_text("msg1-updated")
+    (src_sessions / "claude" / "session3.jsonl").write_text("msg3")
+    (src_sessions / "claude" / "session1.jsonl").write_text("msg1-updated")
 
-    _backup_chats_latest(quiet_output=True)
+    _backup_sessions_latest(quiet_output=True)
 
     assert (backup_dir / "claude" / "session1.jsonl").read_text() == "msg1-updated"
     assert (backup_dir / "claude" / "session3.jsonl").read_text() == "msg3"

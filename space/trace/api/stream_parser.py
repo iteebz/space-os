@@ -1,7 +1,7 @@
 """Stream-JSON parser: extract execution events from Claude Code stream output."""
 
 import json
-from typing import Iterator
+from collections.abc import Iterator
 
 
 def parse_stream_json(stdout_stream) -> Iterator[dict]:

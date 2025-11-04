@@ -14,7 +14,7 @@ from space.lib import paths
 from space.lib.constitution import write_constitution
 from space.lib.providers import claude, codex, gemini
 
-from . import agents, sessions, tasks
+from . import agents, spawns, tasks
 from .environment import build_launch_env
 from .prompt import build_spawn_context
 
@@ -57,7 +57,7 @@ def spawn_interactive(identity: str, extra_args: list[str] | None = None):
     model_args = ["--model", agent.model]
 
     click.echo(f"Spawning {identity}...\n")
-    session = sessions.create_session(
+    spawn = spawns.create_spawn(
         agent_id=agent.agent_id,
         is_task=bool(passthrough),
         constitution_hash=constitution_hash,
@@ -96,7 +96,7 @@ def spawn_interactive(identity: str, extra_args: list[str] | None = None):
         try:
             proc.communicate()
         finally:
-            sessions.end_session(session.id)
+            spawns.end_spawn(spawn.id)
     else:
         import sys
 
@@ -111,7 +111,7 @@ def spawn_interactive(identity: str, extra_args: list[str] | None = None):
         try:
             proc.wait()
         finally:
-            sessions.end_session(session.id)
+            spawns.end_spawn(spawn.id)
 
 
 def spawn_headless(identity: str, task: str, channel_id: str) -> None:
@@ -149,7 +149,6 @@ def spawn_headless(identity: str, task: str, channel_id: str) -> None:
 def _spawn_headless_claude(agent, task: str, session, channel_id: str) -> None:
     """Execute headless Claude Code spawn with stream parsing and bridge posting."""
     from space.os.bridge.api import messaging
-    from space.trace.api.stream_parser import parse_stream_json
 
     provider_obj = claude
     launch_args = provider_obj.launch_args(is_task=True)
@@ -164,7 +163,7 @@ def _spawn_headless_claude(agent, task: str, session, channel_id: str) -> None:
     try:
         output = json.loads(result.stdout)
     except json.JSONDecodeError as e:
-        raise RuntimeError(f"Failed to parse Claude output: {e}")
+        raise RuntimeError(f"Failed to parse Claude output: {e}") from e
 
     claude_session_id = output.get("session_id")
     if not claude_session_id:

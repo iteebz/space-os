@@ -1,10 +1,10 @@
-"""Tests for chat sync: file copy/conversion with state tracking."""
+"""Tests for session sync: file copy/conversion with state tracking."""
 
 import json
 import tempfile
 from pathlib import Path
 
-from space.os.chats.api.sync import _gemini_json_to_jsonl
+from space.os.sessions.api.sync import _gemini_json_to_jsonl
 
 
 def test_gemini_json_to_jsonl():

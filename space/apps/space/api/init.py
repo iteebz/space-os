@@ -6,7 +6,7 @@ from pathlib import Path
 import typer
 
 from space.lib import paths, store
-from space.os import chats, spawn
+from space.os import sessions, spawn
 from space.os.spawn import defaults as spawn_defaults
 
 app = typer.Typer()
@@ -131,10 +131,10 @@ def init():
     constitutions_dir.mkdir(parents=True, exist_ok=True)
     (root / "projects").mkdir(parents=True, exist_ok=True)
 
-    chats_dir = paths.chats_dir()
-    chats_dir.mkdir(parents=True, exist_ok=True)
+    sessions_dir = paths.sessions_dir()
+    sessions_dir.mkdir(parents=True, exist_ok=True)
     for cli in ["claude", "codex", "gemini"]:
-        (chats_dir / cli).mkdir(exist_ok=True)
+        (sessions_dir / cli).mkdir(exist_ok=True)
 
     with store.ensure():
         pass
@@ -154,10 +154,10 @@ def init():
 
     from space.lib import output
 
-    typer.echo("Syncing provider chats...")
+    typer.echo("Syncing provider sessions...")
     typer.echo(f"  {'Provider':<10} {'Discovered':<12} {'Synced'}")
 
-    chats.api.sync.sync_provider_chats(on_progress=output.show_sync_progress)
+    sessions.api.sync.sync_provider_sessions(on_progress=output.show_sync_progress)
 
     _install_shortcuts()
 
@@ -174,11 +174,11 @@ def init():
     typer.echo()
     typer.echo("  ~/.space/")
     typer.echo("    ├── data/                   → runtime databases")
-    typer.echo("    └── chats/                  → chat history")
+    typer.echo("    └── sessions/               → provider session history")
     typer.echo()
     typer.echo("  ~/.space_backups/")
     typer.echo("    ├── data/                   → timestamped snapshots")
-    typer.echo("    └── chats/                  → latest backup")
+    typer.echo("    └── sessions/               → latest backup")
 
     typer.echo()
     typer.echo("Next steps:")

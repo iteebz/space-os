@@ -16,12 +16,13 @@ from .agents import (
 )
 from .launch import spawn_agent
 from .prompt import build_spawn_context
-from .sessions import (
-    create_session,
-    end_session,
-    get_session,
-    get_sessions_for_agent,
+from .spawns import (
+    create_spawn,
+    end_spawn,
+    get_spawn,
     get_spawn_count,
+    get_spawns_for_agent,
+    link_session_to_spawn,
 )
 from .tasks import complete_task, create_task, fail_task, get_task, list_tasks, start_task
 
@@ -39,10 +40,11 @@ __all__ = [
     "touch_agent",
     "build_spawn_context",
     "spawn_agent",
-    "create_session",
-    "end_session",
-    "get_session",
-    "get_sessions_for_agent",
+    "create_spawn",
+    "end_spawn",
+    "get_spawn",
+    "get_spawns_for_agent",
+    "link_session_to_spawn",
     "get_spawn_count",
     "create_task",
     "get_task",

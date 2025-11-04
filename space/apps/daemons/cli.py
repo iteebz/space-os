@@ -10,7 +10,7 @@ app = typer.Typer(invoke_without_command=True)
 
 DAEMON_TASKS = [
     ("upkeep", "Repository hygiene, memory compaction, artifact checksumming"),
-    ("sync_chats", "Discover and sync chats from claude/codex/gemini providers"),
+    ("sync_sessions", "Discover and sync sessions from claude/codex/gemini providers"),
 ]
 
 

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from space.core.models import Session, TaskStatus
+from space.core.models import Spawn, TaskStatus
 from space.os import spawn
 
 
@@ -22,28 +22,28 @@ def mock_resolve_agent():
         yield mock
 
 
-def test_create_task_returns_session(mock_db, mock_resolve_agent):
-    mock_session = Session(
+def test_create_task_returns_spawn(mock_db, mock_resolve_agent):
+    mock_spawn = Spawn(
         id="task-123",
         agent_id="agent-123",
         status=TaskStatus.PENDING,
         is_task=True,
     )
-    with patch("space.os.spawn.api.tasks.create_session", return_value=mock_session):
+    with patch("space.os.spawn.api.tasks.create_spawn", return_value=mock_spawn):
         result = spawn.create_task(identity="test-role")
-        assert result == mock_session
+        assert result == mock_spawn
         assert result.is_task is True
 
 
 def test_create_task_with_channel_id(mock_resolve_agent):
-    mock_session = Session(
+    mock_spawn = Spawn(
         id="task-123",
         agent_id="agent-123",
         status=TaskStatus.PENDING,
         is_task=True,
         channel_id="ch-123",
     )
-    with patch("space.os.spawn.api.tasks.create_session", return_value=mock_session) as mock_create:
+    with patch("space.os.spawn.api.tasks.create_spawn", return_value=mock_spawn) as mock_create:
         spawn.create_task(identity="test-role", channel_id="ch-123")
         mock_create.assert_called_once()
         call_kwargs = mock_create.call_args[1]
@@ -90,7 +90,7 @@ def test_start_task_updates_status(mock_db):
     spawn.start_task("t-1")
 
     calls = [call[0][0] for call in mock_db.execute.call_args_list]
-    assert any("UPDATE sessions SET" in call for call in calls)
+    assert any("UPDATE spawns SET" in call for call in calls)
 
 
 def test_start_task_sets_running(mock_db):
@@ -111,7 +111,7 @@ def test_complete_task_updates_status(mock_db):
     spawn.complete_task("t-1")
 
     calls = [call[0][0] for call in mock_db.execute.call_args_list]
-    assert any("UPDATE sessions SET" in call for call in calls)
+    assert any("UPDATE spawns SET" in call for call in calls)
 
 
 def test_complete_task_sets_completed(mock_db):

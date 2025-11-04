@@ -1,6 +1,6 @@
-"""Context API: search across 5 domains (bridge, memory, knowledge, canon, chats)."""
+"""Context API: search across 5 domains (bridge, memory, knowledge, canon, sessions)."""
 
-from space.os.context.api import bridge, canon, chats, knowledge, memory
+from space.os.context.api import bridge, canon, knowledge, memory, sessions
 
 
 def collect_timeline(query: str, identity: str | None, all_agents: bool) -> list[dict]:
@@ -58,7 +58,7 @@ def collect_timeline(query: str, identity: str | None, all_agents: bool) -> list
                 }
             )
 
-    for result in chats.search(query, identity, all_agents):
+    for result in sessions.search(query, identity, all_agents):
         key = (result["source"], result.get("session_id"))
         if key not in seen:
             seen.add(key)
@@ -139,7 +139,7 @@ def collect_current_state(query: str, identity: str | None, all_agents: bool) ->
             "text": r["text"],
             "reference": r["reference"],
         }
-        for r in chats.search(query, identity, all_agents)
+        for r in sessions.search(query, identity, all_agents)
     ]
 
     results["canon"] = [
@@ -170,7 +170,7 @@ __all__ = [
     "memory",
     "knowledge",
     "canon",
-    "chats",
+    "sessions",
     "collect_timeline",
     "collect_current_state",
 ]

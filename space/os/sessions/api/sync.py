@@ -1,14 +1,26 @@
-"""Chat sync: discover and copy/convert provider chats to ~/.space/chats/{provider}/"""
+"""Session sync: discover and copy/convert provider sessions to ~/.space/sessions/{provider}/"""
 
 import json
 import logging
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 
-from space.core.models import Chat
+from space.core.models import Session
 from space.lib import paths, providers, store
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ProgressEvent:
+    """Progress event with provider and counts."""
+
+    provider: str
+    discovered: int
+    synced: int
+    total_discovered: int = 0
+    total_synced: int = 0
 
 
 def _load_sync_state() -> dict:
@@ -30,7 +42,7 @@ def _save_sync_state(state: dict) -> None:
 
 
 def _count_tool_uses(content: str) -> int:
-    """Count tool_use blocks in chat content (JSONL).
+    """Count tool_use blocks in session content (JSONL).
 
     Claude/Codex format: message.content is array of blocks with 'type' field.
     """
@@ -57,7 +69,7 @@ def _count_tool_uses(content: str) -> int:
 
 
 def _extract_timestamps(content: str, provider: str) -> tuple[str | None, str | None]:
-    """Extract first and last message timestamps from chat content."""
+    """Extract first and last message timestamps from session content."""
     first_ts = None
     last_ts = None
     try:
@@ -81,10 +93,10 @@ def _extract_timestamps(content: str, provider: str) -> tuple[str | None, str | 
 
 
 def _gemini_json_to_jsonl(json_file: Path) -> str:
-    """Convert Gemini JSON chat to JSONL format.
+    """Convert Gemini JSON session to JSONL format.
 
     Args:
-        json_file: Path to Gemini JSON chat file
+        json_file: Path to Gemini JSON session file
 
     Returns:
         JSONL string (one JSON object per line)
@@ -113,92 +125,46 @@ def _gemini_json_to_jsonl(json_file: Path) -> str:
         return ""
 
 
-def _insert_chat_record(chat: Chat) -> None:
-    """Insert or update chat record in space.db."""
+def _insert_session_record(session: Session) -> None:
+    """Insert or update session record in space.db."""
     try:
         conn = store.ensure()
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT OR REPLACE INTO chats
-            (id, model, provider, file_path, message_count,
-             input_tokens, output_tokens, tools_used, first_message_at, last_message_at, session_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO sessions
+            (session_id, model, provider, file_path, message_count,
+             input_tokens, output_tokens, tool_count, first_message_at, last_message_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                chat.id,
-                chat.model,
-                chat.provider,
-                chat.file_path,
-                chat.message_count,
-                chat.input_tokens,
-                chat.output_tokens,
-                chat.tools_used,
-                chat.first_message_at,
-                chat.last_message_at,
-                chat.session_id,
-                chat.created_at or None,
+                session.session_id,
+                session.model,
+                session.provider,
+                session.file_path,
+                session.message_count,
+                session.input_tokens,
+                session.output_tokens,
+                session.tool_count,
+                session.first_message_at,
+                session.last_message_at,
             ),
         )
         conn.commit()
     except Exception as e:
-        logger.warning(f"Failed to insert chat record for {chat.id}: {e}")
+        logger.warning(f"Failed to insert session record for {session.session_id}: {e}")
 
 
-def _link_chat_to_session(chat: Chat, cli_name: str) -> None:
-    """Link chat to session based on created_at timestamp.
-
-    Finds session with matching provider and recent start time.
-    """
-    try:
-        if not chat.created_at:
-            return
-
-        conn = store.ensure()
-        cursor = conn.cursor()
-
-        cursor.execute(
-            """
-            SELECT id, created_at FROM sessions
-            WHERE status IN ('running', 'completed')
-            ORDER BY created_at DESC LIMIT 10
-            """,
-        )
-        rows = cursor.fetchall()
-        if not rows:
-            return
-
-        from datetime import datetime
-
-        chat_start = datetime.fromisoformat(chat.created_at)
-        for session_id, session_created_at in rows:
-            try:
-                session_start = datetime.fromisoformat(session_created_at)
-                if abs((chat_start - session_start).total_seconds()) < 60:
-                    cursor.execute(
-                        "UPDATE chats SET session_id = ? WHERE id = ?",
-                        (session_id, chat.id),
-                    )
-                    conn.commit()
-                    return
-            except (ValueError, TypeError):
-                continue
-    except Exception as e:
-        logger.debug(f"Failed to link chat {chat.id} to session: {e}")
-        return
-
-
-def sync_provider_chats(
+def sync_provider_sessions(
     session_id: str | None = None,
     verbose: bool = False,
     on_progress=None,
 ) -> dict[str, tuple[int, int]]:
-    """Sync chats from all providers (~/.claude, ~/.codex, ~/.gemini) to ~/.space/chats/.
+    """Sync sessions from all providers (~/.claude, ~/.codex, ~/.gemini) to ~/.space/sessions/.
 
     Converts Gemini JSON to JSONL. Only syncs if source is newer/larger than tracked state.
     Tracks by session_id + (mtime, size) to survive format changes.
-    Skips Gemini files >50MB to avoid memory bloat.
-    Links chats to tasks based on identity and timestamp proximity.
+    Skips files >10MB to avoid memory bloat and excessive storage usage.
 
     Args:
         session_id: If provided, only sync this specific session (resync mode)
@@ -208,15 +174,13 @@ def sync_provider_chats(
     Returns:
         {provider_name: (sessions_discovered, files_synced)} for each provider
     """
-    from space.lib.loader import ProgressEvent
-
     results = {}
-    chats_dir = paths.chats_dir()
-    chats_dir.mkdir(parents=True, exist_ok=True)
+    sessions_dir = paths.sessions_dir()
+    sessions_dir.mkdir(parents=True, exist_ok=True)
 
     sync_state = _load_sync_state()
     provider_map = {"claude": "Claude", "codex": "Codex", "gemini": "Gemini"}
-    size_threshold = 50 * 1024 * 1024
+    size_threshold = 10 * 1024 * 1024
     total_discovered = 0
     total_synced = 0
 
@@ -230,7 +194,7 @@ def sync_provider_chats(
                 results[cli_name] = (0, 0)
                 continue
 
-            dest_dir = chats_dir / cli_name
+            dest_dir = sessions_dir / cli_name
             dest_dir.mkdir(parents=True, exist_ok=True)
 
             synced_count = 0
@@ -258,12 +222,12 @@ def sync_provider_chats(
 
                 size_changed = file_size != tracked_size
                 should_copy = src_mtime > tracked_mtime or size_changed
-                should_skip_large = cli_name == "gemini" and file_size > size_threshold
+                should_skip_large = file_size > size_threshold
 
                 try:
                     if should_skip_large:
                         logger.info(
-                            f"Skipping {sid}: {file_size / (1024**2):.1f}MB > 50MB threshold"
+                            f"Skipping {sid}: {file_size / (1024**2):.1f}MB > 10MB threshold"
                         )
                         continue
 
@@ -299,7 +263,7 @@ def sync_provider_chats(
                                     message_count += 1
                                 except json.JSONDecodeError:
                                     pass
-                    tools_used = _count_tool_uses(content_to_parse)
+                    tool_count = _count_tool_uses(content_to_parse)
                     first_ts, last_ts = _extract_timestamps(content_to_parse, cli_name)
 
                     input_tokens, output_tokens = provider.extract_tokens(src_file)
@@ -311,21 +275,19 @@ def sync_provider_chats(
                     }
                     model = model_map.get(cli_name, cli_name)
 
-                    chat = Chat(
-                        id=sid,
+                    session_record = Session(
+                        session_id=sid,
                         model=model,
                         provider=cli_name,
                         file_path=str(dest_file),
                         message_count=message_count,
-                        tools_used=tools_used,
+                        tool_count=tool_count,
                         input_tokens=input_tokens,
                         output_tokens=output_tokens,
                         first_message_at=first_ts,
                         last_message_at=last_ts,
                     )
-                    _insert_chat_record(chat)
-
-                    _link_chat_to_session(chat, cli_name)
+                    _insert_session_record(session_record)
 
                 except (OSError, Exception) as e:
                     logger.warning(f"Failed to process {sid}: {e}")

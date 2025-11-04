@@ -1,29 +1,29 @@
 """Task operations: background spawn tracking.
 
-Tasks are sessions with is_task=True. Distinction from interactive spawns:
+Tasks are spawns with is_task=True. Distinction from interactive spawns:
 - Tasks: Background execution, started by bridge mentions or CLI, non-interactive
-- Sessions: General spawn records (both interactive and task), the data model
+- Spawns: General spawn records (both interactive and task), the data model
 - Tasks API: Convenience layer for task-specific operations (create_task, start_task, fail_task)
 
-All tasks are sessions. Not all sessions are tasks. A session is a task iff is_task=True.
+All tasks are spawns. Not all spawns are tasks. A spawn is a task iff is_task=True.
 """
 
 from datetime import datetime
 
-from space.core.models import Session, TaskStatus
+from space.core.models import Spawn, TaskStatus
 from space.lib import store
 from space.lib.store import from_row
 
 from .agents import get_agent
-from .sessions import create_session
+from .spawns import create_spawn
 
 
 def create_task(
     identity: str,
     channel_id: str | None = None,
     input: str | None = None,
-) -> Session:
-    """Create a background task session for an agent.
+) -> Spawn:
+    """Create a background task spawn for an agent.
 
     Args:
         identity: Agent identity (matches constitution)
@@ -31,29 +31,29 @@ def create_task(
         input: Task prompt/description (not persisted, used for execution)
 
     Returns:
-        Session object
+        Spawn object
     """
     agent = get_agent(identity)
     if not agent:
         raise ValueError(f"Agent '{identity}' not found")
 
-    return create_session(
+    return create_spawn(
         agent_id=agent.agent_id,
         is_task=True,
         channel_id=channel_id,
     )
 
 
-def get_task(task_id: str) -> Session | None:
-    """Get a task session by ID."""
+def get_task(task_id: str) -> Spawn | None:
+    """Get a task spawn by ID."""
     with store.ensure() as conn:
         row = conn.execute(
-            "SELECT * FROM sessions WHERE id = ?",
+            "SELECT * FROM spawns WHERE id = ?",
             (task_id,),
         ).fetchone()
         if not row:
             return None
-        return from_row(row, Session)
+        return from_row(row, Spawn)
 
 
 def start_task(task_id: str, pid: int | None = None) -> None:
@@ -64,7 +64,7 @@ def start_task(task_id: str, pid: int | None = None) -> None:
         updates.append("pid = ?")
         params.append(pid)
     params.append(task_id)
-    query = f"UPDATE sessions SET {', '.join(updates)} WHERE id = ?"
+    query = f"UPDATE spawns SET {', '.join(updates)} WHERE id = ?"
     with store.ensure() as conn:
         conn.execute(query, params)
 
@@ -74,7 +74,7 @@ def complete_task(task_id: str) -> None:
     now_iso = datetime.now().isoformat()
     with store.ensure() as conn:
         conn.execute(
-            "UPDATE sessions SET status = ?, ended_at = ? WHERE id = ?",
+            "UPDATE spawns SET status = ?, ended_at = ? WHERE id = ?",
             (TaskStatus.COMPLETED.value, now_iso, task_id),
         )
 
@@ -84,7 +84,7 @@ def fail_task(task_id: str) -> None:
     now_iso = datetime.now().isoformat()
     with store.ensure() as conn:
         conn.execute(
-            "UPDATE sessions SET status = ?, ended_at = ? WHERE id = ?",
+            "UPDATE spawns SET status = ?, ended_at = ? WHERE id = ?",
             (TaskStatus.FAILED.value, now_iso, task_id),
         )
 
@@ -93,9 +93,9 @@ def list_tasks(
     status: str | None = None,
     identity: str | None = None,
     channel_id: str | None = None,
-) -> list[Session]:
-    """List background task sessions with optional filters."""
-    query = "SELECT * FROM sessions WHERE is_task = 1"
+) -> list[Spawn]:
+    """List background task spawns with optional filters."""
+    query = "SELECT * FROM spawns WHERE is_task = 1"
     params = []
 
     if status is not None:
@@ -117,4 +117,4 @@ def list_tasks(
 
     with store.ensure() as conn:
         rows = conn.execute(query, params).fetchall()
-        return [from_row(row, Session) for row in rows]
+        return [from_row(row, Spawn) for row in rows]

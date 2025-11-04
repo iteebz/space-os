@@ -1,4 +1,4 @@
-"""Chat operations: query and stats."""
+"""Session operations: query and stats."""
 
 import contextlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -8,12 +8,12 @@ from space.lib import paths, providers, store
 
 
 def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[dict]:
-    """Search provider chat logs directly (stateless, ephemeral discovery)."""
+    """Search provider session logs directly (stateless, ephemeral discovery)."""
     results = []
     query_lower = query.lower()
 
     def _discover_and_search_provider(cli_name: str) -> list[dict]:
-        """Discover and search a single provider's chats."""
+        """Discover and search a single provider's sessions."""
         provider_results = []
         try:
             provider = getattr(providers, cli_name)()
@@ -33,14 +33,14 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
                         if query_lower in content.lower():
                             provider_results.append(
                                 {
-                                    "source": "provider-chats",
+                                    "source": "provider-sessions",
                                     "cli": cli_name,
                                     "session_id": session_id,
                                     "identity": None,
                                     "role": msg.get("role"),
                                     "text": content,
                                     "timestamp": msg.get("timestamp"),
-                                    "reference": f"provider-chats:{cli_name}:{session_id}",
+                                    "reference": f"provider-sessions:{cli_name}:{session_id}",
                                 }
                             )
                 except Exception:
@@ -64,18 +64,18 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
 
 
 def get_provider_stats() -> dict[str, dict]:
-    """Get chat statistics across all providers.
+    """Get session statistics across all providers.
 
     Returns:
         {provider_name: {"files": int, "size_mb": float}} for each provider
     """
-    chats_dir = paths.chats_dir()
+    sessions_dir = paths.sessions_dir()
     stats = {}
 
-    if not chats_dir.exists():
+    if not sessions_dir.exists():
         return stats
 
-    for provider_dir in chats_dir.iterdir():
+    for provider_dir in sessions_dir.iterdir():
         if not provider_dir.is_dir():
             continue
 
@@ -94,51 +94,36 @@ def get_provider_stats() -> dict[str, dict]:
 
 
 def get_stats() -> dict:
-    """Get chat statistics from chats table.
+    """Get session statistics from sessions table.
 
-    Returns aggregated chat metrics by provider and agent.
+    Returns aggregated session metrics by provider and agent.
     """
     with store.ensure() as conn:
-        total_chats = conn.execute("SELECT COUNT(*) FROM chats").fetchone()[0]
+        total_sessions = conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
         totals = conn.execute(
-            "SELECT COALESCE(SUM(message_count), 0), COALESCE(SUM(tools_used), 0), "
-            "COALESCE(SUM(input_tokens), 0), COALESCE(SUM(output_tokens), 0) FROM chats"
+            "SELECT COALESCE(SUM(message_count), 0), COALESCE(SUM(tool_count), 0), "
+            "COALESCE(SUM(input_tokens), 0), COALESCE(SUM(output_tokens), 0) FROM sessions"
         ).fetchone()
 
         by_provider = conn.execute(
             "SELECT provider, COUNT(*), COALESCE(SUM(message_count), 0), "
-            "COALESCE(SUM(tools_used), 0), COALESCE(SUM(input_tokens), 0), "
-            "COALESCE(SUM(output_tokens), 0) FROM chats GROUP BY provider"
-        ).fetchall()
-
-        by_agent = conn.execute(
-            "SELECT a.identity, COUNT(c.id), COALESCE(SUM(c.message_count), 0), "
-            "COALESCE(SUM(c.tools_used), 0), COALESCE(SUM(c.input_tokens), 0), "
-            "COALESCE(SUM(c.output_tokens), 0) FROM agents a LEFT JOIN chats c ON "
-            "c.session_id IN (SELECT id FROM sessions WHERE agent_id = a.agent_id) "
-            "GROUP BY a.agent_id ORDER BY COALESCE(SUM(c.message_count), 0) DESC"
+            "COALESCE(SUM(tool_count), 0), COALESCE(SUM(input_tokens), 0), "
+            "COALESCE(SUM(output_tokens), 0) FROM sessions GROUP BY provider"
         ).fetchall()
 
     def to_dict(row, keys):
         return {k: row[i] for i, k in enumerate(keys)}
 
     return {
-        "total_chats": total_chats,
+        "total_sessions": total_sessions,
         "total_messages": totals[0],
         "total_tools_used": totals[1],
         "total_input_tokens": totals[2],
         "total_output_tokens": totals[3],
         "by_provider": {
             row[0]: to_dict(
-                row[1:], ["chats", "messages", "tools_used", "input_tokens", "output_tokens"]
+                row[1:], ["sessions", "messages", "tool_count", "input_tokens", "output_tokens"]
             )
             for row in by_provider
         },
-        "by_agent": [
-            to_dict(
-                row,
-                ["identity", "chats", "messages", "tools_used", "input_tokens", "output_tokens"],
-            )
-            for row in by_agent
-        ],
     }

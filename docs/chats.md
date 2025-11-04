@@ -80,6 +80,13 @@ See `PROVIDER_CHAT_STORAGE.md` for full audit.
 | Codex | 692 files | ~1500 | 82 MB | JSONL | Date-partitioned; includes tool metadata |
 | Gemini | 742 unique | 31,676 | 964 MB | JSON | 78% in one project (100MB+ message dumps) |
 
+### Size Filtering (2025-11-04)
+
+**Implemented:** Universal 10MB per-chat size limit across all providers.
+- Prevents memory bloat from oversized sessions
+- Skips chats >10MB during sync with informational logging
+- Applies uniformly to Claude, Codex, and Gemini (previously Gemini-only at 50MB)
+
 ### Key Discoveries
 
 1. **Gemini tmp/ is permanent** — goes back to July; no auto-cleanup

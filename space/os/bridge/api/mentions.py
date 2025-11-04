@@ -3,10 +3,8 @@
 import logging
 import re
 
-from space.lib import paths
 from space.os.spawn.api import agents as spawn_agents
 from space.os.spawn.api.launch import spawn_headless
-from space.os.spawn.api.tasks import complete_task, create_task, fail_task, start_task
 
 log = logging.getLogger(__name__)
 
@@ -16,8 +14,6 @@ def _parse_mentions(content: str) -> list[str]:
     pattern = r"@([\w-]+)"
     matches = re.findall(pattern, content)
     return list(set(matches))
-
-
 
 
 def spawn_from_mentions(channel_id: str, content: str, agent_id: str | None = None) -> None:

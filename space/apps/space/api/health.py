@@ -11,11 +11,11 @@ DB_NAME = "space.db"
 EXPECTED_TABLES = {
     "agents",
     "sessions",
+    "spawns",
     "channels",
     "messages",
     "memories",
     "knowledge",
-    "chats",
 }
 IGNORED_TABLES = {"sqlite_sequence", "_migrations"}
 
