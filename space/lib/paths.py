@@ -9,10 +9,6 @@ def dot_space() -> Path:
     return Path.home() / ".space"
 
 
-def space_data() -> Path:
-    return dot_space() / "data"
-
-
 def package_root() -> Path:
     return Path(__file__).resolve().parent.parent
 

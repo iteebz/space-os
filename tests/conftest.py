@@ -10,16 +10,15 @@ from space.os.spawn import defaults as spawn_defaults
 
 
 def _configure_paths(monkeypatch: pytest.MonkeyPatch, workspace: Path, test_name: str) -> None:
-    data_dir = workspace / test_name / ".space" / "data"
-    data_dir.mkdir(parents=True, exist_ok=True)
+    dot_space_dir = workspace / test_name / ".space"
+    dot_space_dir.mkdir(parents=True, exist_ok=True)
 
-    db_path = data_dir / "space.db"
+    db_path = dot_space_dir / "space.db"
     if db_path.exists():
         db_path.unlink()
 
     monkeypatch.setattr(paths, "space_root", lambda: workspace)
-    monkeypatch.setattr(paths, "dot_space", lambda: workspace / ".space")
-    monkeypatch.setattr(paths, "space_data", lambda: data_dir)
+    monkeypatch.setattr(paths, "dot_space", lambda: dot_space_dir)
 
 
 @pytest.fixture
@@ -28,16 +27,15 @@ def test_space(monkeypatch, tmp_path, request):
     workspace.mkdir()
     (workspace / "AGENTS.md").write_text("test workspace")
 
-    data_dir = workspace / ".space" / "data"
-    data_dir.mkdir(parents=True, exist_ok=True)
+    dot_space_dir = workspace / ".space"
+    dot_space_dir.mkdir(parents=True, exist_ok=True)
 
-    db_path = data_dir / "space.db"
+    db_path = dot_space_dir / "space.db"
     if db_path.exists():
         db_path.unlink()
 
     monkeypatch.setattr(paths, "space_root", lambda: workspace)
-    monkeypatch.setattr(paths, "dot_space", lambda: workspace / ".space")
-    monkeypatch.setattr(paths, "space_data", lambda: data_dir)
+    monkeypatch.setattr(paths, "dot_space", lambda: dot_space_dir)
 
     store._reset_for_testing()
     with store.ensure():

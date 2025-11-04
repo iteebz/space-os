@@ -45,23 +45,41 @@ def sync_cmd():
 
     from space.lib.spinner import Spinner
 
-    spinner = Spinner()
-    last_count = -1
+    typer.echo()
+
+    sync_spinner = Spinner()
+    index_spinner = None
+    last_sync_count = -1
+    last_index_count = -1
+    sync_done = False
 
     def on_progress(event):
-        nonlocal last_count
-        count = event.total_synced
-        if count != last_count:
-            last_count = count
-            spinner.update(f"Processing {count} files...")
+        nonlocal last_sync_count, last_index_count, sync_done, index_spinner
+        if event.phase == "sync":
+            count = event.total_synced
+            if count != last_sync_count:
+                last_sync_count = count
+                sync_spinner.update(f"Syncing {count} files...")
+        elif event.phase == "index":
+            if not sync_done:
+                sync_spinner.finish(f"Synced {last_sync_count} files")
+                sync_done = True
+                index_spinner = Spinner()
+            count = event.indexed
+            if count != last_index_count:
+                last_index_count = count
+                index_spinner.update(f"Indexing {count} files...")
 
     api.sync.sync_all(on_progress=on_progress)
 
+    if index_spinner:
+        index_spinner.finish(f"Indexed {last_index_count} files")
+    elif not sync_done:
+        sync_spinner.finish(f"Synced {last_sync_count} files")
+
     after = {p: count_files(p) for p in ["claude", "codex", "gemini"]}
 
-    total_count = sum(after.values())
-
-    spinner.finish(f"Processed {total_count} files")
+    sum(after.values())
 
     typer.echo("\nSession files in ~/.space/sessions:")
     typer.echo(f"{'Provider':<10} {'Before':<8} {'After':<8} {'Added'}")

@@ -125,7 +125,6 @@ def init():
     """Initialize space workspace structure and databases."""
     root = paths.space_root()
 
-    paths.space_data().mkdir(parents=True, exist_ok=True)
     paths.canon_path().mkdir(parents=True, exist_ok=True)
     constitutions_dir = paths.canon_path() / "constitutions"
     constitutions_dir.mkdir(parents=True, exist_ok=True)
@@ -173,7 +172,7 @@ def init():
             typer.echo(f"            ├── {const_file}")
     typer.echo()
     typer.echo("  ~/.space/")
-    typer.echo("    ├── data/                   → runtime databases")
+    typer.echo("    ├── sync.json               → session sync state")
     typer.echo("    └── sessions/               → provider session history")
     typer.echo()
     typer.echo("  ~/.space_backups/")

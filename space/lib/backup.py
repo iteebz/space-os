@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import os
 import shutil
@@ -21,18 +22,27 @@ def callback(ctx: typer.Context):
 
 
 def _backup_data_snapshot(timestamp: str, quiet_output: bool) -> dict:
-    src = paths.space_data()
+    src = paths.dot_space()
     if not src.exists():
         if not quiet_output:
-            typer.echo("No data directory found")
+            typer.echo("No .space directory found")
         return {}
 
     backup_path = paths.backup_snapshot(timestamp)
     backup_path.parent.mkdir(parents=True, exist_ok=True)
+    backup_path.mkdir(parents=True, exist_ok=True)
 
-    store.close_all()
-    store.resolve(src)
-    shutil.copytree(src, backup_path, dirs_exist_ok=False)
+    with contextlib.suppress(Exception):
+        store.close_all()
+
+    for db_file in src.glob("*.db"):
+        try:
+            with sqlite3.connect(db_file) as conn:
+                conn.execute("PRAGMA wal_checkpoint(RESTART)")
+        except sqlite3.DatabaseError:
+            pass
+        shutil.copy2(db_file, backup_path / db_file.name)
+
     os.chmod(backup_path, 0o555)
 
     return _get_backup_stats(backup_path)

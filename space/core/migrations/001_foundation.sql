@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     output_tokens INTEGER DEFAULT 0,
     tool_count INTEGER DEFAULT 0,
     source_path TEXT,
+    source_mtime REAL,
+    source_size INTEGER,
     first_message_at TEXT,
     last_message_at TEXT
 );

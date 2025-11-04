@@ -40,10 +40,12 @@ class Codex(Provider):
             return sessions
 
         for jsonl in Codex.SESSIONS_DIR.rglob("*.jsonl"):
+            stem = jsonl.stem
+            sid = stem.split("-", 1)[-1] if "-" in stem else stem
             sessions.append(
                 {
                     "cli": "codex",
-                    "session_id": jsonl.stem,
+                    "session_id": sid,
                     "file_path": str(jsonl),
                     "created_at": jsonl.stat().st_ctime,
                 }

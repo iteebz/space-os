@@ -217,11 +217,7 @@ def test_merge_agents_updates_all_dbs(mock_db):
     )
     with patch("space.os.spawn.api.agents.get_agent") as mock_get_agent:
         mock_get_agent.side_effect = [mock_from, mock_to]
-        with patch("space.lib.paths.space_data") as mock_paths:
-            from pathlib import Path
-
-            mock_paths.return_value = Path("/tmp")
-            result = spawn.merge_agents("from", "to")
+        result = spawn.merge_agents("from", "to")
 
     assert result is True
 

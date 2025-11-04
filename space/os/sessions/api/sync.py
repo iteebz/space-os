@@ -21,24 +21,9 @@ class ProgressEvent:
     synced: int
     total_discovered: int = 0
     total_synced: int = 0
-
-
-def _load_sync_state() -> dict:
-    """Load sync state tracking {provider}_{session_id}: {mtime, size}."""
-    state_file = paths.space_data() / "sync_state.json"
-    if not state_file.exists():
-        return {}
-    try:
-        return json.loads(state_file.read_text())
-    except (OSError, json.JSONDecodeError):
-        return {}
-
-
-def _save_sync_state(state: dict) -> None:
-    """Save sync state tracking."""
-    state_file = paths.space_data() / "sync_state.json"
-    paths.space_data().mkdir(parents=True, exist_ok=True)
-    state_file.write_text(json.dumps(state, indent=2))
+    phase: str = "sync"
+    indexed: int = 0
+    total_indexed: int = 0
 
 
 def _count_tool_uses(content: str) -> int:
@@ -202,7 +187,89 @@ def _index_transcripts(session_id: str, provider: str, content: str) -> int:
     return indexed_count
 
 
-def _insert_session_record(session: Session) -> None:
+def _index_all_sessions(sessions_dir: Path, on_progress=None) -> None:
+    """Index ALL JSONL files in ~/.space/sessions/ into sessions + transcripts tables.
+
+    Scans all provider subdirectories and indexes every JSONL file found.
+    ~/.space/sessions/ is source of truth. Manual files get indexed too.
+    """
+    if not sessions_dir.exists():
+        return
+
+    total_indexed = 0
+
+    for provider_dir in sessions_dir.iterdir():
+        if not provider_dir.is_dir():
+            continue
+
+        provider = provider_dir.name
+        if provider not in ("claude", "codex", "gemini"):
+            continue
+
+        for jsonl_file in provider_dir.glob("*.jsonl"):
+            session_id = jsonl_file.stem
+            if not session_id:
+                continue
+
+            try:
+                content = jsonl_file.read_text()
+                if not content.strip():
+                    continue
+
+                message_count = 0
+                for line in content.split("\n"):
+                    if line.strip():
+                        try:
+                            json.loads(line)
+                            message_count += 1
+                        except json.JSONDecodeError:
+                            pass
+
+                tool_count = _count_tool_uses(content)
+                first_ts, last_ts = _extract_timestamps(content, provider)
+
+                model_map = {
+                    "claude": "claude-opus-4",
+                    "codex": "gpt-5",
+                    "gemini": "gemini-2.0",
+                }
+                model = model_map.get(provider, provider)
+
+                session_record = Session(
+                    session_id=session_id,
+                    model=model,
+                    provider=provider,
+                    message_count=message_count,
+                    tool_count=tool_count,
+                    input_tokens=None,
+                    output_tokens=None,
+                    source_path=str(jsonl_file),
+                    first_message_at=first_ts,
+                    last_message_at=last_ts,
+                )
+                mtime = jsonl_file.stat().st_mtime
+                size = jsonl_file.stat().st_size
+                _insert_session_record(session_record, mtime, size)
+                _index_transcripts(session_id, provider, content)
+
+                total_indexed += 1
+                if on_progress:
+                    event = ProgressEvent(
+                        provider=provider,
+                        discovered=0,
+                        synced=0,
+                        phase="index",
+                        indexed=total_indexed,
+                    )
+                    on_progress(event)
+
+            except Exception as e:
+                logger.warning(f"Failed to index {jsonl_file}: {e}")
+
+
+def _insert_session_record(
+    session: Session, source_mtime: float | None = None, source_size: int | None = None
+) -> None:
     """Insert or update session record in space.db."""
     try:
         conn = store.ensure()
@@ -211,8 +278,8 @@ def _insert_session_record(session: Session) -> None:
             """
             INSERT OR REPLACE INTO sessions
             (session_id, model, provider, message_count,
-             input_tokens, output_tokens, tool_count, source_path, first_message_at, last_message_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             input_tokens, output_tokens, tool_count, source_path, source_mtime, source_size, first_message_at, last_message_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 session.session_id,
@@ -223,6 +290,8 @@ def _insert_session_record(session: Session) -> None:
                 session.output_tokens,
                 session.tool_count,
                 session.source_path,
+                source_mtime,
+                source_size,
                 session.first_message_at,
                 session.last_message_at,
             ),
@@ -237,11 +306,13 @@ def sync_provider_sessions(
     verbose: bool = False,
     on_progress=None,
 ) -> dict[str, tuple[int, int]]:
-    """Sync sessions from all providers (~/.claude, ~/.codex, ~/.gemini) to ~/.space/sessions/.
+    """Sync sessions from all providers to ~/.space/sessions/, then index all JSONL files into DB.
 
-    Converts Gemini JSON to JSONL. Only syncs if source is newer/larger than tracked state.
-    Tracks by session_id + (mtime, size) to survive format changes.
-    Skips files >10MB to avoid memory bloat and excessive storage usage.
+    Step 1: Discover and copy from source providers (~/.claude, ~/.codex, ~/.gemini)
+            Converts Gemini JSON to JSONL. Tracks source_mtime/source_size to avoid re-copying.
+
+    Step 2: Index ALL JSONL files in ~/.space/sessions/ into sessions + transcripts tables.
+            ~/.space/sessions/ is source of truth. Manual files get indexed too.
 
     Args:
         session_id: If provided, only sync this specific session (resync mode)
@@ -255,7 +326,6 @@ def sync_provider_sessions(
     sessions_dir = paths.sessions_dir()
     sessions_dir.mkdir(parents=True, exist_ok=True)
 
-    sync_state = _load_sync_state()
     provider_map = {"claude": "Claude", "codex": "Codex", "gemini": "Gemini"}
     size_threshold = 10 * 1024 * 1024
 
@@ -300,17 +370,22 @@ def sync_provider_sessions(
                     )
                     on_progress(event)
 
-                state_key = f"{cli_name}_{sid}"
                 src_mtime = src_file.stat().st_mtime
                 file_size = src_file.stat().st_size
 
-                tracked_entry = sync_state.get(state_key, {})
-                if isinstance(tracked_entry, (int, float)):
-                    tracked_mtime = tracked_entry
+                try:
+                    with store.ensure() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute(
+                            "SELECT source_mtime, source_size FROM sessions WHERE session_id = ?",
+                            (sid,),
+                        )
+                        row = cursor.fetchone()
+                        tracked_mtime = row[0] if row and row[0] else 0
+                        tracked_size = row[1] if row and row[1] else 0
+                except Exception:
+                    tracked_mtime = 0
                     tracked_size = 0
-                else:
-                    tracked_mtime = tracked_entry.get("mtime", 0)
-                    tracked_size = tracked_entry.get("size", 0)
 
                 size_changed = file_size != tracked_size
                 should_copy = src_mtime > tracked_mtime or size_changed
@@ -324,63 +399,17 @@ def sync_provider_sessions(
                         continue
 
                     dest_file = dest_dir / f"{sid}.jsonl"
-                    content_to_parse = None
 
                     if should_copy:
                         if cli_name == "gemini":
                             jsonl_content = _to_jsonl(src_file)
                             dest_file.parent.mkdir(parents=True, exist_ok=True)
                             dest_file.write_text(jsonl_content)
-                            content_to_parse = jsonl_content
                         else:
                             dest_file.parent.mkdir(parents=True, exist_ok=True)
                             shutil.copy2(src_file, dest_file)
-                            content_to_parse = dest_file.read_text()
 
-                        sync_state[state_key] = {"mtime": src_mtime, "size": file_size}
                         synced_count += 1
-                    else:
-                        if not dest_file.exists():
-                            continue
-                        content_to_parse = dest_file.read_text()
-
-                    message_count = 0
-                    if content_to_parse:
-                        for line in content_to_parse.split("\n"):
-                            if line.strip():
-                                try:
-                                    json.loads(line)
-                                    message_count += 1
-                                except json.JSONDecodeError:
-                                    pass
-                    tool_count = _count_tool_uses(content_to_parse)
-                    first_ts, last_ts = _extract_timestamps(content_to_parse, cli_name)
-
-                    input_tokens, output_tokens = provider.extract_tokens(src_file)
-
-                    model_map = {
-                        "claude": "claude-opus-4",
-                        "codex": "gpt-5",
-                        "gemini": "gemini-2.0",
-                    }
-                    model = model_map.get(cli_name, cli_name)
-
-                    session_record = Session(
-                        session_id=sid,
-                        model=model,
-                        provider=cli_name,
-                        message_count=message_count,
-                        tool_count=tool_count,
-                        input_tokens=input_tokens,
-                        output_tokens=output_tokens,
-                        source_path=str(src_file),
-                        first_message_at=first_ts,
-                        last_message_at=last_ts,
-                    )
-                    _insert_session_record(session_record)
-
-                    if content_to_parse:
-                        _index_transcripts(sid, cli_name, content_to_parse)
 
                 except (OSError, Exception) as e:
                     logger.warning(f"Failed to process {sid}: {e}")
@@ -392,7 +421,7 @@ def sync_provider_sessions(
             logger.warning(f"Error syncing {cli_name}: {e}")
             results[cli_name] = (0, 0)
 
-    _save_sync_state(sync_state)
+    _index_all_sessions(sessions_dir, on_progress=on_progress)
     return results
 
 
