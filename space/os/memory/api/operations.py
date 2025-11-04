@@ -149,7 +149,7 @@ def find_related_memories(
     entry: Memory, limit: int = 5, show_all: bool = False
 ) -> list[tuple[Memory, int]]:
     """Find memories related by keyword similarity."""
-    from space.lib.text_utils import stopwords
+    from space.lib.stopwords import stopwords
 
     tokens = set(entry.message.lower().split())
     if entry.topic:

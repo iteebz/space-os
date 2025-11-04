@@ -6,6 +6,14 @@ from space.core.models import Canon
 from space.lib.paths import canon_path
 
 
+def _normalize_path(path_str: str) -> str:
+    """Normalize file path: cross-platform + remove .md extension."""
+    path_str = path_str.replace("\\", "/")
+    if path_str.endswith(".md"):
+        path_str = path_str[:-3]
+    return path_str
+
+
 def get_canon_entries() -> dict:
     """Get all canon markdown files organized hierarchically."""
     canon_root = canon_path()
@@ -15,8 +23,7 @@ def get_canon_entries() -> dict:
     tree = {}
     for md_file in canon_root.rglob("*.md"):
         rel_path = md_file.relative_to(canon_root)
-        path_str = str(rel_path).replace("\\", "/")
-        path_str = path_str[:-3] if path_str.endswith(".md") else path_str
+        path_str = _normalize_path(str(rel_path))
 
         parts = path_str.split("/")
         current = tree
@@ -52,9 +59,7 @@ def read_canon(path: str) -> Canon | None:
 
     try:
         rel_path = file_path.relative_to(canon_root)
-        path_str = str(rel_path).replace("\\", "/")
-        if path_str.endswith(".md"):
-            path_str = path_str[:-3]
+        path_str = _normalize_path(str(rel_path))
 
         with open(file_path) as f:
             content = f.read()
@@ -93,7 +98,7 @@ def search(
     query_lower = query.lower()
     path_matches = []
     content_matches = []
-    
+
     for md_file in canon_root.rglob("*.md"):
         try:
             content = md_file.read_text()
@@ -102,10 +107,10 @@ def search(
 
         relative_path = md_file.relative_to(canon_root)
         path_str = str(relative_path).lower()
-        
+
         path_match = query_lower in path_str
         content_match = query_lower in content.lower()
-        
+
         if not (path_match or content_match):
             continue
 
@@ -119,7 +124,7 @@ def search(
             "content": truncated_content,
             "reference": f"canon:{relative_path}",
         }
-        
+
         if path_match:
             path_matches.append(result)
         else:

@@ -66,7 +66,6 @@ def init_default_agents():
     if not constitution_files:
         return
 
-    db.register()
     with store.ensure():
         with contextlib.suppress(ValueError):
             spawn.register_agent("human", "human", None)

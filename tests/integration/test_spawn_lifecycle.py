@@ -12,14 +12,14 @@ from space.os.spawn.api import spawns
 def test_create_task_with_channel(test_space, default_agents):
     """Task creation with channel stores both agent and channel references."""
     channel = bridge.create_channel("investigation-channel")
-    zealot_id = default_agents["zealot"]
-    agent = spawn.get_agent(zealot_id)
+    zealot_agent_id = default_agents["zealot"]
+    agent = spawn.get_agent(zealot_agent_id)
 
     task = spawns.create_spawn(agent_id=agent.agent_id, is_task=True, channel_id=channel.channel_id)
 
     assert task.channel_id == channel.channel_id
     assert task.agent_id is not None
-    assert spawn.get_agent(task.agent_id).identity == zealot_id
+    assert spawn.get_agent(task.agent_id).identity == "zealot"
 
 
 def test_tasks_in_same_channel(test_space, default_agents):
@@ -42,9 +42,9 @@ def test_tasks_in_same_channel(test_space, default_agents):
     assert t2.channel_id == channel.channel_id
     assert t3.channel_id == channel.channel_id
 
-    assert spawn.get_agent(t1.agent_id).identity == default_agents["zealot"]
-    assert spawn.get_agent(t2.agent_id).identity == default_agents["sentinel"]
-    assert spawn.get_agent(t3.agent_id).identity == default_agents["zealot"]
+    assert spawn.get_agent(t1.agent_id).identity == "zealot"
+    assert spawn.get_agent(t2.agent_id).identity == "sentinel"
+    assert spawn.get_agent(t3.agent_id).identity == "zealot"
 
 
 def test_channel_isolation(test_space, default_agents):

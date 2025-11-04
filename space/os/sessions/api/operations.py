@@ -3,7 +3,7 @@
 import logging
 
 from space.core.models import SessionStats
-from space.lib import paths, store
+from space.lib import store
 
 logger = logging.getLogger(__name__)
 
@@ -67,36 +67,6 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
     return results[:50]
 
 
-def get_provider_stats() -> dict[str, dict]:
-    """Get session statistics across all providers.
-
-    Returns:
-        {provider_name: {"files": int, "size_mb": float}} for each provider
-    """
-    sessions_dir = paths.sessions_dir()
-    stats = {}
-
-    if not sessions_dir.exists():
-        return stats
-
-    for provider_dir in sessions_dir.iterdir():
-        if not provider_dir.is_dir():
-            continue
-
-        provider_name = provider_dir.name
-        files = list(provider_dir.rglob("*"))
-        file_count = sum(1 for f in files if f.is_file())
-        size_bytes = sum(f.stat().st_size for f in files if f.is_file())
-        size_mb = size_bytes / (1024 * 1024)
-
-        stats[provider_name] = {
-            "files": file_count,
-            "size_mb": size_mb,
-        }
-
-    return stats
-
-
 def get_stats() -> dict:
     """Get session statistics from sessions table.
 
@@ -136,7 +106,6 @@ def get_stats() -> dict:
 def stats() -> SessionStats:
     """Get unified session statistics."""
     stats_dict = get_stats()
-    get_provider_stats()
 
     return SessionStats(
         available=True,

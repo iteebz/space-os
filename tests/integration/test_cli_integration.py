@@ -9,13 +9,13 @@ runner = CliRunner()
 # === SPAWN CLI ===
 def test_spawn_list_agents(test_space, default_agents):
     """Listing agents via CLI."""
-    zealot_id = default_agents["zealot"]
     spawn.register_agent("agent-2", "claude-haiku-4-5", "a.md")
 
     result = runner.invoke(spawn.app, ["agents"])
     assert result.exit_code == 0
-    assert zealot_id in result.stdout
+    assert "zealot" in result.stdout
     assert "agent-2" in result.stdout
+    assert "Total: 4" in result.stdout
 
 
 def test_spawn_merge_agents(test_space, default_agents):
@@ -75,12 +75,6 @@ def test_spawn_rename_agent(test_space, default_agents):
 # === BRIDGE CLI ===
 def test_bridge_list_channels(test_space):
     """Listing channels via bridge CLI."""
-    result = runner.invoke(bridge.app, ["channels"])
-    assert result.exit_code == 0
-
-
-def test_bridge_channels_list(test_space):
-    """Listing channels via bridge channels subcommand."""
     result = runner.invoke(bridge.app, ["channels"])
     assert result.exit_code == 0
 

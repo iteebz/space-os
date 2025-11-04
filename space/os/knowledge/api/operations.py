@@ -92,7 +92,7 @@ def get_knowledge(entry_id: str) -> Knowledge | None:
 def find_related_knowledge(
     entry: Knowledge, limit: int = 5, show_all: bool = False
 ) -> list[tuple[Knowledge, int]]:
-    from space.lib.text_utils import stopwords
+    from space.lib.stopwords import stopwords
 
     tokens = set(entry.content.lower().split()) | set(entry.domain.lower().split())
     keywords = {t.strip(".,;:!?()[]{}") for t in tokens if len(t) > 3 and t not in stopwords}

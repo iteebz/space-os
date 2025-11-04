@@ -9,7 +9,7 @@ from space.os.sessions.api import operations, sync
 class TestIndexTranscripts:
     """_index_transcripts() contract: parse JSONL, filter role, convert timestamps."""
 
-    def test_filters_role_and_converts_timestamps(self):
+    def test_filters_role_and_converts_timestamps(self, test_space):
         """Only user/assistant indexed. ISO8601 → unix epoch."""
         sid = "test-idx-role-ts"
         with store.ensure() as conn:
@@ -51,7 +51,7 @@ class TestIndexTranscripts:
             conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
             conn.commit()
 
-    def test_handles_content_arrays(self):
+    def test_handles_content_arrays(self, test_space):
         """Text arrays joined properly."""
         sid = "test-arrays"
         with store.ensure() as conn:
@@ -88,7 +88,7 @@ class TestIndexTranscripts:
             conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
             conn.commit()
 
-    def test_skips_empty_and_malformed(self):
+    def test_skips_empty_and_malformed(self, test_space):
         """Empty content and malformed JSON gracefully handled."""
         sid = "test-empty-malformed"
         with store.ensure() as conn:
@@ -123,7 +123,7 @@ class TestIndexTranscripts:
 class TestSearch:
     """search() boundary: FTS5 query execution, result shape."""
 
-    def test_search_returns_correct_shape(self):
+    def test_search_returns_correct_shape(self, test_space):
         """Result has: source, cli, session_id, role, text, timestamp, reference."""
         sid = "test-shape-xyz"
         with store.ensure() as conn:
@@ -157,7 +157,7 @@ class TestSearch:
             conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
             conn.commit()
 
-    def test_search_fts5_syntax(self):
+    def test_search_fts5_syntax(self, test_space):
         """FTS5 phrase and boolean queries work."""
         sid = "test-fts-syntax-unique-123"
         with store.ensure() as conn:
@@ -172,7 +172,14 @@ class TestSearch:
                 INSERT INTO transcripts (session_id, message_index, provider, role, content, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?)
             """,
-                (sid, 0, "claude", "user", "constitutional diversity governance unique", 1698900000),
+                (
+                    sid,
+                    0,
+                    "claude",
+                    "user",
+                    "constitutional diversity governance unique",
+                    1698900000,
+                ),
             )
             conn.execute(
                 """
@@ -205,7 +212,7 @@ class TestSearch:
 class TestIntegration:
     """sync→index→search→context chain."""
 
-    def test_sync_indexes_and_search_finds(self):
+    def test_sync_indexes_and_search_finds(self, test_space):
         """Transcripts indexed after sync, search returns results."""
         sid = "test-chain-integration"
         with store.ensure() as conn:
@@ -248,7 +255,7 @@ class TestIntegration:
             conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
             conn.commit()
 
-    def test_fts5_triggers_keep_index_in_sync(self):
+    def test_fts5_triggers_keep_index_in_sync(self, test_space):
         """INSERT/DELETE auto-triggers FTS5 updates."""
         sid = "test-triggers"
         with store.ensure() as conn:
@@ -280,7 +287,7 @@ class TestIntegration:
             conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
             conn.commit()
 
-    def test_context_includes_sessions(self):
+    def test_context_includes_sessions(self, test_space):
         """Context search includes session results."""
         from space.apps.context.api import collect_current_state
 

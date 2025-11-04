@@ -1,16 +1,10 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from space.core.models import Agent
 from space.os import spawn
-
-
-def make_mock_row(data):
-    row = MagicMock()
-    row.__getitem__ = lambda self, key: data[key]
-    row.keys = lambda: data.keys()
-    return row
+from tests.conftest import make_mock_row
 
 
 def test_get_agent_finds_by_identity(mock_db):

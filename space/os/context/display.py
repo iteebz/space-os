@@ -38,14 +38,14 @@ def _truncate_smartly(text: str, max_len: int = 150) -> tuple[str, bool]:
     """Truncate at sentence/paragraph boundary, return (truncated, was_truncated)."""
     if len(text) <= max_len:
         return text, False
-    
+
     text = text[:max_len]
-    
+
     for boundary in [". ", ".\n", "\n\n", "\n"]:
         idx = text.rfind(boundary)
         if idx > max_len * 0.6:
-            return text[:idx + len(boundary)].rstrip(), True
-    
+            return text[: idx + len(boundary)].rstrip(), True
+
     return text.rstrip() + "…", True
 
 
@@ -68,7 +68,7 @@ def show_memory_entry(entry, ctx_obj, related=None):
 def display_context(timeline, current_state):
     if any(current_state.values()):
         typer.echo("## RESULTS\n")
-        
+
         _display_session_results(current_state.get("sessions", []))
         _display_memory_results(current_state.get("memory", []))
         _display_knowledge_results(current_state.get("knowledge", []))
@@ -82,12 +82,12 @@ def _display_session_results(sessions):
     """Display sessions grouped by user/agent, with smart truncation."""
     if not sessions:
         return
-    
+
     typer.echo(f"SESSIONS ({len(sessions)})\n")
-    
+
     user_msgs = [r for r in sessions if r.get("role") == "user"]
     agent_msgs = [r for r in sessions if r.get("role") != "user"]
-    
+
     if user_msgs:
         typer.echo("You:")
         for r in user_msgs[:2]:
@@ -96,7 +96,7 @@ def _display_session_results(sessions):
             indicator = " […]" if truncated else ""
             typer.echo(f"  {text}{indicator}")
             typer.echo(f"  ref: {ref}\n")
-    
+
     if agent_msgs:
         typer.echo("Agent:")
         for r in agent_msgs[:2]:
@@ -106,7 +106,7 @@ def _display_session_results(sessions):
             indicator = " […]" if truncated else ""
             typer.echo(f"  [{cli}] {text}{indicator}")
             typer.echo(f"  ref: {ref}\n")
-    
+
     typer.echo()
 
 
@@ -114,7 +114,7 @@ def _display_memory_results(memory):
     """Display memory entries."""
     if not memory:
         return
-    
+
     typer.echo(f"MEMORY ({len(memory)})\n")
     for r in memory[:3]:
         topic = r.get("topic", "untitled")
@@ -130,7 +130,7 @@ def _display_knowledge_results(knowledge):
     """Display knowledge entries."""
     if not knowledge:
         return
-    
+
     typer.echo(f"KNOWLEDGE ({len(knowledge)})\n")
     for r in knowledge[:3]:
         domain = r.get("domain", "unknown")
@@ -146,7 +146,7 @@ def _display_bridge_results(bridge):
     """Display bridge messages."""
     if not bridge:
         return
-    
+
     typer.echo(f"BRIDGE ({len(bridge)})\n")
     for r in bridge[:3]:
         channel = r.get("channel", "unknown")
@@ -162,7 +162,7 @@ def _display_canon_results(canon):
     """Display canon files."""
     if not canon:
         return
-    
+
     typer.echo(f"CANON ({len(canon)})\n")
     for r in canon[:3]:
         path = r.get("path", "unknown")

@@ -1,5 +1,3 @@
-import contextlib
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,20 +7,20 @@ from space.os import bridge, spawn
 from space.os.spawn import defaults as spawn_defaults
 
 
-def _configure_paths(monkeypatch: pytest.MonkeyPatch, workspace: Path, test_name: str) -> None:
-    dot_space_dir = workspace / test_name / ".space"
-    dot_space_dir.mkdir(parents=True, exist_ok=True)
-
-    db_path = dot_space_dir / "space.db"
-    if db_path.exists():
-        db_path.unlink()
-
-    monkeypatch.setattr(paths, "space_root", lambda: workspace)
-    monkeypatch.setattr(paths, "dot_space", lambda: dot_space_dir)
-
-
 @pytest.fixture
 def test_space(monkeypatch, tmp_path, request):
+    """Isolated test database per test execution.
+
+    Provides:
+    - Temporary directory for workspace
+    - Isolated tmp_path DB instead of real ~/.space/space.db
+    - Fresh registry state (setup + teardown reset)
+    - Monkeypatched paths module
+
+    ALL tests using store.ensure() must accept this fixture to ensure isolation.
+    """
+    store._reset_for_testing()
+
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     (workspace / "AGENTS.md").write_text("test workspace")
@@ -37,11 +35,12 @@ def test_space(monkeypatch, tmp_path, request):
     monkeypatch.setattr(paths, "space_root", lambda: workspace)
     monkeypatch.setattr(paths, "dot_space", lambda: dot_space_dir)
 
-    store._reset_for_testing()
     with store.ensure():
         pass
 
     yield workspace
+
+    store._reset_for_testing()
 
 
 @pytest.fixture
@@ -69,36 +68,23 @@ def mock_db():
         yield mock_conn
 
 
-class AgentHandle(str):
-    """String-like handle exposing agent metadata for tests."""
-
-    def __new__(cls, identity: str, agent_id: str, model: str, constitution: str | None):
-        obj = str.__new__(cls, identity)
-        obj.agent_id = agent_id
-        obj.model = model
-        obj.constitution = constitution
-        return obj
-
-
-def dump_agents_table():
-    with store.ensure() as conn:
-        print("DEBUG: Contents of agents table:")
-        for row in conn.execute("SELECT agent_id, identity FROM agents").fetchall():
-            print(f"  agent_id: {row['agent_id']}, identity: {row['identity']}")
+def make_mock_row(data):
+    """Create a mock database row object."""
+    row = MagicMock()
+    row.__getitem__ = lambda self, key: data[key]
+    row.keys = lambda: data.keys()
+    return row
 
 
 @pytest.fixture
 def default_agents(test_space):
-    """Registers a set of default agents for tests and returns their identities."""
-
-    handles: dict[str, AgentHandle] = {}
+    """Registers default agents for tests and returns their identities."""
+    handles: dict[str, str] = {}
     for identity in spawn_defaults.DEFAULT_AGENT_MODELS:
-        with contextlib.suppress(ValueError):
+        if spawn.get_agent(identity) is None:
             model = spawn_defaults.canonical_model(identity)
             spawn.register_agent(identity, model, f"{identity}.md")
         agent = spawn.get_agent(identity)
-        assert agent is not None
-        handles[identity] = AgentHandle(
-            agent.identity, agent.agent_id, agent.model, agent.constitution
-        )
+        if agent is not None:
+            handles[identity] = agent.agent_id
     return handles
