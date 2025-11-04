@@ -13,7 +13,7 @@ def main_callback(ctx: typer.Context):
     """Agent Orchestration System
 
     Manage agents, their memories, shared knowledge, and coordination."""
-    from space.lib import output
+    from space.cli import output
 
     output.set_flags(ctx, False, False)
 

@@ -3,7 +3,8 @@
 import re
 from datetime import datetime
 
-from space.core.models import Knowledge
+from space.core.models import Knowledge, SearchResult
+from space.core.queries import archive_filter
 from space.lib import store
 from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
@@ -23,13 +24,6 @@ def _validate_domain(domain: str) -> None:
         )
 
 
-def _archive_clause(show_all: bool, is_and: bool = False) -> str:
-    if show_all:
-        return ""
-    prefix = "AND" if is_and else "WHERE"
-    return f"{prefix} archived_at IS NULL"
-
-
 def add_knowledge(domain: str, agent_id: str, content: str) -> str:
     _validate_domain(domain)
     knowledge_id = uuid7()
@@ -43,7 +37,7 @@ def add_knowledge(domain: str, agent_id: str, content: str) -> str:
 
 
 def list_knowledge(show_all: bool = False) -> list[Knowledge]:
-    archive = _archive_clause(show_all)
+    archive = archive_filter(show_all)
     with store.ensure() as conn:
         rows = conn.execute(
             f"SELECT knowledge_id, domain, agent_id, content, created_at, archived_at FROM knowledge {archive} ORDER BY created_at DESC"
@@ -52,7 +46,7 @@ def list_knowledge(show_all: bool = False) -> list[Knowledge]:
 
 
 def query_knowledge(domain: str, show_all: bool = False) -> list[Knowledge]:
-    archive = _archive_clause(show_all, is_and=True)
+    archive = archive_filter(show_all, prefix="AND")
 
     if domain.endswith("/*"):
         domain_prefix = domain[:-2]
@@ -71,7 +65,7 @@ def query_knowledge(domain: str, show_all: bool = False) -> list[Knowledge]:
 
 
 def query_knowledge_by_agent(agent_id: str, show_all: bool = False) -> list[Knowledge]:
-    archive = _archive_clause(show_all, is_and=True)
+    archive = archive_filter(show_all, prefix="AND")
     with store.ensure() as conn:
         rows = conn.execute(
             f"SELECT knowledge_id, domain, agent_id, content, created_at, archived_at FROM knowledge WHERE agent_id = ? {archive} ORDER BY created_at DESC",
@@ -100,7 +94,7 @@ def find_related_knowledge(
     if not keywords:
         return []
 
-    archive = _archive_clause(show_all, is_and=True)
+    archive = archive_filter(show_all, prefix="AND")
     with store.ensure() as conn:
         all_entries = conn.execute(
             f"SELECT knowledge_id, domain, agent_id, content, created_at, archived_at FROM knowledge WHERE knowledge_id != ? {archive}",
@@ -182,7 +176,7 @@ def count_knowledge() -> tuple[int, int, int]:
     return total, active, archived
 
 
-def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[dict]:
+def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[SearchResult]:
     """Search knowledge entries by query (shared across all agents)."""
     results = []
     with store.ensure() as conn:
@@ -196,15 +190,15 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
         for row in rows:
             agent = spawn.get_agent(row["agent_id"])
             results.append(
-                {
-                    "source": "knowledge",
-                    "domain": row["domain"],
-                    "knowledge_id": row["knowledge_id"],
-                    "contributor": agent.name if agent else row["agent_id"],
-                    "content": row["content"],
-                    "timestamp": row["created_at"],
-                    "reference": f"knowledge:{row['knowledge_id']}",
-                }
+                SearchResult(
+                    source="knowledge",
+                    reference=f"knowledge:{row['knowledge_id']}",
+                    content=row["content"],
+                    timestamp=row["created_at"],
+                    agent_id=row["agent_id"],
+                    identity=agent.identity if agent else row["agent_id"],
+                    metadata={"knowledge_id": row["knowledge_id"], "domain": row["domain"]},
+                )
             )
     return results
 

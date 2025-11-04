@@ -1,11 +1,11 @@
 """Bridge operations: search, statistics."""
 
-from space.core.models import BridgeStats
+from space.core.models import BridgeStats, SearchResult
 from space.lib import store
 from space.os import spawn
 
 
-def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[dict]:
+def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[SearchResult]:
     results = []
 
     with store.ensure() as conn:
@@ -20,15 +20,15 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
         for row in rows:
             agent = spawn.get_agent(row["agent_id"])
             results.append(
-                {
-                    "source": "bridge",
-                    "channel_name": row["channel_name"],
-                    "message_id": row["message_id"],
-                    "sender": agent.identity if agent else row["agent_id"],
-                    "content": row["content"],
-                    "timestamp": row["created_at"],
-                    "reference": f"bridge:{row['channel_name']}:{row['message_id']}",
-                }
+                SearchResult(
+                    source="bridge",
+                    reference=f"bridge:{row['channel_name']}:{row['message_id']}",
+                    content=row["content"],
+                    timestamp=row["created_at"],
+                    agent_id=row["agent_id"],
+                    identity=agent.identity if agent else row["agent_id"],
+                    metadata={"channel_name": row["channel_name"], "message_id": row["message_id"]},
+                )
             )
 
     return results

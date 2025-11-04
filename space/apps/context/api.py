@@ -20,47 +20,47 @@ def collect_timeline(query: str, identity: str | None, all_agents: bool) -> list
 
     if identity:
         for result in memory.api.search(query, identity, all_agents):
-            key = (result["source"], result.get("memory_id"))
+            key = (result.source, result.metadata.get("memory_id"))
             if key not in seen:
                 seen.add(key)
                 timeline.append(
                     {
-                        "source": result["source"],
-                        "type": result["topic"],
-                        "identity": result["identity"],
-                        "data": result["message"],
-                        "timestamp": result["timestamp"],
-                        "reference": result["reference"],
+                        "source": result.source,
+                        "type": result.metadata.get("topic"),
+                        "identity": result.identity,
+                        "data": result.content,
+                        "timestamp": result.timestamp,
+                        "reference": result.reference,
                     }
                 )
 
     for result in knowledge.api.search(query, identity, all_agents):
-        key = (result["source"], result.get("knowledge_id"))
+        key = (result.source, result.metadata.get("knowledge_id"))
         if key not in seen:
             seen.add(key)
             timeline.append(
                 {
-                    "source": result["source"],
-                    "type": result["domain"],
-                    "identity": result["contributor"],
-                    "data": result["content"],
-                    "timestamp": result["timestamp"],
-                    "reference": result["reference"],
+                    "source": result.source,
+                    "type": result.metadata.get("domain"),
+                    "identity": result.identity,
+                    "data": result.content,
+                    "timestamp": result.timestamp,
+                    "reference": result.reference,
                 }
             )
 
     for result in bridge.api.search(query, identity, all_agents):
-        key = (result["source"], result.get("message_id"))
+        key = (result.source, result.metadata.get("message_id"))
         if key not in seen:
             seen.add(key)
             timeline.append(
                 {
-                    "source": result["source"],
-                    "type": result["channel_name"],
-                    "identity": result["sender"],
-                    "data": result["content"],
-                    "timestamp": result["timestamp"],
-                    "reference": result["reference"],
+                    "source": result.source,
+                    "type": result.metadata.get("channel_name"),
+                    "identity": result.identity,
+                    "data": result.content,
+                    "timestamp": result.timestamp,
+                    "reference": result.reference,
                 }
             )
 
@@ -109,30 +109,30 @@ def collect_current_state(query: str, identity: str | None, all_agents: bool) ->
     if identity:
         results["memory"] = [
             {
-                "identity": r["identity"],
-                "topic": r["topic"],
-                "message": r["message"],
-                "reference": r["reference"],
+                "identity": r.identity,
+                "topic": r.metadata.get("topic"),
+                "message": r.content,
+                "reference": r.reference,
             }
             for r in memory.api.search(query, identity, all_agents)
         ]
 
     results["knowledge"] = [
         {
-            "domain": r["domain"],
-            "content": r["content"],
-            "contributor": r["contributor"],
-            "reference": r["reference"],
+            "domain": r.metadata.get("domain"),
+            "content": r.content,
+            "contributor": r.identity,
+            "reference": r.reference,
         }
         for r in knowledge.api.search(query, identity, all_agents)
     ]
 
     results["bridge"] = [
         {
-            "channel": r["channel_name"],
-            "sender": r["sender"],
-            "content": r["content"],
-            "reference": r["reference"],
+            "channel": r.metadata.get("channel_name"),
+            "sender": r.identity,
+            "content": r.content,
+            "reference": r.reference,
         }
         for r in bridge.api.search(query, identity, all_agents)
     ]

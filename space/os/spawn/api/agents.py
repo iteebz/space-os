@@ -1,11 +1,12 @@
 """Agent operations: CRUD, merging, caching."""
 
+import hashlib
 import uuid
 from datetime import datetime
 from functools import lru_cache
 
 from space.core.models import Agent
-from space.lib import store
+from space.lib import paths, store
 from space.lib.store import from_row
 
 
@@ -34,6 +35,22 @@ def _get_agent_by_name_cached(name: str) -> Agent | None:
 
 def _clear_cache():
     _get_agent_by_name_cached.cache_clear()
+
+
+def compute_constitution_hash(constitution_name: str | None) -> str | None:
+    """Compute SHA256 hash of constitution file.
+
+    Args:
+        constitution_name: Name of constitution file (e.g., 'zealot', 'sentinel')
+
+    Returns:
+        Hex digest of SHA256 hash, or None if no constitution
+    """
+    if not constitution_name:
+        return None
+    const_path = paths.constitution(constitution_name)
+    constitution_text = const_path.read_text()
+    return hashlib.sha256(constitution_text.encode()).hexdigest()
 
 
 def touch_agent(agent_id: str) -> None:

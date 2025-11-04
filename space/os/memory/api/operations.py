@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 
-from space.core.models import Memory
+from space.core.models import Memory, SearchResult
 from space.lib import store
 from space.lib.store import from_row
 from space.lib.uuid7 import resolve_id, uuid7
@@ -25,6 +25,7 @@ def add_memory(
 ) -> str:
     memory_id = uuid7()
     now = datetime.now().isoformat()
+    topic = topic or "general"
     with store.ensure() as conn:
         conn.execute(
             "INSERT INTO memories (memory_id, agent_id, message, topic, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -73,6 +74,48 @@ def list_memories(
             params.append(limit)
 
         rows = conn.execute(query, params).fetchall()
+        return [_row_to_memory(row) for row in rows]
+
+
+def search_memories(
+    identity: str,
+    query: str,
+    show_all: bool = False,
+    limit: int | None = None,
+) -> list[Memory]:
+    """Full-text search on memory messages for an agent.
+
+    Uses FTS5 virtual table for fast content search.
+
+    Args:
+        identity: Agent identity
+        query: FTS5 search query (supports AND, OR, NOT, phrase search)
+        show_all: Include archived memories
+        limit: Maximum number of results
+
+    Returns:
+        List of Memory objects matching query, ordered by relevance
+    """
+    agent = spawn.get_agent(identity)
+    if not agent:
+        raise ValueError(f"Agent '{identity}' not found")
+    agent_id = agent.agent_id
+
+    archive_filter = "" if show_all else "AND archived_at IS NULL"
+    limit_clause = f"LIMIT {limit}" if limit else ""
+
+    with store.ensure() as conn:
+        sql = f"""
+            SELECT m.memory_id, m.agent_id, m.message, m.topic, m.created_at,
+                   m.archived_at, m.core, m.source
+            FROM memories m
+            WHERE m.agent_id = ? AND m.memory_id IN (
+                SELECT rowid FROM memory_fts WHERE memory_fts MATCH ?
+            ) {archive_filter}
+            ORDER BY m.created_at DESC
+            {limit_clause}
+        """
+        rows = conn.execute(sql, (agent_id, query)).fetchall()
         return [_row_to_memory(row) for row in rows]
 
 
@@ -277,37 +320,64 @@ def stats(agent_id: str | None = None) -> "MemoryStats":
     )
 
 
-def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[dict]:
-    """Search memory entries by query, filtering by agent if identity provided."""
+def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[SearchResult]:
+    """Search memory entries by query using full-text search.
+
+    Searches message content via FTS5. Falls back to LIKE queries on topic.
+    Filters by agent if identity provided.
+    """
     results = []
+
+    agent_id = None
+    if identity and not all_agents:
+        agent = spawn.get_agent(identity)
+        if not agent:
+            raise ValueError(f"Agent '{identity}' not found")
+        agent_id = agent.agent_id
+
     with store.ensure() as conn:
-        sql_query = (
-            "SELECT memory_id, agent_id, topic, message, created_at FROM memories "
-            "WHERE (message LIKE ? OR topic LIKE ?)"
-        )
-        params = [f"%{query}%", f"%{query}%"]
+        try:
+            fts_query = """
+                SELECT m.memory_id, m.agent_id, m.topic, m.message, m.created_at
+                FROM memories m
+                WHERE m.rowid IN (
+                    SELECT rowid FROM memory_fts WHERE memory_fts MATCH ?
+                ) AND m.archived_at IS NULL
+            """
+            params = [query]
 
-        if identity and not all_agents:
-            agent = spawn.get_agent(identity)
-            if not agent:
-                raise ValueError(f"Agent '{identity}' not found")
-            sql_query += " AND agent_id = ?"
-            params.append(agent.agent_id)
+            if agent_id:
+                fts_query += " AND m.agent_id = ?"
+                params.append(agent_id)
 
-        sql_query += " ORDER BY created_at ASC"
-        rows = conn.execute(sql_query, params).fetchall()
+            fts_query += " ORDER BY m.created_at ASC"
+            rows = conn.execute(fts_query, params).fetchall()
+        except Exception:
+            rows = []
+            fallback_query = (
+                "SELECT memory_id, agent_id, topic, message, created_at FROM memories "
+                "WHERE (message LIKE ? OR topic LIKE ?) AND archived_at IS NULL"
+            )
+            params = [f"%{query}%", f"%{query}%"]
+
+            if agent_id:
+                fallback_query += " AND agent_id = ?"
+                params.append(agent_id)
+
+            fallback_query += " ORDER BY created_at ASC"
+            rows = conn.execute(fallback_query, params).fetchall()
 
         for row in rows:
             agent = spawn.get_agent(row["agent_id"])
             results.append(
-                {
-                    "source": "memory",
-                    "memory_id": row["memory_id"],
-                    "topic": row["topic"],
-                    "message": row["message"],
-                    "identity": agent.identity if agent else row["agent_id"],
-                    "timestamp": row["created_at"],
-                    "reference": f"memory:{row['memory_id']}",
-                }
+                SearchResult(
+                    source="memory",
+                    reference=f"memory:{row['memory_id']}",
+                    content=row["message"],
+                    timestamp=row["created_at"],
+                    agent_id=row["agent_id"],
+                    identity=agent.identity if agent else row["agent_id"],
+                    metadata={"memory_id": row["memory_id"], "topic": row["topic"]},
+                )
             )
     return results

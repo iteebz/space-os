@@ -254,3 +254,16 @@ class SpaceStats:
     spawn: SpawnStats
     sessions: SessionStats | None = None
     agents: list[AgentStats] | None = None
+
+
+@dataclass
+class SearchResult:
+    """Unified search result across all primitives."""
+
+    source: str
+    reference: str
+    content: str
+    timestamp: str
+    agent_id: str | None = None
+    identity: str | None = None
+    metadata: dict | None = None

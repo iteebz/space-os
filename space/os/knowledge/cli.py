@@ -5,11 +5,9 @@ from typing import Annotated
 
 import typer
 
-from space.lib import argv, errors, output
+from space.cli import argv, output
 from space.os import spawn
 from space.os.knowledge import api
-
-errors.install_error_handler("knowledge")
 
 argv.flex_args("as")
 

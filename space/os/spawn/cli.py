@@ -10,8 +10,9 @@ from typing import NoReturn
 import typer
 
 from space.apps.space.api.stats import agent_stats
+from space.cli import output
 from space.core.models import TaskStatus
-from space.lib import errors, output, providers
+from space.lib import providers
 from space.os.spawn import api
 from space.os.spawn.api import spawns
 from space.os.spawn.formatting import (
@@ -19,9 +20,6 @@ from space.os.spawn.formatting import (
     display_channel_trace,
     display_session_trace,
 )
-
-errors.install_error_handler("spawn")
-
 
 app = typer.Typer(invoke_without_command=True, add_completion=False, no_args_is_help=False)
 

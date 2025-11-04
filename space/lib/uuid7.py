@@ -52,7 +52,12 @@ def uuid7() -> str:
 
 
 def short_id(full_uuid: str) -> str:
-    """Return last 8 characters (high-entropy suffix for display/matching)."""
+    """Return last 8 chars: 32 bits of collision-resistant randomness.
+
+    Last 8 = variant + random. Works for UUID4 (all random) and UUID7
+    (timestamp + random tail). UUID7 prefix is timestamp-only (collides
+    on rapid generation). Suffix is always high-entropy.
+    """
     return full_uuid[-8:]
 
 

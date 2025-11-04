@@ -5,10 +5,8 @@ from typing import Annotated
 import typer
 
 from space.apps.context.api import collect_current_state, collect_timeline
-from space.lib import errors, output
+from space.cli import output
 from space.os.context import display
-
-errors.install_error_handler("context")
 
 app = typer.Typer(add_completion=False)
 

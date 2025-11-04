@@ -9,7 +9,7 @@ from typing import Annotated
 
 import typer
 
-from space.lib import argv, output
+from space.cli import argv, output
 from space.os import spawn
 from space.os.bridge import api
 

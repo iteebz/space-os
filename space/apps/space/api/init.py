@@ -150,7 +150,7 @@ def init():
     )
     typer.echo(f"✓ {len(constitution_files)} constitutions registered")
 
-    from space.lib import output
+    from space.cli import output
 
     typer.echo("Syncing provider sessions...")
     typer.echo(f"  {'Provider':<10} {'Discovered':<12} {'Synced'}")

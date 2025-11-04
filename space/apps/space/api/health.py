@@ -18,15 +18,6 @@ EXPECTED_TABLES = {
     "knowledge",
     "transcripts",
 }
-IGNORED_TABLES = {
-    "sqlite_sequence",
-    "_migrations",
-    "transcripts_fts",
-    "transcripts_fts_config",
-    "transcripts_fts_data",
-    "transcripts_fts_docsize",
-    "transcripts_fts_idx",
-}
 
 
 def _check_foreign_keys(conn: sqlite3.Connection) -> list[str]:
@@ -56,11 +47,8 @@ def check_db() -> tuple[bool, list[str], dict[str, int]]:
                 row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
             }
             missing = EXPECTED_TABLES - actual_tables
-            extra = actual_tables - EXPECTED_TABLES - IGNORED_TABLES
             if missing:
                 issues.append(f"❌ {DB_NAME}: missing tables {sorted(missing)}")
-            if extra:
-                issues.append(f"⚠️  {DB_NAME}: unexpected tables {sorted(extra)}")
 
             integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
             if integrity != "ok":

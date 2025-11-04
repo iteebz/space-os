@@ -11,12 +11,12 @@ logger = logging.getLogger(__name__)
 
 
 def find_session_for_spawn(spawn_id: str, provider: str, created_at: str) -> str | None:
-    """Find session_id for a spawn via marker or closest mtime.
+    """Find session_id for a spawn via marker or closest mtime (single-pass scan).
 
     Algorithm:
-    1. Scan provider session directory for files
+    1. Scan provider session directory once, collecting markers and mtimes
     2. Check if any file contains spawn_id[:8] marker (preferred)
-    3. If no marker found, sort by |file.mtime - spawn.created_at| and use closest
+    3. If no marker found, use closest mtime match
     4. Extract session_id from matching file
 
     Args:
@@ -35,17 +35,22 @@ def find_session_for_spawn(spawn_id: str, provider: str, created_at: str) -> str
         logger.warning(f"Provider session dir not found: {provider_dir}")
         return None
 
-    session_files = list(provider_dir.glob("*.jsonl"))
-    if not session_files:
-        return None
+    created_ts = _parse_iso_timestamp(created_at)
+    closest_file = None
+    closest_distance = float("inf")
 
-    for session_file in session_files:
+    for session_file in provider_dir.glob("*.jsonl"):
         if _parse_spawn_marker(session_file) == marker:
             return _extract_session_id(session_file)
 
-    sorted_files = _scan_provider_sessions(provider, created_at)
-    if sorted_files:
-        session_id = _extract_session_id(sorted_files[0])
+        file_mtime = session_file.stat().st_mtime
+        distance = abs(file_mtime - created_ts)
+        if distance < closest_distance:
+            closest_distance = distance
+            closest_file = session_file
+
+    if closest_file:
+        session_id = _extract_session_id(closest_file)
         if session_id:
             return session_id
 
@@ -99,33 +104,6 @@ def link_spawn_to_session(spawn_id: str, session_id: str | None) -> None:
 def _truncate_spawn_id(spawn_id: str) -> str:
     """Get first 8 characters of spawn_id (UUID7 truncated for marker)."""
     return spawn_id[:8]
-
-
-def _scan_provider_sessions(provider: str, created_at: str) -> list[Path]:
-    """Scan provider session dir, return files sorted by mtime distance.
-
-    Args:
-        provider: Provider name (claude, gemini, codex)
-        created_at: ISO timestamp string to calculate mtime distance
-
-    Returns:
-        List of session files sorted by closest mtime distance
-    """
-    created_ts = _parse_iso_timestamp(created_at)
-    session_dir = paths.sessions_dir()
-    provider_dir = session_dir / provider
-
-    if not provider_dir.exists():
-        return []
-
-    files_with_distance = []
-    for session_file in provider_dir.glob("*.jsonl"):
-        file_mtime = session_file.stat().st_mtime
-        distance = abs(file_mtime - created_ts)
-        files_with_distance.append((distance, session_file))
-
-    files_with_distance.sort(key=lambda x: x[0])
-    return [f[1] for f in files_with_distance]
 
 
 def _extract_session_id(session_file: Path) -> str | None:

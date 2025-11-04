@@ -1,12 +1,13 @@
 """Agent launching: provider execution and lifecycle management."""
 
-import hashlib
 import json
 import logging
 import os
 import shlex
 import shutil
 import subprocess
+
+import typer
 
 from space.lib import paths
 from space.lib.providers import Claude, Codex, Gemini
@@ -34,12 +35,7 @@ def spawn_interactive(identity: str, extra_args: list[str] | None = None):
     if not agent:
         raise ValueError(f"Agent '{identity}' not found in registry")
 
-    constitution_text = None
-    constitution_hash = None
-    if agent.constitution:
-        const_path = paths.constitution(agent.constitution)
-        constitution_text = const_path.read_text()
-        constitution_hash = hashlib.sha256(constitution_text.encode()).hexdigest()
+    constitution_hash = agents.compute_constitution_hash(agent.constitution)
 
     provider_cmd = _get_provider_command(agent.provider)
     command_tokens = _parse_command(provider_cmd)
@@ -50,7 +46,7 @@ def spawn_interactive(identity: str, extra_args: list[str] | None = None):
     passthrough = extra_args or []
     model_args = ["--model", agent.model]
 
-    click.echo(f"Spawning {identity}...\n")
+    typer.echo(f"Spawning {identity}...\n")
     spawn = spawns.create_spawn(
         agent_id=agent.agent_id,
         is_task=bool(passthrough),
@@ -81,8 +77,8 @@ def spawn_interactive(identity: str, extra_args: list[str] | None = None):
         full_command = command_tokens + add_dir_args + model_args + launch_args
         display_command = full_command
 
-    click.echo(f"Executing: {' '.join(display_command)}")
-    click.echo("")
+    typer.echo(f"Executing: {' '.join(display_command)}")
+    typer.echo("")
 
     if passthrough:
         spawn_dir = paths.identity_dir(agent.identity)
@@ -132,11 +128,7 @@ def spawn_task(identity: str, task: str, channel_id: str):
     if not agent:
         raise ValueError(f"Agent '{identity}' not found in registry")
 
-    constitution_hash = None
-    if agent.constitution:
-        const_path = paths.constitution(agent.constitution)
-        constitution_text = const_path.read_text()
-        constitution_hash = hashlib.sha256(constitution_text.encode()).hexdigest()
+    constitution_hash = agents.compute_constitution_hash(agent.constitution)
 
     spawn = spawns.create_spawn(
         agent_id=agent.agent_id,

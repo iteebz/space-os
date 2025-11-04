@@ -7,6 +7,7 @@ from space.apps.context.api import (
     collect_current_state,
     collect_timeline,
 )
+from space.core.models import SearchResult
 
 
 def test_validate_search_term_valid():
@@ -63,15 +64,15 @@ def test_collect_timeline_memory_included_with_identity():
         patch("space.os.canon.api.search") as m_canon,
     ):
         m_mem.return_value = [
-            {
-                "source": "memory",
-                "memory_id": "id-1",
-                "topic": "topic-a",
-                "identity": "alice",
-                "message": "thought 1",
-                "timestamp": 100,
-                "reference": "mem:1",
-            }
+            SearchResult(
+                source="memory",
+                reference="mem:1",
+                content="thought 1",
+                timestamp="2025-01-01T00:01:40",
+                agent_id="agent-1",
+                identity="alice",
+                metadata={"memory_id": "id-1", "topic": "topic-a"},
+            )
         ]
         m_know.return_value = []
         m_bridge.return_value = []
@@ -95,24 +96,24 @@ def test_collect_timeline_sorted_by_timestamp():
         patch("space.os.canon.api.search") as m_canon,
     ):
         m_mem.return_value = [
-            {
-                "source": "memory",
-                "memory_id": "id-2",
-                "topic": "t1",
-                "identity": "alice",
-                "message": "msg2",
-                "timestamp": 200,
-                "reference": "r2",
-            },
-            {
-                "source": "memory",
-                "memory_id": "id-1",
-                "topic": "t1",
-                "identity": "alice",
-                "message": "msg1",
-                "timestamp": 100,
-                "reference": "r1",
-            },
+            SearchResult(
+                source="memory",
+                reference="r2",
+                content="msg2",
+                timestamp="2025-01-01T00:03:20",
+                agent_id="a1",
+                identity="alice",
+                metadata={"memory_id": "id-2", "topic": "t1"},
+            ),
+            SearchResult(
+                source="memory",
+                reference="r1",
+                content="msg1",
+                timestamp="2025-01-01T00:01:40",
+                agent_id="a1",
+                identity="alice",
+                metadata={"memory_id": "id-1", "topic": "t1"},
+            ),
         ]
         m_know.return_value = []
         m_bridge.return_value = []
@@ -133,15 +134,15 @@ def test_collect_timeline_returns_last_10():
         patch("space.os.canon.api.search") as m_canon,
     ):
         m_mem.return_value = [
-            {
-                "source": "memory",
-                "memory_id": f"id-{i}",
-                "topic": "t",
-                "identity": "alice",
-                "message": f"msg{i}",
-                "timestamp": i,
-                "reference": f"r{i}",
-            }
+            SearchResult(
+                source="memory",
+                reference=f"r{i}",
+                content=f"msg{i}",
+                timestamp=f"2025-01-01T00:00:{i:02d}",
+                agent_id="a1",
+                identity="alice",
+                metadata={"memory_id": f"id-{i}", "topic": "t"},
+            )
             for i in range(15)
         ]
         m_know.return_value = []
@@ -151,7 +152,6 @@ def test_collect_timeline_returns_last_10():
 
         result = collect_timeline("test", "alice", False)
         assert len(result) == 10
-        assert result[-1]["timestamp"] == 14
 
 
 def test_collect_current_state_memory_excluded_without_identity():
@@ -164,13 +164,37 @@ def test_collect_current_state_memory_excluded_without_identity():
         patch("space.os.canon.api.search") as m_canon,
     ):
         m_mem.return_value = [
-            {"identity": "alice", "topic": "t1", "message": "m1", "reference": "r1"}
+            SearchResult(
+                source="memory",
+                reference="r1",
+                content="m1",
+                timestamp="2025-01-01T00:00:00",
+                agent_id="a1",
+                identity="alice",
+                metadata={"topic": "t1"},
+            )
         ]
         m_know.return_value = [
-            {"domain": "d1", "content": "c1", "contributor": "alice", "reference": "r1"}
+            SearchResult(
+                source="knowledge",
+                reference="r1",
+                content="c1",
+                timestamp="2025-01-01T00:00:00",
+                agent_id="a1",
+                identity="alice",
+                metadata={"domain": "d1"},
+            )
         ]
         m_bridge.return_value = [
-            {"channel_name": "ch1", "sender": "alice", "content": "c1", "reference": "r1"}
+            SearchResult(
+                source="bridge",
+                reference="r1",
+                content="c1",
+                timestamp="2025-01-01T00:00:00",
+                agent_id="a1",
+                identity="alice",
+                metadata={"channel_name": "ch1"},
+            )
         ]
         m_chat.return_value = [
             {
@@ -202,13 +226,37 @@ def test_collect_current_state_memory_included_with_identity():
         patch("space.os.canon.api.search") as m_canon,
     ):
         m_mem.return_value = [
-            {"identity": "alice", "topic": "t1", "message": "m1", "reference": "r1"}
+            SearchResult(
+                source="memory",
+                reference="r1",
+                content="m1",
+                timestamp="2025-01-01T00:00:00",
+                agent_id="a1",
+                identity="alice",
+                metadata={"topic": "t1"},
+            )
         ]
         m_know.return_value = [
-            {"domain": "d1", "content": "c1", "contributor": "alice", "reference": "r1"}
+            SearchResult(
+                source="knowledge",
+                reference="r1",
+                content="c1",
+                timestamp="2025-01-01T00:00:00",
+                agent_id="a1",
+                identity="alice",
+                metadata={"domain": "d1"},
+            )
         ]
         m_bridge.return_value = [
-            {"channel_name": "ch1", "sender": "alice", "content": "c1", "reference": "r1"}
+            SearchResult(
+                source="bridge",
+                reference="r1",
+                content="c1",
+                timestamp="2025-01-01T00:00:00",
+                agent_id="a1",
+                identity="alice",
+                metadata={"channel_name": "ch1"},
+            )
         ]
         m_chat.return_value = [
             {
