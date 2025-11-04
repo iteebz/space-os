@@ -27,6 +27,7 @@ from .messaging import (
     send_message,
     wait_for_message,
 )
+from .operations import search, stats
 
 __all__ = [
     "archive_channel",
@@ -43,8 +44,10 @@ __all__ = [
     "recv_messages",
     "rename_channel",
     "restore_channel",
+    "search",
     "send_message",
     "spawn_from_mentions",
+    "stats",
     "toggle_pin_channel",
     "wait_for_message",
 ]

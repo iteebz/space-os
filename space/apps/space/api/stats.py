@@ -135,7 +135,15 @@ def _get_session_stats() -> dict:
     """Get session statistics from sessions primitive."""
     from space.os import sessions
 
-    return sessions.api.operations.get_stats()
+    stats_obj = sessions.api.stats()
+    return {
+        "total_sessions": stats_obj.total_sessions,
+        "total_messages": stats_obj.total_messages,
+        "total_tools_used": stats_obj.total_tools_used,
+        "total_input_tokens": stats_obj.input_tokens,
+        "total_output_tokens": stats_obj.output_tokens,
+        "by_provider": stats_obj.by_provider,
+    }
 
 
 def _safe_stats(fn, *args, **kwargs):

@@ -1,4 +1,6 @@
-"""Canon source: read-only git-backed markdown files."""
+"""Canon operations: read-only git-backed markdown files."""
+
+import contextlib
 
 from space.core.models import Canon
 from space.lib.paths import canon_path
@@ -26,7 +28,7 @@ def get_canon_entries() -> dict:
     return tree
 
 
-def read_canon(path: str) -> "Canon | None":
+def read_canon(path: str) -> Canon | None:
     """Read a canon markdown file.
 
     Args:
@@ -75,3 +77,65 @@ def canon_exists(path: str) -> bool:
 
     file_path = canon_root / path
     return file_path.is_file()
+
+
+def search(
+    query: str, identity: str | None = None, all_agents: bool = False, max_content_length: int = 500
+) -> list[dict]:
+    """Search canon documents by query."""
+    if not query:
+        return []
+
+    canon_root = canon_path()
+    if not canon_root.exists():
+        return []
+
+    matches: list[dict] = []
+    for md_file in canon_root.rglob("*.md"):
+        try:
+            content = md_file.read_text()
+        except Exception:
+            continue
+
+        if query.lower() not in content.lower():
+            continue
+
+        relative_path = md_file.relative_to(canon_root)
+        truncated_content = content[:max_content_length]
+        if len(content) > max_content_length:
+            truncated_content += "..."
+
+        matches.append(
+            {
+                "source": "canon",
+                "path": str(relative_path),
+                "content": truncated_content,
+                "reference": f"canon:{relative_path}",
+            }
+        )
+
+    return matches
+
+
+def stats() -> dict:
+    """Get canon statistics."""
+    canon_root = canon_path()
+    if not canon_root.exists():
+        return {
+            "available": False,
+            "total_files": 0,
+            "total_size_bytes": 0,
+        }
+
+    total_files = 0
+    total_size = 0
+    for md_file in canon_root.rglob("*.md"):
+        total_files += 1
+        with contextlib.suppress(OSError):
+            total_size += md_file.stat().st_size
+
+    return {
+        "available": True,
+        "total_files": total_files,
+        "total_size_bytes": total_size,
+    }

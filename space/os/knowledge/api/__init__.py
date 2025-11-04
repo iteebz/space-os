@@ -8,6 +8,8 @@ from .operations import (
     list_knowledge,
     query_knowledge,
     query_knowledge_by_agent,
+    search,
+    stats,
 )
 
 __all__ = [
@@ -20,4 +22,6 @@ __all__ = [
     "list_knowledge",
     "query_knowledge",
     "query_knowledge_by_agent",
+    "search",
+    "stats",
 ]

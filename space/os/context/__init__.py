@@ -1,5 +1,6 @@
-"""Context primitive: unified retrieval across 5 domains (memory, knowledge, bridge, chats, canon)."""
+"""Context CLI: unified retrieval across 5 domains (memory, knowledge, bridge, chats, canon).
 
-from space.os.context.api import collect_current_state, collect_timeline
+Context API lives in space.apps.context.api
+"""
 
-__all__ = ["collect_timeline", "collect_current_state"]
+__all__ = []

@@ -249,3 +249,73 @@ def count_memories() -> tuple[int, int, int]:
         ]
         archived = total - active
     return total, active, archived
+
+
+def stats(agent_id: str | None = None) -> "MemoryStats":
+    """Get memory statistics for an agent or all agents."""
+    from space.core.models import MemoryStats
+
+    with store.ensure() as conn:
+        if agent_id:
+            total = conn.execute(
+                "SELECT COUNT(*) FROM memories WHERE agent_id = ?", (agent_id,)
+            ).fetchone()[0]
+            active = conn.execute(
+                "SELECT COUNT(*) FROM memories WHERE agent_id = ? AND archived_at IS NULL",
+                (agent_id,),
+            ).fetchone()[0]
+            topics = conn.execute(
+                "SELECT COUNT(DISTINCT topic) FROM memories WHERE agent_id = ? AND topic IS NOT NULL",
+                (agent_id,),
+            ).fetchone()[0]
+        else:
+            total, active, _ = count_memories()
+            topics = conn.execute(
+                "SELECT COUNT(DISTINCT topic) FROM memories WHERE topic IS NOT NULL"
+            ).fetchone()[0]
+
+        archived = total - active
+
+    return MemoryStats(
+        available=True,
+        total=total,
+        active=active,
+        archived=archived,
+        topics=topics,
+    )
+
+
+def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[dict]:
+    """Search memory entries by query, filtering by agent if identity provided."""
+    results = []
+    with store.ensure() as conn:
+        sql_query = (
+            "SELECT memory_id, agent_id, topic, message, created_at FROM memories "
+            "WHERE (message LIKE ? OR topic LIKE ?)"
+        )
+        params = [f"%{query}%", f"%{query}%"]
+
+        if identity and not all_agents:
+            agent = spawn.get_agent(identity)
+            if not agent:
+                raise ValueError(f"Agent '{identity}' not found")
+            sql_query += " AND agent_id = ?"
+            params.append(agent.agent_id)
+
+        sql_query += " ORDER BY created_at ASC"
+        rows = conn.execute(sql_query, params).fetchall()
+
+        for row in rows:
+            agent = spawn.get_agent(row["agent_id"])
+            results.append(
+                {
+                    "source": "memory",
+                    "memory_id": row["memory_id"],
+                    "topic": row["topic"],
+                    "message": row["message"],
+                    "identity": agent.identity if agent else row["agent_id"],
+                    "timestamp": row["created_at"],
+                    "reference": f"memory:{row['memory_id']}",
+                }
+            )
+    return results

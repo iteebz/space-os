@@ -1,9 +1,10 @@
-"""Session operations: query and stats."""
+"""Session operations: search and statistics."""
 
 import contextlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+from space.core.models import SessionStats
 from space.lib import paths, providers, store
 
 
@@ -127,3 +128,19 @@ def get_stats() -> dict:
             for row in by_provider
         },
     }
+
+
+def stats() -> SessionStats:
+    """Get unified session statistics."""
+    stats_dict = get_stats()
+    get_provider_stats()
+
+    return SessionStats(
+        available=True,
+        total_sessions=stats_dict["total_sessions"],
+        total_messages=stats_dict["total_messages"],
+        total_tools_used=stats_dict["total_tools_used"],
+        input_tokens=stats_dict["total_input_tokens"],
+        output_tokens=stats_dict["total_output_tokens"],
+        by_provider=stats_dict.get("by_provider"),
+    )

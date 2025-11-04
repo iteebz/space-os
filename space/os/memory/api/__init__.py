@@ -9,6 +9,8 @@ from .operations import (
     get_memory,
     list_memories,
     mark_memory_core,
+    search,
+    stats,
     toggle_memory_core,
 )
 
@@ -23,5 +25,7 @@ __all__ = [
     "get_memory",
     "list_memories",
     "mark_memory_core",
+    "search",
+    "stats",
     "toggle_memory_core",
 ]

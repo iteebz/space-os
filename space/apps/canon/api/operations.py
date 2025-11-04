@@ -1,5 +1,0 @@
-"""Canon operations: read-only git-backed markdown files (now in knowledge sources)."""
-
-from space.os.knowledge.sources.canon import canon_exists, get_canon_entries, read_canon
-
-__all__ = ["get_canon_entries", "read_canon", "canon_exists"]

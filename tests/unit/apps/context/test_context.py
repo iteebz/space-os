@@ -2,7 +2,7 @@
 
 from unittest.mock import patch
 
-from space.os.context.api import (
+from space.apps.context.api import (
     _validate_search_term,
     collect_current_state,
     collect_timeline,
@@ -27,11 +27,11 @@ def test_validate_search_term_too_long():
 def test_collect_timeline_memory_excluded_without_identity():
     """Timeline excludes memory when no --as identity provided."""
     with (
-        patch("space.os.context.api.memory.search") as m_mem,
-        patch("space.os.context.api.knowledge.search") as m_know,
-        patch("space.os.context.api.bridge.search") as m_bridge,
-        patch("space.os.context.api.sessions.search") as m_chat,
-        patch("space.os.context.api.canon.search") as m_canon,
+        patch("space.apps.context.api.memory.api.search") as m_mem,
+        patch("space.apps.context.api.knowledge.api.search") as m_know,
+        patch("space.apps.context.api.bridge.api.search") as m_bridge,
+        patch("space.apps.context.api.sessions.api.search") as m_chat,
+        patch("space.os.canon.api.search") as m_canon,
     ):
         m_mem.return_value = [
             {
@@ -57,11 +57,11 @@ def test_collect_timeline_memory_excluded_without_identity():
 def test_collect_timeline_memory_included_with_identity():
     """Timeline includes memory when --as identity is specified."""
     with (
-        patch("space.os.context.api.memory.search") as m_mem,
-        patch("space.os.context.api.knowledge.search") as m_know,
-        patch("space.os.context.api.bridge.search") as m_bridge,
-        patch("space.os.context.api.sessions.search") as m_chat,
-        patch("space.os.context.api.canon.search") as m_canon,
+        patch("space.apps.context.api.memory.api.search") as m_mem,
+        patch("space.apps.context.api.knowledge.api.search") as m_know,
+        patch("space.apps.context.api.bridge.api.search") as m_bridge,
+        patch("space.apps.context.api.sessions.api.search") as m_chat,
+        patch("space.os.canon.api.search") as m_canon,
     ):
         m_mem.return_value = [
             {
@@ -89,11 +89,11 @@ def test_collect_timeline_memory_included_with_identity():
 def test_collect_timeline_sorted_by_timestamp():
     """Timeline entries sorted by timestamp."""
     with (
-        patch("space.os.context.api.memory.search") as m_mem,
-        patch("space.os.context.api.knowledge.search") as m_know,
-        patch("space.os.context.api.bridge.search") as m_bridge,
-        patch("space.os.context.api.sessions.search") as m_chat,
-        patch("space.os.context.api.canon.search") as m_canon,
+        patch("space.apps.context.api.memory.api.search") as m_mem,
+        patch("space.apps.context.api.knowledge.api.search") as m_know,
+        patch("space.apps.context.api.bridge.api.search") as m_bridge,
+        patch("space.apps.context.api.sessions.api.search") as m_chat,
+        patch("space.os.canon.api.search") as m_canon,
     ):
         m_mem.return_value = [
             {
@@ -127,11 +127,11 @@ def test_collect_timeline_sorted_by_timestamp():
 def test_collect_timeline_returns_last_10():
     """Timeline returns max 10 entries."""
     with (
-        patch("space.os.context.api.memory.search") as m_mem,
-        patch("space.os.context.api.knowledge.search") as m_know,
-        patch("space.os.context.api.bridge.search") as m_bridge,
-        patch("space.os.context.api.sessions.search") as m_chat,
-        patch("space.os.context.api.canon.search") as m_canon,
+        patch("space.apps.context.api.memory.api.search") as m_mem,
+        patch("space.apps.context.api.knowledge.api.search") as m_know,
+        patch("space.apps.context.api.bridge.api.search") as m_bridge,
+        patch("space.apps.context.api.sessions.api.search") as m_chat,
+        patch("space.os.canon.api.search") as m_canon,
     ):
         m_mem.return_value = [
             {
@@ -158,11 +158,11 @@ def test_collect_timeline_returns_last_10():
 def test_collect_current_state_memory_excluded_without_identity():
     """Current state excludes memory when no --as identity provided."""
     with (
-        patch("space.os.context.api.memory.search") as m_mem,
-        patch("space.os.context.api.knowledge.search") as m_know,
-        patch("space.os.context.api.bridge.search") as m_bridge,
-        patch("space.os.context.api.sessions.search") as m_chat,
-        patch("space.os.context.api.canon.search") as m_canon,
+        patch("space.apps.context.api.memory.api.search") as m_mem,
+        patch("space.apps.context.api.knowledge.api.search") as m_know,
+        patch("space.apps.context.api.bridge.api.search") as m_bridge,
+        patch("space.apps.context.api.sessions.api.search") as m_chat,
+        patch("space.os.canon.api.search") as m_canon,
     ):
         m_mem.return_value = [
             {"identity": "alice", "topic": "t1", "message": "m1", "reference": "r1"}
@@ -197,11 +197,11 @@ def test_collect_current_state_memory_excluded_without_identity():
 def test_collect_current_state_memory_included_with_identity():
     """Current state includes memory when --as identity is specified."""
     with (
-        patch("space.os.context.api.memory.search") as m_mem,
-        patch("space.os.context.api.knowledge.search") as m_know,
-        patch("space.os.context.api.bridge.search") as m_bridge,
-        patch("space.os.context.api.sessions.search") as m_chat,
-        patch("space.os.context.api.canon.search") as m_canon,
+        patch("space.apps.context.api.memory.api.search") as m_mem,
+        patch("space.apps.context.api.knowledge.api.search") as m_know,
+        patch("space.apps.context.api.bridge.api.search") as m_bridge,
+        patch("space.apps.context.api.sessions.api.search") as m_chat,
+        patch("space.os.canon.api.search") as m_canon,
     ):
         m_mem.return_value = [
             {"identity": "alice", "topic": "t1", "message": "m1", "reference": "r1"}

@@ -188,3 +188,49 @@ def count_knowledge() -> tuple[int, int, int]:
         ).fetchone()[0]
         archived = total - active
     return total, active, archived
+
+
+def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[dict]:
+    """Search knowledge entries by query (shared across all agents)."""
+    results = []
+    with store.ensure() as conn:
+        sql_query = (
+            "SELECT knowledge_id, domain, agent_id, content, created_at FROM knowledge "
+            "WHERE (content LIKE ? OR domain LIKE ?) AND archived_at IS NULL ORDER BY created_at ASC"
+        )
+        params = [f"%{query}%", f"%{query}%"]
+        rows = conn.execute(sql_query, params).fetchall()
+
+        for row in rows:
+            agent = spawn.get_agent(row["agent_id"])
+            results.append(
+                {
+                    "source": "knowledge",
+                    "domain": row["domain"],
+                    "knowledge_id": row["knowledge_id"],
+                    "contributor": agent.name if agent else row["agent_id"],
+                    "content": row["content"],
+                    "timestamp": row["created_at"],
+                    "reference": f"knowledge:{row['knowledge_id']}",
+                }
+            )
+    return results
+
+
+def stats() -> "Knowledge.KnowledgeStats":
+    """Get knowledge statistics."""
+    from space.core.models import KnowledgeStats
+
+    total, active, archived = count_knowledge()
+    with store.ensure() as conn:
+        domains = conn.execute(
+            "SELECT COUNT(DISTINCT domain) FROM knowledge WHERE archived_at IS NULL"
+        ).fetchone()[0]
+
+    return KnowledgeStats(
+        available=True,
+        total=total,
+        active=active,
+        archived=archived,
+        topics=domains,
+    )
