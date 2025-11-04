@@ -141,7 +141,7 @@ def test_get_memory_returns_entry(mock_db):
     )
     mock_db.execute.return_value.fetchone.return_value = mock_row
 
-    with patch("space.lib.ids.resolve_id") as mock_resolve:
+    with patch("space.lib.uuid7.resolve_id") as mock_resolve:
         mock_resolve.return_value = "m-1"
         result = memory.api.get_memory("m-1")
         assert result is not None
@@ -151,7 +151,7 @@ def test_get_memory_returns_entry(mock_db):
 def test_get_memory_not_found_returns_none(mock_db):
     mock_db.execute.return_value.fetchone.return_value = None
 
-    with patch("space.lib.ids.resolve_id") as mock_resolve:
+    with patch("space.lib.uuid7.resolve_id") as mock_resolve:
         mock_resolve.return_value = "m-notfound"
         result = memory.api.get_memory("m-notfound")
         assert result is None
@@ -177,7 +177,7 @@ def test_toggle_memory_core_flips_state(mock_db):
     )
     mock_db.execute.return_value.fetchone.return_value = mock_row
 
-    with patch("space.lib.ids.resolve_id"):
+    with patch("space.lib.uuid7.resolve_id"):
         result = memory.api.toggle_memory_core("m-1")
         assert result is True
 
@@ -202,7 +202,21 @@ def test_archive_memory_sets_timestamp(mock_db):
     )
     mock_db.execute.return_value.fetchone.return_value = mock_row
 
-    with patch("space.lib.ids.resolve_id"):
-        memory.api.archive_memory("m-1")
-        calls = [call for call in mock_db.execute.call_args_list if "archived_at" in call[0][0]]
-        assert any("UPDATE memories SET archived_at = ?" in call[0][0] for call in calls)
+    with patch("space.lib.uuid7.resolve_id") as mock_resolve:
+        mock_resolve.return_value = "m-1"
+        with patch("space.os.memory.api.operations.get_memory") as mock_get:
+            from space.core.models import Memory
+
+            mock_get.return_value = Memory(
+                memory_id="m-1",
+                agent_id="agent-123",
+                message="test",
+                topic="observations",
+                created_at="2024-01-01T12:00:00",
+                archived_at=None,
+                core=False,
+                source="manual",
+            )
+            memory.api.archive_memory("m-1")
+            calls = [call for call in mock_db.execute.call_args_list if "archived_at" in call[0][0]]
+            assert any("UPDATE memories SET archived_at = ?" in call[0][0] for call in calls)

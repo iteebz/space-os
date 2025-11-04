@@ -4,9 +4,8 @@ from datetime import datetime, timedelta
 
 from space.core.models import Memory
 from space.lib import store
-from space.lib.ids import resolve_id
 from space.lib.store import from_row
-from space.lib.uuid7 import uuid7
+from space.lib.uuid7 import resolve_id, uuid7
 from space.os import spawn
 
 
