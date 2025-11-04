@@ -1,14 +1,17 @@
 """Knowledge CLI: Domain-specific Knowledge Base."""
 
 from dataclasses import asdict
+from typing import Annotated
 
 import typer
 
-from space.lib import errors, output
+from space.lib import argv, errors, output
 from space.os import spawn
 from space.os.knowledge import api
 
 errors.install_error_handler("knowledge")
+
+argv.flex_args("as")
 
 app = typer.Typer(invoke_without_command=True, add_completion=False)
 
@@ -16,6 +19,7 @@ app = typer.Typer(invoke_without_command=True, add_completion=False)
 @app.callback(context_settings={"help_option_names": ["-h", "--help"]})
 def main_callback(
     ctx: typer.Context,
+    identity: Annotated[str | None, typer.Option("--as", help="Agent identity to use.")] = None,
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
@@ -26,6 +30,7 @@ def main_callback(
     output.set_flags(ctx, json_output, quiet_output)
     if ctx.obj is None:
         ctx.obj = {}
+    ctx.obj["identity"] = identity
 
     if ctx.resilient_parsing:
         return
@@ -38,15 +43,18 @@ def add(
     ctx: typer.Context,
     domain: str = typer.Argument(..., help="Domain path (e.g., architecture/caching/redis)"),
     content: str = typer.Argument(..., help="The knowledge content"),
-    contributor: str = typer.Option(..., "--as", help="Agent identity"),
     confidence: float = typer.Option(None, help="Confidence score (0.0-1.0)"),
 ):
-    """Add knowledge to a domain path. --as agent identity required.
+    """Add knowledge to a domain path.
 
     Example:
       knowledge add architecture/caching/redis "Redis uses single thread for consistency" --as sentinel
     """
     from space.lib.paths import validate_domain_path
+    
+    contributor = ctx.obj.get("identity")
+    if not contributor:
+        raise typer.BadParameter("--as required")
 
     valid, error = validate_domain_path(domain)
     if not valid:

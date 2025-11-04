@@ -5,12 +5,15 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 from datetime import datetime
+from typing import Annotated
 
 import typer
 
-from space.lib import output
+from space.lib import argv, output
 from space.os import spawn
 from space.os.bridge import api
+
+argv.flex_args("as")
 
 
 def format_channel_row(channel) -> tuple[str, str]:
@@ -67,6 +70,7 @@ app = typer.Typer(invoke_without_command=True, add_completion=False)
 @app.callback(context_settings={"help_option_names": ["-h", "--help"]})
 def main_callback(
     ctx: typer.Context,
+    identity: Annotated[str | None, typer.Option("--as", help="Agent identity to use.")] = None,
     json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
@@ -77,6 +81,7 @@ def main_callback(
     output.set_flags(ctx, json_output, quiet_output)
     if ctx.obj is None:
         ctx.obj = {}
+    ctx.obj["identity"] = identity
     if ctx.resilient_parsing:
         return
     if ctx.invoked_subcommand is None:
@@ -241,12 +246,12 @@ def pin(
 def recv(
     ctx: typer.Context,
     channel: str = typer.Argument(..., help="Channel to read from"),
-    identity: str = typer.Option(..., "--as", help="Receiver identity"),
     ago: str = typer.Option(None, "--ago", help="Time window (e.g., 1h, 30m)"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON instead of markdown"),
 ):
     """Read messages from channel (markdown by default)."""
     try:
+        identity = ctx.obj.get("identity")
         msgs, count, context, participants = api.recv_messages(channel, identity, ago)
         if should_output(ctx):
             output = api.format_messages(msgs, context or "Messages", as_json=json_output)
@@ -264,11 +269,11 @@ def send(
     ctx: typer.Context,
     channel: str = typer.Argument(..., help="Target channel"),
     content: str = typer.Argument(..., help="Message content"),
-    identity: str = typer.Option("human", "--as", help="Sender identity"),
     decode_base64: bool = typer.Option(False, "--base64", help="Decode base64 content"),
 ):
     """Post message to channel."""
     try:
+        identity = ctx.obj.get("identity") or "human"
         agent = spawn.get_agent(identity)
         if not agent:
             raise ValueError(f"Identity '{identity}' not registered.")

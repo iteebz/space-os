@@ -5,7 +5,7 @@ from typing import Annotated
 
 import typer
 
-from space.lib import errors, output
+from space.lib import argv, errors, output
 from space.os import spawn
 from space.os.context import display
 from space.os.memory import api
@@ -13,6 +13,7 @@ from space.os.memory.format import format_memory_entries
 
 errors.install_error_handler("memory")
 
+argv.flex_args("as")
 
 main_app = typer.Typer(
     invoke_without_command=True,
