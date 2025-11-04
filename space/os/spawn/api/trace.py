@@ -2,8 +2,7 @@
 
 from datetime import datetime
 
-from space.lib.ids import truncate_uuid
-from space.os import bridge, memory, spawn
+from space.os import bridge, spawn
 
 
 def trace_agent(identity: str, limit: int = 10) -> dict:
@@ -97,7 +96,7 @@ def trace_channel(channel_id: str) -> dict:
 
 
 def trace_spawn(spawn_id: str) -> dict:
-    """Get spawn execution context.
+    """Get spawn execution context with synced session data.
 
     Args:
         spawn_id: Spawn UUID
@@ -108,6 +107,14 @@ def trace_spawn(spawn_id: str) -> dict:
     spawn_obj = spawn.api.get_spawn(spawn_id)
     if not spawn_obj:
         raise ValueError(f"Spawn '{spawn_id}' not found")
+
+    if spawn_obj.session_id:
+        try:
+            from space.os.sessions.api import sync
+
+            sync.sync_session(spawn_obj.session_id)
+        except Exception:
+            pass
 
     agent = spawn.get_agent(spawn_obj.agent_id) if spawn_obj.agent_id else None
     identity = agent.identity if agent else "unknown"
@@ -252,6 +259,6 @@ __all__ = [
     "trace",
     "trace_agent",
     "trace_channel",
-    "trace_session",
+    "trace_spawn",
     "identify_query_type",
 ]

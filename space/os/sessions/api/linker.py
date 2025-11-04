@@ -55,12 +55,12 @@ def find_session_for_spawn(spawn_id: str, provider: str, created_at: str) -> str
 def link_spawn_to_session(spawn_id: str, session_id: str | None) -> None:
     """Link spawn to session by syncing provider data.
 
-    Ensures FK constraint is satisfied by triggering sync_provider_sessions
+    Ensures FK constraint is satisfied by triggering sync_session
     before updating the spawn record. This approach elegantly handles the timing
     issue: session doesn't exist in DB until provider sync runs.
 
     Notes:
-    - Calls sync_provider_sessions(session_id) to create session record
+    - Calls sync_session(session_id) to create session record
     - Session record synced from provider files (e.g., ~/.claude/projects/)
     - Links are idempotent: safe to call multiple times
     - If sync fails, gracefully continues (session may sync later)
@@ -79,7 +79,7 @@ def link_spawn_to_session(spawn_id: str, session_id: str | None) -> None:
 
         # Sync this specific session from provider (e.g., ~/.claude/projects/)
         # This creates/updates the session record in the DB
-        sync.sync_provider_sessions(session_id=session_id)
+        sync.sync_session(session_id=session_id)
 
         # Now link spawn to session (FK constraint satisfied)
         with store.ensure() as conn:

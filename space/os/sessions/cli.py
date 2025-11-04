@@ -7,41 +7,69 @@ import typer
 from space.lib import paths
 from space.os.sessions import api
 
-sessions_app = typer.Typer(invoke_without_command=True, add_completion=False)
+sessions_app = typer.Typer(invoke_without_command=True, add_completion=False, no_args_is_help=True)
 
 
 @sessions_app.callback(invoke_without_command=True)
-def sessions_callback(
-    ctx: typer.Context,
-    query: Annotated[
-        str | None, typer.Argument(help="Agent identity, spawn_id, or session_id")
-    ] = None,
-):
+def sessions_callback(ctx: typer.Context):
     """Agent execution history and self-reflection.
 
     Query by agent identity to list spawns, or by spawn_id to view session logs.
     """
-    if ctx.invoked_subcommand is None:
-        if query:
-            ctx.invoke(show_session, query=query)
-        else:
-            typer.echo(ctx.get_help())
+    pass
+
+
+@sessions_app.command(name="query")
+def query_cmd(
+    query: Annotated[str, typer.Argument(help="Agent identity, spawn_id, or session_id")],
+):
+    """Query session details by spawn_id or list spawns by agent identity."""
+    ctx = typer.get_current_context()
+    ctx.invoke(show_session, query=query)
 
 
 @sessions_app.command(name="sync")
 def sync_cmd():
     """Sync sessions from provider CLIs (Claude, Gemini, Codex) to ~/.space/sessions/."""
-    typer.echo("Syncing sessions...")
-    typer.echo(f"{'Provider':<10} {'Discovered':<12} {'Synced'}")
-    typer.echo("-" * 40)
+
+    sessions_dir = paths.sessions_dir()
+
+    def count_files(provider: str) -> int:
+        """Count JSONL files for a provider."""
+        provider_dir = sessions_dir / provider
+        if not provider_dir.exists():
+            return 0
+        return len(list(provider_dir.glob("*.jsonl")))
+
+    before = {p: count_files(p) for p in ["claude", "codex", "gemini"]}
+
+    from space.lib.spinner import Spinner
+
+    spinner = Spinner()
+    last_count = -1
 
     def on_progress(event):
-        if event.discovered > 0 or event.synced > 0:
-            typer.echo(f"{event.provider:<10} {event.discovered:<12} {event.synced}")
+        nonlocal last_count
+        count = event.total_synced
+        if count != last_count:
+            last_count = count
+            spinner.update(f"Processing {count} files...")
 
-    api.sync.sync_provider_sessions(on_progress=on_progress)
-    typer.echo("-" * 40)
-    typer.echo("✓ Session sync complete")
+    api.sync.sync_all(on_progress=on_progress)
+
+    after = {p: count_files(p) for p in ["claude", "codex", "gemini"]}
+
+    total_count = sum(after.values())
+
+    spinner.finish(f"Processed {total_count} files")
+
+    typer.echo("\nSession files in ~/.space/sessions:")
+    typer.echo(f"{'Provider':<10} {'Before':<8} {'After':<8} {'Added'}")
+    typer.echo("-" * 36)
+    for provider in ["claude", "codex", "gemini"]:
+        added = after[provider] - before[provider]
+        typer.echo(f"{provider:<10} {before[provider]:<8} {after[provider]:<8} {added}")
+    typer.echo("-" * 36)
 
 
 def show_session(query: str):

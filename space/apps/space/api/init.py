@@ -157,7 +157,7 @@ def init():
     typer.echo("Syncing provider sessions...")
     typer.echo(f"  {'Provider':<10} {'Discovered':<12} {'Synced'}")
 
-    sessions.api.sync.sync_provider_sessions(on_progress=output.show_sync_progress)
+    sessions.api.sync.sync_all(on_progress=output.show_sync_progress)
 
     _install_shortcuts()
 

@@ -4,7 +4,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from space.os.sessions.api.sync import _gemini_json_to_jsonl
+from space.os.sessions.api.sync import _to_jsonl
 
 
 def test_gemini_json_to_jsonl():
@@ -22,7 +22,7 @@ def test_gemini_json_to_jsonl():
         temp_path = Path(f.name)
 
     try:
-        result = _gemini_json_to_jsonl(temp_path)
+        result = _to_jsonl(temp_path)
         lines = result.strip().split("\n")
 
         assert len(lines) == 2
@@ -46,7 +46,7 @@ def test_gemini_json_to_jsonl_empty():
         temp_path = Path(f.name)
 
     try:
-        result = _gemini_json_to_jsonl(temp_path)
+        result = _to_jsonl(temp_path)
         assert result == ""
     finally:
         temp_path.unlink()
@@ -59,7 +59,7 @@ def test_gemini_json_to_jsonl_malformed():
         temp_path = Path(f.name)
 
     try:
-        result = _gemini_json_to_jsonl(temp_path)
+        result = _to_jsonl(temp_path)
         assert result == ""
     finally:
         temp_path.unlink()

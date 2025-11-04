@@ -58,7 +58,7 @@ def test_parse_spawn_marker_returns_none():
 
 def test_link_spawn_to_session_updates_db():
     """Verify session_id update to spawns table after sync."""
-    with patch("space.os.sessions.api.sync.sync_provider_sessions") as mock_sync:
+    with patch("space.os.sessions.api.sync.sync_session") as mock_sync:
         with patch("space.os.sessions.api.linker.store.ensure") as mock_store:
             mock_conn = MagicMock()
             mock_store.return_value.__enter__.return_value = mock_conn

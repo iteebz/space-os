@@ -48,8 +48,8 @@ class Provider(Protocol):
     Unified interface for both chat discovery and agent spawning.
     """
 
-    def discover_chats(self) -> list[dict]:
-        """Discover chat sessions.
+    def discover_sessions(self) -> list[dict]:
+        """Discover provider sessions.
 
         Returns:
             List of {cli, session_id, file_path, created_at}

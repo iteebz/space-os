@@ -196,3 +196,35 @@ def test_trace_session_with_error():
     assert "failed" in result.stdout.lower() or "✗" in result.stdout
     assert "Error" in result.stdout
     assert "Connection refused" in result.stdout
+
+
+def test_trace_spawn_syncs_session():
+    """Trace spawn should sync session to get latest data."""
+    from unittest.mock import MagicMock
+
+    with patch("space.os.spawn.api.get_spawn") as mock_get_spawn:
+        with patch("space.os.sessions.api.sync.sync_session") as mock_sync:
+            spawn_obj = MagicMock()
+            spawn_obj.id = "abc12345-def6-7890-ghij-klmnopqrstuv"
+            spawn_obj.session_id = "sess-123"
+            spawn_obj.agent_id = "agent-456"
+            spawn_obj.status = "completed"
+            spawn_obj.created_at = "2025-11-03T10:00:00"
+            spawn_obj.ended_at = "2025-11-03T10:00:05"
+            spawn_obj.channel_id = None
+            spawn_obj.is_task = True
+
+            mock_get_spawn.return_value = spawn_obj
+
+            with patch("space.os.spawn.api.get_agent") as mock_get_agent:
+                agent_obj = MagicMock()
+                agent_obj.identity = "zealot"
+                mock_get_agent.return_value = agent_obj
+
+                from space.os.spawn.api.trace import trace_spawn
+
+                result = trace_spawn("abc12345")
+
+                mock_sync.assert_called_once_with("sess-123")
+                assert result["spawn_id"] == "abc12345"
+                assert result["session_id"] == "sess-123"

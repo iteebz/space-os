@@ -92,7 +92,7 @@ def _extract_timestamps(content: str, provider: str) -> tuple[str | None, str | 
     return first_ts, last_ts
 
 
-def _gemini_json_to_jsonl(json_file: Path) -> str:
+def _to_jsonl(json_file: Path) -> str:
     """Convert Gemini JSON session to JSONL format.
 
     Args:
@@ -181,24 +181,27 @@ def sync_provider_sessions(
     sync_state = _load_sync_state()
     provider_map = {"claude": "Claude", "codex": "Codex", "gemini": "Gemini"}
     size_threshold = 10 * 1024 * 1024
-    total_discovered = 0
+
     total_synced = 0
+    total_discovered = 0
+    total_processed = 0
 
     for cli_name, class_name in provider_map.items():
         try:
             provider_class = getattr(providers, class_name)
             provider = provider_class()
 
-            sessions = provider.discover_chats()
+            sessions = provider.discover_sessions()
             if not sessions:
                 results[cli_name] = (0, 0)
                 continue
 
+            total_discovered += len(sessions)
             dest_dir = sessions_dir / cli_name
             dest_dir.mkdir(parents=True, exist_ok=True)
 
             synced_count = 0
-            for session in sessions:
+            for _idx, session in enumerate(sessions, 1):
                 src_file = Path(session["file_path"])
                 if not src_file.exists():
                     continue
@@ -207,6 +210,18 @@ def sync_provider_sessions(
 
                 if session_id and sid != session_id:
                     continue
+
+                total_processed += 1
+
+                if on_progress:
+                    event = ProgressEvent(
+                        provider=cli_name,
+                        discovered=len(sessions),
+                        synced=synced_count,
+                        total_discovered=total_discovered,
+                        total_synced=total_synced + total_processed,
+                    )
+                    on_progress(event)
 
                 state_key = f"{cli_name}_{sid}"
                 src_mtime = src_file.stat().st_mtime
@@ -234,7 +249,7 @@ def sync_provider_sessions(
                     if should_copy:
                         if cli_name == "gemini":
                             dest_file = dest_dir / f"{sid}.jsonl"
-                            jsonl_content = _gemini_json_to_jsonl(src_file)
+                            jsonl_content = _to_jsonl(src_file)
                             dest_file.parent.mkdir(parents=True, exist_ok=True)
                             dest_file.write_text(jsonl_content)
                             content_to_parse = jsonl_content
@@ -293,30 +308,21 @@ def sync_provider_sessions(
                     logger.warning(f"Failed to process {sid}: {e}")
 
             results[cli_name] = (len(sessions), synced_count)
-            total_discovered += len(sessions)
             total_synced += synced_count
 
-            if on_progress:
-                event = ProgressEvent(
-                    provider=cli_name,
-                    discovered=len(sessions),
-                    synced=synced_count,
-                    total_discovered=total_discovered,
-                    total_synced=total_synced,
-                )
-                on_progress(event)
         except (AttributeError, Exception) as e:
             logger.warning(f"Error syncing {cli_name}: {e}")
             results[cli_name] = (0, 0)
-            if on_progress:
-                event = ProgressEvent(
-                    provider=cli_name,
-                    discovered=0,
-                    synced=0,
-                    total_discovered=total_discovered,
-                    total_synced=total_synced,
-                )
-                on_progress(event)
 
     _save_sync_state(sync_state)
     return results
+
+
+def sync_all(on_progress=None) -> dict[str, tuple[int, int]]:
+    """Sync all sessions from all providers."""
+    return sync_provider_sessions(on_progress=on_progress)
+
+
+def sync_session(session_id: str, on_progress=None) -> dict[str, tuple[int, int]]:
+    """Sync a single session from any provider."""
+    return sync_provider_sessions(session_id=session_id, on_progress=on_progress)

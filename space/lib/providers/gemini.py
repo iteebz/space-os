@@ -49,8 +49,8 @@ class Gemini(Provider):
         allowed = Gemini.allowed_tools()
         return ["--output-format", "stream-json", "--allowed-tools"] + allowed
 
-    def discover_chats(self) -> list[dict]:
-        """Discover Gemini chat sessions from actual chat files and logs.json index."""
+    def discover_sessions(self) -> list[dict]:
+        """Discover Gemini sessions from actual chat files and logs.json index."""
         sessions = []
         if not self.tmp_dir.exists():
             return sessions

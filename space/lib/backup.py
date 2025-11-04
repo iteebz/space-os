@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import shutil
@@ -18,7 +17,7 @@ app = typer.Typer()
 @app.callback(invoke_without_command=True)
 def callback(ctx: typer.Context):
     if ctx.invoked_subcommand is None:
-        ctx.invoke(backup)
+        backup(quiet_output=False)
 
 
 def _backup_data_snapshot(timestamp: str, quiet_output: bool) -> dict:
@@ -39,29 +38,44 @@ def _backup_data_snapshot(timestamp: str, quiet_output: bool) -> dict:
     return _get_backup_stats(backup_path)
 
 
-def _backup_sessions_latest(quiet_output: bool) -> None:
+def _backup_sessions(quiet_output: bool) -> dict:
     src = paths.sessions_dir()
-    if not src.exists():
-        return
-
     backup_path = paths.backup_sessions_dir()
+
+    def count_provider_files(path: Path, provider: str) -> int:
+        """Count JSONL files for a provider."""
+        provider_dir = path / provider
+        if not provider_dir.exists():
+            return 0
+        return len(list(provider_dir.glob("*.jsonl")))
+
+    before = {p: count_provider_files(backup_path, p) for p in ["claude", "codex", "gemini"]}
+
     backup_path.mkdir(parents=True, exist_ok=True)
 
-    for provider_dir in src.iterdir():
-        if not provider_dir.is_dir():
-            continue
-
-        backup_provider_dir = backup_path / provider_dir.name
-        backup_provider_dir.mkdir(exist_ok=True)
-
-        for session_file in provider_dir.iterdir():
-            if not session_file.is_file():
+    if src.exists():
+        for provider_dir in src.iterdir():
+            if not provider_dir.is_dir():
                 continue
 
-            backup_file = backup_provider_dir / session_file.name
-            shutil.copy2(session_file, backup_file)
+            backup_provider_dir = backup_path / provider_dir.name
+            backup_provider_dir.mkdir(exist_ok=True)
+
+            for session_file in provider_dir.iterdir():
+                if not session_file.is_file():
+                    continue
+
+                backup_file = backup_provider_dir / session_file.name
+                shutil.copy2(session_file, backup_file)
 
     os.chmod(backup_path, 0o555)
+
+    after = {p: count_provider_files(backup_path, p) for p in ["claude", "codex", "gemini"]}
+    return {
+        "before": before,
+        "after": after,
+        "added": {p: after[p] - before[p] for p in ["claude", "codex", "gemini"]},
+    }
 
 
 def _get_backup_stats(backup_path: Path) -> dict:
@@ -95,22 +109,8 @@ def _get_backup_stats(backup_path: Path) -> dict:
     return stats
 
 
-def _format_backup_stats(backup_stats: dict) -> str:
-    lines = ["\nBackup stats:", "  Database               Tables  Rows", "  " + "─" * 40]
-    for db_name in sorted(backup_stats.keys()):
-        stats = backup_stats[db_name]
-        if "error" in stats:
-            lines.append(f"  {db_name:22} error")
-        else:
-            tables = stats.get("tables", "?")
-            rows = stats.get("rows", "?")
-            lines.append(f"  {db_name:22} {tables:6}  {rows}")
-    return "\n".join(lines)
-
-
 @app.command()
 def backup(
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
     quiet_output: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
@@ -122,24 +122,15 @@ def backup(
     """
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_stats = _backup_data_snapshot(timestamp, quiet_output)
-    _backup_sessions_latest(quiet_output)
+    _backup_data_snapshot(timestamp, quiet_output)
+    session_stats = _backup_sessions(quiet_output)
 
-    if json_output:
-        typer.echo(
-            json.dumps(
-                {
-                    "data_backup": str(paths.backup_snapshot(timestamp)),
-                    "sessions_backup": str(paths.backup_sessions_dir()),
-                    "stats": backup_stats,
-                }
-            )
-        )
-    elif not quiet_output:
-        typer.echo(f"✓ Backed up data to {paths.backup_snapshot(timestamp)}")
-        typer.echo(f"✓ Backed up sessions to {paths.backup_sessions_dir()}")
-        if backup_stats:
-            typer.echo(_format_backup_stats(backup_stats))
+    if not quiet_output:
+        providers = ["claude", "codex", "gemini"]
+        after = session_stats.get("after", {})
+        counts = ", ".join(f"{p} ({after.get(p, 0)})" for p in providers)
+        typer.echo(f"✓ Data: {paths.backup_snapshot(timestamp)}")
+        typer.echo(f"✓ Sessions: {counts}")
 
 
 def main() -> None:

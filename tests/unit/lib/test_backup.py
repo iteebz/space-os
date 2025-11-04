@@ -90,8 +90,8 @@ def test_backup_stats_counts_rows(tmp_path):
 @patch("space.lib.backup.paths.backup_sessions_dir")
 @patch("space.lib.backup.paths.sessions_dir")
 def test_backup_sessions_mirror_structure(mock_sessions_dir, mock_backup_sessions_dir, tmp_path):
-    """Session backup mirrors structure and is additive (overwrites updated files)."""
-    from space.lib.backup import _backup_sessions_latest
+    """Session backup mirrors structure and is additive (overwrites updated files, preserves backup-only files)."""
+    from space.lib.backup import _backup_sessions
 
     src_sessions = tmp_path / "sessions"
     src_sessions.mkdir()
@@ -106,7 +106,7 @@ def test_backup_sessions_mirror_structure(mock_sessions_dir, mock_backup_session
     (src_sessions / "claude" / "session1.jsonl").write_text("msg1")
     (src_sessions / "codex" / "session2.jsonl").write_text("msg2")
 
-    _backup_sessions_latest(quiet_output=True)
+    _backup_sessions(quiet_output=True)
 
     assert (backup_dir / "claude" / "session1.jsonl").read_text() == "msg1"
     assert (backup_dir / "codex" / "session2.jsonl").read_text() == "msg2"
@@ -114,7 +114,7 @@ def test_backup_sessions_mirror_structure(mock_sessions_dir, mock_backup_session
     (src_sessions / "claude" / "session3.jsonl").write_text("msg3")
     (src_sessions / "claude" / "session1.jsonl").write_text("msg1-updated")
 
-    _backup_sessions_latest(quiet_output=True)
+    _backup_sessions(quiet_output=True)
 
     assert (backup_dir / "claude" / "session1.jsonl").read_text() == "msg1-updated"
     assert (backup_dir / "claude" / "session3.jsonl").read_text() == "msg3"

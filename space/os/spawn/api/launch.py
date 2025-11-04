@@ -214,7 +214,6 @@ def _spawn_task_claude(agent, task: str, spawn, channel_name: str | None) -> Non
 def _spawn_task_gemini(agent, task: str, spawn, channel_name: str | None) -> None:
     """Execute task-based Gemini spawn with session linking.
 
-    Note: Gemini session syncing to ~/.space/sessions/ deferred (handled by sync_provider_sessions).
     If spawned from a channel (@mention), agent should post results to that channel.
     """
     import sys

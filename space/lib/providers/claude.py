@@ -13,7 +13,7 @@ class Claude(Provider):
     """Claude provider: chat discovery and message parsing."""
 
     def __init__(self):
-        self.chats_dir = Path.home() / ".claude" / "projects"
+        self.sessions_dir = Path.home() / ".claude" / "projects"
 
     @staticmethod
     def allowed_tools() -> list[str]:
@@ -69,13 +69,13 @@ class Claude(Provider):
             ",".join(disallowed),
         ]
 
-    def discover_chats(self) -> list[dict]:
-        """Discover Claude chat sessions."""
+    def discover_sessions(self) -> list[dict]:
+        """Discover Claude sessions."""
         sessions = []
-        if not self.chats_dir.exists():
+        if not self.sessions_dir.exists():
             return sessions
 
-        for jsonl in self.chats_dir.rglob("*.jsonl"):
+        for jsonl in self.sessions_dir.rglob("*.jsonl"):
             sessions.append(
                 {
                     "cli": "claude",

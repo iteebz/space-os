@@ -32,8 +32,8 @@ class Codex(Provider):
         """
         return ["--json", "--dangerously-bypass-approvals-and-sandbox"]
 
-    def discover_chats(self) -> list[dict]:
-        """Discover Codex chat sessions."""
+    def discover_sessions(self) -> list[dict]:
+        """Discover Codex sessions."""
         sessions = []
         if not self.sessions_dir.exists():
             return sessions
