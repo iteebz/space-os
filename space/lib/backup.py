@@ -29,7 +29,7 @@ def _backup_data_snapshot(timestamp: str, quiet_output: bool) -> dict:
 
     with contextlib.suppress(Exception):
         store.close_all()
-    
+
     resolve(src)
 
     for db_file in src.glob("*.db"):
@@ -55,7 +55,7 @@ def _backup_sessions(quiet_output: bool) -> dict:
 
     if backup_path.exists():
         os.chmod(backup_path, 0o755)
-    
+
     backup_path.mkdir(parents=True, exist_ok=True)
 
     if src.exists():

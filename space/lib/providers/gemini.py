@@ -10,6 +10,15 @@ from space.core.protocols import Provider
 logger = logging.getLogger(__name__)
 
 
+def is_system_bloat(content: str) -> bool:
+    """Filter out Gemini's system messages.
+
+    Gemini wraps internal continuation prompts as "System: Please continue."
+    These are not user/agent conversation content.
+    """
+    return content.strip().startswith("System:")
+
+
 class Gemini(Provider):
     """Gemini provider: chat discovery and message parsing."""
 
@@ -293,6 +302,7 @@ class Gemini(Provider):
         """Convert Gemini JSON session to JSONL format.
 
         Gemini stores sessions as JSON, but space-os uses JSONL uniformly.
+        Filters out system messages (internal continuation prompts).
 
         Args:
             json_file: Path to Gemini JSON session file
@@ -310,11 +320,32 @@ class Gemini(Provider):
                     msg_type = msg.get("type")
                     if msg_type not in ("user", "model"):
                         continue
+
+                    content = msg.get("content", "")
+                    if not content:
+                        continue
+
+                    if isinstance(content, list):
+                        content = "\n".join(
+                            [
+                                block.get("text", "")
+                                if isinstance(block, dict) and block.get("type") == "text"
+                                else ""
+                                for block in content
+                            ]
+                        ).strip()
+
+                    if not content:
+                        continue
+
+                    if is_system_bloat(content):
+                        continue
+
                     lines.append(
                         json.dumps(
                             {
                                 "role": "assistant" if msg_type == "model" else "user",
-                                "content": msg.get("content", ""),
+                                "content": str(content),
                                 "timestamp": msg.get("timestamp"),
                             }
                         )

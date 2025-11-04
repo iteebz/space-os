@@ -67,7 +67,7 @@ def _index_transcripts(session_id: str, provider: str, content: str, conn) -> in
                 ]
             ).strip()
 
-        msg_content = str(msg_content)
+        msg_content = str(msg_content).strip()
         if not msg_content:
             continue
 

@@ -17,8 +17,8 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
         all_agents: Unused in Phase 1 (reserved for Phase 2 multi-agent filtering)
 
     Returns:
-        List of results matching the query, sorted by relevance + recency.
-        Each result has: source, cli, session_id, identity, role, text, timestamp, reference
+        List of results matching the query, sorted by BM25 relevance + recency.
+        Each result has: source, cli, session_id, identity, role, text, timestamp, reference, score
     """
     results = []
 
@@ -30,38 +30,41 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
                     t.session_id,
                     t.provider,
                     t.role,
+                    t.identity,
                     t.content,
-                    t.timestamp
+                    t.timestamp,
+                    fts.rank
                 FROM transcripts t
-                WHERE t.rowid IN (
-                    SELECT rowid FROM transcripts_fts WHERE transcripts_fts MATCH ?
-                )
-                ORDER BY t.timestamp DESC
-                LIMIT 50
+                JOIN transcripts_fts fts ON t.id = fts.rowid
+                WHERE fts.transcripts_fts MATCH ?
+                ORDER BY fts.rank, t.timestamp DESC
+                LIMIT 100
                 """,
                 (query,),
             ).fetchall()
 
             for row in rows:
-                session_id, provider, role, content, timestamp = row
+                session_id, provider, role, identity, content, timestamp, rank = row
+                score = abs(rank)
 
                 results.append(
                     {
                         "source": "chat",
                         "cli": provider,
                         "session_id": session_id,
-                        "identity": None,
                         "role": role,
+                        "identity": identity,
                         "text": content,
                         "timestamp": timestamp,
-                        "reference": f"chat:{provider}:{session_id}",
+                        "reference": session_id,
+                        "score": score,
                     }
                 )
 
     except Exception as e:
         logger.warning(f"Transcript search failed for query '{query}': {e}")
 
-    return results
+    return results[:50]
 
 
 def get_provider_stats() -> dict[str, dict]:

@@ -159,8 +159,10 @@ class TestSearch:
 
     def test_search_fts5_syntax(self):
         """FTS5 phrase and boolean queries work."""
-        sid = "test-fts-syntax-new"
+        sid = "test-fts-syntax-unique-123"
         with store.ensure() as conn:
+            conn.execute("DELETE FROM transcripts WHERE session_id = ?", (sid,))
+            conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
             conn.execute(
                 "INSERT INTO sessions (session_id, provider, model) VALUES (?, ?, ?)",
                 (sid, "claude", "test"),
@@ -170,14 +172,7 @@ class TestSearch:
                 INSERT INTO transcripts (session_id, message_index, provider, role, content, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?)
             """,
-                (
-                    sid,
-                    0,
-                    "claude",
-                    "user",
-                    "constitutional diversity governance unique",
-                    1698900000,
-                ),
+                (sid, 0, "claude", "user", "constitutional diversity governance unique", 1698900000),
             )
             conn.execute(
                 """
@@ -188,7 +183,7 @@ class TestSearch:
             )
             conn.commit()
 
-        # Phrase search
+        # Phrase search (triggers index automatically)
         results = [
             r for r in operations.search('"constitutional diversity"') if r["session_id"] == sid
         ]

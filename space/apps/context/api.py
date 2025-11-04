@@ -72,10 +72,11 @@ def collect_timeline(query: str, identity: str | None, all_agents: bool) -> list
                 {
                     "source": result["source"],
                     "type": result["cli"],
-                    "identity": result["identity"],
+                    "identity": result.get("identity"),
                     "data": result["text"],
                     "timestamp": result["timestamp"],
                     "reference": result["reference"],
+                    "score": result.get("score"),
                 }
             )
 
@@ -140,10 +141,11 @@ def collect_current_state(query: str, identity: str | None, all_agents: bool) ->
         {
             "cli": r["cli"],
             "session_id": r["session_id"],
-            "identity": r["identity"],
+            "identity": r.get("identity"),
             "role": r["role"],
             "text": r["text"],
             "reference": r["reference"],
+            "score": r.get("score"),
         }
         for r in sessions.api.search(query, identity, all_agents)
     ]

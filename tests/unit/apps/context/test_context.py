@@ -38,7 +38,6 @@ def test_collect_timeline_memory_excluded_without_identity():
                 "source": "memory",
                 "memory_id": "id-1",
                 "topic": "topic-a",
-                "identity": "alice",
                 "message": "thought 1",
                 "timestamp": 100,
                 "reference": "mem:1",
@@ -177,7 +176,6 @@ def test_collect_current_state_memory_excluded_without_identity():
             {
                 "cli": "cli1",
                 "session_id": "s1",
-                "identity": "alice",
                 "role": "r1",
                 "text": "t1",
                 "reference": "r1",
@@ -216,7 +214,6 @@ def test_collect_current_state_memory_included_with_identity():
             {
                 "cli": "cli1",
                 "session_id": "s1",
-                "identity": "alice",
                 "role": "r1",
                 "text": "t1",
                 "reference": "r1",

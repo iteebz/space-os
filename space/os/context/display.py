@@ -34,10 +34,19 @@ def fmt_entry_header(entry, agent_identity: str = None) -> str:
     return f"[{entry.memory_id[-8:]}] {entry.topic}{name}{mark_archived}{mark_core}"
 
 
-def fmt_entry_msg(msg: str, max_len: int = 100) -> str:
-    if len(msg) > max_len:
-        return msg[:max_len] + "..."
-    return msg
+def _truncate_smartly(text: str, max_len: int = 150) -> tuple[str, bool]:
+    """Truncate at sentence/paragraph boundary, return (truncated, was_truncated)."""
+    if len(text) <= max_len:
+        return text, False
+    
+    text = text[:max_len]
+    
+    for boundary in [". ", ".\n", "\n\n", "\n"]:
+        idx = text.rfind(boundary)
+        if idx > max_len * 0.6:
+            return text[:idx + len(boundary)].rstrip(), True
+    
+    return text.rstrip() + "…", True
 
 
 def show_memory_entry(entry, ctx_obj, related=None):
@@ -56,52 +65,113 @@ def show_memory_entry(entry, ctx_obj, related=None):
             typer.echo(f"  {fmt_entry_msg(rel_entry.message)}\n")
 
 
-def display_context(timeline, current_state, lattice_docs, canon_docs):
-    if timeline:
-        typer.echo("## EVOLUTION (last 10)\n")
-        for entry in timeline:
-            ts_dt = _safe_datetime(entry.get("timestamp"))
-            ts = ts_dt.strftime("%Y-%m-%d %H:%M") if ts_dt else str(entry.get("timestamp"))
-            typ = entry["type"]
-            identity_str = entry["identity"] or "system"
-            data = entry["data"][:100] if entry["data"] else ""
-            typer.echo(f"[{ts}] {typ} ({identity_str})")
-            typer.echo(f"  {data}\n")
+def display_context(timeline, current_state):
+    if any(current_state.values()):
+        typer.echo("## RESULTS\n")
+        
+        _display_session_results(current_state.get("sessions", []))
+        _display_memory_results(current_state.get("memory", []))
+        _display_knowledge_results(current_state.get("knowledge", []))
+        _display_bridge_results(current_state.get("bridge", []))
+        _display_canon_results(current_state.get("canon", []))
+    else:
+        typer.echo("No context found")
 
-    if current_state["memory"] or current_state["knowledge"] or current_state["bridge"]:
-        typer.echo("\n## CURRENT STATE\n")
 
-        if current_state["memory"]:
-            typer.echo(f"memory: {len(current_state['memory'])}")
-            for r in current_state["memory"][:5]:
-                typer.echo(f"  {r['topic']}: {r['message'][:80]}")
-            typer.echo()
+def _display_session_results(sessions):
+    """Display sessions grouped by user/agent, with smart truncation."""
+    if not sessions:
+        return
+    
+    typer.echo(f"SESSIONS ({len(sessions)})\n")
+    
+    user_msgs = [r for r in sessions if r.get("role") == "user"]
+    agent_msgs = [r for r in sessions if r.get("role") != "user"]
+    
+    if user_msgs:
+        typer.echo("You:")
+        for r in user_msgs[:2]:
+            ref = r.get("reference", "?")
+            text, truncated = _truncate_smartly(r.get("text", ""), max_len=150)
+            indicator = " […]" if truncated else ""
+            typer.echo(f"  {text}{indicator}")
+            typer.echo(f"  ref: {ref}\n")
+    
+    if agent_msgs:
+        typer.echo("Agent:")
+        for r in agent_msgs[:2]:
+            cli = r.get("cli", "?")
+            ref = r.get("reference", "?")
+            text, truncated = _truncate_smartly(r.get("text", ""), max_len=150)
+            indicator = " […]" if truncated else ""
+            typer.echo(f"  [{cli}] {text}{indicator}")
+            typer.echo(f"  ref: {ref}\n")
+    
+    typer.echo()
 
-        if current_state["knowledge"]:
-            typer.echo(f"knowledge: {len(current_state['knowledge'])}")
-            for r in current_state["knowledge"][:5]:
-                typer.echo(f"  {r['domain']}: {r['content'][:80]}")
-            typer.echo()
 
-        if current_state["bridge"]:
-            typer.echo(f"bridge: {len(current_state['bridge'])}")
-            for r in current_state["bridge"][:5]:
-                typer.echo(f"  [{r['channel']}] {r['content'][:80]}")
-            typer.echo()
+def _display_memory_results(memory):
+    """Display memory entries."""
+    if not memory:
+        return
+    
+    typer.echo(f"MEMORY ({len(memory)})\n")
+    for r in memory[:3]:
+        topic = r.get("topic", "untitled")
+        msg, truncated = _truncate_smartly(r.get("message", ""), max_len=150)
+        indicator = " […]" if truncated else ""
+        ref = r.get("reference", "?")
+        typer.echo(f"  {topic}: {msg}{indicator}")
+        typer.echo(f"  ref: {ref}\n")
+    typer.echo()
 
-    if lattice_docs:
-        typer.echo("\n## LATTICE DOCS\n")
-        for heading, content in lattice_docs.items():
-            typer.echo(f"### {heading}\n")
-            preview = "\n".join(content.split("\n")[:5])
-            typer.echo(f"{preview}...\n")
 
-    if canon_docs:
-        typer.echo("\n## CANON DOCS\n")
-        for filename, content in canon_docs.items():
-            typer.echo(f"### {filename}\n")
-            preview = "\n".join(content.split("\n")[:5])
-            typer.echo(f"{preview}...\n")
+def _display_knowledge_results(knowledge):
+    """Display knowledge entries."""
+    if not knowledge:
+        return
+    
+    typer.echo(f"KNOWLEDGE ({len(knowledge)})\n")
+    for r in knowledge[:3]:
+        domain = r.get("domain", "unknown")
+        content, truncated = _truncate_smartly(r.get("content", ""), max_len=150)
+        indicator = " […]" if truncated else ""
+        ref = r.get("reference", "?")
+        typer.echo(f"  {domain}: {content}{indicator}")
+        typer.echo(f"  ref: {ref}\n")
+    typer.echo()
+
+
+def _display_bridge_results(bridge):
+    """Display bridge messages."""
+    if not bridge:
+        return
+    
+    typer.echo(f"BRIDGE ({len(bridge)})\n")
+    for r in bridge[:3]:
+        channel = r.get("channel", "unknown")
+        content, truncated = _truncate_smartly(r.get("content", ""), max_len=150)
+        indicator = " […]" if truncated else ""
+        ref = r.get("reference", "?")
+        typer.echo(f"  #{channel}: {content}{indicator}")
+        typer.echo(f"  ref: {ref}\n")
+    typer.echo()
+
+
+def _display_canon_results(canon):
+    """Display canon files."""
+    if not canon:
+        return
+    
+    typer.echo(f"CANON ({len(canon)})\n")
+    for r in canon[:3]:
+        path = r.get("path", "unknown")
+        content, truncated = _truncate_smartly(r.get("content", ""), max_len=150)
+        indicator = " […]" if truncated else ""
+        ref = r.get("reference", "?")
+        typer.echo(f"  {path}: {content}{indicator}")
+        typer.echo(f"  ref: {ref}\n")
+    typer.echo()
 
 
 def show_context(identity: str):

@@ -82,7 +82,7 @@ def canon_exists(path: str) -> bool:
 def search(
     query: str, identity: str | None = None, all_agents: bool = False, max_content_length: int = 500
 ) -> list[dict]:
-    """Search canon documents by query."""
+    """Search canon documents by filename and content, prioritizing filename matches."""
     if not query:
         return []
 
@@ -90,31 +90,42 @@ def search(
     if not canon_root.exists():
         return []
 
-    matches: list[dict] = []
+    query_lower = query.lower()
+    path_matches = []
+    content_matches = []
+    
     for md_file in canon_root.rglob("*.md"):
         try:
             content = md_file.read_text()
         except Exception:
             continue
 
-        if query.lower() not in content.lower():
+        relative_path = md_file.relative_to(canon_root)
+        path_str = str(relative_path).lower()
+        
+        path_match = query_lower in path_str
+        content_match = query_lower in content.lower()
+        
+        if not (path_match or content_match):
             continue
 
-        relative_path = md_file.relative_to(canon_root)
         truncated_content = content[:max_content_length]
         if len(content) > max_content_length:
-            truncated_content += "..."
+            truncated_content += "…"
 
-        matches.append(
-            {
-                "source": "canon",
-                "path": str(relative_path),
-                "content": truncated_content,
-                "reference": f"canon:{relative_path}",
-            }
-        )
+        result = {
+            "source": "canon",
+            "path": str(relative_path),
+            "content": truncated_content,
+            "reference": f"canon:{relative_path}",
+        }
+        
+        if path_match:
+            path_matches.append(result)
+        else:
+            content_matches.append(result)
 
-    return matches
+    return path_matches + content_matches
 
 
 def stats() -> dict:
