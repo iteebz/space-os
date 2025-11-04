@@ -9,7 +9,7 @@ import shutil
 import subprocess
 
 from space.lib import paths
-from space.lib.providers import claude, codex, gemini
+from space.lib.providers import Claude, Codex, Gemini
 
 from . import agents, spawns
 from .constitute import constitute
@@ -59,14 +59,14 @@ def spawn_interactive(identity: str, extra_args: list[str] | None = None):
 
     constitute(spawn, agent)
 
-    provider_obj = {"claude": claude, "gemini": gemini, "codex": codex}.get(agent.provider)
-    if provider_obj:
+    provider_class = {"claude": Claude, "gemini": Gemini, "codex": Codex}.get(agent.provider)
+    if provider_class:
         if agent.provider == "gemini":
-            launch_args = provider_obj.launch_args(has_prompt=bool(passthrough))
+            launch_args = provider_class.launch_args(has_prompt=bool(passthrough))
         elif agent.provider == "claude":
-            launch_args = provider_obj.launch_args(is_task=bool(passthrough))
+            launch_args = provider_class.launch_args(is_task=bool(passthrough))
         else:
-            launch_args = provider_obj.launch_args()
+            launch_args = provider_class.launch_args()
     else:
         launch_args = []
 
@@ -178,8 +178,7 @@ def _spawn_task_claude(agent, task: str, spawn, channel_name: str | None) -> Non
 
     from space.os.sessions.api import linker
 
-    provider_obj = claude
-    launch_args = provider_obj.task_launch_args()
+    launch_args = Claude.task_launch_args()
 
     context = build_spawn_context(agent.identity, task=task, channel=channel_name, is_task=True)
     add_dir_args = ["--add-dir", str(paths.space_root())]
@@ -220,8 +219,7 @@ def _spawn_task_gemini(agent, task: str, spawn, channel_name: str | None) -> Non
 
     from space.os.sessions.api import linker
 
-    provider_obj = gemini
-    launch_args = provider_obj.task_launch_args()
+    launch_args = Gemini.task_launch_args()
 
     context = build_spawn_context(agent.identity, task=task, channel=channel_name, is_task=True)
     add_dir_args = ["--add-dir", str(paths.space_root())]
@@ -236,7 +234,7 @@ def _spawn_task_gemini(agent, task: str, spawn, channel_name: str | None) -> Non
         sys.stderr.write(f"Gemini spawn failed: {result.stderr}\n")
         raise RuntimeError(f"Gemini spawn failed: {result.stderr}")
 
-    gemini_session_id = provider_obj.headless_session_id(result.stdout)
+    gemini_session_id = Gemini.session_id(result.stdout)
     if not gemini_session_id:
         raise RuntimeError("No session_id in Gemini output")
 
@@ -252,8 +250,7 @@ def _spawn_task_codex(agent, task: str, spawn, channel_name: str | None) -> None
 
     from space.os.sessions.api import linker
 
-    provider_obj = codex
-    launch_args = provider_obj.task_launch_args()
+    launch_args = Codex.task_launch_args()
 
     context = build_spawn_context(agent.identity, task=task, channel=channel_name, is_task=True)
     add_dir_args = ["--add-dir", str(paths.space_root())]
@@ -268,7 +265,7 @@ def _spawn_task_codex(agent, task: str, spawn, channel_name: str | None) -> None
         sys.stderr.write(f"Codex spawn failed: {result.stderr}\n")
         raise RuntimeError(f"Codex spawn failed: {result.stderr}")
 
-    codex_session_id = provider_obj.headless_session_id(result.stdout)
+    codex_session_id = Codex.session_id(result.stdout)
     if not codex_session_id:
         raise RuntimeError("No session_id in Codex output")
 

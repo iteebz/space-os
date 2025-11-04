@@ -4,6 +4,7 @@ import json
 import logging
 from pathlib import Path
 
+from space.core.models import AgentMessage, SessionEvent, ToolCall, ToolResult
 from space.core.protocols import Provider
 
 logger = logging.getLogger(__name__)
@@ -12,8 +13,7 @@ logger = logging.getLogger(__name__)
 class Claude(Provider):
     """Claude provider: chat discovery and message parsing."""
 
-    def __init__(self):
-        self.sessions_dir = Path.home() / ".claude" / "projects"
+    SESSIONS_DIR = Path.home() / ".claude" / "projects"
 
     @staticmethod
     def allowed_tools() -> list[str]:
@@ -69,13 +69,14 @@ class Claude(Provider):
             ",".join(disallowed),
         ]
 
-    def discover_sessions(self) -> list[dict]:
+    @staticmethod
+    def discover_sessions() -> list[dict]:
         """Discover Claude sessions."""
         sessions = []
-        if not self.sessions_dir.exists():
+        if not Claude.SESSIONS_DIR.exists():
             return sessions
 
-        for jsonl in self.sessions_dir.rglob("*.jsonl"):
+        for jsonl in Claude.SESSIONS_DIR.rglob("*.jsonl"):
             sessions.append(
                 {
                     "cli": "claude",
@@ -86,7 +87,8 @@ class Claude(Provider):
             )
         return sessions
 
-    def parse_messages(self, file_path: Path, from_offset: int = 0) -> list[dict]:
+    @staticmethod
+    def parse_messages(file_path: Path, from_offset: int = 0) -> list[dict]:
         """Parse messages from Claude JSONL."""
         messages = []
         try:
@@ -130,7 +132,8 @@ class Claude(Provider):
             logger.error(f"Error parsing Claude messages from {file_path}: {e}")
         return messages
 
-    def extract_tokens(self, file_path: Path) -> tuple[int | None, int | None]:
+    @staticmethod
+    def extract_tokens(file_path: Path) -> tuple[int | None, int | None]:
         """Extract input and output tokens from Claude JSONL.
 
         Claude stores tokens in message.usage.{input,output}_tokens
@@ -161,8 +164,9 @@ class Claude(Provider):
             logger.error(f"Error extracting Claude tokens from {file_path}: {e}")
         return (input_total if found_any else None, output_total if found_any else None)
 
-    def headless_session_id(self, output: str) -> str | None:
-        """Extract session_id from Claude --output-format json response.
+    @staticmethod
+    def session_id(output: str) -> str | None:
+        """Extract session_id from Claude execution output.
 
         Claude returns a JSON object with session_id at root level.
         """
@@ -173,3 +177,92 @@ class Claude(Provider):
         except (json.JSONDecodeError, ValueError) as e:
             logger.error(f"Failed to parse Claude headless output: {e}")
         return None
+
+    @staticmethod
+    def parse_jsonl(file_path: Path | str) -> list[SessionEvent]:
+        """Parse Claude session JSONL to unified event format.
+
+        Args:
+            file_path: Path to Claude session JSONL
+
+        Returns:
+            List of Event objects in chronological order
+        """
+        file_path = Path(file_path)
+        events = []
+
+        if not file_path.exists():
+            return events
+
+        try:
+            with open(file_path) as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+
+                    try:
+                        obj = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    msg_type = obj.get("type")
+                    timestamp = obj.get("timestamp")
+
+                    if msg_type == "assistant":
+                        events.extend(
+                            Claude._parse_assistant_message(obj.get("message", {}), timestamp)
+                        )
+                    elif msg_type == "user":
+                        events.extend(Claude._parse_user_message(obj.get("message", {}), timestamp))
+
+        except OSError:
+            pass
+
+        return events
+
+    @staticmethod
+    def _parse_assistant_message(message: dict, timestamp: str | None) -> list[SessionEvent]:
+        """Extract tool calls and text from assistant message."""
+        events = []
+        content = message.get("content", [])
+
+        for item in content:
+            item_type = item.get("type")
+
+            if item_type == "tool_use":
+                tool_call = ToolCall(
+                    tool_id=item.get("id", ""),
+                    tool_name=item.get("name", ""),
+                    input=item.get("input", {}),
+                    timestamp=timestamp,
+                )
+                events.append(SessionEvent(type="tool_call", timestamp=timestamp, data=tool_call))
+
+            elif item_type == "text":
+                text = AgentMessage(
+                    content=item.get("text", ""),
+                    timestamp=timestamp,
+                )
+                events.append(SessionEvent(type="text", timestamp=timestamp, data=text))
+
+        return events
+
+    @staticmethod
+    def _parse_user_message(message: dict, timestamp: str | None) -> list[SessionEvent]:
+        """Extract tool results from user message."""
+        events = []
+        content = message.get("content", [])
+
+        for item in content:
+            item_type = item.get("type")
+
+            if item_type == "tool_result":
+                result = ToolResult(
+                    tool_id=item.get("tool_use_id", ""),
+                    output=item.get("content", ""),
+                    is_error=item.get("is_error", False),
+                    timestamp=timestamp,
+                )
+                events.append(SessionEvent(type="tool_result", timestamp=timestamp, data=result))
+
+        return events

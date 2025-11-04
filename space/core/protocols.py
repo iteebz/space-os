@@ -1,6 +1,9 @@
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from space.core.models import SessionEvent
 
 
 @runtime_checkable
@@ -48,7 +51,8 @@ class Provider(Protocol):
     Unified interface for both chat discovery and agent spawning.
     """
 
-    def discover_sessions(self) -> list[dict]:
+    @staticmethod
+    def discover_sessions() -> list[dict]:
         """Discover provider sessions.
 
         Returns:
@@ -56,7 +60,8 @@ class Provider(Protocol):
         """
         ...
 
-    def parse_messages(self, file_path: Path, from_offset: int = 0) -> list[dict]:
+    @staticmethod
+    def parse_messages(file_path: Path, from_offset: int = 0) -> list[dict]:
         """Parse messages from chat session file.
 
         Args:
@@ -68,7 +73,8 @@ class Provider(Protocol):
         """
         ...
 
-    def extract_tokens(self, file_path: Path) -> tuple[int | None, int | None]:
+    @staticmethod
+    def extract_tokens(file_path: Path) -> tuple[int | None, int | None]:
         """Extract total input and output tokens from chat session.
 
         Args:
@@ -79,15 +85,30 @@ class Provider(Protocol):
         """
         ...
 
-    def headless_session_id(self, output: str) -> str | None:
-        """Extract session_id from headless execution output.
+    @staticmethod
+    def session_id(output: str) -> str | None:
+        """Extract session_id from execution output.
 
         Provider-specific parsing of structured output (JSON/JSONL).
 
         Args:
-            output: Raw stdout from headless execution
+            output: Raw stdout from execution
 
         Returns:
             session_id if found, None otherwise
+        """
+        ...
+
+    @staticmethod
+    def parse_jsonl(file_path: Path | str) -> "list[SessionEvent]":
+        """Parse provider session JSONL to unified event format.
+
+        Extracts tool calls, tool results, text responses, and other execution events.
+
+        Args:
+            file_path: Path to synced session JSONL file (~/.space/sessions/{provider}/{session_id}.jsonl)
+
+        Returns:
+            List of SessionEvent objects in chronological order
         """
         ...

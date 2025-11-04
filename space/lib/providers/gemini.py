@@ -4,6 +4,7 @@ import json
 import logging
 from pathlib import Path
 
+from space.core.models import AgentMessage, SessionEvent, ToolCall, ToolResult
 from space.core.protocols import Provider
 
 logger = logging.getLogger(__name__)
@@ -12,8 +13,7 @@ logger = logging.getLogger(__name__)
 class Gemini(Provider):
     """Gemini provider: chat discovery and message parsing."""
 
-    def __init__(self):
-        self.tmp_dir = Path.home() / ".gemini" / "tmp"
+    TMP_DIR = Path.home() / ".gemini" / "tmp"
 
     @staticmethod
     def allowed_tools() -> list[str]:
@@ -49,13 +49,14 @@ class Gemini(Provider):
         allowed = Gemini.allowed_tools()
         return ["--output-format", "stream-json", "--allowed-tools"] + allowed
 
-    def discover_sessions(self) -> list[dict]:
+    @staticmethod
+    def discover_sessions() -> list[dict]:
         """Discover Gemini sessions from actual chat files and logs.json index."""
         sessions = []
-        if not self.tmp_dir.exists():
+        if not Gemini.TMP_DIR.exists():
             return sessions
 
-        for project_dir in self.tmp_dir.iterdir():
+        for project_dir in Gemini.TMP_DIR.iterdir():
             if not project_dir.is_dir():
                 continue
 
@@ -114,7 +115,8 @@ class Gemini(Provider):
 
         return sessions
 
-    def parse_messages(self, file_path: Path, from_offset: int = 0) -> list[dict]:
+    @staticmethod
+    def parse_messages(file_path: Path, from_offset: int = 0) -> list[dict]:
         """
         Parse messages from Gemini JSON or JSONL.
 
@@ -174,7 +176,8 @@ class Gemini(Provider):
             logger.error(f"Error parsing Gemini messages from {file_path}: {e}")
         return messages
 
-    def extract_tokens(self, file_path: Path) -> tuple[int | None, int | None]:
+    @staticmethod
+    def extract_tokens(file_path: Path) -> tuple[int | None, int | None]:
         """Extract input and output tokens from Gemini JSON (raw format).
 
         Gemini stores tokens in gemini message objects under tokens.{input,output}
@@ -201,8 +204,9 @@ class Gemini(Provider):
             logger.error(f"Error extracting Gemini tokens from {file_path}: {e}")
         return (input_total if found_any else None, output_total if found_any else None)
 
-    def headless_session_id(self, output: str) -> str | None:
-        """Extract session_id from Gemini --output-format stream-json response.
+    @staticmethod
+    def session_id(output: str) -> str | None:
+        """Extract session_id from Gemini execution output.
 
         Gemini returns JSONL stream with first event type=init containing session_id.
         """
@@ -217,6 +221,95 @@ class Gemini(Provider):
         except (json.JSONDecodeError, ValueError, IndexError) as e:
             logger.error(f"Failed to parse Gemini headless output: {e}")
         return None
+
+    @staticmethod
+    def parse_jsonl(file_path: Path | str) -> list[SessionEvent]:
+        """Parse Gemini session JSONL to unified event format.
+
+        Args:
+            file_path: Path to Gemini session JSONL
+
+        Returns:
+            List of Event objects in chronological order
+        """
+        file_path = Path(file_path)
+        events = []
+
+        if not file_path.exists():
+            return events
+
+        try:
+            with open(file_path) as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+
+                    try:
+                        obj = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    msg_type = obj.get("type")
+                    timestamp = obj.get("timestamp")
+
+                    if msg_type == "model":
+                        events.extend(Gemini._parse_model_message(obj.get("parts", []), timestamp))
+                    elif msg_type == "user":
+                        events.extend(Gemini._parse_user_message(obj.get("parts", []), timestamp))
+
+        except OSError:
+            pass
+
+        return events
+
+    @staticmethod
+    def _parse_model_message(parts: list, timestamp: str | None) -> list[SessionEvent]:
+        """Extract function calls and text from model message."""
+        events = []
+
+        for part in parts:
+            if isinstance(part, dict):
+                if "text" in part:
+                    text = AgentMessage(
+                        content=part.get("text", ""),
+                        timestamp=timestamp,
+                    )
+                    events.append(SessionEvent(type="text", timestamp=timestamp, data=text))
+
+                elif "functionCall" in part:
+                    fn_call = part.get("functionCall", {})
+                    tool_call = ToolCall(
+                        tool_id=fn_call.get("name", ""),
+                        tool_name=fn_call.get("name", ""),
+                        input=fn_call.get("args", {}),
+                        timestamp=timestamp,
+                    )
+                    events.append(
+                        SessionEvent(type="tool_call", timestamp=timestamp, data=tool_call)
+                    )
+
+        return events
+
+    @staticmethod
+    def _parse_user_message(parts: list, timestamp: str | None) -> list[SessionEvent]:
+        """Extract function results from user message."""
+        events = []
+
+        for part in parts:
+            if isinstance(part, dict) and "functionResult" in part:
+                fn_result = part.get("functionResult", {})
+                result_data = fn_result.get("response", {})
+                result = ToolResult(
+                    tool_id=fn_result.get("name", ""),
+                    output=result_data.get("result", "")
+                    if isinstance(result_data, dict)
+                    else str(result_data),
+                    is_error=False,
+                    timestamp=timestamp,
+                )
+                events.append(SessionEvent(type="tool_result", timestamp=timestamp, data=result))
+
+        return events
 
     def json_to_jsonl(self, json_file: Path) -> str:
         """Convert Gemini JSON session to JSONL format.

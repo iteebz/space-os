@@ -4,6 +4,7 @@ import json
 import logging
 from pathlib import Path
 
+from space.core.models import AgentMessage, SessionEvent, ToolCall, ToolResult
 from space.core.protocols import Provider
 
 logger = logging.getLogger(__name__)
@@ -16,8 +17,7 @@ class Codex(Provider):
     Reasoning effort defaults to low and is configured via codex config, not CLI args.
     """
 
-    def __init__(self):
-        self.sessions_dir = Path.home() / ".codex" / "sessions"
+    SESSIONS_DIR = Path.home() / ".codex" / "sessions"
 
     @staticmethod
     def launch_args() -> list[str]:
@@ -32,13 +32,14 @@ class Codex(Provider):
         """
         return ["--json", "--dangerously-bypass-approvals-and-sandbox"]
 
-    def discover_sessions(self) -> list[dict]:
+    @staticmethod
+    def discover_sessions() -> list[dict]:
         """Discover Codex sessions."""
         sessions = []
-        if not self.sessions_dir.exists():
+        if not Codex.SESSIONS_DIR.exists():
             return sessions
 
-        for jsonl in self.sessions_dir.rglob("*.jsonl"):
+        for jsonl in Codex.SESSIONS_DIR.rglob("*.jsonl"):
             sessions.append(
                 {
                     "cli": "codex",
@@ -49,7 +50,8 @@ class Codex(Provider):
             )
         return sessions
 
-    def parse_messages(self, file_path: Path, from_offset: int = 0) -> list[dict]:
+    @staticmethod
+    def parse_messages(file_path: Path, from_offset: int = 0) -> list[dict]:
         """Parse messages from Codex JSONL."""
         messages = []
         try:
@@ -115,7 +117,8 @@ class Codex(Provider):
             logger.error(f"Error parsing Codex messages from {file_path}: {e}")
         return messages
 
-    def extract_tokens(self, file_path: Path) -> tuple[int | None, int | None]:
+    @staticmethod
+    def extract_tokens(file_path: Path) -> tuple[int | None, int | None]:
         """Extract input and output tokens from Codex JSONL.
 
         Codex stores tokens in token_count events under info.total_token_usage
@@ -144,8 +147,9 @@ class Codex(Provider):
             logger.error(f"Error extracting Codex tokens from {file_path}: {e}")
         return (input_tokens, output_tokens)
 
-    def headless_session_id(self, output: str) -> str | None:
-        """Extract session_id (thread_id) from Codex --json response.
+    @staticmethod
+    def session_id(output: str) -> str | None:
+        """Extract session_id (thread_id) from Codex execution output.
 
         Codex returns JSONL stream with first event type=thread.started containing thread_id.
         """
@@ -160,3 +164,92 @@ class Codex(Provider):
         except (json.JSONDecodeError, ValueError, IndexError) as e:
             logger.error(f"Failed to parse Codex headless output: {e}")
         return None
+
+    @staticmethod
+    def parse_jsonl(file_path: Path | str) -> list[SessionEvent]:
+        """Parse Codex session JSONL to unified event format.
+
+        Args:
+            file_path: Path to Codex session JSONL
+
+        Returns:
+            List of Event objects in chronological order
+        """
+        file_path = Path(file_path)
+        events = []
+
+        if not file_path.exists():
+            return events
+
+        try:
+            with open(file_path) as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+
+                    try:
+                        obj = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    role = obj.get("role")
+                    timestamp = obj.get("timestamp")
+
+                    if role == "assistant":
+                        events.extend(Codex._parse_assistant_message(obj, timestamp))
+                    elif role == "tool":
+                        events.extend(Codex._parse_tool_result_message(obj, timestamp))
+
+        except OSError:
+            pass
+
+        return events
+
+    @staticmethod
+    def _parse_assistant_message(message: dict, timestamp: str | None) -> list[SessionEvent]:
+        """Extract tool calls and text from assistant message."""
+        events = []
+        content = message.get("content")
+
+        if content:
+            text = AgentMessage(
+                content=content,
+                timestamp=timestamp,
+            )
+            events.append(SessionEvent(type="text", timestamp=timestamp, data=text))
+
+        tool_calls = message.get("tool_calls", [])
+        for tool_call_obj in tool_calls:
+            if isinstance(tool_call_obj, dict):
+                fn = tool_call_obj.get("function", {})
+                arguments = fn.get("arguments", "")
+
+                try:
+                    parsed_args = json.loads(arguments) if isinstance(arguments, str) else arguments
+                except json.JSONDecodeError:
+                    parsed_args = {"raw": arguments}
+
+                tool_call = ToolCall(
+                    tool_id=tool_call_obj.get("id", ""),
+                    tool_name=fn.get("name", ""),
+                    input=parsed_args,
+                    timestamp=timestamp,
+                )
+                events.append(SessionEvent(type="tool_call", timestamp=timestamp, data=tool_call))
+
+        return events
+
+    @staticmethod
+    def _parse_tool_result_message(message: dict, timestamp: str | None) -> list[SessionEvent]:
+        """Extract tool result from tool message."""
+        events = []
+
+        result = ToolResult(
+            tool_id=message.get("tool_call_id", ""),
+            output=message.get("content", ""),
+            is_error=False,
+            timestamp=timestamp,
+        )
+        events.append(SessionEvent(type="tool_result", timestamp=timestamp, data=result))
+
+        return events

@@ -7,10 +7,6 @@ from .claude import Claude
 from .codex import Codex
 from .gemini import Gemini
 
-claude = Claude()
-codex = Codex()
-gemini = Gemini()
-
 MODELS = {
     "claude": [
         {
@@ -51,4 +47,4 @@ MODELS = {
     ],
 }
 
-__all__ = ["claude", "codex", "gemini", "Claude", "Codex", "Gemini", "MODELS"]
+__all__ = ["Claude", "Codex", "Gemini", "MODELS"]

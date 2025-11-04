@@ -12,6 +12,43 @@ class TaskStatus(str, Enum):
 
 
 @dataclass
+class ToolCall:
+    """Tool invocation from agent."""
+
+    tool_id: str
+    tool_name: str
+    input: dict | str
+    timestamp: str | None = None
+
+
+@dataclass
+class ToolResult:
+    """Tool execution result."""
+
+    tool_id: str
+    output: str
+    is_error: bool = False
+    timestamp: str | None = None
+
+
+@dataclass
+class AgentMessage:
+    """Text message from agent/model."""
+
+    content: str
+    timestamp: str | None = None
+
+
+@dataclass
+class SessionEvent:
+    """Unified event from session JSONL."""
+
+    type: str
+    timestamp: str | None
+    data: ToolCall | ToolResult | AgentMessage | dict
+
+
+@dataclass
 class Agent:
     agent_id: str
     identity: str
