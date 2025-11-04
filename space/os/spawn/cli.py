@@ -11,9 +11,8 @@ import typer
 
 from space.apps.space.api.stats import agent_stats
 from space.core.models import TaskStatus
-from space.lib import errors, output
+from space.lib import errors, output, providers
 from space.os.spawn import api
-from space.os.spawn import models as models_module
 from space.os.spawn.api import spawns
 
 errors.install_error_handler("spawn")
@@ -132,14 +131,12 @@ def register(
 def models():
     """Show available LLM models."""
     for prov in ["claude", "codex", "gemini"]:
-        provider_models = models_module.get_models_for_provider(prov)
+        provider_models = providers.MODELS.get(prov, [])
         typer.echo(f"\n📦 {prov.capitalize()} Models:\n")
         for model in provider_models:
-            typer.echo(f"  • {model.name} ({model.id})")
-            if model.description:
-                typer.echo(f"    {model.description}")
-            if model.reasoning_levels:
-                typer.echo(f"    Reasoning levels: {', '.join(model.reasoning_levels)}")
+            typer.echo(f"  • {model['name']} ({model['id']})")
+            if model.get("description"):
+                typer.echo(f"    {model['description']}")
             typer.echo()
 
 
