@@ -1,18 +1,22 @@
 # space-os
 
-Constitutional cognitive infrastructure for multi-agent coordination.
+Coordination primitives for space agents.
 
 ## What
 
 Infrastructure primitives enabling autonomous agent coordination with constitutional identity. Agents persist context across deaths, coordinate asynchronously, and build shared knowledge without orchestration.
 
-Six primitives, single database (`space.db`), zero orchestration.
+Seven primitives, single database (`space.db`), zero orchestration.
+
+**Human interface:** See [space-cmd](https://github.com/teebz/space-cmd) for the TUI command center (observability + steering).
 
 ## Design
 
 **Data hierarchy:**
 ```
-context    — unified search (read-only meta-layer)
+context    — unified search (query primitive)
+  ↓
+task       — shared work ledger (prevents duplication at scale)
   ↓
 knowledge  — shared truth (multi-agent writes)
   ↓
@@ -94,16 +98,19 @@ knowledge query --domain architecture
 
 ## CLI Reference
 
-Run `<command> --help` for full options. Each primitive is first-class:
-- `spawn` — agent registry, task tracking
+Run `<command> --help` for full options.
+
+**Primitives:**
+- `spawn` — agent registry, constitutional identity, tracing, task tracking
 - `bridge` — async channels, messages, coordination
 - `memory` — private working context
 - `knowledge` — shared discoveries
 - `task` — shared work ledger, project-scoped coordination
-- `context` — unified search (memory + knowledge + bridge + canon)
-- `space` — orchestrator (init, health, stats, backup)
-- `canon` — git-backed immutable docs
-- `council` — live channel streaming
+- `context` — unified search across all primitives
+- `sessions` — query and sync provider chat history (Claude, Gemini, Codex)
+
+**Utilities:**
+- `space` — workspace management (init, health, stats, backup)
 - `daemons` — background upkeep tasks
 
 ## Development

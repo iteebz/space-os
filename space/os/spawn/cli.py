@@ -33,7 +33,7 @@ def main_callback(
         False, "--quiet", "-q", help="Suppress non-essential output."
     ),
 ):
-    """Register and manage agents. Track tasks and execution."""
+    """Constitutional identity registry. Register agents with constitution, spawn by identity, track execution."""
     output.set_flags(ctx, json_output, quiet_output)
     if ctx.obj is None:
         ctx.obj = {}

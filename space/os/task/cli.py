@@ -15,7 +15,7 @@ argv.flex_args("as")
 main_app = typer.Typer(
     invoke_without_command=True,
     add_completion=False,
-    help="""Shared work ledger. Agents claim work, mark progress.""",
+    help="""Shared work ledger. Prevents duplication at scale. Agents claim work, humans orchestrate.""",
 )
 
 

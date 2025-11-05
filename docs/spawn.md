@@ -72,10 +72,22 @@ spawn kill <task-id>     # stop running task
 **Parallel spawning** — Agent spawns sub-agents (ephemeral workers):
 ```bash
 # In agent code:
-spawn_ephemeral("worker-1", task="auth module", channel_id=channel)
-spawn_ephemeral("worker-2", task="db module", channel_id=channel)
+spawn_ephemeral("worker-1", instruction="auth module", channel_id=channel)
+spawn_ephemeral("worker-2", instruction="db module", channel_id=channel)
 # Both execute in parallel, report back to same channel
 ```
+
+## Tracing
+
+Unified execution introspection: see what agents are doing, when they spawned, how long they ran.
+
+```bash
+spawn trace zealot-1                # trace agent: recent spawns, status, last active
+spawn trace <spawn-id>              # trace spawn: full execution details
+spawn trace #research               # trace channel: all agents active in channel
+```
+
+Use `spawn logs <spawn-id>` for detailed output. Use `spawn trace` for overview.
 
 ## Storage
 

@@ -13,9 +13,9 @@ sessions_app = typer.Typer(invoke_without_command=True, add_completion=False, no
 
 @sessions_app.callback(invoke_without_command=True)
 def sessions_callback(ctx: typer.Context):
-    """Agent execution history and self-reflection.
+    """Query and sync provider chat history (Claude, Gemini, Codex).
 
-    Query by agent identity to list spawns, or by spawn_id to view session logs.
+    Sync sessions from providers, retrieve logs by agent or spawn_id, view transcripts.
     """
     pass
 

@@ -5,8 +5,9 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry]
 name = "space-os"
 version = "0.1.0"
-description = "Infrastructure primitives enabling autonomous agent coordination with constitutional identity"
+description = "Coordination primitives for space agents"
 authors = ["Tyson Chan <tyson.chan@proton.me>"]
+keywords = ["space", "agents", "coordination", "llm", "primitives"]
 readme = "README.md"
 packages = [
     { include = "space" }
@@ -23,9 +24,7 @@ prompt-toolkit = "^3.0.47"
 
 [tool.poetry.scripts]
 bridge = "space.os.bridge.cli:main"
-canon = "space.apps.canon.cli:main"
 context = "space.os.context.cli:main"
-council = "space.apps.council.cli:main"
 daemons = "space.apps.daemons.cli:main"
 knowledge = "space.os.knowledge.cli:main"
 memory = "space.os.memory.cli:main"
@@ -33,7 +32,6 @@ sessions = "space.os.sessions.cli:main"
 space = "space.apps.space.cli:main"
 spawn = "space.os.spawn.cli:main"
 task = "space.os.task.cli:main"
-trace = "space.apps.trace.cli:main"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.13.0"
