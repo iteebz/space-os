@@ -39,8 +39,6 @@ def main_callback(
         ctx.obj = {}
 
     ctx.obj["identity"] = identity
-    ctx.obj["json"] = json_output
-    ctx.obj["quiet"] = quiet_output
 
     if ctx.resilient_parsing:
         return

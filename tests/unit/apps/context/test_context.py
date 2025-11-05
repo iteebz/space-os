@@ -32,7 +32,7 @@ def test_collect_timeline_memory_excluded_without_identity():
         patch("space.apps.context.api.knowledge.api.search") as m_know,
         patch("space.apps.context.api.bridge.api.search") as m_bridge,
         patch("space.apps.context.api.sessions.api.search") as m_chat,
-        patch("space.os.canon.api.search") as m_canon,
+        patch("space.apps.context.api.canon.search") as m_canon,
     ):
         m_mem.return_value = [
             {
@@ -61,7 +61,7 @@ def test_collect_timeline_memory_included_with_identity():
         patch("space.apps.context.api.knowledge.api.search") as m_know,
         patch("space.apps.context.api.bridge.api.search") as m_bridge,
         patch("space.apps.context.api.sessions.api.search") as m_chat,
-        patch("space.os.canon.api.search") as m_canon,
+        patch("space.apps.context.api.canon.search") as m_canon,
     ):
         m_mem.return_value = [
             SearchResult(
@@ -93,7 +93,7 @@ def test_collect_timeline_sorted_by_timestamp():
         patch("space.apps.context.api.knowledge.api.search") as m_know,
         patch("space.apps.context.api.bridge.api.search") as m_bridge,
         patch("space.apps.context.api.sessions.api.search") as m_chat,
-        patch("space.os.canon.api.search") as m_canon,
+        patch("space.apps.context.api.canon.search") as m_canon,
     ):
         m_mem.return_value = [
             SearchResult(
@@ -131,7 +131,7 @@ def test_collect_timeline_returns_last_10():
         patch("space.apps.context.api.knowledge.api.search") as m_know,
         patch("space.apps.context.api.bridge.api.search") as m_bridge,
         patch("space.apps.context.api.sessions.api.search") as m_chat,
-        patch("space.os.canon.api.search") as m_canon,
+        patch("space.apps.context.api.canon.search") as m_canon,
     ):
         m_mem.return_value = [
             SearchResult(
@@ -161,7 +161,7 @@ def test_collect_current_state_memory_excluded_without_identity():
         patch("space.apps.context.api.knowledge.api.search") as m_know,
         patch("space.apps.context.api.bridge.api.search") as m_bridge,
         patch("space.apps.context.api.sessions.api.search") as m_chat,
-        patch("space.os.canon.api.search") as m_canon,
+        patch("space.apps.context.api.canon.search") as m_canon,
     ):
         m_mem.return_value = [
             SearchResult(
@@ -223,7 +223,7 @@ def test_collect_current_state_memory_included_with_identity():
         patch("space.apps.context.api.knowledge.api.search") as m_know,
         patch("space.apps.context.api.bridge.api.search") as m_bridge,
         patch("space.apps.context.api.sessions.api.search") as m_chat,
-        patch("space.os.canon.api.search") as m_canon,
+        patch("space.apps.context.api.canon.search") as m_canon,
     ):
         m_mem.return_value = [
             SearchResult(

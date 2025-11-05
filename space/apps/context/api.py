@@ -1,6 +1,8 @@
 """Context API: search across 5 domains (bridge, memory, knowledge, canon, sessions)."""
 
-from space.os import bridge, canon, knowledge, memory, sessions
+from space.os import bridge, knowledge, memory, sessions
+
+from . import canon
 
 
 def _validate_search_term(term: str, max_len: int = 256) -> None:
@@ -80,7 +82,7 @@ def collect_timeline(query: str, identity: str | None, all_agents: bool) -> list
                 }
             )
 
-    for result in canon.api.search(query, identity, all_agents):
+    for result in canon.search(query, identity, all_agents):
         key = (result["source"], result.get("path"))
         if key not in seen:
             seen.add(key)
@@ -152,7 +154,7 @@ def collect_current_state(query: str, identity: str | None, all_agents: bool) ->
 
     results["canon"] = [
         {"path": r["path"], "content": r["content"], "reference": r["reference"]}
-        for r in canon.api.search(query, identity, all_agents)
+        for r in canon.search(query, identity, all_agents)
     ]
 
     return results
