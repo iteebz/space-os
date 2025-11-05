@@ -16,7 +16,7 @@ from .channels import (
     restore_channel,
     toggle_pin_channel,
 )
-from .mentions import spawn_from_mentions
+from .delimiters import spawn_from_mentions
 from .messaging import (
     count_messages,
     format_messages,

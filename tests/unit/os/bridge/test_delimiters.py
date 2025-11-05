@@ -1,37 +1,37 @@
-"""Unit tests for bridge mention parsing and prompt building."""
+"""Unit tests for bridge delimiter parsing and prompt building."""
 
 from unittest.mock import patch
 
 from space.core.models import Agent
-from space.os.bridge.api import mentions
+from space.os.bridge.api import delimiters
 from space.os.spawn.api.prompt import build_spawn_context
 
 
 def test_parse_mentions_single():
     """Extract single @mention."""
     content = "@zealot can you help?"
-    parsed = mentions._parse_mentions(content)
+    parsed = delimiters._parse_mentions(content)
     assert parsed == ["zealot"]
 
 
 def test_parse_mentions_multiple():
     """Extract multiple @mentions."""
     content = "@zealot @sentinel what do you think?"
-    parsed = mentions._parse_mentions(content)
+    parsed = delimiters._parse_mentions(content)
     assert set(parsed) == {"zealot", "sentinel"}
 
 
 def test_parse_mentions_no_duplicates():
     """Deduplicate mentions."""
     content = "@zealot please respond. @zealot are you there?"
-    parsed = mentions._parse_mentions(content)
+    parsed = delimiters._parse_mentions(content)
     assert parsed == ["zealot"]
 
 
 def test_parse_mentions_none():
     """No mentions in content."""
     content = "just a regular message"
-    parsed = mentions._parse_mentions(content)
+    parsed = delimiters._parse_mentions(content)
     assert parsed == []
 
 
