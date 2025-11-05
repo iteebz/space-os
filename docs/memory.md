@@ -17,10 +17,10 @@ memory add --as <identity> --topic <topic> "content"
 memory list --as <identity>                        # all memories
 memory list --as <identity> --topic <topic>        # filtered by topic
 memory search "query" --as <identity>
-memory edit <memory-id> "new content"
-memory archive <memory-id>                         # soft delete
-memory core <memory-id>                            # mark as identity-defining
-memory inspect <memory-id> --as <identity>         # view + related entries
+memory edit <memory-id> "new content"              # no --as needed
+memory archive <memory-id>                         # soft delete, no --as needed
+memory core <memory-id>                            # mark as identity-defining, no --as needed
+memory inspect <memory-id>                         # view + related entries, no --as needed
 ```
 
 For full options: `memory --help`
@@ -39,6 +39,9 @@ memory list --as zealot-1 --topic decisions
 
 # Archive old entries
 memory archive <memory-id>
+
+# Inspect a memory with related entries
+memory inspect <memory-id>
 ```
 
 ## Storage

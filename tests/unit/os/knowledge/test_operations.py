@@ -127,12 +127,11 @@ def test_restore_knowledge_clears_timestamp(mock_db):
 
 
 def test_get_domain_tree_builds_hierarchy(mock_db):
-    domains = ["architecture/caching", "architecture/auth", "security/oauth"]
-    mock_rows = []
-    for domain in domains:
-        row = MagicMock()
-        row.__getitem__ = lambda s, k, d=domain: d if k == 0 else None
-        mock_rows.append(row)
+    mock_rows = [
+        ("architecture/caching", "id-1234"),
+        ("architecture/auth", "id-5678"),
+        ("security/oauth", "id-9abc"),
+    ]
     mock_db.execute.return_value.fetchall.return_value = mock_rows
 
     tree = knowledge.api.get_domain_tree()

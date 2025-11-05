@@ -137,30 +137,39 @@ def archive_knowledge(entry_id: str, restore: bool = False) -> None:
 
 
 def get_domain_tree(parent_domain: str | None = None, show_all: bool = False) -> dict:
-    """Get hierarchical domain tree, optionally filtered by parent domain."""
+    """Get hierarchical domain tree with entry IDs, optionally filtered by parent domain."""
+    from space.lib.uuid7 import short_id
+
     archive_filter = "" if show_all else "WHERE archived_at IS NULL"
 
     with store.ensure() as conn:
         if parent_domain:
             prefix = f"{parent_domain}/"
             rows = conn.execute(
-                f"SELECT DISTINCT domain FROM knowledge WHERE domain LIKE ? {archive_filter} ORDER BY domain",
+                f"SELECT domain, knowledge_id FROM knowledge WHERE domain LIKE ? {archive_filter} ORDER BY domain",
                 (f"{prefix}%",),
             ).fetchall()
         else:
             rows = conn.execute(
-                f"SELECT DISTINCT domain FROM knowledge {archive_filter} ORDER BY domain"
+                f"SELECT domain, knowledge_id FROM knowledge {archive_filter} ORDER BY domain"
             ).fetchall()
 
-    domains = [row[0] for row in rows]
     tree = {}
-    for domain in domains:
+    for domain, knowledge_id in rows:
         parts = domain.split("/")
         current = tree
-        for part in parts:
-            if part not in current:
-                current[part] = {}
-            current = current[part]
+        for i, part in enumerate(parts):
+            is_leaf = i == len(parts) - 1
+            if is_leaf:
+                if part not in current:
+                    current[part] = {"__ids": []}
+                elif isinstance(current[part], dict) and "__ids" not in current[part]:
+                    current[part]["__ids"] = []
+                current[part]["__ids"].append(short_id(knowledge_id))
+            else:
+                if part not in current or not isinstance(current[part], dict):
+                    current[part] = {}
+                current = current[part]
 
     return tree
 

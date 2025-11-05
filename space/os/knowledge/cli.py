@@ -41,7 +41,6 @@ def add(
     ctx: typer.Context,
     domain: str = typer.Argument(..., help="Domain path (e.g., architecture/caching/redis)"),
     content: str = typer.Argument(..., help="The knowledge content"),
-    confidence: float = typer.Option(None, help="Confidence score (0.0-1.0)"),
 ):
     """Add knowledge to a domain path.
 
@@ -63,7 +62,7 @@ def add(
     if not agent_id:
         output.out_text(f"Agent not found: {contributor}", ctx.obj)
         return
-    knowledge_id = api.add_knowledge(domain, agent_id, content, confidence)
+    knowledge_id = api.add_knowledge(domain, agent_id, content)
     if ctx.obj.get("json_output"):
         typer.echo(output.out_json({"knowledge_id": knowledge_id}))
     else:
@@ -85,14 +84,23 @@ def tree(
     tree_data = api.get_domain_tree(domain, show_all)
 
     def print_tree(node: dict, prefix: str = "", is_last: bool = True):
-        items = list(node.items())
-        for i, (key, subtree) in enumerate(items):
+        items = [(k, v) for k, v in node.items() if k != "__ids"]
+        for i, (key, value) in enumerate(items):
             is_last_item = i == len(items) - 1
             current_prefix = "└── " if is_last_item else "├── "
-            output.out_text(f"{prefix}{current_prefix}{key}", ctx.obj)
-            next_prefix = prefix + ("    " if is_last_item else "│   ")
-            if subtree:
-                print_tree(subtree, next_prefix, is_last_item)
+
+            if isinstance(value, dict) and "__ids" in value:
+                ids_str = " ".join(f"[{id}]" for id in value["__ids"])
+                output.out_text(f"{prefix}{current_prefix}{key} {ids_str}", ctx.obj)
+                subtree = {k: v for k, v in value.items() if k != "__ids"}
+                if subtree:
+                    next_prefix = prefix + ("    " if is_last_item else "│   ")
+                    print_tree(subtree, next_prefix, is_last_item)
+            else:
+                output.out_text(f"{prefix}{current_prefix}{key}", ctx.obj)
+                next_prefix = prefix + ("    " if is_last_item else "│   ")
+                if isinstance(value, dict) and value:
+                    print_tree(value, next_prefix, is_last_item)
 
     if not tree_data:
         output.out_text("No domains found.", ctx.obj)
@@ -107,7 +115,7 @@ def list_knowledge(
     ctx: typer.Context,
     show_all: bool = typer.Option(False, "--all", help="Show all entries"),
 ):
-    """List all knowledge entries."""
+    """List all knowledge entries (metadata only)."""
     entries = api.list_knowledge(show_all=show_all)
     if not entries:
         if ctx.obj.get("json_output"):
@@ -126,7 +134,7 @@ def list_knowledge(
         agent = spawn.get_agent(e.agent_id)
         contributor = agent.identity if agent else e.agent_id[:8]
         output.out_text(
-            f"[{e.knowledge_id[-8:]}] {e.domain} > {e.content[:50]}... ({contributor}){mark}",
+            f"[{e.knowledge_id[-8:]}] {e.domain} ({contributor}){mark}",
             ctx.obj,
         )
 
@@ -157,19 +165,26 @@ def query_domain(
         mark = " [ARCHIVED]" if e.archived_at else ""
         agent = spawn.get_agent(e.agent_id)
         contributor = agent.identity if agent else e.agent_id[:8]
-        conf = f" [confidence: {e.confidence:.2f}]" if e.confidence else ""
-        output.out_text(
-            f"[{e.knowledge_id[-8:]}] {e.content[:60]}...{conf} ({contributor}){mark}", ctx.obj
-        )
+        output.out_text(f"[{e.knowledge_id[-8:]}] {e.content} ({contributor}){mark}", ctx.obj)
 
 
-@app.command("inspect")
-def inspect(
+@app.command("read")
+def read(
     ctx: typer.Context,
-    knowledge_id: str = typer.Argument(..., help="Knowledge ID to inspect"),
+    knowledge_id: str = typer.Argument(..., help="Knowledge ID to read"),
 ):
-    """View full entry details."""
-    entry = api.get_knowledge(knowledge_id)
+    """Read full entry details."""
+    from space.lib.uuid7 import resolve_id
+
+    try:
+        full_id = resolve_id(
+            "knowledge", "knowledge_id", knowledge_id, error_context="knowledge read"
+        )
+    except ValueError as e:
+        output.out_text(f"Error: {e}", ctx.obj)
+        return
+
+    entry = api.get_knowledge(full_id)
     if not entry:
         output.out_text(f"Not found: {knowledge_id}", ctx.obj)
         return
@@ -183,12 +198,10 @@ def inspect(
     output.out_text(f"ID: {entry.knowledge_id}", ctx.obj)
     output.out_text(f"Domain: {entry.domain}", ctx.obj)
     output.out_text(f"Contributor: {contributor}", ctx.obj)
-    if entry.confidence:
-        output.out_text(f"Confidence: {entry.confidence}", ctx.obj)
     output.out_text(f"Created: {entry.created_at}", ctx.obj)
     if entry.archived_at:
         output.out_text(f"Archived: {entry.archived_at}", ctx.obj)
-    output.out_text(f"\nContent:\n{entry.content}", ctx.obj)
+    output.out_text(f"\n{entry.content}", ctx.obj)
 
 
 @app.command("archive")
@@ -198,13 +211,23 @@ def archive(
     restore: bool = typer.Option(False, "--restore", help="Restore archived entry"),
 ):
     """Archive or restore knowledge."""
-    entry = api.get_knowledge(knowledge_id)
+    from space.lib.uuid7 import resolve_id
+
+    try:
+        full_id = resolve_id(
+            "knowledge", "knowledge_id", knowledge_id, error_context="knowledge archive"
+        )
+    except ValueError as e:
+        output.out_text(f"Error: {e}", ctx.obj)
+        return
+
+    entry = api.get_knowledge(full_id)
     if not entry:
         output.out_text(f"Not found: {knowledge_id}", ctx.obj)
         return
 
     try:
-        api.archive_knowledge(knowledge_id, restore=restore)
+        api.archive_knowledge(full_id, restore=restore)
         action = "restored" if restore else "archived"
         output.out_text(f"{action} {knowledge_id[-8:]}", ctx.obj)
     except ValueError as e:
@@ -219,6 +242,7 @@ def main() -> None:
     except SystemExit:
         raise
     except BaseException as e:
+        typer.echo(f"Error: {e}", err=True)
         raise SystemExit(1) from e
 
 

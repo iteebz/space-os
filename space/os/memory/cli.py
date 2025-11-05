@@ -89,7 +89,8 @@ def edit(
         api.edit_memory(uuid, message)
         output.out_text(f"Edited {uuid[-8:]}", ctx.obj)
     except ValueError as e:
-        output.emit_error("memory", entry.agent_id, "edit", e)
+        agent_id = entry.agent_id if entry else None
+        output.emit_error("memory", agent_id, "edit", e)
         raise typer.BadParameter(str(e)) from e
 
 
@@ -179,7 +180,8 @@ def archive(
         action = "restored" if restore else "archived"
         output.out_text(f"{action} {uuid[-8:]}", ctx.obj)
     except ValueError as e:
-        output.emit_error("memory", entry.agent_id, "archive", e)
+        agent_id = entry.agent_id if entry else None
+        output.emit_error("memory", agent_id, "archive", e)
         raise typer.BadParameter(str(e)) from e
 
 
@@ -196,7 +198,8 @@ def core(
         is_core = api.toggle_memory_core(uuid)
         output.out_text(f"{'★' if is_core else ''} {uuid[-8:]}", ctx.obj)
     except ValueError as e:
-        output.emit_error("memory", entry.agent_id, "core", e)
+        agent_id = entry.agent_id if entry else None
+        output.emit_error("memory", agent_id, "core", e)
         raise typer.BadParameter(str(e)) from e
 
 
@@ -208,27 +211,14 @@ def inspect(
     show_all: bool = typer.Option(False, "--all", help="Include archived"),
 ):
     """View memory and find related entries."""
-    identity_name = ctx.obj.get("identity")
-    if not identity_name:
-        raise typer.BadParameter("--as required")
-    agent = spawn.get_agent(identity_name)
-    if not agent:
-        raise typer.BadParameter(f"Identity '{identity_name}' not registered.")
-    agent_id = agent.agent_id
     try:
         entry = api.get_memory(uuid)
     except ValueError as e:
-        output.emit_error("memory", agent_id, "inspect", e)
+        output.emit_error("memory", None, "inspect", e)
         raise typer.BadParameter(str(e)) from e
 
     if not entry:
         output.out_text("Not found", ctx.obj)
-        return
-
-    if entry.agent_id != agent_id:
-        agent = spawn.get_agent(entry.agent_id)
-        name = agent.identity if agent else entry.agent_id
-        output.out_text(f"Belongs to {name}", ctx.obj)
         return
 
     related = api.find_related_memories(entry, limit=limit, show_all=show_all)
