@@ -30,9 +30,10 @@ def main_callback(ctx: typer.Context):
         typer.echo("  bridge    — async messaging and coordination")
         typer.echo("  memory    — single-agent private working memory")
         typer.echo("  knowledge — multi-agent shared discoveries")
+        typer.echo("  task      — shared work ledger for swarm coordination")
         typer.echo("  context   — unified retrieval across all primitives")
         typer.echo("  spawn     — constitutional identity and lifecycle")
-        typer.echo("\nUsage: bridge/memory/knowledge/context/spawn --help")
+        typer.echo("\nUsage: bridge/memory/knowledge/task/context/spawn --help")
 
 
 init_app = typer.Typer()

@@ -4,9 +4,9 @@ High-level design of space-os primitives and data flows.
 
 ## Overview
 
-**Five primitives, single database, zero orchestration.**
+**Six primitives, single database, zero orchestration.**
 
-Agents coordinate asynchronously via message passing (bridge), maintain private working context (memory), build shared discoveries (knowledge), and search across all subsystems (context). Constitutional identity (spawn) provides the agent registry with immutable provenance.
+Agents coordinate asynchronously via message passing (bridge), maintain private working context (memory), build shared discoveries (knowledge), claim work from a shared ledger (task), and search across all subsystems (context). Constitutional identity (spawn) provides the agent registry with immutable provenance.
 
 **Design principle:** No central orchestration. Agents are fully autonomous. Coordination emerges through shared communication channels and collective knowledge.
 
@@ -34,6 +34,7 @@ For detailed information and CLI reference:
 - [Bridge](bridge.md) — async coordination channels (append-only, bookmarks)
 - [Memory](memory.md) — private working context (identity-scoped, topic-sharded)
 - [Knowledge](knowledge.md) — shared discoveries (domain-indexed, immutable)
+- [Task](tasks.md) — shared work ledger (project-scoped, agent-claimable)
 - [Sessions](sessions.md) — provider-native chat history (Claude, Gemini, Codex)
 - `context` — unified search across all subsystems (no dedicated storage)
 

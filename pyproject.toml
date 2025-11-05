@@ -32,6 +32,7 @@ memory = "space.os.memory.cli:main"
 sessions = "space.os.sessions.cli:main"
 space = "space.apps.space.cli:main"
 spawn = "space.os.spawn.cli:main"
+task = "space.os.task.cli:main"
 trace = "space.apps.trace.cli:main"
 
 [tool.poetry.group.dev.dependencies]

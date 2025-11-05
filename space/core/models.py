@@ -257,6 +257,19 @@ class SpaceStats:
 
 
 @dataclass
+class Task:
+    task_id: str
+    creator_id: str
+    content: str
+    project: str | None
+    status: str
+    created_at: str
+    agent_id: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+
+
+@dataclass
 class SearchResult:
     """Unified search result across all primitives."""
 

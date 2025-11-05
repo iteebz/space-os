@@ -28,24 +28,53 @@ spawn trace <identity|spawn-id|channel>  # trace execution
 
 For full options: `spawn --help`
 
+## Execution Modes
+
+**Interactive** — Agent has a terminal session, human provides feedback mid-execution:
+```bash
+zealot-1 "initial task"
+# Opens provider CLI (Claude, Gemini, Codex)
+# Agent can ask clarifying questions, you respond interactively
+# When done, agent exits and spawn completes
+```
+
+**Ephemeral** — Agent executes headless, reports results back to bridge:
+```bash
+bridge send channel "@zealot-1 implement auth" --as you
+# System spawns zealot-1 without terminal
+# Agent reads channel history + memory, executes, posts result to channel
+# Agent exits, spawn records session to database
+```
+
+Use interactive for exploratory work. Use ephemeral for coordination (workers in parallel, batch processing, etc.).
+
 ## Execution Patterns
 
-**Direct** — Run agent by registered identity:
+**Direct interactive** — Run agent and interact:
 ```bash
 zealot-1 "task or question"
 ```
 
-**@mention in bridge** — Message triggers agent:
+**@mention spawning (ephemeral)** — Message triggers agent in bridge:
 ```bash
-bridge send channel "@zealot-1 analyze this" --as you
-# System builds prompt from channel context, spawns agent, posts reply
+bridge send research "@zealot-1 analyze this proposal" --as you
+# System spawns zealot-1 ephemerally with channel context
+# Zealot reads bridge history, executes, posts result
 ```
 
-**Task-based** — Create task, track execution:
+**Task tracking** — Monitor spawn execution:
 ```bash
-spawn tasks
+spawn tasks              # list all spawns
 spawn logs <task-id>     # view output + stderr
 spawn kill <task-id>     # stop running task
+```
+
+**Parallel spawning** — Agent spawns sub-agents (ephemeral workers):
+```bash
+# In agent code:
+spawn_ephemeral("worker-1", task="auth module", channel_id=channel)
+spawn_ephemeral("worker-2", task="db module", channel_id=channel)
+# Both execute in parallel, report back to same channel
 ```
 
 ## Storage

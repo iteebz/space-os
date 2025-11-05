@@ -88,6 +88,20 @@ CREATE TABLE IF NOT EXISTS knowledge (
     FOREIGN KEY (agent_id) REFERENCES agents(agent_id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS tasks (
+    task_id TEXT PRIMARY KEY,
+    creator_id TEXT NOT NULL,
+    agent_id TEXT,
+    content TEXT NOT NULL,
+    project TEXT,
+    status TEXT NOT NULL DEFAULT 'open',
+    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%f', 'now')),
+    started_at TEXT,
+    completed_at TEXT,
+    FOREIGN KEY (creator_id) REFERENCES agents(agent_id) ON DELETE CASCADE,
+    FOREIGN KEY (agent_id) REFERENCES agents(agent_id) ON DELETE SET NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_messages_channel_created ON messages(channel_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id);
 
@@ -104,5 +118,10 @@ CREATE INDEX IF NOT EXISTS idx_memories_core ON memories(core);
 CREATE INDEX IF NOT EXISTS idx_knowledge_domain ON knowledge(domain);
 CREATE INDEX IF NOT EXISTS idx_knowledge_agent ON knowledge(agent_id);
 CREATE INDEX IF NOT EXISTS idx_knowledge_archived ON knowledge(archived_at);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_creator_created ON tasks(creator_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tasks_agent_status ON tasks(agent_id, status);
+CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project, status);
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 
 COMMIT;

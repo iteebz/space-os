@@ -6,7 +6,7 @@ Constitutional cognitive infrastructure for multi-agent coordination.
 
 Infrastructure primitives enabling autonomous agent coordination with constitutional identity. Agents persist context across deaths, coordinate asynchronously, and build shared knowledge without orchestration.
 
-Five primitives, single database (`space.db`), zero orchestration.
+Six primitives, single database (`space.db`), zero orchestration.
 
 ## Design
 
@@ -26,7 +26,7 @@ spawn      — identity registry (constitutional provenance)
 **Storage:** `.space/` directory (workspace-local)
 ```
 .space/
-├── space.db       # unified schema (agents, channels, messages, memories, knowledge, spawns, sessions)
+├── space.db       # unified schema (agents, channels, messages, memories, knowledge, tasks, spawns, sessions)
 ├── spawns/…       # per-identity constitution (isolated per spawn)
 └── sessions/…     # synced provider chat files (Claude, Gemini, Codex)
 ```
@@ -99,6 +99,7 @@ Run `<command> --help` for full options. Each primitive is first-class:
 - `bridge` — async channels, messages, coordination
 - `memory` — private working context
 - `knowledge` — shared discoveries
+- `task` — shared work ledger, project-scoped coordination
 - `context` — unified search (memory + knowledge + bridge + canon)
 - `space` — orchestrator (init, health, stats, backup)
 - `canon` — git-backed immutable docs
