@@ -11,6 +11,7 @@ import typer
 
 from space.apps.space.api.stats import agent_stats
 from space.cli import output
+from space.cli.errors import error_feedback
 from space.core.models import TaskStatus
 from space.lib import providers
 from space.os.spawn import api
@@ -67,6 +68,7 @@ def _resolve_identity(stat_identity: str) -> str:
 
 
 @app.command()
+@error_feedback
 def agents(
     show_all: bool = typer.Option(False, "--all", help="Show archived agents"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -115,6 +117,7 @@ def agents(
 
 
 @app.command()
+@error_feedback
 def register(
     identity: str,
     model: str = typer.Option(
@@ -137,6 +140,7 @@ def register(
 
 
 @app.command()
+@error_feedback
 def models():
     """Show available LLM models."""
     for prov in ["claude", "codex", "gemini"]:
@@ -150,6 +154,7 @@ def models():
 
 
 @app.command()
+@error_feedback
 def clone(src: str, dst: str):
     """Copy agent with new identity."""
     try:
@@ -161,6 +166,7 @@ def clone(src: str, dst: str):
 
 
 @app.command()
+@error_feedback
 def rename(old_name: str, new_name: str):
     """Change agent identity."""
     try:
@@ -175,6 +181,7 @@ def rename(old_name: str, new_name: str):
 
 
 @app.command()
+@error_feedback
 def update(
     identity: str,
     model: str | None = typer.Option(None, "--model", "-m", help="Full model name"),
@@ -193,6 +200,7 @@ def update(
 
 
 @app.command()
+@error_feedback
 def inspect(identity: str):
     """View agent details and constitution."""
     from space.lib import paths
@@ -222,6 +230,7 @@ def inspect(identity: str):
 
 
 @app.command()
+@error_feedback
 def merge(id_from: str, id_to: str):
     """Consolidate data from one agent to another."""
     agent_from = api.get_agent(id_from)
@@ -301,6 +310,7 @@ def show_tasks(
 
 
 @app.command()
+@error_feedback
 def logs(spawn_id: str):
     """Show spawn details."""
     spawn_obj = spawns.get_spawn(spawn_id)
@@ -330,6 +340,7 @@ def logs(spawn_id: str):
 
 
 @app.command()
+@error_feedback
 def kill(spawn_id: str):
     """Stop running spawn."""
     spawn_obj = spawns.get_spawn(spawn_id)
@@ -350,6 +361,7 @@ def kill(spawn_id: str):
 
 
 @app.command()
+@error_feedback
 def trace(query: str = typer.Argument(None)):
     """Trace execution: agent spawns, session context, or channel activity.
 

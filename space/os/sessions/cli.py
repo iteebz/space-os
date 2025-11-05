@@ -4,6 +4,7 @@ from typing import Annotated
 
 import typer
 
+from space.cli.errors import error_feedback
 from space.lib import paths
 from space.os.sessions import api
 
@@ -20,6 +21,7 @@ def sessions_callback(ctx: typer.Context):
 
 
 @sessions_app.command(name="query")
+@error_feedback
 def query_cmd(
     query: Annotated[str, typer.Argument(help="Agent identity, spawn_id, or session_id")],
 ):
@@ -29,9 +31,9 @@ def query_cmd(
 
 
 @sessions_app.command(name="sync")
+@error_feedback
 def sync_cmd():
     """Sync sessions from provider CLIs (Claude, Gemini, Codex) to ~/.space/sessions/."""
-
     sessions_dir = paths.sessions_dir()
 
     def count_files(provider: str) -> int:
@@ -43,7 +45,7 @@ def sync_cmd():
 
     before = {p: count_files(p) for p in ["claude", "codex", "gemini"]}
 
-    from space.lib.spinner import Spinner
+    from space.cli.spinner import Spinner
 
     typer.echo()
 

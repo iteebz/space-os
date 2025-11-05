@@ -6,12 +6,14 @@ import typer
 
 from space.apps.context.api import collect_current_state, collect_timeline
 from space.cli import output
+from space.cli.errors import error_feedback
 from space.os.context import display
 
 app = typer.Typer(add_completion=False)
 
 
 @app.command()
+@error_feedback
 def search(
     query: Annotated[str, typer.Argument(help="Query to search")],
     identity: Annotated[str | None, typer.Option("--as", help="Agent identity to use.")] = None,

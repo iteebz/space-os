@@ -10,6 +10,7 @@ from typing import Annotated
 import typer
 
 from space.cli import argv, output
+from space.cli.errors import error_feedback
 from space.os import spawn
 from space.os.bridge import api
 
@@ -89,6 +90,7 @@ def main_callback(
 
 
 @app.command()
+@error_feedback
 def archive(
     ctx: typer.Context,
     channels_arg: list[str] = typer.Argument(...),
@@ -125,6 +127,7 @@ def archive(
 
 
 @app.command()
+@error_feedback
 def channels(
     ctx: typer.Context,
     all: bool = typer.Option(False, "--all", help="Include archived channels"),
@@ -178,6 +181,7 @@ def channels(
 
 
 @app.command()
+@error_feedback
 def create(
     ctx: typer.Context,
     channel_name: str = typer.Argument(..., help="Channel name"),
@@ -198,6 +202,7 @@ def create(
 
 
 @app.command("delete")
+@error_feedback
 def delete(
     ctx: typer.Context,
     channel: str = typer.Argument(..., help="Channel to delete"),
@@ -219,6 +224,7 @@ def delete(
 
 
 @app.command()
+@error_feedback
 def pin(
     ctx: typer.Context,
     channels_arg: list[str] = typer.Argument(...),
@@ -243,6 +249,7 @@ def pin(
 
 
 @app.command()
+@error_feedback
 def recv(
     ctx: typer.Context,
     channel: str = typer.Argument(..., help="Channel to read from"),
@@ -265,6 +272,7 @@ def recv(
 
 
 @app.command()
+@error_feedback
 def send(
     ctx: typer.Context,
     channel: str = typer.Argument(..., help="Target channel"),
@@ -293,6 +301,7 @@ def send(
 
 
 @app.command()
+@error_feedback
 def rename(
     ctx: typer.Context,
     old_channel: str = typer.Argument(..., help="Current channel name"),
@@ -322,6 +331,7 @@ def rename(
 
 
 @app.command()
+@error_feedback
 def wait(
     ctx: typer.Context,
     channel: str = typer.Argument(..., help="Channel to monitor"),

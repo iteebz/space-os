@@ -6,6 +6,7 @@ from typing import Annotated
 import typer
 
 from space.cli import argv, output
+from space.cli.errors import error_feedback
 from space.os import spawn
 from space.os.knowledge import api
 
@@ -37,6 +38,7 @@ def main_callback(
 
 
 @app.command("add")
+@error_feedback
 def add(
     ctx: typer.Context,
     domain: str = typer.Argument(..., help="Domain path (e.g., architecture/caching/redis)"),
@@ -70,6 +72,7 @@ def add(
 
 
 @app.command("tree")
+@error_feedback
 def tree(
     ctx: typer.Context,
     domain: str = typer.Argument(None, help="Domain path to show subtree (optional)"),
@@ -205,6 +208,7 @@ def read(
 
 
 @app.command("archive")
+@error_feedback
 def archive(
     ctx: typer.Context,
     knowledge_id: str = typer.Argument(..., help="Knowledge ID to archive"),

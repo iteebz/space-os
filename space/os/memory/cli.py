@@ -6,6 +6,7 @@ from typing import Annotated
 import typer
 
 from space.cli import argv, output
+from space.cli.errors import error_feedback
 from space.os import spawn
 from space.os.context import display
 from space.os.memory import api
@@ -49,6 +50,7 @@ def main_callback(
 
 
 @main_app.command("add")
+@error_feedback
 def add(
     ctx: typer.Context,
     message: str = typer.Argument(..., help="The memory message"),
@@ -76,6 +78,7 @@ def add(
 
 
 @main_app.command("edit")
+@error_feedback
 def edit(
     ctx: typer.Context,
     uuid: str = typer.Argument(..., help="UUID of the memory to edit"),
@@ -95,6 +98,7 @@ def edit(
 
 
 @main_app.command("list")
+@error_feedback
 def list_cmd(
     ctx: typer.Context,
     topic: Annotated[str | None, typer.Option("--topic", help="Filter by topic label")] = None,
@@ -127,6 +131,7 @@ def list_cmd(
 
 
 @main_app.command("search")
+@error_feedback
 def search(
     ctx: typer.Context,
     query: str = typer.Argument(..., help="Search query"),
@@ -166,6 +171,7 @@ def search(
 
 
 @main_app.command("archive")
+@error_feedback
 def archive(
     ctx: typer.Context,
     uuid: str = typer.Argument(..., help="UUID of the memory to archive"),
@@ -186,6 +192,7 @@ def archive(
 
 
 @main_app.command("core")
+@error_feedback
 def core(
     ctx: typer.Context,
     uuid: str = typer.Argument(..., help="UUID of the memory to mark core"),
@@ -204,6 +211,7 @@ def core(
 
 
 @main_app.command("inspect")
+@error_feedback
 def inspect(
     ctx: typer.Context,
     uuid: str = typer.Argument(..., help="UUID of the memory to inspect"),
