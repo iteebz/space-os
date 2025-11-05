@@ -1,4 +1,3 @@
-import contextlib
 import logging
 import sqlite3
 from pathlib import Path
@@ -7,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 def connect(db_path: Path) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path, check_same_thread=False)
+    conn = sqlite3.connect(db_path, check_same_thread=False, timeout=10)
     conn.row_factory = sqlite3.Row
     conn.isolation_level = None
     conn.execute("PRAGMA foreign_keys = ON")
@@ -24,13 +23,8 @@ def resolve(db_dir: Path) -> None:
     for db_file in sorted(db_dir.glob("*.db")):
         try:
             conn = connect(db_file)
-            conn.execute("PRAGMA journal_mode=DELETE")
             conn.execute("PRAGMA wal_checkpoint(RESTART)")
             conn.close()
-
-            for artifact in db_file.parent.glob(f"{db_file.name}-*"):
-                with contextlib.suppress(OSError):
-                    artifact.unlink()
 
             logger.info(f"Resolved {db_file.name}")
         except sqlite3.DatabaseError as e:

@@ -122,7 +122,7 @@ class Spawn:
     id: str
     agent_id: str
     status: TaskStatus | str = TaskStatus.PENDING
-    is_task: bool = False
+    is_ephemeral: bool = False
     constitution_hash: str | None = None
     channel_id: str | None = None
     pid: int | None = None

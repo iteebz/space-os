@@ -5,7 +5,7 @@ import re
 
 from space.os.spawn.api import agents as spawn_agents
 from space.os.spawn.api import spawns
-from space.os.spawn.api.launch import spawn_task
+from space.os.spawn.api.launch import spawn_ephemeral
 
 log = logging.getLogger(__name__)
 
@@ -126,7 +126,7 @@ def _process_mentions(
 
         try:
             log.info(f"Spawning {identity}")
-            spawn_task(identity, task=content, channel_id=channel_id)
+            spawn_ephemeral(identity, instruction=content, channel_id=channel_id)
             log.info(f"Spawned {identity} successfully")
         except Exception as e:
             log.error(f"Spawn error for {identity}: {e}")

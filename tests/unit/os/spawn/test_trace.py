@@ -212,7 +212,7 @@ def test_trace_spawn_syncs_session():
             spawn_obj.created_at = "2025-11-03T10:00:00"
             spawn_obj.ended_at = "2025-11-03T10:00:05"
             spawn_obj.channel_id = None
-            spawn_obj.is_task = True
+            spawn_obj.is_ephemeral = True
 
             mock_get_spawn.return_value = spawn_obj
 

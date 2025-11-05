@@ -33,11 +33,11 @@ class Claude(Provider):
         ]
 
     @staticmethod
-    def launch_args(is_task: bool = False) -> list[str]:
+    def launch_args(is_ephemeral: bool = False) -> list[str]:
         """Return launch arguments for Claude.
 
         Args:
-            is_task: Whether this is a task-based spawn. Only task spawns skip permissions.
+            is_ephemeral: Whether this is an ephemeral spawn. Only ephemeral spawns skip permissions.
         """
         disallowed = [
             "NotebookRead",
@@ -46,7 +46,7 @@ class Claude(Provider):
             "TodoWrite",
         ]
         args = ["--disallowedTools", ",".join(disallowed)]
-        if is_task:
+        if is_ephemeral:
             args.insert(0, "--dangerously-skip-permissions")
         return args
 

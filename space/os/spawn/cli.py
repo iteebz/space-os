@@ -48,7 +48,7 @@ def main_callback(
                 resume, extra_args = _extract_resume_flag(sys.argv[2:])
                 if extra_args:
                     typer.echo(f"Spawning {identity}...\n")
-                    spawn = api.spawn_task(
+                    spawn = api.spawn_ephemeral(
                         identity, " ".join(extra_args), channel_id=None, resume=resume
                     )
                     typer.echo(f"\nSpawn ID: {spawn.id[:8]}")
@@ -349,7 +349,7 @@ def logs(spawn_id: str):
     typer.echo(f"\n📋 Spawn: {spawn_obj.id}")
     typer.echo(f"Agent: {spawn_obj.agent_id}")
     typer.echo(f"Status: {spawn_obj.status}")
-    typer.echo(f"Is Task: {spawn_obj.is_task}")
+    typer.echo(f"Is Ephemeral: {spawn_obj.is_ephemeral}")
 
     if spawn_obj.channel_id:
         typer.echo(f"Channel: {spawn_obj.channel_id}")
@@ -428,7 +428,7 @@ def dispatch_agent_from_name() -> NoReturn:
     args = sys.argv[1:] if len(sys.argv) > 1 else []
     resume, extra_args = _extract_resume_flag(args)
     if extra_args:
-        api.spawn_task(agent.identity, " ".join(extra_args), channel_id=None, resume=resume)
+        api.spawn_ephemeral(agent.identity, " ".join(extra_args), channel_id=None, resume=resume)
     else:
         api.spawn_interactive(agent.identity, resume=resume)
     sys.exit(0)
@@ -444,7 +444,7 @@ def main() -> None:
                 resume, extra_args = _extract_resume_flag(sys.argv[2:])
                 if extra_args:
                     typer.echo(f"Spawning {potential_identity}...\n")
-                    spawn = api.spawn_task(
+                    spawn = api.spawn_ephemeral(
                         potential_identity, " ".join(extra_args), channel_id=None, resume=resume
                     )
                     typer.echo(f"\nSpawn ID: {spawn.id[:8]}")

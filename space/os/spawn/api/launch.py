@@ -54,7 +54,7 @@ def spawn_interactive(
     typer.echo(f"Spawning {identity}...\n")
     spawn = spawns.create_spawn(
         agent_id=agent.agent_id,
-        is_task=bool(passthrough),
+        is_ephemeral=bool(passthrough),
         constitution_hash=constitution_hash,
     )
 
@@ -65,7 +65,7 @@ def spawn_interactive(
         if agent.provider == "gemini":
             launch_args = provider_class.launch_args(has_prompt=bool(passthrough))
         elif agent.provider == "claude":
-            launch_args = provider_class.launch_args(is_task=bool(passthrough))
+            launch_args = provider_class.launch_args(is_ephemeral=bool(passthrough))
         else:
             launch_args = provider_class.launch_args()
     else:
@@ -123,17 +123,17 @@ def spawn_interactive(
             spawns.end_spawn(spawn.id)
 
 
-def spawn_task(
+def spawn_ephemeral(
     identity: str,
-    task: str,
+    instruction: str,
     channel_id: str,
     resume: str | None = None,
 ):
-    """Spawn an agent as a task-based execution (non-interactive).
+    """Spawn an agent as an ephemeral execution (non-interactive).
 
     Args:
         identity: Agent identity from registry
-        task: Task/prompt to execute
+        instruction: Instruction/prompt to execute
         channel_id: Channel ID (for bridge context, optional)
         resume: Session/spawn ID to resume, or None to continue last
 
@@ -150,7 +150,7 @@ def spawn_task(
 
     spawn = spawns.create_spawn(
         agent_id=agent.agent_id,
-        is_task=True,
+        is_ephemeral=True,
         channel_id=channel_id,
         constitution_hash=constitution_hash,
     )
@@ -165,14 +165,14 @@ def spawn_task(
 
     try:
         if agent.provider == "claude":
-            _spawn_task_claude(
-                agent, task, spawn, channel_name, session_id, resume is None and session_id
+            _spawn_ephemeral_claude(
+                agent, instruction, spawn, channel_name, session_id, resume is None and session_id
             )
         elif agent.provider == "gemini":
-            _spawn_task_gemini(agent, task, spawn, channel_name)
+            _spawn_ephemeral_gemini(agent, instruction, spawn, channel_name)
         elif agent.provider == "codex":
-            _spawn_task_codex(
-                agent, task, spawn, channel_name, session_id, resume is None and session_id
+            _spawn_ephemeral_codex(
+                agent, instruction, spawn, channel_name, session_id, resume is None and session_id
             )
         else:
             raise ValueError(f"Unknown provider: {agent.provider}")
@@ -185,15 +185,15 @@ def spawn_task(
         raise
 
 
-def _spawn_task_claude(
+def _spawn_ephemeral_claude(
     agent,
-    task: str,
+    instruction: str,
     spawn,
     channel_name: str | None,
     session_id: str | None = None,
     is_continue: bool = False,
 ) -> None:
-    """Execute task-based Claude Code spawn with session linking.
+    """Execute ephemeral Claude Code spawn with session linking.
 
     If spawned from a channel (@mention), agent should post results to that channel.
     """
@@ -203,7 +203,9 @@ def _spawn_task_claude(
 
     launch_args = Claude.task_launch_args()
 
-    context = build_spawn_context(agent.identity, task=task, channel=channel_name, is_task=True)
+    context = build_spawn_context(
+        agent.identity, task=instruction, channel=channel_name, is_ephemeral=True
+    )
     add_dir_args = ["--add-dir", str(paths.space_root())]
     resume_args = _build_resume_args("claude", session_id, is_continue)
     cmd = ["claude"] + launch_args + add_dir_args + resume_args
@@ -234,8 +236,8 @@ def _spawn_task_claude(
         sys.stdout.write(result_text + "\n")
 
 
-def _spawn_task_gemini(agent, task: str, spawn, channel_name: str | None) -> None:
-    """Execute task-based Gemini spawn with session linking.
+def _spawn_ephemeral_gemini(agent, instruction: str, spawn, channel_name: str | None) -> None:
+    """Execute ephemeral Gemini spawn with session linking.
 
     If spawned from a channel (@mention), agent should post results to that channel.
     """
@@ -245,7 +247,9 @@ def _spawn_task_gemini(agent, task: str, spawn, channel_name: str | None) -> Non
 
     launch_args = Gemini.task_launch_args()
 
-    context = build_spawn_context(agent.identity, task=task, channel=channel_name, is_task=True)
+    context = build_spawn_context(
+        agent.identity, task=instruction, channel=channel_name, is_ephemeral=True
+    )
     add_dir_args = ["--add-dir", str(paths.space_root())]
     cmd = ["gemini"] + launch_args + add_dir_args
 
@@ -265,15 +269,15 @@ def _spawn_task_gemini(agent, task: str, spawn, channel_name: str | None) -> Non
     linker.link_spawn_to_session(spawn.id, gemini_session_id)
 
 
-def _spawn_task_codex(
+def _spawn_ephemeral_codex(
     agent,
-    task: str,
+    instruction: str,
     spawn,
     channel_name: str | None,
     session_id: str | None = None,
     is_continue: bool = False,
 ) -> None:
-    """Execute task-based Codex spawn with session linking.
+    """Execute ephemeral Codex spawn with session linking.
 
     If spawned from a channel (@mention), agent should post results to that channel.
     """
@@ -283,7 +287,9 @@ def _spawn_task_codex(
 
     launch_args = Codex.task_launch_args()
 
-    context = build_spawn_context(agent.identity, task=task, channel=channel_name, is_task=True)
+    context = build_spawn_context(
+        agent.identity, task=instruction, channel=channel_name, is_ephemeral=True
+    )
     add_dir_args = ["--add-dir", str(paths.space_root())]
     resume_args = _build_resume_args("codex", session_id, is_continue)
     cmd = ["codex"] + resume_args + ["exec"] + launch_args + add_dir_args

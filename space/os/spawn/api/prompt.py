@@ -57,7 +57,7 @@ Verify with: cd ~/space && pwd
 
 
 def build_spawn_context(
-    identity: str, task: str | None = None, channel: str | None = None, is_task: bool = False
+    identity: str, task: str | None = None, channel: str | None = None, is_ephemeral: bool = False
 ) -> str:
     """Assemble spawn context: bootloader for agent execution.
 
@@ -67,7 +67,7 @@ def build_spawn_context(
         identity: Agent identity
         task: Task instruction (optional)
         channel: Channel name if responding in channel (optional)
-        is_task: Whether this is a task-based spawn (sets execution mode notice)
+        is_ephemeral: Whether this is an ephemeral spawn (sets execution mode notice)
 
     Returns:
         Complete prompt for agent execution
@@ -98,7 +98,7 @@ def build_spawn_context(
         task_context = TASK_TEMPLATE.format(task=task)
 
     task_mode_context = ""
-    if is_task:
+    if is_ephemeral:
         task_mode_context = TASK_MODE_TEMPLATE
 
     return SPAWN_CONTEXT_TEMPLATE.format(

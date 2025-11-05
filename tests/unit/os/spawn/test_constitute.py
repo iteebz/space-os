@@ -20,14 +20,14 @@ def agent():
 
 @pytest.fixture
 def spawn_interactive():
-    """Interactive spawn (is_task=False)."""
-    return Spawn(id="spawn-1", agent_id="agent-1", is_task=False, status=TaskStatus.PENDING)
+    """Interactive spawn (is_ephemeral=False)."""
+    return Spawn(id="spawn-1", agent_id="agent-1", is_ephemeral=False, status=TaskStatus.PENDING)
 
 
 @pytest.fixture
 def spawn_headless():
-    """Headless spawn (is_task=True)."""
-    return Spawn(id="spawn-2", agent_id="agent-1", is_task=True, status=TaskStatus.PENDING)
+    """Headless spawn (is_ephemeral=True)."""
+    return Spawn(id="spawn-2", agent_id="agent-1", is_ephemeral=True, status=TaskStatus.PENDING)
 
 
 def test_constitute_interactive_writes_to_space_root(tmp_path, spawn_interactive, agent):

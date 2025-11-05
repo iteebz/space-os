@@ -27,17 +27,28 @@ def _backup_data_snapshot(timestamp: str, quiet_output: bool) -> dict:
     backup_path.parent.mkdir(parents=True, exist_ok=True)
     backup_path.mkdir(parents=True, exist_ok=True)
 
-    with contextlib.suppress(Exception):
-        store.close_all()
+    store.close_all()
 
-    resolve(src)
+    with contextlib.suppress(sqlite3.DatabaseError):
+        resolve(src)
 
     for db_file in src.glob("*.db"):
         shutil.copy2(db_file, backup_path / db_file.name)
 
+    stats = _get_backup_stats(backup_path)
+
+    for db_file in backup_path.glob("*.db"):
+        try:
+            with sqlite3.connect(str(db_file), timeout=2) as conn:
+                result = conn.execute("PRAGMA integrity_check").fetchone()[0]
+                if result != "ok":
+                    logger.error(f"Backup integrity check failed for {db_file.name}: {result}")
+        except Exception as e:
+            logger.error(f"Failed to verify backup {db_file.name}: {e}")
+
     os.chmod(backup_path, 0o555)
 
-    return _get_backup_stats(backup_path)
+    return stats
 
 
 def _backup_sessions(quiet_output: bool) -> dict:
@@ -87,7 +98,8 @@ def _get_backup_stats(backup_path: Path) -> dict:
     stats = {}
     for db_file in backup_path.glob("*.db"):
         try:
-            with sqlite3.connect(f"file:{db_file}?mode=ro", uri=True) as conn:
+            db_file.chmod(0o644)
+            with sqlite3.connect(str(db_file), timeout=2, check_same_thread=False) as conn:
                 cursor = conn.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name != '_migrations'"
                 )
@@ -106,8 +118,9 @@ def _get_backup_stats(backup_path: Path) -> dict:
                     "tables": len(tables),
                     "rows": total,
                 }
-        except sqlite3.DatabaseError:
-            stats[db_file.name] = {"error": "corrupted"}
+        except sqlite3.DatabaseError as e:
+            logger.debug(f"Could not read stats from {db_file.name}: {e}")
+            stats[db_file.name] = {"tables": 0, "rows": 0}
 
     return stats
 

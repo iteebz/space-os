@@ -10,7 +10,7 @@ from space.lib.uuid7 import uuid7
 
 def create_spawn(
     agent_id: str,
-    is_task: bool = False,
+    is_ephemeral: bool = False,
     constitution_hash: str | None = None,
     channel_id: str | None = None,
     session_id: str | None = None,
@@ -21,7 +21,7 @@ def create_spawn(
 
     Args:
         agent_id: Agent ID
-        is_task: Whether this is a background task spawn (headless)
+        is_ephemeral: Whether this was invoked directly (CLI, mention, or direct call), not persistent interactive session
         constitution_hash: Hash of the constitution file (if loaded)
         channel_id: Channel ID if triggered by bridge
         session_id: Session ID if already linked to provider session. Can be set later.
@@ -43,10 +43,10 @@ def create_spawn(
         cursor.execute(
             """
             INSERT INTO spawns
-            (id, agent_id, is_task, constitution_hash, channel_id, session_id, created_at)
+            (id, agent_id, is_ephemeral, constitution_hash, channel_id, session_id, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (spawn_id, agent_id, is_task, constitution_hash, channel_id, session_id, now),
+            (spawn_id, agent_id, is_ephemeral, constitution_hash, channel_id, session_id, now),
         )
 
         cursor.execute("SELECT * FROM spawns WHERE id = ?", (spawn_id,))
