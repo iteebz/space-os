@@ -1,9 +1,9 @@
-"""Session operations: search and statistics."""
+"""Session operations: search, statistics, and resolution."""
 
 import logging
 
 from space.core.models import SessionStats
-from space.lib import store
+from space.lib import store, uuid7
 
 logger = logging.getLogger(__name__)
 
@@ -116,3 +116,39 @@ def stats() -> SessionStats:
         output_tokens=stats_dict["total_output_tokens"],
         by_provider=stats_dict.get("by_provider"),
     )
+
+
+def resolve_session_id(agent_id: str, resume: str | None) -> str | None:
+    """Resolve session ID from resume arg (spawn_id or session_id, full or short).
+
+    Tries spawn lookup first (for recent spawns), then session lookup.
+
+    Args:
+        agent_id: Agent ID to look up spawns for
+        resume: Spawn ID, session ID, or short form of either. None to continue last.
+
+    Returns:
+        Full session ID or None if no session found
+    """
+    from space.os.spawn.api import spawns
+
+    if not resume:
+        last_spawns = spawns.get_spawns_for_agent(agent_id, limit=1)
+        if last_spawns:
+            return last_spawns[0].session_id
+        return None
+
+    if len(resume) == 36 and resume.count("-") == 4:
+        return resume
+
+    try:
+        spawn = spawns.get_spawn(resume)
+        if spawn and spawn.session_id:
+            return spawn.session_id
+    except (ValueError, AttributeError):
+        pass
+
+    try:
+        return uuid7.resolve_id("sessions", "id", resume, error_context="resume session")
+    except ValueError as e:
+        raise ValueError(f"Cannot resolve session or spawn: {e}") from e

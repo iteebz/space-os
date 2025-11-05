@@ -11,6 +11,7 @@ import typer
 
 from space.lib import paths
 from space.lib.providers import Claude, Codex, Gemini
+from space.os.sessions.api import resolve_session_id
 
 from . import agents, spawns
 from .constitute import constitute
@@ -20,16 +21,20 @@ from .prompt import build_spawn_context
 logger = logging.getLogger(__name__)
 
 
-def spawn_interactive(identity: str, extra_args: list[str] | None = None):
+def spawn_interactive(
+    identity: str,
+    extra_args: list[str] | None = None,
+    resume: str | None = None,
+):
     """Spawn an agent by identity from registry (interactive mode).
 
     Looks up agent, writes constitution to provider home dir,
     injects unified context via stdin, and executes the provider CLI.
 
     Args:
-            identity: Agent identity from registry
-            extra_args: Additional CLI arguments forwarded to provider.
-                       If empty, spawn in interactive mode without context prompt.
+        identity: Agent identity from registry
+        extra_args: Additional CLI arguments forwarded to provider.
+        resume: Session/spawn ID to resume, or None to continue last.
     """
     agent = agents.get_agent(identity)
     if not agent:
@@ -68,13 +73,20 @@ def spawn_interactive(identity: str, extra_args: list[str] | None = None):
 
     add_dir_args = ["--add-dir", str(paths.space_root())]
 
+    session_id = resolve_session_id(agent.agent_id, resume)
+    resume_args = _build_resume_args(agent.provider, session_id, resume is None and session_id)
+
     if passthrough:
         context = build_spawn_context(identity, task=passthrough[0] if passthrough else None)
-        full_command = command_tokens + add_dir_args + [context] + model_args + launch_args
-        display_command = command_tokens + add_dir_args + ['"<context>"'] + model_args + launch_args
+        full_command = (
+            command_tokens + add_dir_args + [context] + model_args + launch_args + resume_args
+        )
+        display_command = (
+            command_tokens + add_dir_args + ['"<context>"'] + model_args + launch_args + resume_args
+        )
     else:
         context = build_spawn_context(identity)
-        full_command = command_tokens + add_dir_args + model_args + launch_args
+        full_command = command_tokens + add_dir_args + model_args + launch_args + resume_args
         display_command = full_command
 
     typer.echo(f"Executing: {' '.join(display_command)}")
@@ -111,13 +123,19 @@ def spawn_interactive(identity: str, extra_args: list[str] | None = None):
             spawns.end_spawn(spawn.id)
 
 
-def spawn_task(identity: str, task: str, channel_id: str):
+def spawn_task(
+    identity: str,
+    task: str,
+    channel_id: str,
+    resume: str | None = None,
+):
     """Spawn an agent as a task-based execution (non-interactive).
 
     Args:
         identity: Agent identity from registry
         task: Task/prompt to execute
         channel_id: Channel ID (for bridge context, optional)
+        resume: Session/spawn ID to resume, or None to continue last
 
     Returns:
         Spawn object
@@ -143,13 +161,19 @@ def spawn_task(identity: str, task: str, channel_id: str):
     channel = channels.get_channel(channel_id) if channel_id else None
     channel_name = channel.name if channel else None
 
+    session_id = resolve_session_id(agent.agent_id, resume)
+
     try:
         if agent.provider == "claude":
-            _spawn_task_claude(agent, task, spawn, channel_name)
+            _spawn_task_claude(
+                agent, task, spawn, channel_name, session_id, resume is None and session_id
+            )
         elif agent.provider == "gemini":
             _spawn_task_gemini(agent, task, spawn, channel_name)
         elif agent.provider == "codex":
-            _spawn_task_codex(agent, task, spawn, channel_name)
+            _spawn_task_codex(
+                agent, task, spawn, channel_name, session_id, resume is None and session_id
+            )
         else:
             raise ValueError(f"Unknown provider: {agent.provider}")
 
@@ -161,7 +185,14 @@ def spawn_task(identity: str, task: str, channel_id: str):
         raise
 
 
-def _spawn_task_claude(agent, task: str, spawn, channel_name: str | None) -> None:
+def _spawn_task_claude(
+    agent,
+    task: str,
+    spawn,
+    channel_name: str | None,
+    session_id: str | None = None,
+    is_continue: bool = False,
+) -> None:
     """Execute task-based Claude Code spawn with session linking.
 
     If spawned from a channel (@mention), agent should post results to that channel.
@@ -174,7 +205,8 @@ def _spawn_task_claude(agent, task: str, spawn, channel_name: str | None) -> Non
 
     context = build_spawn_context(agent.identity, task=task, channel=channel_name, is_task=True)
     add_dir_args = ["--add-dir", str(paths.space_root())]
-    cmd = ["claude"] + launch_args + add_dir_args
+    resume_args = _build_resume_args("claude", session_id, is_continue)
+    cmd = ["claude"] + launch_args + add_dir_args + resume_args
 
     spawn_dir = paths.identity_dir(agent.identity)
     result = subprocess.run(
@@ -233,7 +265,14 @@ def _spawn_task_gemini(agent, task: str, spawn, channel_name: str | None) -> Non
     linker.link_spawn_to_session(spawn.id, gemini_session_id)
 
 
-def _spawn_task_codex(agent, task: str, spawn, channel_name: str | None) -> None:
+def _spawn_task_codex(
+    agent,
+    task: str,
+    spawn,
+    channel_name: str | None,
+    session_id: str | None = None,
+    is_continue: bool = False,
+) -> None:
     """Execute task-based Codex spawn with session linking.
 
     If spawned from a channel (@mention), agent should post results to that channel.
@@ -246,7 +285,8 @@ def _spawn_task_codex(agent, task: str, spawn, channel_name: str | None) -> None
 
     context = build_spawn_context(agent.identity, task=task, channel=channel_name, is_task=True)
     add_dir_args = ["--add-dir", str(paths.space_root())]
-    cmd = ["codex", "exec"] + launch_args + add_dir_args
+    resume_args = _build_resume_args("codex", session_id, is_continue)
+    cmd = ["codex"] + resume_args + ["exec"] + launch_args + add_dir_args
 
     spawn_dir = paths.identity_dir(agent.identity)
     result = subprocess.run(
@@ -300,3 +340,30 @@ def _resolve_executable(executable: str, env: dict[str, str]) -> str:
     if not resolved:
         raise ValueError(f"Executable '{executable}' not found on PATH")
     return resolved
+
+
+def _build_resume_args(provider: str, session_id: str | None, is_continue: bool) -> list[str]:
+    """Build provider-specific resume/continue arguments.
+
+    Args:
+        provider: Provider name (claude, codex, gemini)
+        session_id: Session ID to resume
+        is_continue: If True, continue last session (session_id was auto-resolved)
+
+    Returns:
+        List of arguments to append to provider command
+    """
+    if not session_id:
+        return []
+
+    if provider == "claude":
+        if is_continue:
+            return ["-c"]
+        return ["-r", session_id]
+
+    if provider == "codex":
+        if is_continue:
+            return ["resume", "--last"]
+        return ["resume", session_id]
+
+    return []

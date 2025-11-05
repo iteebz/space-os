@@ -1,6 +1,6 @@
-"""Sessions API: search and statistics."""
+"""Sessions API: search, statistics, and resolution."""
 
 from . import sync
-from .operations import search, stats
+from .operations import resolve_session_id, search, stats
 
-__all__ = ["search", "stats", "sync"]
+__all__ = ["resolve_session_id", "search", "stats", "sync"]

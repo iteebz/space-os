@@ -45,14 +45,16 @@ def main_callback(
             identity = sys.argv[1]
             agent = api.get_agent(identity)
             if agent:
-                extra_args = sys.argv[2:] if len(sys.argv) > 2 else None
+                resume, extra_args = _extract_resume_flag(sys.argv[2:])
                 if extra_args:
                     typer.echo(f"Spawning {identity}...\n")
-                    spawn = api.spawn_task(identity, " ".join(extra_args), channel_id=None)
+                    spawn = api.spawn_task(
+                        identity, " ".join(extra_args), channel_id=None, resume=resume
+                    )
                     typer.echo(f"\nSpawn ID: {spawn.id[:8]}")
                     typer.echo(f"Track: spawn trace {spawn.id[:8]}")
                 else:
-                    api.spawn_interactive(identity)
+                    api.spawn_interactive(identity, resume=resume)
                 raise typer.Exit(0)
         typer.echo(ctx.get_help())
 
@@ -65,6 +67,29 @@ def _resolve_identity(stat_identity: str) -> str:
         if agent:
             return agent.identity
     return name
+
+
+def _extract_resume_flag(args: list[str]) -> tuple[str | None, list[str]]:
+    """Extract --resume/-r flag and optional value from args.
+
+    Returns:
+        (resume_value, remaining_args) where resume_value is None if --resume not present
+    """
+    resume = None
+    remaining = []
+    i = 0
+    while i < len(args):
+        if args[i] in ("--resume", "-r"):
+            if i + 1 < len(args) and not args[i + 1].startswith("-"):
+                resume = args[i + 1]
+                i += 2
+            else:
+                resume = ""
+                i += 1
+        else:
+            remaining.append(args[i])
+            i += 1
+    return resume, remaining
 
 
 @app.command()
@@ -401,10 +426,11 @@ def dispatch_agent_from_name() -> NoReturn:
         sys.exit(1)
 
     args = sys.argv[1:] if len(sys.argv) > 1 else []
-    if args:
-        api.spawn_task(agent.identity, " ".join(args), channel_id=None)
+    resume, extra_args = _extract_resume_flag(args)
+    if extra_args:
+        api.spawn_task(agent.identity, " ".join(extra_args), channel_id=None, resume=resume)
     else:
-        api.spawn_interactive(agent.identity)
+        api.spawn_interactive(agent.identity, resume=resume)
     sys.exit(0)
 
 
@@ -415,16 +441,16 @@ def main() -> None:
             potential_identity = sys.argv[1]
             agent = api.get_agent(potential_identity)
             if agent:
-                extra_args = sys.argv[2:] if len(sys.argv) > 2 else None
+                resume, extra_args = _extract_resume_flag(sys.argv[2:])
                 if extra_args:
                     typer.echo(f"Spawning {potential_identity}...\n")
                     spawn = api.spawn_task(
-                        potential_identity, " ".join(extra_args), channel_id=None
+                        potential_identity, " ".join(extra_args), channel_id=None, resume=resume
                     )
                     typer.echo(f"\nSpawn ID: {spawn.id[:8]}")
                     typer.echo(f"Track: spawn trace {spawn.id[:8]}")
                 else:
-                    api.spawn_interactive(potential_identity)
+                    api.spawn_interactive(potential_identity, resume=resume)
                 return
         app()
     except SystemExit:
