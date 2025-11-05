@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from space.core.models import SessionEvent
+    pass
 
 
 @runtime_checkable
@@ -82,17 +82,18 @@ class Provider(Protocol):
         """
         ...
 
-    def parse(self, file_path: Path, from_offset: int = 0) -> "list[SessionEvent]":
-        """Parse provider session file to unified event format.
+    def parse(self, file_path: Path | str, from_offset: int = 0) -> "list[SessionMessage]":
+        """Parse provider session data to unified message format.
 
-        Extracts tool calls, tool results, text responses, and other execution events.
+        Accepts file path or raw JSONL/JSON content string.
+        Extracts all events: tool calls, tool results, text responses, and messages.
 
         Args:
-            file_path: Path to session JSONL or JSON file
+            file_path: Path to session file OR raw JSONL/JSON string content
             from_offset: Byte offset or message index to start from
 
         Returns:
-            List of SessionEvent objects in chronological order
+            List of SessionMessage objects in chronological order
         """
         ...
 
@@ -107,13 +108,27 @@ class Provider(Protocol):
         """
         ...
 
-    def session_id(self, output: str) -> str | None:
-        """Extract session_id from execution output.
+    def session_id_from_stream(self, output: str) -> str | None:
+        """Extract session_id from live stream output during execution.
 
-        Provider-specific parsing of structured output (JSON/JSONL).
+        Provider-specific parsing of structured output (JSON/JSONL) from execution.
 
         Args:
             output: Raw stdout from execution
+
+        Returns:
+            session_id if found, None otherwise
+        """
+        ...
+
+    def session_id_from_contents(self, file_path: Path) -> str | None:
+        """Extract session_id from session file contents for filename normalization.
+
+        Reads and parses file contents to extract provider-specific session_id field.
+        Used during ingest to normalize filenames to {uuid}.jsonl format.
+
+        Args:
+            file_path: Path to session JSONL or JSON file
 
         Returns:
             session_id if found, None otherwise

@@ -1,10 +1,11 @@
 """Gemini provider: chat discovery and message parsing."""
 
+import io
 import json
 import logging
 from pathlib import Path
 
-from space.core.models import AgentMessage, SessionEvent, ToolCall, ToolResult
+from space.core.models import SessionMessage
 from space.core.protocols import Provider
 
 logger = logging.getLogger(__name__)
@@ -134,12 +135,19 @@ class Gemini(Provider):
 
     @staticmethod
     def ingest(session: dict, dest_dir: Path) -> bool:
-        """Ingest one Gemini session: convert JSON to JSONL."""
+        """Ingest one Gemini session: convert JSON to JSONL with normalized filename.
+
+        Extracts canonical session_id from file to normalize filename to {uuid}.jsonl.
+        """
         try:
-            session_id = session.get("session_id")
             src_file = Path(session.get("file_path", ""))
 
-            if not session_id or not src_file.exists():
+            if not src_file.exists():
+                return False
+
+            session_id = Gemini.session_id_from_contents(src_file)
+            if not session_id:
+                logger.warning(f"Could not extract session_id from {src_file}")
                 return False
 
             dest_file = dest_dir / f"{session_id}.jsonl"
@@ -148,7 +156,7 @@ class Gemini(Provider):
             dest_file.write_text(jsonl_content)
             return bool(jsonl_content)
         except Exception as e:
-            logger.error(f"Error ingesting Gemini session {session.get('session_id')}: {e}")
+            logger.error(f"Error ingesting Gemini session: {e}")
         return False
 
     @staticmethod
@@ -170,35 +178,38 @@ class Gemini(Provider):
         return 0
 
     @staticmethod
-    def parse(file_path: Path, from_offset: int = 0) -> list[SessionEvent]:
-        """Parse Gemini session file to unified event format."""
-        file_path = Path(file_path)
+    def parse(file_path: Path | str, from_offset: int = 0) -> list[SessionMessage]:
+        """Parse Gemini session data to unified event format.
+
+        Accepts file path or raw JSONL string content.
+        """
         events = []
 
-        if not file_path.exists():
-            return events
+        if isinstance(file_path, str):
+            file_obj = io.StringIO(file_path)
+        else:
+            file_path = Path(file_path)
+            if not file_path.exists():
+                return events
+            file_obj = open(file_path)
 
-        try:
-            with open(file_path) as f:
-                for line in f:
-                    if not line.strip():
-                        continue
+        with file_obj:
+            for line in file_obj:
+                if not line.strip():
+                    continue
 
-                    try:
-                        obj = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
 
-                    msg_type = obj.get("type")
-                    timestamp = obj.get("timestamp")
+                msg_type = obj.get("type")
+                timestamp = obj.get("timestamp")
 
-                    if msg_type == "model":
-                        events.extend(Gemini._parse_model_message(obj.get("parts", []), timestamp))
-                    elif msg_type == "user":
-                        events.extend(Gemini._parse_user_message(obj.get("parts", []), timestamp))
-
-        except OSError:
-            pass
+                if msg_type == "model":
+                    events.extend(Gemini._parse_model_message(obj.get("parts", []), timestamp))
+                elif msg_type == "user":
+                    events.extend(Gemini._parse_user_message(obj.get("parts", []), timestamp))
 
         return events
 
@@ -231,7 +242,7 @@ class Gemini(Provider):
         return (input_total if found_any else None, output_total if found_any else None)
 
     @staticmethod
-    def session_id(output: str) -> str | None:
+    def session_id_from_stream(output: str) -> str | None:
         """Extract session_id from Gemini execution output.
 
         Gemini returns JSONL stream with first event type=init containing session_id.
@@ -249,53 +260,72 @@ class Gemini(Provider):
         return None
 
     @staticmethod
-    def _parse_model_message(parts: list, timestamp: str | None) -> list[SessionEvent]:
+    def session_id_from_contents(file_path: Path) -> str | None:
+        """Extract session_id from Gemini session file contents.
+
+        Gemini stores sessionId in JSON root under 'sessionId' field.
+        """
+        try:
+            with open(file_path) as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    return data.get("sessionId")
+        except (OSError, json.JSONDecodeError, ValueError) as e:
+            logger.error(f"Failed to extract session_id from {file_path}: {e}")
+        return None
+
+    @staticmethod
+    def _parse_model_message(parts: list, timestamp: str | None) -> list[SessionMessage]:
         """Extract function calls and text from model message."""
-        events = []
+        messages = []
 
         for part in parts:
             if isinstance(part, dict):
                 if "text" in part:
-                    text = AgentMessage(
-                        content=part.get("text", ""),
-                        timestamp=timestamp,
+                    messages.append(
+                        SessionMessage(
+                            type="text", timestamp=timestamp, content=part.get("text", "")
+                        )
                     )
-                    events.append(SessionEvent(type="text", timestamp=timestamp, data=text))
 
                 elif "functionCall" in part:
                     fn_call = part.get("functionCall", {})
-                    tool_call = ToolCall(
-                        tool_id=fn_call.get("name", ""),
-                        tool_name=fn_call.get("name", ""),
-                        input=fn_call.get("args", {}),
-                        timestamp=timestamp,
-                    )
-                    events.append(
-                        SessionEvent(type="tool_call", timestamp=timestamp, data=tool_call)
+                    messages.append(
+                        SessionMessage(
+                            type="tool_call",
+                            timestamp=timestamp,
+                            content={
+                                "tool_name": fn_call.get("name", ""),
+                                "input": fn_call.get("args", {}),
+                            },
+                        )
                     )
 
-        return events
+        return messages
 
     @staticmethod
-    def _parse_user_message(parts: list, timestamp: str | None) -> list[SessionEvent]:
+    def _parse_user_message(parts: list, timestamp: str | None) -> list[SessionMessage]:
         """Extract function results from user message."""
-        events = []
+        messages = []
 
         for part in parts:
             if isinstance(part, dict) and "functionResult" in part:
                 fn_result = part.get("functionResult", {})
                 result_data = fn_result.get("response", {})
-                result = ToolResult(
-                    tool_id=fn_result.get("name", ""),
-                    output=result_data.get("result", "")
-                    if isinstance(result_data, dict)
-                    else str(result_data),
-                    is_error=False,
-                    timestamp=timestamp,
+                messages.append(
+                    SessionMessage(
+                        type="tool_result",
+                        timestamp=timestamp,
+                        content={
+                            "output": result_data.get("result", "")
+                            if isinstance(result_data, dict)
+                            else str(result_data),
+                            "is_error": False,
+                        },
+                    )
                 )
-                events.append(SessionEvent(type="tool_result", timestamp=timestamp, data=result))
 
-        return events
+        return messages
 
     @staticmethod
     def to_jsonl(json_file: Path) -> str:

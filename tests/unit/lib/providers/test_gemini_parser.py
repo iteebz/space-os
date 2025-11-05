@@ -34,9 +34,8 @@ def test_parse_function_call():
 
         assert len(events) == 1
         assert events[0].type == "tool_call"
-        assert events[0].data.tool_id == "bash"
-        assert events[0].data.tool_name == "bash"
-        assert events[0].data.input == {"command": "ls -la"}
+        assert events[0].content["tool_name"] == "bash"
+        assert events[0].content["input"] == {"command": "ls -la"}
     finally:
         temp_path.unlink()
 
@@ -68,8 +67,7 @@ def test_parse_function_result():
 
         assert len(events) == 1
         assert events[0].type == "tool_result"
-        assert events[0].data.tool_id == "bash"
-        assert events[0].data.output == "file1.txt\nfile2.txt"
+        assert events[0].content["output"] == "file1.txt\nfile2.txt"
     finally:
         temp_path.unlink()
 
@@ -94,7 +92,7 @@ def test_parse_text_response():
 
         assert len(events) == 1
         assert events[0].type == "text"
-        assert events[0].data.content == "Here are the files"
+        assert events[0].content == "Here are the files"
     finally:
         temp_path.unlink()
 

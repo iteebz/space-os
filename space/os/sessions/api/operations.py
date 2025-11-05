@@ -14,7 +14,7 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
     Args:
         query: Search query (supports FTS5 syntax: phrase, boolean, wildcards, NEAR)
         identity: Filter results to specific agent identity
-        all_agents: Unused in Phase 1 (reserved for Phase 2 multi-agent filtering)
+        all_agents: Reserved for future multi-agent filtering
 
     Returns:
         List of results matching the query, sorted by BM25 relevance + recency.
@@ -36,7 +36,7 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
                 SELECT
                     t.session_id,
                     t.provider,
-                    t.role,
+                    t.type,
                     t.identity,
                     t.content,
                     t.timestamp,
@@ -51,7 +51,7 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
             ).fetchall()
 
             for row in rows:
-                session_id, provider, role, identity, content, timestamp, rank = row
+                session_id, provider, message_type, identity, content, timestamp, rank = row
                 score = abs(rank)
 
                 results.append(
@@ -59,7 +59,7 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
                         "source": "chat",
                         "cli": provider,
                         "session_id": session_id,
-                        "role": role,
+                        "type": message_type,
                         "identity": identity,
                         "text": content,
                         "timestamp": timestamp,

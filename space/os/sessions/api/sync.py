@@ -1,6 +1,5 @@
 """Session sync: discover, ingest, and index provider sessions."""
 
-import json
 import logging
 from dataclasses import dataclass
 
@@ -54,8 +53,8 @@ class ProgressEvent:
 def _index_transcripts(session_id: str, provider: str, content: str, conn) -> int:
     """Index session JSONL content into transcripts table for FTS5 search.
 
-    Parses user and assistant messages from JSONL and populates the transcripts table.
-    Tool calls and results are skipped (noise reduction for search).
+    Uses provider parser to extract all events, filters to user/assistant messages only
+    (noise reduction for search). Tool calls and results are skipped.
 
     Args:
         session_id: Session UUID
@@ -68,63 +67,67 @@ def _index_transcripts(session_id: str, provider: str, content: str, conn) -> in
     """
     from datetime import datetime
 
+    from space.lib import providers
+
     indexed_count = 0
     rows = []
-
     identity = _get_session_identity(session_id, conn)
 
-    for msg_idx, line in enumerate(content.strip().split("\n")):
-        if not line.strip():
-            continue
+    try:
+        provider_class = getattr(providers, provider.title())
+    except AttributeError:
+        logger.warning(f"Unknown provider: {provider}")
+        return 0
 
-        try:
-            msg_data = json.loads(line)
-        except json.JSONDecodeError:
-            continue
+    try:
+        events = provider_class.parse(content)
 
-        role = msg_data.get("role", "").lower()
-        if role not in ("user", "assistant"):
-            continue
+        msg_idx = 0
+        for msg in events:
+            if msg.type != "message":
+                continue
 
-        msg_content = msg_data.get("content", "")
-        if isinstance(msg_content, list):
-            msg_content = "\n".join(
-                [
-                    block.get("text", "")
-                    if isinstance(block, dict) and block.get("type") == "text"
-                    else ""
-                    for block in msg_content
-                ]
-            ).strip()
+            content_data = msg.content
+            if not isinstance(content_data, dict):
+                continue
 
-        msg_content = str(msg_content).strip()
-        if not msg_content:
-            continue
+            role = content_data.get("role", "").lower()
+            if role not in ("user", "assistant"):
+                continue
 
-        timestamp_str = msg_data.get("timestamp")
-        timestamp_int = 0
+            msg_content = content_data.get("text", "")
+            msg_content = str(msg_content).strip()
+            if not msg_content:
+                continue
 
-        if timestamp_str:
-            try:
-                dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
-                timestamp_int = int(dt.timestamp())
-            except (ValueError, AttributeError):
-                timestamp_int = 0
+            timestamp_str = msg.timestamp
+            timestamp_int = 0
 
-        rows.append((session_id, msg_idx, provider, role, identity, msg_content, timestamp_int))
-        indexed_count += 1
+            if timestamp_str:
+                try:
+                    dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                    timestamp_int = int(dt.timestamp())
+                except (ValueError, AttributeError):
+                    timestamp_int = 0
 
-    if rows:
-        conn.executemany(
-            """
-            INSERT OR REPLACE INTO transcripts
-            (session_id, message_index, provider, role, identity, content, timestamp)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            rows,
-        )
+            rows.append((session_id, msg_idx, provider, role, identity, msg_content, timestamp_int))
+            msg_idx += 1
+            indexed_count += 1
 
-    return indexed_count
+        if rows:
+            conn.executemany(
+                """
+                INSERT OR REPLACE INTO transcripts
+                (session_id, message_index, provider, type, identity, content, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+
+        return indexed_count
+    except Exception as e:
+        logger.warning(f"Failed to index transcripts for {session_id}: {e}")
+        return 0
 
 
 def discover() -> list[dict]:
@@ -146,6 +149,33 @@ def discover() -> list[dict]:
             logger.warning(f"Error discovering {cli_name} sessions: {e}")
 
     return all_sessions
+
+
+def index(session_id: str) -> int:
+    """Index one session from ~/.space/sessions/ into transcripts table.
+
+    Args:
+        session_id: Session ID to index
+
+    Returns:
+        Number of messages indexed
+    """
+    sessions_dir = paths.sessions_dir()
+
+    for provider_name in ("claude", "codex", "gemini"):
+        jsonl_file = sessions_dir / provider_name / f"{session_id}.jsonl"
+        if jsonl_file.exists():
+            try:
+                content = jsonl_file.read_text()
+                if content.strip():
+                    with store.ensure() as conn:
+                        count = _index_transcripts(session_id, provider_name, content, conn)
+                        conn.commit()
+                        return count
+            except Exception as e:
+                logger.error(f"Error indexing session {session_id}: {e}")
+
+    return 0
 
 
 def ingest(session_id: str) -> bool:

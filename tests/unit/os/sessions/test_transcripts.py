@@ -22,13 +22,25 @@ class TestIndexTranscripts:
         jsonl = "\n".join(
             [
                 json.dumps(
-                    {"role": "user", "content": "hello", "timestamp": "2025-11-01T10:00:00Z"}
+                    {
+                        "type": "user",
+                        "message": {"role": "user", "content": "hello"},
+                        "timestamp": "2025-11-01T10:00:00Z",
+                    }
                 ),
                 json.dumps(
-                    {"role": "assistant", "content": "hi", "timestamp": "2025-11-01T10:00:10Z"}
+                    {
+                        "type": "assistant",
+                        "message": {"role": "assistant", "content": "hi"},
+                        "timestamp": "2025-11-01T10:00:10Z",
+                    }
                 ),
                 json.dumps(
-                    {"role": "tool", "content": "skip me", "timestamp": "2025-11-01T10:00:20Z"}
+                    {
+                        "type": "user",
+                        "message": {"role": "user", "content": "also hello"},
+                        "timestamp": "2025-11-01T10:00:20Z",
+                    }
                 ),
             ]
         )
@@ -36,15 +48,14 @@ class TestIndexTranscripts:
         with store.ensure() as conn:
             count = sync._index_transcripts(sid, "claude", jsonl, conn)
             conn.commit()
-        assert count == 2
+        assert count == 3
 
         with store.ensure() as conn:
             rows = conn.execute(
-                "SELECT role, timestamp FROM transcripts WHERE session_id = ?", (sid,)
+                "SELECT type, timestamp FROM transcripts WHERE session_id = ?", (sid,)
             ).fetchall()
-            assert len(rows) == 2
+            assert len(rows) == 3
             assert all(isinstance(r[1], int) for r in rows)
-
 
     def test_handles_content_arrays(self, test_space):
         """Text arrays joined properly."""
@@ -58,11 +69,14 @@ class TestIndexTranscripts:
 
         jsonl = json.dumps(
             {
-                "role": "assistant",
-                "content": [
-                    {"type": "text", "text": "Block1"},
-                    {"type": "text", "text": "Block2"},
-                ],
+                "type": "assistant",
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "text", "text": "Block1"},
+                        {"type": "text", "text": "Block2"},
+                    ],
+                },
                 "timestamp": "2025-11-01T10:00:00Z",
             }
         )
@@ -77,7 +91,6 @@ class TestIndexTranscripts:
             ).fetchone()[0]
             assert "Block1" in content and "Block2" in content
 
-
     def test_skips_empty_and_malformed(self, test_space):
         """Empty content and malformed JSON gracefully handled."""
         sid = "test-empty-malformed"
@@ -90,10 +103,20 @@ class TestIndexTranscripts:
 
         jsonl = "\n".join(
             [
-                json.dumps({"role": "user", "content": "", "timestamp": "2025-11-01T10:00:00Z"}),
+                json.dumps(
+                    {
+                        "type": "user",
+                        "message": {"role": "user", "content": ""},
+                        "timestamp": "2025-11-01T10:00:00Z",
+                    }
+                ),
                 "not json",
                 json.dumps(
-                    {"role": "user", "content": "valid", "timestamp": "2025-11-01T10:00:10Z"}
+                    {
+                        "type": "user",
+                        "message": {"role": "user", "content": "valid"},
+                        "timestamp": "2025-11-01T10:00:10Z",
+                    }
                 ),
             ]
         )
@@ -102,7 +125,6 @@ class TestIndexTranscripts:
             count = sync._index_transcripts(sid, "claude", jsonl, conn)
             conn.commit()
         assert count == 1
-
 
 
 class TestSearch:
@@ -118,7 +140,7 @@ class TestSearch:
             )
             conn.execute(
                 """
-                INSERT INTO transcripts (session_id, message_index, provider, role, content, timestamp)
+                INSERT INTO transcripts (session_id, message_index, provider, type, content, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?)
             """,
                 (sid, 0, "claude", "user", "spawn registry pattern shape xyz", 1698900000),
@@ -132,10 +154,9 @@ class TestSearch:
         assert result["source"] == "chat"
         assert result["cli"] == "claude"
         assert result["session_id"] == sid
-        assert result["role"] == "user"
+        assert result["type"] == "user"
         assert isinstance(result["timestamp"], int)
         assert "reference" in result
-
 
     def test_search_fts5_syntax(self, test_space):
         """FTS5 phrase and boolean queries work."""
@@ -149,7 +170,7 @@ class TestSearch:
             )
             conn.execute(
                 """
-                INSERT INTO transcripts (session_id, message_index, provider, role, content, timestamp)
+                INSERT INTO transcripts (session_id, message_index, provider, type, content, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?)
             """,
                 (
@@ -163,7 +184,7 @@ class TestSearch:
             )
             conn.execute(
                 """
-                INSERT INTO transcripts (session_id, message_index, provider, role, content, timestamp)
+                INSERT INTO transcripts (session_id, message_index, provider, type, content, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?)
             """,
                 (sid, 1, "claude", "user", "just diversity here", 1698900010),
@@ -183,7 +204,6 @@ class TestSearch:
         assert len(results) >= 1
 
 
-
 class TestIntegration:
     """sync→index→search→context chain."""
 
@@ -201,15 +221,18 @@ class TestIntegration:
             [
                 json.dumps(
                     {
-                        "role": "user",
-                        "content": "spawn registry design integration",
+                        "type": "user",
+                        "message": {"role": "user", "content": "spawn registry design integration"},
                         "timestamp": "2025-11-01T10:00:00Z",
                     }
                 ),
                 json.dumps(
                     {
-                        "role": "assistant",
-                        "content": "spawn registry is core integration",
+                        "type": "assistant",
+                        "message": {
+                            "role": "assistant",
+                            "content": "spawn registry is core integration",
+                        },
                         "timestamp": "2025-11-01T10:00:10Z",
                     }
                 ),
@@ -224,7 +247,6 @@ class TestIntegration:
         assert len(results) == 2
         assert all(sid == r["session_id"] for r in results)
 
-
     def test_fts5_triggers_keep_index_in_sync(self, test_space):
         """INSERT/DELETE auto-triggers FTS5 updates."""
         sid = "test-triggers"
@@ -235,7 +257,7 @@ class TestIntegration:
             )
             conn.execute(
                 """
-                INSERT INTO transcripts (session_id, message_index, provider, role, content, timestamp)
+                INSERT INTO transcripts (session_id, message_index, provider, type, content, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?)
             """,
                 (sid, 0, "claude", "user", "trigger test message", 1698900000),
@@ -252,7 +274,6 @@ class TestIntegration:
 
         assert len(operations.search("trigger")) == 0
 
-
     def test_context_includes_sessions(self, test_space):
         """Context search includes session results."""
         from space.apps.context.api import collect_current_state
@@ -265,7 +286,7 @@ class TestIntegration:
             )
             conn.execute(
                 """
-                INSERT INTO transcripts (session_id, message_index, provider, role, content, timestamp)
+                INSERT INTO transcripts (session_id, message_index, provider, type, content, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?)
             """,
                 (sid, 0, "claude", "user", "context search works", 1698900000),
@@ -278,7 +299,6 @@ class TestIntegration:
         assert len(results) > 0
         assert any("search" in r.get("text", "") for r in results)
 
-
     def test_search_filters_by_identity(self, test_space):
         """Search respects identity filter: returns only matching agent's sessions."""
         sid = "test-identity-filter-123"
@@ -289,7 +309,7 @@ class TestIntegration:
             )
             conn.execute(
                 """
-                INSERT INTO transcripts (session_id, message_index, provider, role, identity, content, timestamp)
+                INSERT INTO transcripts (session_id, message_index, provider, type, identity, content, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
                 (sid, 0, "claude", "user", "zealot", "identity filter test", 1698900000),
@@ -303,7 +323,6 @@ class TestIntegration:
         assert len(results_all) >= 1
         assert len(results_zealot) >= 1
         assert len(results_other) == 0
-
 
     def test_sync_populates_transcript_identity(self, test_space):
         """_index_transcripts() populates identity from spawn relationship."""
@@ -327,7 +346,11 @@ class TestIntegration:
             conn.commit()
 
         jsonl = json.dumps(
-            {"role": "user", "content": "sync identity test", "timestamp": "2025-11-01T10:00:00Z"}
+            {
+                "type": "user",
+                "message": {"role": "user", "content": "sync identity test"},
+                "timestamp": "2025-11-01T10:00:00Z",
+            }
         )
 
         with store.ensure() as conn:
@@ -339,4 +362,3 @@ class TestIntegration:
                 "SELECT identity FROM transcripts WHERE session_id = ?", (sid,)
             ).fetchone()
             assert row[0] == identity
-

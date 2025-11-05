@@ -1,11 +1,12 @@
 """Claude provider: chat discovery and message parsing."""
 
+import io
 import json
 import logging
 import shutil
 from pathlib import Path
 
-from space.core.models import AgentMessage, SessionEvent, ToolCall, ToolResult
+from space.core.models import SessionMessage
 from space.core.protocols import Provider
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ class Claude(Provider):
     def task_launch_args() -> list[str]:
         """Return launch arguments for task-based Claude execution.
 
-        Task mode uses stdin input and JSON output format.
+        Task mode uses stdin input and stream-json output format for real-time event streaming.
         """
         disallowed = [
             "NotebookRead",
@@ -65,7 +66,7 @@ class Claude(Provider):
         return [
             "--dangerously-skip-permissions",
             "--output-format",
-            "json",
+            "stream-json",
             "--disallowedTools",
             ",".join(disallowed),
         ]
@@ -78,10 +79,14 @@ class Claude(Provider):
             return sessions
 
         for jsonl in Claude.SESSIONS_DIR.rglob("*.jsonl"):
+            session_id = Claude.session_id_from_contents(jsonl)
+            if not session_id:
+                session_id = jsonl.stem
+                logger.debug(f"Falling back to filename for Claude session: {jsonl}")
             sessions.append(
                 {
                     "cli": "claude",
-                    "session_id": jsonl.stem,
+                    "session_id": session_id,
                     "file_path": str(jsonl),
                     "created_at": jsonl.stat().st_ctime,
                 }
@@ -90,20 +95,26 @@ class Claude(Provider):
 
     @staticmethod
     def ingest(session: dict, dest_dir: Path) -> bool:
-        """Ingest one Claude session: copy to destination."""
+        """Ingest one Claude session: copy to destination with normalized filename.
+
+        Extracts canonical session_id from file, falls back to filename if extraction fails.
+        """
         try:
-            session_id = session.get("session_id")
             src_file = Path(session.get("file_path", ""))
 
-            if not session_id or not src_file.exists():
+            if not src_file.exists():
                 return False
+
+            session_id = Claude.session_id_from_contents(src_file)
+            if not session_id:
+                session_id = src_file.stem
 
             dest_file = dest_dir / f"{session_id}.jsonl"
             dest_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src_file, dest_file)
             return True
         except Exception as e:
-            logger.error(f"Error ingesting Claude session {session.get('session_id')}: {e}")
+            logger.error(f"Error ingesting Claude session: {e}")
         return False
 
     @staticmethod
@@ -125,39 +136,67 @@ class Claude(Provider):
         return 0
 
     @staticmethod
-    def parse(file_path: Path, from_offset: int = 0) -> list[SessionEvent]:
-        """Parse Claude session file to unified event format."""
-        file_path = Path(file_path)
-        events = []
+    def parse(file_path: Path | str, from_offset: int = 0) -> list[SessionMessage]:
+        """Parse Claude session data to unified message format.
 
-        if not file_path.exists():
-            return events
+        Accepts file path or raw JSONL string content.
+        Emits all event types: messages, tool calls, and tool results.
+        Consumers filter based on their needs (transcripts filters by type="message", trace includes all).
+        """
+        messages = []
 
-        try:
-            with open(file_path) as f:
-                for line in f:
-                    if not line.strip():
-                        continue
+        if isinstance(file_path, str):
+            file_obj = io.StringIO(file_path)
+        else:
+            file_path = Path(file_path)
+            if not file_path.exists():
+                return messages
+            file_obj = open(file_path)
 
-                    try:
-                        obj = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
+        with file_obj:
+            for line in file_obj:
+                if not line.strip():
+                    continue
 
-                    msg_type = obj.get("type")
-                    timestamp = obj.get("timestamp")
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
 
-                    if msg_type == "assistant":
-                        events.extend(
-                            Claude._parse_assistant_message(obj.get("message", {}), timestamp)
+                msg_type = obj.get("type")
+                timestamp = obj.get("timestamp")
+                message = obj.get("message", {})
+
+                if msg_type == "assistant":
+                    messages.extend(Claude._parse_assistant_message(message, timestamp))
+
+                    if isinstance(message, dict) and message.get("role"):
+                        messages.append(
+                            SessionMessage(
+                                type="message",
+                                timestamp=timestamp,
+                                content={
+                                    "role": message.get("role"),
+                                    "text": message.get("content", ""),
+                                },
+                            )
                         )
-                    elif msg_type == "user":
-                        events.extend(Claude._parse_user_message(obj.get("message", {}), timestamp))
+                elif msg_type == "user":
+                    messages.extend(Claude._parse_user_message(message, timestamp))
 
-        except OSError:
-            pass
+                    if isinstance(message, dict) and message.get("role"):
+                        messages.append(
+                            SessionMessage(
+                                type="message",
+                                timestamp=timestamp,
+                                content={
+                                    "role": message.get("role"),
+                                    "text": message.get("content", ""),
+                                },
+                            )
+                        )
 
-        return events
+        return messages
 
     @staticmethod
     def tokens(file_path: Path) -> tuple[int | None, int | None]:
@@ -192,7 +231,7 @@ class Claude(Provider):
         return (input_total if found_any else None, output_total if found_any else None)
 
     @staticmethod
-    def session_id(output: str) -> str | None:
+    def session_id_from_stream(output: str) -> str | None:
         """Extract session_id from Claude execution output.
 
         Claude returns a JSON object with session_id at root level.
@@ -206,48 +245,86 @@ class Claude(Provider):
         return None
 
     @staticmethod
-    def _parse_assistant_message(message: dict, timestamp: str | None) -> list[SessionEvent]:
+    def session_id_from_contents(file_path: Path) -> str | None:
+        """Extract session_id from Claude JSONL file contents.
+
+        Claude stores sessionId in first line of JSONL.
+        """
+        try:
+            with open(file_path) as f:
+                first_line = f.readline()
+                if not first_line.strip():
+                    return None
+                obj = json.loads(first_line)
+                if isinstance(obj, dict):
+                    return obj.get("sessionId")
+        except (OSError, json.JSONDecodeError, ValueError) as e:
+            logger.error(f"Failed to extract session_id from {file_path}: {e}")
+        return None
+
+    @staticmethod
+    def _parse_assistant_message(message: dict, timestamp: str | None) -> list[SessionMessage]:
         """Extract tool calls and text from assistant message."""
-        events = []
+        messages = []
         content = message.get("content", [])
 
+        if not isinstance(content, list):
+            return messages
+
         for item in content:
+            if not isinstance(item, dict):
+                continue
+
             item_type = item.get("type")
 
             if item_type == "tool_use":
-                tool_call = ToolCall(
-                    tool_id=item.get("id", ""),
-                    tool_name=item.get("name", ""),
-                    input=item.get("input", {}),
-                    timestamp=timestamp,
+                messages.append(
+                    SessionMessage(
+                        type="tool_call",
+                        timestamp=timestamp,
+                        content={
+                            "tool_name": item.get("name", ""),
+                            "input": item.get("input", {}),
+                        },
+                    )
                 )
-                events.append(SessionEvent(type="tool_call", timestamp=timestamp, data=tool_call))
 
             elif item_type == "text":
-                text = AgentMessage(
-                    content=item.get("text", ""),
-                    timestamp=timestamp,
+                messages.append(
+                    SessionMessage(
+                        type="text",
+                        timestamp=timestamp,
+                        content=item.get("text", ""),
+                    )
                 )
-                events.append(SessionEvent(type="text", timestamp=timestamp, data=text))
 
-        return events
+        return messages
 
     @staticmethod
-    def _parse_user_message(message: dict, timestamp: str | None) -> list[SessionEvent]:
+    def _parse_user_message(message: dict, timestamp: str | None) -> list[SessionMessage]:
         """Extract tool results from user message."""
-        events = []
+        messages = []
         content = message.get("content", [])
 
+        if not isinstance(content, list):
+            return messages
+
         for item in content:
+            if not isinstance(item, dict):
+                continue
+
             item_type = item.get("type")
 
             if item_type == "tool_result":
-                result = ToolResult(
-                    tool_id=item.get("tool_use_id", ""),
-                    output=item.get("content", ""),
-                    is_error=item.get("is_error", False),
-                    timestamp=timestamp,
+                messages.append(
+                    SessionMessage(
+                        type="tool_result",
+                        timestamp=timestamp,
+                        content={
+                            "output": item.get("content", ""),
+                            "is_error": item.get("is_error", False),
+                        },
+                    )
                 )
-                events.append(SessionEvent(type="tool_result", timestamp=timestamp, data=result))
 
-        return events
+        return messages

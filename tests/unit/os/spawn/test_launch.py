@@ -1,5 +1,8 @@
 """Integration tests for ephemeral spawning (Claude Code ephemeral execution)."""
 
+import json
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from space.os.bridge.api import channels
@@ -19,60 +22,135 @@ def test_channel(test_space):
     return channels.create_channel("test-channel", topic="Test channel for ephemeral spawning")
 
 
-@pytest.fixture
-def successful_spawn_output():
-    """Mock successful subprocess output."""
-    return {
-        "type": "result",
-        "subtype": "success",
-        "session_id": "test-session-xyz",
-        "result": "Hello from Claude",
-        "duration_ms": 1000,
-    }
+def test_spawn_ephemeral_claude_streams_ingest(test_agent, test_channel):
+    """Contract: ingest() called on every stdout line after session_id extracted."""
+    stream_output = [
+        json.dumps({"session_id": "sess-claude-123"}),
+        json.dumps({"event": "processing"}),
+        json.dumps({"event": "done"}),
+    ]
+
+    mock_proc = MagicMock()
+    mock_proc.stdout = stream_output
+    mock_proc.returncode = 0
+    mock_proc.wait = MagicMock()
+    mock_proc.kill = MagicMock()
+
+    with patch("subprocess.Popen", return_value=mock_proc):
+        with patch("space.os.sessions.api.linker.link_spawn_to_session") as mock_link:
+            with patch("space.os.sessions.api.sync.ingest") as mock_ingest:
+                launch.spawn_ephemeral(
+                    identity="test-agent", instruction="test", channel_id=test_channel.channel_id
+                )
+
+                mock_link.assert_called_once()
+                assert mock_ingest.call_count == 3
 
 
-def test_spawn_ephemeral_success(test_agent, test_channel, successful_spawn_output):
-    """Test successful ephemeral spawn executes without error."""
-    import json
-    from unittest.mock import MagicMock, patch
+def test_spawn_ephemeral_claude_extracts_session_once(test_agent, test_channel):
+    """Contract: session_id extracted exactly once from first event."""
+    stream_output = [
+        json.dumps({"session_id": "sess-claude-456"}),
+        json.dumps({"event": "line2"}),
+    ]
 
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout=json.dumps(successful_spawn_output), stderr=""
-        )
-        launch.spawn_ephemeral(
-            identity="test-agent", instruction="say hello", channel_id=test_channel.channel_id
-        )
+    mock_proc = MagicMock()
+    mock_proc.stdout = stream_output
+    mock_proc.returncode = 0
+    mock_proc.wait = MagicMock()
 
+    with patch("subprocess.Popen", return_value=mock_proc):
+        with patch("space.os.sessions.api.linker.link_spawn_to_session") as mock_link:
+            with patch("space.os.sessions.api.sync.ingest"):
+                launch.spawn_ephemeral(
+                    identity="test-agent", instruction="test", channel_id=test_channel.channel_id
+                )
 
-def test_spawn_ephemeral_claude_failure(test_agent, test_channel):
-    """Test ephemeral spawn handles Claude failure."""
-    from unittest.mock import MagicMock, patch
-
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=1, stderr="Claude error")
-
-        with pytest.raises(RuntimeError, match="Claude spawn failed"):
-            launch.spawn_ephemeral(
-                identity="test-agent", instruction="fail", channel_id=test_channel.channel_id
-            )
+                assert mock_link.call_count == 1
+                args, _ = mock_link.call_args
+                assert args[1] == "sess-claude-456"
 
 
-def test_spawn_ephemeral_invalid_agent(test_space):
-    """Test ephemeral spawn fails for unknown agent."""
-    with pytest.raises(ValueError, match="not found in registry"):
-        launch.spawn_ephemeral(identity="unknown", instruction="test", channel_id="ch-test")
+def test_spawn_ephemeral_no_session_id_raises(test_agent, test_channel):
+    """Contract: Raises RuntimeError if no session_id found in output stream."""
+    stream_output = [
+        json.dumps({"event": "no_session_id"}),
+    ]
+
+    mock_proc = MagicMock()
+    mock_proc.stdout = stream_output
+    mock_proc.returncode = 0
+    mock_proc.wait = MagicMock()
+
+    with patch("subprocess.Popen", return_value=mock_proc):
+        with patch("space.os.sessions.api.linker.link_spawn_to_session"):
+            with patch("space.os.sessions.api.sync.ingest"):
+                with pytest.raises(RuntimeError, match="No session_id"):
+                    launch.spawn_ephemeral(
+                        identity="test-agent",
+                        instruction="test",
+                        channel_id=test_channel.channel_id,
+                    )
 
 
-def test_spawn_ephemeral_links_session(test_agent, test_channel, successful_spawn_output):
-    """Test that ephemeral spawn with session_id succeeds."""
-    import json
-    from unittest.mock import MagicMock, patch
+def test_spawn_ephemeral_process_failure_raises(test_agent, test_channel):
+    """Contract: Raises RuntimeError when subprocess returns non-zero."""
+    mock_stderr = MagicMock()
+    mock_stderr.read.return_value = "Process error"
 
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout=json.dumps(successful_spawn_output), stderr=""
-        )
-        launch.spawn_ephemeral(
-            identity="test-agent", instruction="test task", channel_id=test_channel.channel_id
-        )
+    mock_proc = MagicMock()
+    mock_proc.stdout = [json.dumps({"session_id": "sess-test"})]
+    mock_proc.returncode = 1
+    mock_proc.stderr = mock_stderr
+    mock_proc.wait = MagicMock()
+    mock_proc.kill = MagicMock()
+
+    with patch("subprocess.Popen", return_value=mock_proc):
+        with patch("space.os.sessions.api.linker.link_spawn_to_session"):
+            with patch("space.os.sessions.api.sync.ingest"):
+                with pytest.raises(RuntimeError, match="spawn failed"):
+                    launch.spawn_ephemeral(
+                        identity="test-agent",
+                        instruction="test",
+                        channel_id=test_channel.channel_id,
+                    )
+
+
+def test_spawn_ephemeral_ingest_graceful_failure(test_agent, test_channel):
+    """Contract: ingest() failures are graceful (caught and passed)."""
+    stream_output = [
+        json.dumps({"session_id": "sess-test-999"}),
+        json.dumps({"event": "processing"}),
+    ]
+
+    mock_proc = MagicMock()
+    mock_proc.stdout = stream_output
+    mock_proc.returncode = 0
+    mock_proc.wait = MagicMock()
+
+    with patch("subprocess.Popen", return_value=mock_proc):
+        with patch("space.os.sessions.api.linker.link_spawn_to_session"):
+            with patch("space.os.sessions.api.sync.ingest", side_effect=Exception("ingest failed")):
+                launch.spawn_ephemeral(
+                    identity="test-agent", instruction="test", channel_id=test_channel.channel_id
+                )
+
+
+def test_spawn_ephemeral_timeout_raises(test_agent, test_channel):
+    """Contract: TimeoutExpired is caught and raises RuntimeError."""
+    import subprocess
+
+    mock_proc = MagicMock()
+    mock_proc.stdout = []
+    mock_proc.wait = MagicMock(side_effect=subprocess.TimeoutExpired("claude", 300))
+    mock_proc.kill = MagicMock()
+
+    with patch("subprocess.Popen", return_value=mock_proc):
+        with patch("space.os.sessions.api.linker.link_spawn_to_session"):
+            with patch("space.os.sessions.api.sync.ingest"):
+                with pytest.raises(RuntimeError, match="timed out"):
+                    launch.spawn_ephemeral(
+                        identity="test-agent",
+                        instruction="test",
+                        channel_id=test_channel.channel_id,
+                    )

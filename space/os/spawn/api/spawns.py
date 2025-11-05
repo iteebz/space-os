@@ -55,38 +55,42 @@ def create_spawn(
 
 
 def update_status(spawn_id: str, status: str) -> None:
-    """Update spawn status and set ended_at if terminal state.
+    """Update spawn status and finalize session on terminal state.
 
-    For terminal states (completed/failed/timeout), syncs the linked session
-    to ensure the session JSONL is up to date.
+    For terminal states (completed/failed/timeout/killed), indexes the linked session
+    to populate transcripts table for context search (ingest already happened during streaming).
     """
     now = datetime.now().isoformat()
+    terminal_states = ("completed", "failed", "timeout", "killed")
+
     with store.ensure() as conn:
         cursor = conn.cursor()
-        if status in ("completed", "failed", "timeout"):
+        if status in terminal_states:
             cursor.execute(
                 "UPDATE spawns SET status = ?, ended_at = ? WHERE id = ?",
                 (status, now, spawn_id),
             )
+            conn.commit()
 
+            # Index session for context search (ingest happened during streaming)
             spawn = get_spawn(spawn_id)
             if spawn and spawn.session_id:
                 try:
                     from space.os.sessions.api import sync
 
-                    sync.ingest(spawn.session_id)
                     sync.index(spawn.session_id)
                 except Exception as e:
                     import logging
 
                     logging.getLogger(__name__).warning(
-                        f"Failed to sync session {spawn.session_id} for spawn {spawn_id}: {e}"
+                        f"Failed to index session {spawn.session_id} for spawn {spawn_id}: {e}"
                     )
         else:
             cursor.execute(
                 "UPDATE spawns SET status = ? WHERE id = ?",
                 (status, spawn_id),
             )
+            conn.commit()
 
 
 def end_spawn(spawn_id: str) -> None:

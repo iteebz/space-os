@@ -1,11 +1,12 @@
 """Codex provider: chat discovery and message parsing."""
 
+import io
 import json
 import logging
 import shutil
 from pathlib import Path
 
-from space.core.models import AgentMessage, SessionEvent, ToolCall, ToolResult
+from space.core.models import SessionMessage
 from space.core.protocols import Provider
 
 logger = logging.getLogger(__name__)
@@ -41,12 +42,13 @@ class Codex(Provider):
             return sessions
 
         for jsonl in Codex.SESSIONS_DIR.rglob("*.jsonl"):
-            stem = jsonl.stem
-            sid = stem.split("-", 1)[-1] if "-" in stem else stem
+            session_id = Codex.session_id_from_contents(jsonl)
+            if not session_id:
+                continue
             sessions.append(
                 {
                     "cli": "codex",
-                    "session_id": sid,
+                    "session_id": session_id,
                     "file_path": str(jsonl),
                     "created_at": jsonl.stat().st_ctime,
                 }
@@ -55,12 +57,19 @@ class Codex(Provider):
 
     @staticmethod
     def ingest(session: dict, dest_dir: Path) -> bool:
-        """Ingest one Codex session: copy to destination."""
+        """Ingest one Codex session: copy to destination with normalized filename.
+
+        Extracts canonical session_id (thread_id) from file to normalize filename to {uuid}.jsonl.
+        """
         try:
-            session_id = session.get("session_id")
             src_file = Path(session.get("file_path", ""))
 
-            if not session_id or not src_file.exists():
+            if not src_file.exists():
+                return False
+
+            session_id = Codex.session_id_from_contents(src_file)
+            if not session_id:
+                logger.warning(f"Could not extract session_id from {src_file}")
                 return False
 
             dest_file = dest_dir / f"{session_id}.jsonl"
@@ -68,7 +77,7 @@ class Codex(Provider):
             shutil.copy2(src_file, dest_file)
             return True
         except Exception as e:
-            logger.error(f"Error ingesting Codex session {session.get('session_id')}: {e}")
+            logger.error(f"Error ingesting Codex session: {e}")
         return False
 
     @staticmethod
@@ -90,35 +99,38 @@ class Codex(Provider):
         return 0
 
     @staticmethod
-    def parse(file_path: Path, from_offset: int = 0) -> list[SessionEvent]:
-        """Parse Codex session file to unified event format."""
-        file_path = Path(file_path)
+    def parse(file_path: Path | str, from_offset: int = 0) -> list[SessionMessage]:
+        """Parse Codex session data to unified event format.
+
+        Accepts file path or raw JSONL string content.
+        """
         events = []
 
-        if not file_path.exists():
-            return events
+        if isinstance(file_path, str):
+            file_obj = io.StringIO(file_path)
+        else:
+            file_path = Path(file_path)
+            if not file_path.exists():
+                return events
+            file_obj = open(file_path)
 
-        try:
-            with open(file_path) as f:
-                for line in f:
-                    if not line.strip():
-                        continue
+        with file_obj:
+            for line in file_obj:
+                if not line.strip():
+                    continue
 
-                    try:
-                        obj = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
 
-                    role = obj.get("role")
-                    timestamp = obj.get("timestamp")
+                role = obj.get("role")
+                timestamp = obj.get("timestamp")
 
-                    if role == "assistant":
-                        events.extend(Codex._parse_assistant_message(obj, timestamp))
-                    elif role == "tool":
-                        events.extend(Codex._parse_tool_result_message(obj, timestamp))
-
-        except OSError:
-            pass
+                if role == "assistant":
+                    events.extend(Codex._parse_assistant_message(obj, timestamp))
+                elif role == "tool":
+                    events.extend(Codex._parse_tool_result_message(obj, timestamp))
 
         return events
 
@@ -153,7 +165,7 @@ class Codex(Provider):
         return (input_tokens, output_tokens)
 
     @staticmethod
-    def session_id(output: str) -> str | None:
+    def session_id_from_stream(output: str) -> str | None:
         """Extract session_id (thread_id) from Codex execution output.
 
         Codex returns JSONL stream with first event type=thread.started containing thread_id.
@@ -171,17 +183,31 @@ class Codex(Provider):
         return None
 
     @staticmethod
-    def _parse_assistant_message(message: dict, timestamp: str | None) -> list[SessionEvent]:
+    def session_id_from_contents(file_path: Path) -> str | None:
+        """Extract session_id (thread_id) from Codex JSONL file contents.
+
+        Codex stores thread_id in first line under 'thread_id' field.
+        """
+        try:
+            with open(file_path) as f:
+                first_line = f.readline()
+                if not first_line.strip():
+                    return None
+                obj = json.loads(first_line)
+                if isinstance(obj, dict):
+                    return obj.get("thread_id")
+        except (OSError, json.JSONDecodeError, ValueError) as e:
+            logger.error(f"Failed to extract session_id from {file_path}: {e}")
+        return None
+
+    @staticmethod
+    def _parse_assistant_message(message: dict, timestamp: str | None) -> list[SessionMessage]:
         """Extract tool calls and text from assistant message."""
-        events = []
+        messages = []
         content = message.get("content")
 
         if content:
-            text = AgentMessage(
-                content=content,
-                timestamp=timestamp,
-            )
-            events.append(SessionEvent(type="text", timestamp=timestamp, data=text))
+            messages.append(SessionMessage(type="text", timestamp=timestamp, content=content))
 
         tool_calls = message.get("tool_calls", [])
         for tool_call_obj in tool_calls:
@@ -194,27 +220,33 @@ class Codex(Provider):
                 except json.JSONDecodeError:
                     parsed_args = {"raw": arguments}
 
-                tool_call = ToolCall(
-                    tool_id=tool_call_obj.get("id", ""),
-                    tool_name=fn.get("name", ""),
-                    input=parsed_args,
-                    timestamp=timestamp,
+                messages.append(
+                    SessionMessage(
+                        type="tool_call",
+                        timestamp=timestamp,
+                        content={
+                            "tool_name": fn.get("name", ""),
+                            "input": parsed_args,
+                        },
+                    )
                 )
-                events.append(SessionEvent(type="tool_call", timestamp=timestamp, data=tool_call))
 
-        return events
+        return messages
 
     @staticmethod
-    def _parse_tool_result_message(message: dict, timestamp: str | None) -> list[SessionEvent]:
+    def _parse_tool_result_message(message: dict, timestamp: str | None) -> list[SessionMessage]:
         """Extract tool result from tool message."""
-        events = []
+        messages = []
 
-        result = ToolResult(
-            tool_id=message.get("tool_call_id", ""),
-            output=message.get("content", ""),
-            is_error=False,
-            timestamp=timestamp,
+        messages.append(
+            SessionMessage(
+                type="tool_result",
+                timestamp=timestamp,
+                content={
+                    "output": message.get("content", ""),
+                    "is_error": False,
+                },
+            )
         )
-        events.append(SessionEvent(type="tool_result", timestamp=timestamp, data=result))
 
-        return events
+        return messages

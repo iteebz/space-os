@@ -1,6 +1,6 @@
 """Agent launching: provider execution and lifecycle management."""
 
-import json
+import contextlib
 import logging
 import os
 import shlex
@@ -193,13 +193,13 @@ def _spawn_ephemeral_claude(
     session_id: str | None = None,
     is_continue: bool = False,
 ) -> None:
-    """Execute ephemeral Claude Code spawn with session linking.
+    """Execute ephemeral Claude Code spawn with streaming sync.
 
-    If spawned from a channel (@mention), agent should post results to that channel.
+    Runs Claude with stream-json output. On first event, extracts session_id
+    via provider.session_id(). On every event, triggers ingest() to pull fresh
+    JSONL from provider directory to ~/.space/sessions/.
     """
-    import sys
-
-    from space.os.sessions.api import linker
+    from space.os.sessions.api import linker, sync
 
     launch_args = Claude.task_launch_args()
 
@@ -211,39 +211,56 @@ def _spawn_ephemeral_claude(
     cmd = ["claude"] + launch_args + add_dir_args + resume_args
 
     spawn_dir = paths.identity_dir(agent.identity)
-    result = subprocess.run(
-        cmd, input=context, capture_output=True, text=True, cwd=str(spawn_dir), timeout=300
+
+    proc = subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        cwd=str(spawn_dir),
     )
 
-    if result.returncode != 0:
-        sys.stderr.write(f"Claude spawn failed: {result.stderr}\n")
-        raise RuntimeError(f"Claude spawn failed: {result.stderr}")
-
     try:
-        output = json.loads(result.stdout)
-    except json.JSONDecodeError as e:
-        sys.stderr.write(f"Failed to parse Claude output: {result.stdout}\n")
-        raise RuntimeError(f"Failed to parse Claude output: {e}") from e
+        claude_session_id = None
+        proc.stdin.write(context)
+        proc.stdin.close()
 
-    claude_session_id = output.get("session_id")
-    if not claude_session_id:
-        raise RuntimeError("No session_id in Claude output")
+        for line in proc.stdout:
+            if not line.strip():
+                continue
 
-    linker.link_spawn_to_session(spawn.id, claude_session_id)
+            if not claude_session_id:
+                claude_session_id = Claude.session_id_from_stream(line)
+                if claude_session_id:
+                    linker.link_spawn_to_session(spawn.id, claude_session_id)
 
-    result_text = output.get("result", "")
-    if result_text:
-        sys.stdout.write(result_text + "\n")
+            if claude_session_id:
+                with contextlib.suppress(Exception):
+                    sync.ingest(claude_session_id)
+
+        proc.wait(timeout=300)
+
+        if proc.returncode != 0:
+            stderr = proc.stderr.read()
+            raise RuntimeError(f"Claude spawn failed: {stderr}")
+
+        if not claude_session_id:
+            raise RuntimeError("No session_id in Claude output stream")
+
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        raise RuntimeError("Claude spawn timed out") from None
 
 
 def _spawn_ephemeral_gemini(agent, instruction: str, spawn, channel_name: str | None) -> None:
-    """Execute ephemeral Gemini spawn with session linking.
+    """Execute ephemeral Gemini spawn with streaming sync.
 
-    If spawned from a channel (@mention), agent should post results to that channel.
+    Runs Gemini with stream-json output. On first event, extracts session_id
+    via provider.session_id(). On every event, triggers ingest() to pull fresh
+    JSONL from provider directory to ~/.space/sessions/.
     """
-    import sys
-
-    from space.os.sessions.api import linker
+    from space.os.sessions.api import linker, sync
 
     launch_args = Gemini.task_launch_args()
 
@@ -254,19 +271,46 @@ def _spawn_ephemeral_gemini(agent, instruction: str, spawn, channel_name: str | 
     cmd = ["gemini"] + launch_args + add_dir_args
 
     spawn_dir = paths.identity_dir(agent.identity)
-    result = subprocess.run(
-        cmd, input=context, capture_output=True, text=True, cwd=str(spawn_dir), timeout=300
+
+    proc = subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        cwd=str(spawn_dir),
     )
 
-    if result.returncode != 0:
-        sys.stderr.write(f"Gemini spawn failed: {result.stderr}\n")
-        raise RuntimeError(f"Gemini spawn failed: {result.stderr}")
+    try:
+        gemini_session_id = None
+        proc.stdin.write(context)
+        proc.stdin.close()
 
-    gemini_session_id = Gemini.session_id(result.stdout)
-    if not gemini_session_id:
-        raise RuntimeError("No session_id in Gemini output")
+        for line in proc.stdout:
+            if not line.strip():
+                continue
 
-    linker.link_spawn_to_session(spawn.id, gemini_session_id)
+            if not gemini_session_id:
+                gemini_session_id = Gemini.session_id_from_stream(line)
+                if gemini_session_id:
+                    linker.link_spawn_to_session(spawn.id, gemini_session_id)
+
+            if gemini_session_id:
+                with contextlib.suppress(Exception):
+                    sync.ingest(gemini_session_id)
+
+        proc.wait(timeout=300)
+
+        if proc.returncode != 0:
+            stderr = proc.stderr.read()
+            raise RuntimeError(f"Gemini spawn failed: {stderr}")
+
+        if not gemini_session_id:
+            raise RuntimeError("No session_id in Gemini output stream")
+
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        raise RuntimeError("Gemini spawn timed out") from None
 
 
 def _spawn_ephemeral_codex(
@@ -277,13 +321,13 @@ def _spawn_ephemeral_codex(
     session_id: str | None = None,
     is_continue: bool = False,
 ) -> None:
-    """Execute ephemeral Codex spawn with session linking.
+    """Execute ephemeral Codex spawn with streaming sync.
 
-    If spawned from a channel (@mention), agent should post results to that channel.
+    Runs Codex with --json output. On first event, extracts session_id
+    via provider.session_id(). On every event, triggers ingest() to pull fresh
+    JSONL from provider directory to ~/.space/sessions/.
     """
-    import sys
-
-    from space.os.sessions.api import linker
+    from space.os.sessions.api import linker, sync
 
     launch_args = Codex.task_launch_args()
 
@@ -295,19 +339,46 @@ def _spawn_ephemeral_codex(
     cmd = ["codex"] + resume_args + ["exec"] + launch_args + add_dir_args
 
     spawn_dir = paths.identity_dir(agent.identity)
-    result = subprocess.run(
-        cmd, input=context, capture_output=True, text=True, cwd=str(spawn_dir), timeout=300
+
+    proc = subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        cwd=str(spawn_dir),
     )
 
-    if result.returncode != 0:
-        sys.stderr.write(f"Codex spawn failed: {result.stderr}\n")
-        raise RuntimeError(f"Codex spawn failed: {result.stderr}")
+    try:
+        codex_session_id = None
+        proc.stdin.write(context)
+        proc.stdin.close()
 
-    codex_session_id = Codex.session_id(result.stdout)
-    if not codex_session_id:
-        raise RuntimeError("No session_id in Codex output")
+        for line in proc.stdout:
+            if not line.strip():
+                continue
 
-    linker.link_spawn_to_session(spawn.id, codex_session_id)
+            if not codex_session_id:
+                codex_session_id = Codex.session_id_from_stream(line)
+                if codex_session_id:
+                    linker.link_spawn_to_session(spawn.id, codex_session_id)
+
+            if codex_session_id:
+                with contextlib.suppress(Exception):
+                    sync.ingest(codex_session_id)
+
+        proc.wait(timeout=300)
+
+        if proc.returncode != 0:
+            stderr = proc.stderr.read()
+            raise RuntimeError(f"Codex spawn failed: {stderr}")
+
+        if not codex_session_id:
+            raise RuntimeError("No session_id in Codex output stream")
+
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        raise RuntimeError("Codex spawn timed out") from None
 
 
 def _get_provider_command(provider: str) -> str:

@@ -38,9 +38,8 @@ def test_parse_tool_call():
         assert len(events) == 2
         assert events[0].type == "text"
         assert events[1].type == "tool_call"
-        assert events[1].data.tool_id == "call_123"
-        assert events[1].data.tool_name == "bash"
-        assert events[1].data.input == {"command": "ls -la"}
+        assert events[1].content["tool_name"] == "bash"
+        assert events[1].content["input"] == {"command": "ls -la"}
     finally:
         temp_path.unlink()
 
@@ -66,8 +65,7 @@ def test_parse_tool_result():
 
         assert len(events) == 1
         assert events[0].type == "tool_result"
-        assert events[0].data.tool_id == "call_123"
-        assert events[0].data.output == "file1.txt\nfile2.txt"
+        assert events[0].content["output"] == "file1.txt\nfile2.txt"
     finally:
         temp_path.unlink()
 
@@ -102,7 +100,7 @@ def test_parse_malformed_json_arguments():
 
         assert len(events) == 1
         assert events[0].type == "tool_call"
-        assert events[0].data.input == {"raw": "not valid json"}
+        assert events[0].content["input"] == {"raw": "not valid json"}
     finally:
         temp_path.unlink()
 
@@ -146,9 +144,7 @@ def test_parse_multiple_tool_calls():
         assert len(events) == 3
         assert events[0].type == "text"
         assert events[1].type == "tool_call"
-        assert events[1].data.tool_id == "call_1"
         assert events[2].type == "tool_call"
-        assert events[2].data.tool_id == "call_2"
     finally:
         temp_path.unlink()
 

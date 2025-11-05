@@ -33,13 +33,14 @@ def test_parse_tool_call():
         temp_path = Path(f.name)
 
     try:
-        events = Claude.parse(temp_path)
+        messages = Claude.parse(temp_path)
 
-        assert len(events) == 1
-        assert events[0].type == "tool_call"
-        assert events[0].data.tool_id == "toolu_123"
-        assert events[0].data.tool_name == "Bash"
-        assert events[0].data.input == {"command": "ls -la"}
+        assert len(messages) == 2
+        assert messages[0].type == "tool_call"
+        assert messages[0].content["tool_name"] == "Bash"
+        assert messages[0].content["input"] == {"command": "ls -la"}
+        assert messages[1].type == "message"
+        assert messages[1].content["role"] == "assistant"
     finally:
         temp_path.unlink()
 
@@ -70,13 +71,14 @@ def test_parse_tool_result():
         temp_path = Path(f.name)
 
     try:
-        events = Claude.parse(temp_path)
+        messages = Claude.parse(temp_path)
 
-        assert len(events) == 1
-        assert events[0].type == "tool_result"
-        assert events[0].data.tool_id == "toolu_123"
-        assert events[0].data.output == "output from command"
-        assert events[0].data.is_error is False
+        assert len(messages) == 2
+        assert messages[0].type == "tool_result"
+        assert messages[0].content["output"] == "output from command"
+        assert messages[0].content["is_error"] is False
+        assert messages[1].type == "message"
+        assert messages[1].content["role"] == "user"
     finally:
         temp_path.unlink()
 
@@ -105,11 +107,13 @@ def test_parse_text_response():
         temp_path = Path(f.name)
 
     try:
-        events = Claude.parse(temp_path)
+        messages = Claude.parse(temp_path)
 
-        assert len(events) == 1
-        assert events[0].type == "text"
-        assert events[0].data.content == "Here are the files in the directory"
+        assert len(messages) == 2
+        assert messages[0].type == "text"
+        assert messages[0].content == "Here are the files in the directory"
+        assert messages[1].type == "message"
+        assert messages[1].content["role"] == "assistant"
     finally:
         temp_path.unlink()
 
@@ -174,12 +178,15 @@ def test_parse_multiple_events():
         temp_path = Path(f.name)
 
     try:
-        events = Claude.parse(temp_path)
+        messages = Claude.parse(temp_path)
 
-        assert len(events) == 3
-        assert events[0].type == "tool_call"
-        assert events[1].type == "tool_result"
-        assert events[2].type == "text"
+        assert len(messages) == 6
+        assert messages[0].type == "tool_call"
+        assert messages[1].type == "message"
+        assert messages[2].type == "tool_result"
+        assert messages[3].type == "message"
+        assert messages[4].type == "text"
+        assert messages[5].type == "message"
     finally:
         temp_path.unlink()
 
@@ -196,7 +203,7 @@ def test_parse_empty_file():
         temp_path = Path(f.name)
 
     try:
-        events = Claude.parse(temp_path)
-        assert events == []
+        messages = Claude.parse(temp_path)
+        assert messages == []
     finally:
         temp_path.unlink()

@@ -26,9 +26,9 @@ class Agent:
     constitution: str | None = None
     role: str | None = None
     spawn_count: int = 0
-    archived_at: str | None = None
     created_at: str | None = None
     last_active_at: str | None = None
+    archived_at: str | None = None
 
     @property
     def provider(self) -> str:
@@ -63,14 +63,6 @@ class Message:
     agent_id: str
     content: str
     created_at: str
-
-
-@dataclass
-class Bookmark:
-    agent_id: str
-    channel_id: str
-    session_id: str | None = None
-    last_seen_id: str | None = None
 
 
 @dataclass
@@ -137,52 +129,12 @@ class Session:
 
 
 @dataclass
-class ToolCall:
-    """Tool invocation from agent."""
-
-    tool_id: str
-    tool_name: str
-    input: dict | str
-    timestamp: str | None = None
-
-
-@dataclass
-class ToolResult:
-    """Tool execution result."""
-
-    tool_id: str
-    output: str
-    is_error: bool = False
-    timestamp: str | None = None
-
-
-@dataclass
-class AgentMessage:
-    """Text message from agent/model."""
-
-    content: str
-    timestamp: str | None = None
-
-
-@dataclass
-class SessionEvent:
-    """Unified event from session JSONL."""
+class SessionMessage:
+    """Event from session JSONL: text, tool call, tool result, or message."""
 
     type: str
     timestamp: str | None
-    data: ToolCall | ToolResult | AgentMessage | dict
-
-
-@dataclass
-class ChatMessage:
-    id: int
-    cli: str
-    model: str | None
-    session_id: str
-    timestamp: str
-    identity: str | None
-    role: str
-    text: str
+    content: dict | str | None = None
 
 
 @dataclass
