@@ -2,50 +2,20 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 
-class TaskStatus(str, Enum):
+class SpawnStatus(str, Enum):
     PENDING = "pending"
     RUNNING = "running"
     PAUSED = "paused"
     COMPLETED = "completed"
     FAILED = "failed"
     TIMEOUT = "timeout"
+    KILLED = "killed"
 
 
-@dataclass
-class ToolCall:
-    """Tool invocation from agent."""
-
-    tool_id: str
-    tool_name: str
-    input: dict | str
-    timestamp: str | None = None
-
-
-@dataclass
-class ToolResult:
-    """Tool execution result."""
-
-    tool_id: str
-    output: str
-    is_error: bool = False
-    timestamp: str | None = None
-
-
-@dataclass
-class AgentMessage:
-    """Text message from agent/model."""
-
-    content: str
-    timestamp: str | None = None
-
-
-@dataclass
-class SessionEvent:
-    """Unified event from session JSONL."""
-
-    type: str
-    timestamp: str | None
-    data: ToolCall | ToolResult | AgentMessage | dict
+class TaskStatus(str, Enum):
+    OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
 
 
 @dataclass
@@ -104,24 +74,10 @@ class Bookmark:
 
 
 @dataclass
-class Session:
-    session_id: str
-    provider: str
-    model: str
-    message_count: int = 0
-    input_tokens: int = 0
-    output_tokens: int = 0
-    tool_count: int = 0
-    source_path: str | None = None
-    first_message_at: str | None = None
-    last_message_at: str | None = None
-
-
-@dataclass
 class Spawn:
     id: str
     agent_id: str
-    status: TaskStatus | str = TaskStatus.PENDING
+    status: SpawnStatus | str = SpawnStatus.PENDING
     is_ephemeral: bool = False
     constitution_hash: str | None = None
     channel_id: str | None = None
@@ -154,14 +110,67 @@ class Knowledge:
 
 
 @dataclass
-class Export:
-    channel_id: str
-    channel_name: str
-    topic: str | None
-    created_at: str | None
-    members: list[str]
-    message_count: int
-    messages: list[Message]
+class Task:
+    task_id: str
+    creator_id: str
+    content: str
+    project: str | None
+    status: TaskStatus | str = TaskStatus.OPEN
+    created_at: str | None = None
+    agent_id: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+
+
+@dataclass
+class Session:
+    session_id: str
+    provider: str
+    model: str
+    message_count: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    tool_count: int = 0
+    source_path: str | None = None
+    first_message_at: str | None = None
+    last_message_at: str | None = None
+
+
+@dataclass
+class ToolCall:
+    """Tool invocation from agent."""
+
+    tool_id: str
+    tool_name: str
+    input: dict | str
+    timestamp: str | None = None
+
+
+@dataclass
+class ToolResult:
+    """Tool execution result."""
+
+    tool_id: str
+    output: str
+    is_error: bool = False
+    timestamp: str | None = None
+
+
+@dataclass
+class AgentMessage:
+    """Text message from agent/model."""
+
+    content: str
+    timestamp: str | None = None
+
+
+@dataclass
+class SessionEvent:
+    """Unified event from session JSONL."""
+
+    type: str
+    timestamp: str | None
+    data: ToolCall | ToolResult | AgentMessage | dict
 
 
 @dataclass
@@ -174,13 +183,6 @@ class ChatMessage:
     identity: str | None
     role: str
     text: str
-
-
-@dataclass
-class Canon:
-    path: str
-    content: str
-    created_at: str | None = None
 
 
 @dataclass
@@ -257,16 +259,21 @@ class SpaceStats:
 
 
 @dataclass
-class Task:
-    task_id: str
-    creator_id: str
+class Export:
+    channel_id: str
+    channel_name: str
+    topic: str | None
+    created_at: str | None
+    members: list[str]
+    message_count: int
+    messages: list[Message]
+
+
+@dataclass
+class Canon:
+    path: str
     content: str
-    project: str | None
-    status: str
-    created_at: str
-    agent_id: str | None = None
-    started_at: str | None = None
-    completed_at: str | None = None
+    created_at: str | None = None
 
 
 @dataclass

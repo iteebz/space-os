@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from space.core.models import Spawn, TaskStatus
+from space.core.models import Spawn, SpawnStatus
 from space.os.spawn.api.constitute import PROVIDER_MAP, constitute
 
 
@@ -21,13 +21,13 @@ def agent():
 @pytest.fixture
 def spawn_interactive():
     """Interactive spawn (is_ephemeral=False)."""
-    return Spawn(id="spawn-1", agent_id="agent-1", is_ephemeral=False, status=TaskStatus.PENDING)
+    return Spawn(id="spawn-1", agent_id="agent-1", is_ephemeral=False, status=SpawnStatus.PENDING)
 
 
 @pytest.fixture
 def spawn_headless():
     """Headless spawn (is_ephemeral=True)."""
-    return Spawn(id="spawn-2", agent_id="agent-1", is_ephemeral=True, status=TaskStatus.PENDING)
+    return Spawn(id="spawn-2", agent_id="agent-1", is_ephemeral=True, status=SpawnStatus.PENDING)
 
 
 def test_constitute_interactive_writes_to_space_root(tmp_path, spawn_interactive, agent):

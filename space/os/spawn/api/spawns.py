@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from space.core.models import Spawn, TaskStatus
+from space.core.models import Spawn, SpawnStatus
 from space.lib import store
 from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
@@ -176,10 +176,10 @@ def pause_spawn(spawn_id: str) -> Spawn:
     spawn = get_spawn(spawn_id)
     if not spawn:
         raise ValueError(f"Spawn {spawn_id} not found")
-    if spawn.status != TaskStatus.RUNNING:
+    if spawn.status != SpawnStatus.RUNNING:
         raise ValueError(f"Cannot pause: spawn status is {spawn.status}, not running")
 
-    update_status(spawn_id, TaskStatus.PAUSED)
+    update_status(spawn_id, SpawnStatus.PAUSED)
     return get_spawn(spawn_id)
 
 
@@ -198,10 +198,10 @@ def resume_spawn(spawn_id: str) -> Spawn:
     spawn = get_spawn(spawn_id)
     if not spawn:
         raise ValueError(f"Spawn {spawn_id} not found")
-    if spawn.status != TaskStatus.PAUSED:
+    if spawn.status != SpawnStatus.PAUSED:
         raise ValueError(f"Cannot resume: spawn status is {spawn.status}, not paused")
     if not spawn.session_id:
         raise ValueError("Cannot resume: spawn has no session_id")
 
-    update_status(spawn_id, TaskStatus.RUNNING)
+    update_status(spawn_id, SpawnStatus.RUNNING)
     return get_spawn(spawn_id)

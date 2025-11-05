@@ -1,6 +1,6 @@
 import time
 
-from space.core.models import TaskStatus
+from space.core.models import SpawnStatus
 from space.os import bridge, spawn
 from space.os.spawn.api import spawns
 
@@ -83,15 +83,15 @@ def test_pause_via_bridge_command(test_space, default_agents):
     agent = spawn.get_agent(zealot_id)
 
     ephemeral = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
-    spawns.update_status(ephemeral.id, TaskStatus.RUNNING)
+    spawns.update_status(ephemeral.id, SpawnStatus.RUNNING)
 
-    assert spawns.get_spawn(ephemeral.id).status == TaskStatus.RUNNING
+    assert spawns.get_spawn(ephemeral.id).status == SpawnStatus.RUNNING
 
     bridge.send_message(dev_channel_id, sentinel_id, f"!{zealot_id}")
     time.sleep(0.2)
 
     paused_ephemeral = spawns.get_spawn(ephemeral.id)
-    assert paused_ephemeral.status == TaskStatus.PAUSED
+    assert paused_ephemeral.status == SpawnStatus.PAUSED
 
 
 def test_resume_via_bridge_mention_no_session(test_space, default_agents):
@@ -102,15 +102,15 @@ def test_resume_via_bridge_mention_no_session(test_space, default_agents):
     agent = spawn.get_agent(zealot_id)
 
     ephemeral = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
-    spawns.update_status(ephemeral.id, TaskStatus.PAUSED)
+    spawns.update_status(ephemeral.id, SpawnStatus.PAUSED)
 
-    assert spawns.get_spawn(ephemeral.id).status == TaskStatus.PAUSED
+    assert spawns.get_spawn(ephemeral.id).status == SpawnStatus.PAUSED
 
     bridge.send_message(dev_channel_id, sentinel_id, f"@{zealot_id} resume the ephemeral")
     time.sleep(0.2)
 
     paused_ephemeral = spawns.get_spawn(ephemeral.id)
-    assert paused_ephemeral.status == TaskStatus.PAUSED
+    assert paused_ephemeral.status == SpawnStatus.PAUSED
 
 
 def test_bridge_pause_resume_round_trip(test_space, default_agents):
@@ -121,13 +121,13 @@ def test_bridge_pause_resume_round_trip(test_space, default_agents):
     agent = spawn.get_agent(zealot_id)
 
     ephemeral1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
-    spawns.update_status(ephemeral1.id, TaskStatus.RUNNING)
+    spawns.update_status(ephemeral1.id, SpawnStatus.RUNNING)
 
     original = spawns.get_spawn(ephemeral1.id)
-    assert original.status == TaskStatus.RUNNING
+    assert original.status == SpawnStatus.RUNNING
 
     bridge.send_message(dev_channel_id, sentinel_id, f"!{zealot_id}")
     time.sleep(0.2)
 
     paused = spawns.get_spawn(ephemeral1.id)
-    assert paused.status == TaskStatus.PAUSED
+    assert paused.status == SpawnStatus.PAUSED

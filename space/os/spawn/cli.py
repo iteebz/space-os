@@ -12,7 +12,7 @@ import typer
 from space.apps.space.api.stats import agent_stats
 from space.cli import output
 from space.cli.errors import error_feedback
-from space.core.models import TaskStatus
+from space.core.models import SpawnStatus
 from space.lib import providers
 from space.os.spawn import api
 from space.os.spawn.api import spawns
@@ -373,7 +373,12 @@ def kill(spawn_id: str):
         typer.echo(f"❌ Spawn not found: {spawn_id}", err=True)
         raise typer.Exit(1)
 
-    if spawn_obj.status in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.TIMEOUT):
+    if spawn_obj.status in (
+        SpawnStatus.COMPLETED,
+        SpawnStatus.FAILED,
+        SpawnStatus.TIMEOUT,
+        SpawnStatus.KILLED,
+    ):
         typer.echo(f"⚠️ Spawn already {spawn_obj.status}, nothing to kill")
         return
 
@@ -381,7 +386,7 @@ def kill(spawn_id: str):
         with contextlib.suppress(OSError, ProcessLookupError):
             os.kill(spawn_obj.pid, signal.SIGTERM)
 
-    spawns.update_status(spawn_id, TaskStatus.FAILED)
+    spawns.update_status(spawn_id, SpawnStatus.KILLED)
     typer.echo(f"✓ Spawn {spawn_id[:8]} killed")
 
 

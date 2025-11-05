@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from space.core.models import Agent, TaskStatus
+from space.core.models import Agent, SpawnStatus
 from space.os import bridge, spawn
 from space.os.spawn.api import spawns
 
@@ -76,15 +76,15 @@ def test_spawn_status_transitions(test_space, default_agents):
     agent = spawn.get_agent(default_agents["zealot"])
     spawn1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
 
-    assert spawn1.status == TaskStatus.PENDING
+    assert spawn1.status == SpawnStatus.PENDING
 
-    spawns.update_status(spawn1.id, TaskStatus.RUNNING)
+    spawns.update_status(spawn1.id, SpawnStatus.RUNNING)
     running = spawns.get_spawn(spawn1.id)
-    assert running.status == TaskStatus.RUNNING
+    assert running.status == SpawnStatus.RUNNING
 
-    spawns.update_status(spawn1.id, TaskStatus.COMPLETED)
+    spawns.update_status(spawn1.id, SpawnStatus.COMPLETED)
     completed = spawns.get_spawn(spawn1.id)
-    assert completed.status == TaskStatus.COMPLETED
+    assert completed.status == SpawnStatus.COMPLETED
     assert completed.ended_at is not None
 
 
@@ -93,11 +93,11 @@ def test_spawn_failure(test_space, default_agents):
     agent = spawn.get_agent(default_agents["zealot"])
     spawn1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
 
-    spawns.update_status(spawn1.id, TaskStatus.RUNNING)
-    spawns.update_status(spawn1.id, TaskStatus.FAILED)
+    spawns.update_status(spawn1.id, SpawnStatus.RUNNING)
+    spawns.update_status(spawn1.id, SpawnStatus.FAILED)
 
     failed = spawns.get_spawn(spawn1.id)
-    assert failed.status == TaskStatus.FAILED
+    assert failed.status == SpawnStatus.FAILED
     assert failed.ended_at is not None
 
 
@@ -106,7 +106,7 @@ def test_spawn_with_pid(test_space, default_agents):
     agent = spawn.get_agent(default_agents["zealot"])
     spawn1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
 
-    spawns.update_status(spawn1.id, TaskStatus.RUNNING)
+    spawns.update_status(spawn1.id, SpawnStatus.RUNNING)
     # Update PID directly in spawns (no pid parameter in update_status)
     # For now, just verify spawn creation works
     running = spawns.get_spawn(spawn1.id)
@@ -132,12 +132,12 @@ def test_list_spawns_by_status(test_space, default_agents):
     spawn1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
     spawn2 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
 
-    spawns.update_status(spawn1.id, TaskStatus.COMPLETED)
+    spawns.update_status(spawn1.id, SpawnStatus.COMPLETED)
 
     # Filter by status manually
     all_spawns = spawns.get_spawns_for_agent(agent.agent_id)
-    pending = [s for s in all_spawns if s.is_ephemeral and s.status == TaskStatus.PENDING]
-    completed = [s for s in all_spawns if s.is_ephemeral and s.status == TaskStatus.COMPLETED]
+    pending = [s for s in all_spawns if s.is_ephemeral and s.status == SpawnStatus.PENDING]
+    completed = [s for s in all_spawns if s.is_ephemeral and s.status == SpawnStatus.COMPLETED]
 
     assert spawn1.id not in {s.id for s in pending}
     assert spawn2.id in {s.id for s in pending}
@@ -191,11 +191,11 @@ def test_pause_spawn(test_space, default_agents):
     """Test pausing a running spawn."""
     agent = spawn.get_agent(default_agents["zealot"])
     spawn1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
-    spawns.update_status(spawn1.id, TaskStatus.RUNNING)
+    spawns.update_status(spawn1.id, SpawnStatus.RUNNING)
 
     paused = spawn.pause_spawn(spawn1.id)
 
-    assert paused.status == TaskStatus.PAUSED
+    assert paused.status == SpawnStatus.PAUSED
 
 
 def test_pause_spawn_not_running(test_space, default_agents):
@@ -211,7 +211,7 @@ def test_resume_spawn(test_space, default_agents):
     """Test resuming a paused spawn requires session_id."""
     agent = spawn.get_agent(default_agents["zealot"])
     spawn1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
-    spawns.update_status(spawn1.id, TaskStatus.RUNNING)
+    spawns.update_status(spawn1.id, SpawnStatus.RUNNING)
     spawn.pause_spawn(spawn1.id)
 
     # Cannot resume without session_id
@@ -232,7 +232,7 @@ def test_resume_spawn_no_session_id(test_space, default_agents):
     """Test resuming a paused spawn without session_id."""
     agent = spawn.get_agent(default_agents["zealot"])
     spawn1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
-    spawns.update_status(spawn1.id, TaskStatus.RUNNING)
+    spawns.update_status(spawn1.id, SpawnStatus.RUNNING)
     spawn.pause_spawn(spawn1.id)
 
     with pytest.raises(ValueError, match="no session_id"):
@@ -243,10 +243,10 @@ def test_pause_resume_cycle_requires_session(test_space, default_agents):
     """Test pause/resume cycle requires valid session_id."""
     agent = spawn.get_agent(default_agents["zealot"])
     ephemeral = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
-    spawns.update_status(ephemeral.id, TaskStatus.RUNNING)
+    spawns.update_status(ephemeral.id, SpawnStatus.RUNNING)
 
     paused = spawn.pause_spawn(ephemeral.id)
-    assert paused.status == TaskStatus.PAUSED
+    assert paused.status == SpawnStatus.PAUSED
 
     # Resume fails without session_id
     with pytest.raises(ValueError, match="no session_id"):
