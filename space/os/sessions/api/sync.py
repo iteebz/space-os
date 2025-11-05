@@ -9,6 +9,34 @@ from space.lib import paths, providers, store
 logger = logging.getLogger(__name__)
 
 
+def _get_session_identity(session_id: str, conn) -> str | None:
+    """Get agent identity for a session via spawn relationship.
+
+    Queries spawns by session_id, then agents by agent_id to get identity.
+
+    Args:
+        session_id: Session UUID
+        conn: Database connection
+
+    Returns:
+        Agent identity string, or None if no spawn found
+    """
+    try:
+        row = conn.execute(
+            """
+            SELECT a.identity FROM spawns s
+            JOIN agents a ON s.agent_id = a.agent_id
+            WHERE s.session_id = ?
+            LIMIT 1
+            """,
+            (session_id,),
+        ).fetchone()
+        return row[0] if row else None
+    except Exception as e:
+        logger.debug(f"Failed to get identity for session {session_id}: {e}")
+        return None
+
+
 @dataclass
 class ProgressEvent:
     """Progress event with provider and counts."""
@@ -42,6 +70,8 @@ def _index_transcripts(session_id: str, provider: str, content: str, conn) -> in
 
     indexed_count = 0
     rows = []
+
+    identity = _get_session_identity(session_id, conn)
 
     for msg_idx, line in enumerate(content.strip().split("\n")):
         if not line.strip():
@@ -81,15 +111,15 @@ def _index_transcripts(session_id: str, provider: str, content: str, conn) -> in
             except (ValueError, AttributeError):
                 timestamp_int = 0
 
-        rows.append((session_id, msg_idx, provider, role, msg_content, timestamp_int))
+        rows.append((session_id, msg_idx, provider, role, identity, msg_content, timestamp_int))
         indexed_count += 1
 
     if rows:
         conn.executemany(
             """
             INSERT OR REPLACE INTO transcripts
-            (session_id, message_index, provider, role, content, timestamp)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (session_id, message_index, provider, role, identity, content, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             rows,
         )

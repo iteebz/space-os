@@ -45,11 +45,6 @@ class TestIndexTranscripts:
             assert len(rows) == 2
             assert all(isinstance(r[1], int) for r in rows)
 
-        # Cleanup
-        with store.ensure() as conn:
-            conn.execute("DELETE FROM transcripts WHERE session_id = ?", (sid,))
-            conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
-            conn.commit()
 
     def test_handles_content_arrays(self, test_space):
         """Text arrays joined properly."""
@@ -82,11 +77,6 @@ class TestIndexTranscripts:
             ).fetchone()[0]
             assert "Block1" in content and "Block2" in content
 
-        # Cleanup
-        with store.ensure() as conn:
-            conn.execute("DELETE FROM transcripts WHERE session_id = ?", (sid,))
-            conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
-            conn.commit()
 
     def test_skips_empty_and_malformed(self, test_space):
         """Empty content and malformed JSON gracefully handled."""
@@ -113,11 +103,6 @@ class TestIndexTranscripts:
             conn.commit()
         assert count == 1
 
-        # Cleanup
-        with store.ensure() as conn:
-            conn.execute("DELETE FROM transcripts WHERE session_id = ?", (sid,))
-            conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
-            conn.commit()
 
 
 class TestSearch:
@@ -151,11 +136,6 @@ class TestSearch:
         assert isinstance(result["timestamp"], int)
         assert "reference" in result
 
-        # Cleanup
-        with store.ensure() as conn:
-            conn.execute("DELETE FROM transcripts WHERE session_id = ?", (sid,))
-            conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
-            conn.commit()
 
     def test_search_fts5_syntax(self, test_space):
         """FTS5 phrase and boolean queries work."""
@@ -202,11 +182,6 @@ class TestSearch:
         ]
         assert len(results) >= 1
 
-        # Cleanup
-        with store.ensure() as conn:
-            conn.execute("DELETE FROM transcripts WHERE session_id = ?", (sid,))
-            conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
-            conn.commit()
 
 
 class TestIntegration:
@@ -249,11 +224,6 @@ class TestIntegration:
         assert len(results) == 2
         assert all(sid == r["session_id"] for r in results)
 
-        # Cleanup
-        with store.ensure() as conn:
-            conn.execute("DELETE FROM transcripts WHERE session_id = ?", (sid,))
-            conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
-            conn.commit()
 
     def test_fts5_triggers_keep_index_in_sync(self, test_space):
         """INSERT/DELETE auto-triggers FTS5 updates."""
@@ -282,10 +252,6 @@ class TestIntegration:
 
         assert len(operations.search("trigger")) == 0
 
-        # Cleanup
-        with store.ensure() as conn:
-            conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
-            conn.commit()
 
     def test_context_includes_sessions(self, test_space):
         """Context search includes session results."""
@@ -312,8 +278,65 @@ class TestIntegration:
         assert len(results) > 0
         assert any("search" in r.get("text", "") for r in results)
 
-        # Cleanup
+
+    def test_search_filters_by_identity(self, test_space):
+        """Search respects identity filter: returns only matching agent's sessions."""
+        sid = "test-identity-filter-123"
         with store.ensure() as conn:
-            conn.execute("DELETE FROM transcripts WHERE session_id = ?", (sid,))
-            conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
+            conn.execute(
+                "INSERT INTO sessions (session_id, provider, model) VALUES (?, ?, ?)",
+                (sid, "claude", "test"),
+            )
+            conn.execute(
+                """
+                INSERT INTO transcripts (session_id, message_index, provider, role, identity, content, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+                (sid, 0, "claude", "user", "zealot", "identity filter test", 1698900000),
+            )
             conn.commit()
+
+        results_all = operations.search("identity filter")
+        results_zealot = operations.search("identity filter", identity="zealot")
+        results_other = operations.search("identity filter", identity="other")
+
+        assert len(results_all) >= 1
+        assert len(results_zealot) >= 1
+        assert len(results_other) == 0
+
+
+    def test_sync_populates_transcript_identity(self, test_space):
+        """_index_transcripts() populates identity from spawn relationship."""
+        sid = "test-sync-identity-abc"
+        agent_id = "agent-test-123"
+        identity = "crucible"
+
+        with store.ensure() as conn:
+            conn.execute(
+                "INSERT INTO agents (agent_id, identity, model, created_at) VALUES (?, ?, ?, ?)",
+                (agent_id, identity, "test", "2025-01-01T00:00:00"),
+            )
+            conn.execute(
+                "INSERT INTO sessions (session_id, provider, model) VALUES (?, ?, ?)",
+                (sid, "claude", "test"),
+            )
+            conn.execute(
+                "INSERT INTO spawns (id, agent_id, session_id, created_at) VALUES (?, ?, ?, ?)",
+                (f"spawn-{sid}", agent_id, sid, "2025-01-01T00:00:00"),
+            )
+            conn.commit()
+
+        jsonl = json.dumps(
+            {"role": "user", "content": "sync identity test", "timestamp": "2025-11-01T10:00:00Z"}
+        )
+
+        with store.ensure() as conn:
+            sync._index_transcripts(sid, "claude", jsonl, conn)
+            conn.commit()
+
+        with store.ensure() as conn:
+            row = conn.execute(
+                "SELECT identity FROM transcripts WHERE session_id = ?", (sid,)
+            ).fetchone()
+            assert row[0] == identity
+

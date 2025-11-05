@@ -20,7 +20,7 @@ context "architecture"
 context "memory" --scope sessions
 context "constitution" --scope canon
 
-# Search as agent (Phase 2 - identity filtering)
+# Search as agent (filter by identity)
 context "spawn design" --as zealot
 
 # JSON output for scripts
@@ -86,7 +86,7 @@ Context searches across five sources in parallel:
 
 **Memory (single-agent working context)**
 - Private working notes per agent
-- Only included with `--as <identity>` (Phase 2)
+- Only included with `--as <identity>`
 - Use for: agent's personal context during execution
 
 **Bridge (ephemeral coordination)**
@@ -111,55 +111,34 @@ Results are displayed grouped by source, with smart truncation at sentence/parag
 
 ## Constraints & Limitations
 
-**Phase 1 (current):**
 - No semantic search (requires exact or prefix matching)
-- Identity scoping not fully implemented (no permission checks yet)
 - No concept of "relevance" across different query types (just BM25 for sessions + recency everywhere)
 - Tasks deliberately excluded (work ledger ≠ knowledge ledger)
+- No permission checks on identity-scoped queries (filtering only, no access control)
 
-**Why these constraints exist:**
-- Keep system simple and auditable
-- Avoid embedding complexity until absolutely necessary
-- Force good data hygiene (strict naming conventions, domain tagging)
+## Advanced Queries
 
-## Future Work
+FTS5 supports advanced syntax for sessions search:
 
-**Phase 2: Identity Linking**
-- Populate `transcripts.identity` from spawn relationships
-- Enable true `context "query" --as agent` filtering
-- Show agent-private memory only to that agent
-- Add visibility/permission checks
+```bash
+# Phrase search
+context "exact phrase in quotes"
 
-**Phase 3: Query Language**
-- Document FTS5 Boolean syntax: `"phrase" AND keyword`, `term*`, `NEAR()`
-- Add `context --suggest` to show queryable domains/paths
-- Auto-complete on knowledge domains and canon file paths
+# Boolean AND
+context "architecture AND design"
 
-**Phase 4: Discovery & Metrics**
-- Log all queries + result counts to identify zero-result searches
-- `context --related "topic"` to find semantically adjacent content
-- Audit trail for understanding what context sources are actually used
+# Wildcards
+context "spawn*"
 
-**Phase 5: Reference Drilling**
-- `context get <reference>` to show full context around a result
-- `sessions <session-id>` to view complete transcript (already exists)
-
-**When embeddings become necessary:**
-- Natural language intent queries ("how do agents think?") without exact phrase matching
-- Cross-domain concept discovery without manual domain tagging
-- Relevance ranking that understands semantic similarity
-- Estimated timeline: 50k+ transcripts + 2+ years of usage patterns showing gaps
-
-**Better alternatives to embeddings (explore first):**
-- Better canonicalization (synonym tagging in knowledge domains)
-- Query expansion (user builds saved queries)
-- Related-link graphs (users manually wire connections)
+# NEAR operator (words within N positions)
+context "NEAR(spawn, session, 5)"
+```
 
 ## Storage
 
 Context doesn't own storage; it queries across:
 - `transcripts` table (sessions) via FTS5
-- `memories` table (memory) — currently not searched (Phase 1)
+- `memories` table (memory) — agent-scoped via `--as <identity>`
 - `knowledge` table (knowledge) — SQL LIKE search on domain + content
 - `messages` table (bridge) — SQL LIKE search on content + channel name
 - Canon directory (human docs) — filesystem scan + regex match

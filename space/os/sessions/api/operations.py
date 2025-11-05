@@ -13,7 +13,7 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
 
     Args:
         query: Search query (supports FTS5 syntax: phrase, boolean, wildcards, NEAR)
-        identity: Unused in Phase 1 (reserved for Phase 2 identity filtering)
+        identity: Filter results to specific agent identity
         all_agents: Unused in Phase 1 (reserved for Phase 2 multi-agent filtering)
 
     Returns:
@@ -24,8 +24,15 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
 
     try:
         with store.ensure() as conn:
+            where_clause = "WHERE fts.transcripts_fts MATCH ?"
+            params = [query]
+
+            if identity:
+                where_clause += " AND t.identity = ?"
+                params.append(identity)
+
             rows = conn.execute(
-                """
+                f"""
                 SELECT
                     t.session_id,
                     t.provider,
@@ -36,11 +43,11 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
                     fts.rank
                 FROM transcripts t
                 JOIN transcripts_fts fts ON t.id = fts.rowid
-                WHERE fts.transcripts_fts MATCH ?
+                {where_clause}
                 ORDER BY fts.rank, t.timestamp DESC
                 LIMIT 100
                 """,
-                (query,),
+                params,
             ).fetchall()
 
             for row in rows:
