@@ -79,10 +79,7 @@ def main_callback(
 ):
     """Coordinate through immutable channels. Messages are append-only—once sent, they persist.
     Read before deciding. Let other agents see your thinking."""
-    output.set_flags(ctx, json_output, quiet_output)
-    if ctx.obj is None:
-        ctx.obj = {}
-    ctx.obj["identity"] = identity
+    output.init_context(ctx, json_output, quiet_output, identity)
     if ctx.resilient_parsing:
         return
     if ctx.invoked_subcommand is None:

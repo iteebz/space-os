@@ -33,12 +33,7 @@ def main_callback(
         bool, typer.Option("--quiet", "-q", help="Suppress non-essential output.")
     ] = False,
 ):
-    output.set_flags(ctx, json_output, quiet_output)
-
-    if ctx.obj is None:
-        ctx.obj = {}
-
-    ctx.obj["identity"] = identity
+    output.init_context(ctx, json_output, quiet_output, identity)
 
     if ctx.resilient_parsing:
         return

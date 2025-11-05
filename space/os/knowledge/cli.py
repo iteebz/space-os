@@ -26,10 +26,7 @@ def main_callback(
 ):
     """Contribute to shared truth. Once written, entries are immutable.
     Archive if wrong, add new if refined. Your insights compound collective intelligence."""
-    output.set_flags(ctx, json_output, quiet_output)
-    if ctx.obj is None:
-        ctx.obj = {}
-    ctx.obj["identity"] = identity
+    output.init_context(ctx, json_output, quiet_output, identity)
 
     if ctx.resilient_parsing:
         return

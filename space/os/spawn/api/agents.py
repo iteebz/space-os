@@ -94,13 +94,6 @@ def register_agent(
     return agent_id
 
 
-def ensure_agent(name: str) -> str:
-    """DEPRECATED: Use register_agent or get_agent."""
-    raise NotImplementedError(
-        "ensure_agent is deprecated. All agents must be explicitly registered via `space init` or `spawn register`."
-    )
-
-
 def update_agent(
     identity: str,
     constitution: str | None = None,
@@ -271,7 +264,6 @@ __all__ = [
     "register_agent",
     "update_agent",
     "clone_agent",
-    "ensure_agent",
     "rename_agent",
     "archive_agent",
     "unarchive_agent",

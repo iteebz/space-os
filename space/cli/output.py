@@ -3,11 +3,23 @@ import json as json_lib
 import typer
 
 
-def set_flags(ctx: typer.Context, json_output: bool = False, quiet_output: bool = False) -> None:
+def init_context(
+    ctx: typer.Context,
+    json_output: bool = False,
+    quiet_output: bool = False,
+    identity: str | None = None,
+) -> None:
+    """Initialize CLI context with standard flags and identity."""
     if ctx.obj is None or not isinstance(ctx.obj, dict):
         ctx.obj = {}
     ctx.obj["json_output"] = json_output
     ctx.obj["quiet_output"] = quiet_output
+    ctx.obj["identity"] = identity
+
+
+def set_flags(ctx: typer.Context, json_output: bool = False, quiet_output: bool = False) -> None:
+    """Deprecated: use init_context instead."""
+    init_context(ctx, json_output, quiet_output)
 
 
 def out_json(data: dict) -> str:

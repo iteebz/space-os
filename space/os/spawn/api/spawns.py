@@ -209,3 +209,26 @@ def resume_spawn(spawn_id: str) -> Spawn:
 
     update_status(spawn_id, SpawnStatus.RUNNING)
     return get_spawn(spawn_id)
+
+
+def get_channel_spawns(channel_id: str, status: str | None = None) -> list[Spawn]:
+    """Get all spawns in a channel, optionally filtered by status.
+
+    Args:
+        channel_id: Channel ID to filter by
+        status: Optional status filter (e.g., 'running', 'paused'). If None, returns all.
+
+    Returns:
+        List of Spawn objects in the channel
+    """
+    with store.ensure() as conn:
+        if status:
+            rows = conn.execute(
+                "SELECT * FROM spawns WHERE channel_id = ? AND status = ? ORDER BY created_at DESC",
+                (channel_id, status),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM spawns WHERE channel_id = ? ORDER BY created_at DESC", (channel_id,)
+            ).fetchall()
+        return [from_row(row, Spawn) for row in rows]

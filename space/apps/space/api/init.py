@@ -144,7 +144,6 @@ def init():
     archive_old_config()
     init_default_agents()
 
-    constitutions_dir = paths.canon_path() / "constitutions"
     constitution_files = sorted(
         [f.name for f in constitutions_dir.glob("*.md") if f.name != "README.md"]
     )

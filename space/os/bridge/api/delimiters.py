@@ -74,9 +74,8 @@ def spawn_from_mentions(channel_id: str, content: str, agent_id: str | None = No
             if not channel:
                 log.error(f"Channel {channel_id} not found")
                 return
-            channel_name = channel.name
-            _process_control_commands_impl(channel_id, channel_name, content)
-            _process_mentions(channel_id, channel_name, content, agent_id)
+            _process_control_commands_impl(channel_id, content)
+            _process_mentions(channel_id, content, agent_id)
         except Exception as e:
             log.error(f"Failed to process delimiters: {e}")
 
@@ -84,28 +83,37 @@ def spawn_from_mentions(channel_id: str, content: str, agent_id: str | None = No
     thread.start()
 
 
-def _process_control_commands_impl(channel_id: str, channel_name: str, content: str) -> None:
+def _process_control_commands_impl(channel_id: str, content: str) -> None:
     """Process !pause and !resume control directives."""
     commands = _parse_control_commands(content)
 
     # Handle pause commands
     if commands["pause"]:
         pause_identities = commands["pause"] if commands["pause"][0] else None
-        _handle_pause(pause_identities)
+        _handle_pause(pause_identities, channel_id)
 
     # Handle resume commands
     if commands["resume"]:
         resume_identities = commands["resume"] if commands["resume"][0] else None
-        _handle_resume(resume_identities)
+        _handle_resume(resume_identities, channel_id)
 
 
-def _handle_pause(identities: list[str] | None) -> None:
-    """Pause running spawns for given identities, or all if identities is None."""
+def _handle_pause(identities: list[str] | None, channel_id: str) -> None:
+    """Pause running spawns for given identities, optionally scoped to channel.
+
+    If identities is None/empty (bare !pause), pauses all running spawns in channel.
+    If identities are specified (!pause identity), pauses all running spawns for that identity.
+    """
     if identities is None or (isinstance(identities, list) and not identities):
-        # Pause all running spawns
-        log.info("Pausing all running spawns")
-        # TODO: implement get_all_spawns() or similar
-        # For now, we can only pause by identity
+        # Bare !pause: pause all running spawns in this channel
+        log.info(f"Pausing all running spawns in channel {channel_id}")
+        all_running = spawns.get_channel_spawns(channel_id, status="running")
+        for spawn_obj in all_running:
+            try:
+                spawns.pause_spawn(spawn_obj.id)
+                log.info(f"Paused spawn {spawn_obj.id[:8]}")
+            except ValueError as e:
+                log.warning(f"Could not pause spawn {spawn_obj.id[:8]}: {e}")
         return
 
     for identity in identities:
@@ -115,6 +123,7 @@ def _handle_pause(identities: list[str] | None) -> None:
             log.warning(f"Identity {identity} not found in registry")
             continue
 
+        # !pause identity: pause all running spawns for that identity (any channel)
         running_spawns = [
             s for s in spawns.get_spawns_for_agent(agent.agent_id) if s.status == "running"
         ]
@@ -130,13 +139,22 @@ def _handle_pause(identities: list[str] | None) -> None:
                 log.warning(f"Could not pause {identity}: {e}")
 
 
-def _handle_resume(identities: list[str] | None) -> None:
-    """Resume paused spawns for given identities, or all if identities is None."""
+def _handle_resume(identities: list[str] | None, channel_id: str) -> None:
+    """Resume paused spawns for given identities, optionally scoped to channel.
+
+    If identities is None/empty (bare !resume), resumes all paused spawns in channel.
+    If identities are specified (!resume identity), resumes all paused spawns for that identity.
+    """
     if identities is None or (isinstance(identities, list) and not identities):
-        # Resume all paused spawns
-        log.info("Resuming all paused spawns")
-        # TODO: implement get_all_spawns() or similar
-        # For now, we can only resume by identity
+        # Bare !resume: resume all paused spawns in this channel
+        log.info(f"Resuming all paused spawns in channel {channel_id}")
+        all_paused = spawns.get_channel_spawns(channel_id, status="paused")
+        for spawn_obj in all_paused:
+            try:
+                spawns.resume_spawn(spawn_obj.id)
+                log.info(f"Resumed spawn {spawn_obj.id[:8]}")
+            except ValueError as e:
+                log.warning(f"Could not resume spawn {spawn_obj.id[:8]}: {e}")
         return
 
     for identity in identities:
@@ -146,6 +164,7 @@ def _handle_resume(identities: list[str] | None) -> None:
             log.warning(f"Identity {identity} not found in registry")
             continue
 
+        # !resume identity: resume all paused spawns for that identity (any channel)
         paused_spawns = [
             s for s in spawns.get_spawns_for_agent(agent.agent_id) if s.status == "paused"
         ]
@@ -161,11 +180,9 @@ def _handle_resume(identities: list[str] | None) -> None:
                 log.warning(f"Could not resume {identity}: {e}")
 
 
-def _process_mentions(
-    channel_id: str, channel_name: str, content: str, sender_agent_id: str | None = None
-) -> None:
+def _process_mentions(channel_id: str, content: str, sender_agent_id: str | None = None) -> None:
     """Process @mentions: check for paused spawns first, then spawn or resume."""
-    log.info(f"Processing channel={channel_name}, content={content[:50]}")
+    log.info(f"Processing channel={channel_id}, content={content[:50]}")
 
     mentions = _parse_mentions(content)
     log.info(f"Found mentions: {mentions}")

@@ -1,9 +1,6 @@
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
-
-if TYPE_CHECKING:
-    pass
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
