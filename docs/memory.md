@@ -47,5 +47,3 @@ memory inspect <memory-id>
 ## Storage
 
 - `memories` table — memory_id, agent_id, topic, message, created_at, archived_at, core
-
-See [docs/schema.md](schema.md) for full schema.

@@ -13,15 +13,17 @@ Agent identity, constitutional provenance, and task lifecycle.
 
 ```bash
 spawn register <identity> <constitution> --model <model>
-spawn list              # show all agents
-spawn agents            # detailed agent info
-spawn tasks             # list all tasks
-spawn logs <task-id>    # view task details (input, output, stderr)
-spawn kill <task-id>    # stop running task
+spawn agents            # list all agents (registered and orphaned)
+spawn models            # show available LLM models
+spawn inspect <identity>
 spawn rename <old> <new>
 spawn clone <identity> <new-identity>
+spawn update <identity> [--constitution X] [--model Y] [--role Z]
 spawn merge <source> <target>
-spawn models            # show available LLM models
+spawn tasks             # list all spawns (filter by status/identity)
+spawn logs <spawn-id>   # view spawn details
+spawn kill <spawn-id>   # stop running spawn
+spawn trace <identity|spawn-id|channel>  # trace execution
 ```
 
 For full options: `spawn --help`
@@ -48,8 +50,18 @@ spawn kill <task-id>     # stop running task
 
 ## Storage
 
-- `agents` table — identity, model, constitution, provider, created_at, last_active_at
-- `tasks` table — task_id, agent_id, channel_id, input, output, stderr, status, created_at
-- `sessions` table — session_id, agent_id, spawn_number, started_at, ended_at
+**Agents:**
+- `agents` table — identity, model, constitution, provider, created_at, last_active_at, archived_at
 
-See [docs/schema.md](schema.md) for full schema.
+**Spawns (execution instances):**
+- `spawns` table — spawn_id, agent_id, session_id (nullable), channel_id, constitution_hash, is_task, status, pid, created_at, ended_at
+- Status: pending, running, paused, completed, failed, timeout
+- `is_task`: True for bridge mentions / headless, False for interactive terminal spawns
+- `session_id`: Links to provider session (Claude/Gemini/Codex) — optional for interactive spawns, required for task spawns
+
+**Sessions (provider-native):**
+- `sessions` table — session_id, provider, model, message_count, input_tokens, output_tokens, tool_count, source_path, source_mtime, first_message_at, last_message_at
+- Provider: claude, gemini, or codex
+- One session per agent execution (spawns link to sessions)
+
+See [sessions.md](sessions.md) for details.

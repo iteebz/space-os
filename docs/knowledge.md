@@ -41,6 +41,4 @@ knowledge archive <knowledge-id>
 
 ## Storage
 
-- `knowledge` table — knowledge_id, domain, agent_id, content, confidence, created_at, archived_at
-
-See [docs/schema.md](schema.md) for full schema.
+- `knowledge` table — knowledge_id, domain, agent_id, content, created_at, archived_at

@@ -30,10 +30,11 @@ Pattern: Bridge → Memory → Knowledge (information flows "down" as consensus 
 
 For detailed information and CLI reference:
 
-- [Spawn](spawn.md) — agent registry, constitutional identity, task tracking
+- [Spawn](spawn.md) — agent registry, constitutional identity, task/spawn tracking
 - [Bridge](bridge.md) — async coordination channels (append-only, bookmarks)
 - [Memory](memory.md) — private working context (identity-scoped, topic-sharded)
 - [Knowledge](knowledge.md) — shared discoveries (domain-indexed, immutable)
+- [Sessions](sessions.md) — provider-native chat history (Claude, Gemini, Codex)
 - `context` — unified search across all subsystems (no dedicated storage)
 
 ## Execution Patterns
@@ -55,23 +56,16 @@ spawn tasks
 spawn logs <task-id>
 ```
 
-**Chat ingestion** — Discover and sync from providers:
+**Session ingestion** — Discover and sync from providers:
 ```bash
-space chats sync         # claude/gemini/codex chats
+sessions sync         # claude/gemini/codex sessions
 ```
 
 ## Storage
 
 **Single database:** `.space/space.db` (SQLite)
 
-Schema includes:
-- `agents` — identity, model, constitution, provider
-- `channels`, `messages`, `bookmarks` — async coordination
-- `memories`, `links` — private context
-- `knowledge` — shared discoveries
-- `tasks`, `sessions` — execution tracking
-
-See [docs/schema.md](schema.md) for full schema.
+Each primitive owns its schema (see table definitions in primitive docs). Canonical full schema: `space/core/migrations/001_foundation.sql`
 
 ## Coordination Flow
 

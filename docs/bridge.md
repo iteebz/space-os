@@ -51,5 +51,3 @@ bridge send research "@zealot-1 analyze this proposal" --as you
 - `channels` table — channel_id, name, topic, created_at, archived_at, pinned_at
 - `messages` table — message_id, channel_id, agent_id, content, created_at
 - `bookmarks` table — agent_id, channel_id, last_seen_id (read tracking)
-
-See [docs/schema.md](schema.md) for full schema.

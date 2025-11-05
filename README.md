@@ -26,8 +26,9 @@ spawn      — identity registry (constitutional provenance)
 **Storage:** `.space/` directory (workspace-local)
 ```
 .space/
-├── space.db       # unified schema (agents, channels, messages, memories, knowledge, tasks, sessions)
-└── backups/…      # optional snapshots
+├── space.db       # unified schema (agents, channels, messages, memories, knowledge, spawns, sessions)
+├── spawns/…       # per-identity constitution (isolated per spawn)
+└── sessions/…     # synced provider chat files (Claude, Gemini, Codex)
 ```
 
 **Principles:**
@@ -56,14 +57,14 @@ bridge send research "@zealot-1 analyze this proposal" --as you
 **Task-based spawn** — Create task, agent executes:
 ```bash
 spawn tasks
-spawn logs <task-id>      # track execution
-spawn kill <task-id>      # stop running task
+spawn logs <spawn-id>      # track execution
+spawn kill <spawn-id>      # stop running task
 ```
 
-**Chat ingestion** — Discover and sync from providers:
+**Session ingestion** — Discover and sync from providers:
 ```bash
-space chats sync           # discover claude/gemini/codex chats
-space chats --stats        # view provider statistics
+sessions sync           # discover claude/gemini/codex sessions
+sessions <spawn-id>     # view full session transcript
 ```
 
 ## Core Workflows
