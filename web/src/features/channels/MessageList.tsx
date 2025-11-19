@@ -17,7 +17,7 @@ export function MessageList({ channel }: Props) {
   if (!messages?.length) return <div className="text-neutral-500">No messages</div>
 
   return (
-    <div className="space-y-4 overflow-y-auto h-full">
+    <div className="space-y-4">
       {messages.map((msg: Message) => (
         <div key={msg.message_id} className="border-b border-neutral-800 pb-4">
           <div className="flex items-center gap-2 mb-2">

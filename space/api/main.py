@@ -5,6 +5,7 @@ import subprocess
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 app = FastAPI(title="Space API")
 
@@ -44,6 +45,23 @@ def get_spawns():
 @app.get("/api/agents")
 def get_agents():
     return run_cli(["spawn", "agents", "--json"])
+
+
+class SendMessage(BaseModel):
+    content: str
+    sender: str = "human"
+
+
+@app.post("/api/channels/{channel}/messages")
+def send_message(channel: str, body: SendMessage):
+    result = subprocess.run(
+        ["bridge", "send", channel, body.content, "--as", body.sender],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return {"error": result.stderr.strip()}
+    return {"ok": True}
 
 
 def main():

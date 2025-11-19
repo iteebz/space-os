@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
-import { ChannelList, MessageList } from './features/channels'
+import { ChannelList, MessageList, ComposeBox } from './features/channels'
 import { SpawnList } from './features/spawns'
 
 export default function App() {
@@ -22,12 +22,17 @@ export default function App() {
         <PanelResizeHandle className="w-1 bg-neutral-800 hover:bg-neutral-700 transition-colors" />
 
         <Panel defaultSize={50}>
-          <div className="h-full p-4">
+          <div className="h-full p-4 flex flex-col">
             <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide mb-4">
               Messages
             </h2>
             {selectedChannel ? (
-              <MessageList channel={selectedChannel} />
+              <>
+                <div className="flex-1 overflow-y-auto">
+                  <MessageList channel={selectedChannel} />
+                </div>
+                <ComposeBox channel={selectedChannel} />
+              </>
             ) : (
               <div className="text-neutral-500">Select a channel</div>
             )}
