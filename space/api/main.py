@@ -17,6 +17,20 @@ app.add_middleware(
 )
 
 
+class SendMessage(BaseModel):
+    content: str
+    sender: str = "human"
+
+
+class CreateChannel(BaseModel):
+    name: str
+    topic: str | None = None
+
+
+class UpdateTopic(BaseModel):
+    topic: str
+
+
 def run_cli(cmd: list[str]) -> dict | list:
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
@@ -48,6 +62,18 @@ def get_messages(channel: str):
     return run_cli(["bridge", "recv", channel, "--json"])
 
 
+@app.patch("/api/channels/{channel}/topic")
+def update_topic(channel: str, body: UpdateTopic):
+    result = subprocess.run(
+        ["bridge", "topic", channel, body.topic],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return {"error": result.stderr.strip()}
+    return {"ok": True}
+
+
 @app.get("/api/spawns")
 def get_spawns():
     return run_cli(["spawn", "--json", "tasks", "--all"])
@@ -56,16 +82,6 @@ def get_spawns():
 @app.get("/api/agents")
 def get_agents():
     return run_cli(["spawn", "agents", "--json"])
-
-
-class SendMessage(BaseModel):
-    content: str
-    sender: str = "human"
-
-
-class CreateChannel(BaseModel):
-    name: str
-    topic: str | None = None
 
 
 @app.post("/api/channels/{channel}/messages")

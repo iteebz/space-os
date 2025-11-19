@@ -59,6 +59,17 @@ def rename_channel(old_name: str, new_name: str) -> bool:
             return False
 
 
+def update_topic(name: str, topic: str | None) -> bool:
+    """Update channel topic. Returns True if successful."""
+    name = name.lstrip("#")
+    with store.ensure() as conn:
+        cursor = conn.execute(
+            "UPDATE channels SET topic = ? WHERE name = ?",
+            (topic, name),
+        )
+        return cursor.rowcount > 0
+
+
 def archive_channel(name: str) -> None:
     with store.ensure() as conn:
         cursor = conn.execute(

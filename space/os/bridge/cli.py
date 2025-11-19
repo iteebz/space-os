@@ -352,6 +352,33 @@ def rename(
 
 @app.command()
 @error_feedback
+def topic(
+    ctx: typer.Context,
+    channel: str = typer.Argument(..., help="Channel name"),
+    new_topic: str = typer.Argument(..., help="New topic"),
+):
+    """Update channel topic."""
+    try:
+        result = api.update_topic(channel, new_topic if new_topic else None)
+        output_json(
+            {
+                "status": "success" if result else "failed",
+                "channel": channel,
+                "topic": new_topic,
+            },
+            ctx,
+        ) or (
+            echo_if_output(f"Updated topic for #{channel}", ctx)
+            if result
+            else echo_if_output(f"❌ Channel '{channel}' not found", ctx)
+        )
+    except Exception as e:
+        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
+        raise typer.Exit(code=1) from e
+
+
+@app.command()
+@error_feedback
 def wait(
     ctx: typer.Context,
     channel: str = typer.Argument(..., help="Channel to monitor"),
