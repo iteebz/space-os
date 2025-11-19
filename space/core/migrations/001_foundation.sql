@@ -166,4 +166,6 @@ CREATE TRIGGER IF NOT EXISTS transcripts_au AFTER UPDATE ON transcripts BEGIN
     VALUES (new.id, new.content, new.type, new.provider);
 END;
 
+PRAGMA user_version = 1;
+
 COMMIT;

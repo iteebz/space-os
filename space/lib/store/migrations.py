@@ -46,6 +46,7 @@ def ensure_schema(
         conn.execute("PRAGMA journal_mode=WAL")
         if migs:
             migrate(conn, migs)
+        conn.execute("PRAGMA user_version = 1")
         conn.commit()
 
 

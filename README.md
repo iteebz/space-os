@@ -1,12 +1,23 @@
 # space-os
 
-Coordination primitives for space agents.
+Coordination substrate for existing agent CLIs.
+
+## Not an Agent Framework
+
+**space-os does not invoke LLMs.** It provides coordination primitives for agent CLIs that already exist:
+- Claude Code (`claude-code`)
+- Gemini CLI (`gemini-cli`)
+- Codex CLI (`codex`)
+
+**Think: Unix pipes for AI agents.** Pipes (`|`) don't execute programs—they connect them. Bridge channels don't spawn LLM loops—they route messages between constitutional agents.
+
+**Every other multi-agent framework reimplements the agent loop** (LLM + tools + memory). We're saying: "Agent CLIs already exist. Let's connect them via message passing."
+
+**Interoperability:** Claude agents message Gemini agents message Codex agents—all reading the same `space.db`.
 
 ## What
 
-Infrastructure primitives enabling autonomous agent coordination with constitutional identity. Agents persist context across deaths, coordinate asynchronously, and build shared knowledge without orchestration.
-
-Seven primitives, single database (`space.db`), zero orchestration.
+Seven coordination primitives, single database (`space.db`), message-based coordination.
 
 **Human interface:** See [space-cmd](https://github.com/teebz/space-cmd) for the TUI command center (observability + steering).
 
@@ -36,26 +47,27 @@ spawn      — identity registry (constitutional provenance)
 ```
 
 **Principles:**
+- Coordination substrate, not agent framework (connects existing agent CLIs)
 - Composable primitives over monolithic frameworks
 - Workspace sovereignty (no cloud dependencies)
-- Async-first coordination (polling, not orchestration)
-- Constitutional identity optional (spawn layer)
+- Message passing, not orchestration (agents coordinate via conversation)
+- Constitutional identity as routing primitive (spawn layer)
 - Filesystem as source of truth
 
-See [docs/architecture.md](docs/architecture.md) for design details.
+See [docs/architecture.md](docs/architecture.md) for design details, [canon/metaspace/cli-pattern.md](/Users/teebz/space/canon/metaspace/cli-pattern.md) for CLI context injection, [canon/metaspace/spawn-patterns.md](/Users/teebz/space/canon/metaspace/spawn-patterns.md) for ephemeral agent coordination.
 
 ## Spawn Patterns
 
-**Direct spawn** — Run agent by identity:
+**Direct spawn** — Run existing agent CLI by constitutional identity:
 ```bash
 spawn register zealot zealot-1 --model claude-sonnet-4
-zealot-1 "your task here"  # dynamic CLI from space CLI
+zealot-1 "your task here"  # invokes claude-code with identity + channel context
 ```
 
-**@mention spawn** — Message triggers agent:
+**@mention spawn** — Message triggers agent CLI invocation:
 ```bash
 bridge send research "@zealot-1 analyze this proposal" --as you
-# System spawns zealot-1, builds prompt from channel context, posts reply
+# System invokes zealot-1's agent CLI, injects channel context, posts reply to bridge
 ```
 
 **Task-based spawn** — Create task, agent executes:
@@ -124,13 +136,15 @@ poetry run ruff check . --fix               # lint + fix
 
 ## Philosophy
 
-**Cognitive multiplicity over task automation.** Constitutional identities as frames, not workers. Humans conduct multiple perspectives simultaneously.
+**Coordination substrate, not agent framework.** We don't invoke LLMs. We connect agent CLIs (Claude Code, Gemini CLI, Codex) via message passing.
+
+**Cognitive multiplicity over task automation.** Constitutional identities as frames, not workers. Humans conduct multiple perspectives simultaneously. **Target: 1:100 human-to-agent coordination.** Current validation: 1:10 scale via protoss trials.
 
 **Primitives over platforms.** Composable layers that combine into coordination substrate, not monolithic framework.
 
 **Workspace sovereignty.** All data local in `.space/`. Full control over cognitive infrastructure.
 
-**Async-first.** Agents coordinate via conversation until consensus. No orchestration, no task queues.
+**Message passing over orchestration.** Agents coordinate via conversation until consensus. No DAGs, no task queues, no control plane.
 
 ---
 

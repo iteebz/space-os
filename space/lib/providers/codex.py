@@ -15,24 +15,46 @@ logger = logging.getLogger(__name__)
 class Codex(Provider):
     """Codex provider: chat discovery and message parsing.
 
-    Codex supports two models: gpt-5-codex (optimized for coding) and gpt-5 (general).
-    Reasoning effort defaults to low and is configured via codex config, not CLI args.
+    Codex supports models with optional reasoning effort suffixes:
+    - gpt-5.1-codex, gpt-5.1-codex-mini, gpt-5.1
+    - Reasoning: -low, -medium, -high
     """
 
     SESSIONS_DIR = Path.home() / ".codex" / "sessions"
 
     @staticmethod
-    def launch_args() -> list[str]:
-        """Return launch arguments for Codex."""
-        return ["--dangerously-bypass-approvals-and-sandbox"]
+    def parse_model_id(model_id: str) -> tuple[str, str | None]:
+        """Parse model ID into (base_model, reasoning_effort).
+
+        Examples:
+            'gpt-5.1-codex-low' -> ('gpt-5.1-codex', 'low')
+            'gpt-5.1-codex-mini-high' -> ('gpt-5.1-codex-mini', 'high')
+            'gpt-5.1' -> ('gpt-5.1', None)
+        """
+        for effort in ("low", "medium", "high"):
+            if model_id.endswith(f"-{effort}"):
+                base = model_id[: -(len(effort) + 1)]
+                return (base, effort)
+        return (model_id, None)
 
     @staticmethod
-    def task_launch_args() -> list[str]:
+    def launch_args(reasoning_effort: str | None = None) -> list[str]:
+        """Return launch arguments for Codex."""
+        args = ["--dangerously-bypass-approvals-and-sandbox"]
+        if reasoning_effort:
+            args.extend(["-c", f"model_reasoning_effort={reasoning_effort}"])
+        return args
+
+    @staticmethod
+    def task_launch_args(reasoning_effort: str | None = None) -> list[str]:
         """Return launch arguments for task-based Codex execution.
 
         Task mode uses --json flag, returns JSONL with thread_id in first event.
         """
-        return ["--json", "--dangerously-bypass-approvals-and-sandbox"]
+        args = ["--json", "--dangerously-bypass-approvals-and-sandbox"]
+        if reasoning_effort:
+            args.extend(["-c", f"model_reasoning_effort={reasoning_effort}"])
+        return args
 
     @staticmethod
     def discover() -> list[dict]:

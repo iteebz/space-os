@@ -26,11 +26,56 @@ MODELS = {
         },
     ],
     "codex": [
-        {"id": "gpt-5-codex", "name": "GPT-5 Codex", "description": "Optimized for agentic coding"},
+        {"id": "gpt-5.1-codex", "name": "GPT-5.1 Codex", "description": "Optimized for codex"},
         {
-            "id": "gpt-5",
-            "name": "GPT-5",
+            "id": "gpt-5.1-codex-low",
+            "name": "GPT-5.1 Codex (Low)",
+            "description": "Optimized for codex, low reasoning effort",
+        },
+        {
+            "id": "gpt-5.1-codex-medium",
+            "name": "GPT-5.1 Codex (Medium)",
+            "description": "Optimized for codex, medium reasoning effort",
+        },
+        {
+            "id": "gpt-5.1-codex-high",
+            "name": "GPT-5.1 Codex (High)",
+            "description": "Optimized for codex, high reasoning effort",
+        },
+        {
+            "id": "gpt-5.1-codex-mini",
+            "name": "GPT-5.1 Codex Mini",
+            "description": "Cheaper, faster, less capable",
+        },
+        {
+            "id": "gpt-5.1-codex-mini-medium",
+            "name": "GPT-5.1 Codex Mini (Medium)",
+            "description": "Cheaper, faster, medium reasoning effort",
+        },
+        {
+            "id": "gpt-5.1-codex-mini-high",
+            "name": "GPT-5.1 Codex Mini (High)",
+            "description": "Cheaper, faster, high reasoning effort",
+        },
+        {
+            "id": "gpt-5.1",
+            "name": "GPT-5.1",
             "description": "Broad world knowledge with strong reasoning",
+        },
+        {
+            "id": "gpt-5.1-low",
+            "name": "GPT-5.1 (Low)",
+            "description": "General reasoning, low effort",
+        },
+        {
+            "id": "gpt-5.1-medium",
+            "name": "GPT-5.1 (Medium)",
+            "description": "General reasoning, medium effort",
+        },
+        {
+            "id": "gpt-5.1-high",
+            "name": "GPT-5.1 (High)",
+            "description": "General reasoning, high effort",
         },
     ],
     "gemini": [

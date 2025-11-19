@@ -5,7 +5,7 @@ from space.os import memory
 from . import agents
 
 SPAWN_CONTEXT_TEMPLATE = """\
-You are {identity}.
+You are {identity}, powered by {model}.
 
 PRIMITIVES (actual API with examples):
 - memory add/list/search/core/inspect/archive: Working memory organized by --topic.
@@ -74,6 +74,7 @@ def build_spawn_context(
     """
     agent = agents.get_agent(identity)
     agent_id = agent.agent_id if agent else None
+    model = agent.model if agent else "unknown"
 
     memories_context = ""
     if agent_id:
@@ -103,6 +104,7 @@ def build_spawn_context(
 
     return SPAWN_CONTEXT_TEMPLATE.format(
         identity=identity,
+        model=model,
         memories=memories_context,
         task=task_context,
         channel=channel_context,

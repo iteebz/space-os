@@ -1,13 +1,69 @@
 """Bridge delimiter parsing: @spawn, !control, #channels, /docs."""
 
+import atexit
 import logging
+import queue
 import re
+import threading
 
 from space.os.spawn.api import agents as spawn_agents
 from space.os.spawn.api import spawns
 from space.os.spawn.api.launch import spawn_ephemeral
 
 log = logging.getLogger(__name__)
+
+# Bounded queue with single worker thread (avoids threading storms at scale)
+_spawn_queue: queue.Queue = queue.Queue(maxsize=1000)
+_worker_thread: threading.Thread | None = None
+_shutdown_flag = threading.Event()
+
+
+def _start_worker() -> None:
+    """Start background worker thread if not already running."""
+    global _worker_thread
+    if _worker_thread is not None and _worker_thread.is_alive():
+        return
+
+    def _process_spawn_queue():
+        """Background worker: processes spawn queue until shutdown."""
+        while not _shutdown_flag.is_set():
+            try:
+                channel_id, content, agent_id = _spawn_queue.get(timeout=0.5)
+                try:
+                    from . import channels
+
+                    channel = channels.get_channel(channel_id)
+                    if not channel:
+                        log.error(f"Channel {channel_id} not found")
+                        continue
+                    _process_control_commands_impl(channel_id, content)
+                    _process_mentions(channel_id, content, agent_id)
+                except Exception as e:
+                    log.error(f"Failed to process delimiters: {e}", exc_info=True)
+                finally:
+                    _spawn_queue.task_done()
+            except queue.Empty:
+                continue
+
+    _worker_thread = threading.Thread(target=_process_spawn_queue, daemon=True, name="spawn-worker")
+    _worker_thread.start()
+    log.info("Spawn worker thread started")
+
+
+def _shutdown_worker() -> None:
+    """Graceful shutdown: wait for queue to drain, then stop worker."""
+    if _worker_thread is None or not _worker_thread.is_alive():
+        return
+
+    log.info("Shutting down spawn worker (draining queue)...")
+    _shutdown_flag.set()
+    _spawn_queue.join()  # Wait for all queued items to finish
+    _worker_thread.join(timeout=5)
+    log.info("Spawn worker shutdown complete")
+
+
+# Register shutdown handler
+atexit.register(_shutdown_worker)
 
 
 def _parse_mentions(content: str) -> list[str]:
@@ -59,28 +115,20 @@ def _parse_control_commands(content: str) -> dict[str, list[str]]:
 def spawn_from_mentions(channel_id: str, content: str, agent_id: str | None = None) -> None:
     """Process delimiters from message content (async, non-blocking).
 
+    Enqueues work to bounded queue processed by single background worker.
+    Provides backpressure: drops requests if queue is full (prevents memory exhaustion).
+
     Args:
         channel_id: Channel where message was posted
         content: Message content with potential @mentions and !control commands
         agent_id: If provided, skip processing mentions from this agent (prevents cascades)
     """
-    import threading
+    _start_worker()
 
-    def _process_async():
-        try:
-            from . import channels
-
-            channel = channels.get_channel(channel_id)
-            if not channel:
-                log.error(f"Channel {channel_id} not found")
-                return
-            _process_control_commands_impl(channel_id, content)
-            _process_mentions(channel_id, content, agent_id)
-        except Exception as e:
-            log.error(f"Failed to process delimiters: {e}")
-
-    thread = threading.Thread(target=_process_async, daemon=True)
-    thread.start()
+    try:
+        _spawn_queue.put_nowait((channel_id, content, agent_id))
+    except queue.Full:
+        log.error(f"Spawn queue full (1000 items), dropping request for channel {channel_id}")
 
 
 def _process_control_commands_impl(channel_id: str, content: str) -> None:

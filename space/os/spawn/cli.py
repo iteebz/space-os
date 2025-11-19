@@ -457,6 +457,31 @@ def main() -> None:
                 else:
                     api.spawn_interactive(potential_identity, resume=resume)
                 return
+            # Check if it looks like an identity (not a subcommand)
+            known_commands = {
+                "agents",
+                "register",
+                "models",
+                "clone",
+                "rename",
+                "update",
+                "inspect",
+                "merge",
+                "tasks",
+                "logs",
+                "kill",
+                "trace",
+            }
+            if potential_identity not in known_commands:
+                typer.echo(
+                    f"Agent '{potential_identity}' not found. Register with: spawn register {potential_identity} --model <model>",
+                    err=True,
+                )
+                typer.echo(
+                    "Run 'spawn agents' to list registered agents or 'spawn --help' for commands.",
+                    err=True,
+                )
+                raise typer.Exit(1)
         app()
     except SystemExit:
         raise

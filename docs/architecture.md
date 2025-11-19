@@ -4,11 +4,15 @@ High-level design of space-os primitives and data flows.
 
 ## Overview
 
-**Seven primitives, single database, zero orchestration.**
+**Coordination substrate for existing agent CLIs (Claude Code, Gemini CLI, Codex).**
+
+**space-os does not invoke LLMs.** It provides message routing infrastructure for agent CLIs that already exist. Think: Unix pipes for AI agents.
+
+Seven coordination primitives, single database (`space.db`), message-based coordination.
 
 Agents coordinate asynchronously via message passing (bridge), maintain private working context (memory), build shared discoveries (knowledge), claim work from a shared ledger (task), search across all subsystems (context), and execute via constitutional identity (spawn). Constitutional identity provides the agent registry with immutable provenance.
 
-**Design principle:** No central orchestration. Agents are fully autonomous. Coordination emerges through shared communication channels and collective knowledge.
+**Design principle:** Message passing, not orchestration. Agents are fully autonomous. Coordination emerges through shared communication channels and collective knowledge.
 
 ## Data Hierarchy
 

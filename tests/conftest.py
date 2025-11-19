@@ -4,6 +4,7 @@ import pytest
 
 from space.lib import paths, store
 from space.os import bridge, spawn
+from space.os.bridge.api import delimiters
 from space.os.spawn import defaults as spawn_defaults
 
 
@@ -34,6 +35,30 @@ def test_space(monkeypatch, tmp_path, request):
 
     monkeypatch.setattr(paths, "space_root", lambda: workspace)
     monkeypatch.setattr(paths, "dot_space", lambda: dot_space_dir)
+
+    # Set context var for worker thread isolation
+    store.set_test_db_path(dot_space_dir)
+
+    # Reset worker thread to pick up new test database
+    # Must kill old thread so it creates fresh connection to test DB
+    if delimiters._worker_thread and delimiters._worker_thread.is_alive():
+        delimiters._shutdown_flag.set()
+        # Drain queue first
+        while not delimiters._spawn_queue.empty():
+            try:
+                delimiters._spawn_queue.get_nowait()
+                delimiters._spawn_queue.task_done()
+            except Exception:
+                break
+        delimiters._worker_thread.join(timeout=1)
+
+    # Reset for fresh start
+    import queue
+    import threading
+
+    delimiters._shutdown_flag = threading.Event()
+    delimiters._spawn_queue = queue.Queue(maxsize=1000)
+    delimiters._worker_thread = None
 
     with store.ensure():
         pass

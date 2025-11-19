@@ -1,6 +1,7 @@
 """Unit tests for bridge delimiter parsing and prompt building."""
 
-from unittest.mock import patch
+import time
+from unittest.mock import MagicMock, patch
 
 from space.core.models import Agent
 from space.os.bridge.api import delimiters
@@ -94,3 +95,65 @@ def test_build_spawn_context_with_channel():
         assert "You are zealot" in result
         assert "CHANNEL: #bugs" in result
         assert "respond here" in result
+
+
+def test_spawn_from_mentions_enqueues_work():
+    """Verify spawn_from_mentions enqueues work to bounded queue."""
+    # Reset queue state
+    while not delimiters._spawn_queue.empty():
+        delimiters._spawn_queue.get_nowait()
+
+    delimiters.spawn_from_mentions("test-channel", "@zealot do something", "agent-123")
+
+    # Verify item was enqueued
+    assert delimiters._spawn_queue.qsize() == 1
+
+    # Verify worker thread started
+    assert delimiters._worker_thread is not None
+    assert delimiters._worker_thread.is_alive()
+
+
+def test_spawn_from_mentions_backpressure():
+    """Verify queue full behavior provides backpressure."""
+    # Fill queue to capacity
+    while not delimiters._spawn_queue.full():
+        try:
+            delimiters._spawn_queue.put_nowait(("ch", "content", None))
+        except Exception:
+            break
+
+    # Next enqueue should log error and drop request
+    with patch("space.os.bridge.api.delimiters.log") as mock_log:
+        delimiters.spawn_from_mentions("overflow-channel", "@zealot help", None)
+        mock_log.error.assert_called_once()
+        assert "queue full" in mock_log.error.call_args[0][0].lower()
+
+
+def test_worker_processes_queue():
+    """Verify worker thread processes queued items."""
+    # Reset queue
+    while not delimiters._spawn_queue.empty():
+        delimiters._spawn_queue.get_nowait()
+
+    # Mock dependencies (channels is imported inside worker, so patch at import path)
+    with (
+        patch("space.os.bridge.api.channels.get_channel") as mock_get_channel,
+        patch("space.os.bridge.api.delimiters._process_control_commands_impl") as mock_control,
+        patch("space.os.bridge.api.delimiters._process_mentions") as mock_mentions,
+    ):
+        mock_channel = MagicMock()
+        mock_channel.channel_id = "test-ch"
+        mock_get_channel.return_value = mock_channel
+
+        # Enqueue work
+        delimiters.spawn_from_mentions("test-ch", "@zealot test", "agent-1")
+
+        # Wait for worker to process (max 2 seconds)
+        start = time.time()
+        while delimiters._spawn_queue.qsize() > 0 and (time.time() - start) < 2:
+            time.sleep(0.1)
+
+        # Verify processing happened
+        assert delimiters._spawn_queue.qsize() == 0
+        mock_control.assert_called_once_with("test-ch", "@zealot test")
+        mock_mentions.assert_called_once_with("test-ch", "@zealot test", "agent-1")

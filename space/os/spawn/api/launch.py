@@ -49,7 +49,14 @@ def spawn_interactive(
     command_tokens[0] = _resolve_executable(command_tokens[0], env)
 
     passthrough = extra_args or []
-    model_args = ["--model", agent.model]
+
+    # Parse model ID for codex reasoning effort
+    model_id = agent.model
+    reasoning_effort = None
+    if agent.provider == "codex":
+        model_id, reasoning_effort = Codex.parse_model_id(agent.model)
+
+    model_args = ["--model", model_id]
 
     typer.echo(f"Spawning {identity}...\n")
     spawn = spawns.create_spawn(
@@ -66,6 +73,8 @@ def spawn_interactive(
             launch_args = provider_class.launch_args(has_prompt=bool(passthrough))
         elif agent.provider == "claude":
             launch_args = provider_class.launch_args(is_ephemeral=bool(passthrough))
+        elif agent.provider == "codex":
+            launch_args = provider_class.launch_args(reasoning_effort=reasoning_effort)
         else:
             launch_args = provider_class.launch_args()
     else:
@@ -78,16 +87,15 @@ def spawn_interactive(
 
     if passthrough:
         context = build_spawn_context(identity, task=passthrough[0] if passthrough else None)
-        full_command = (
-            command_tokens + add_dir_args + [context] + model_args + launch_args + resume_args
-        )
-        display_command = (
-            command_tokens + add_dir_args + ['"<context>"'] + model_args + launch_args + resume_args
-        )
     else:
         context = build_spawn_context(identity)
-        full_command = command_tokens + add_dir_args + model_args + launch_args + resume_args
-        display_command = full_command
+
+    full_command = (
+        command_tokens + add_dir_args + [context] + model_args + launch_args + resume_args
+    )
+    display_command = (
+        command_tokens + add_dir_args + ['"<context>"'] + model_args + launch_args + resume_args
+    )
 
     typer.echo(f"Executing: {' '.join(display_command)}")
     typer.echo("")
@@ -97,27 +105,19 @@ def spawn_interactive(
         popen_kwargs = {
             "env": env,
             "cwd": str(spawn_dir),
-            "stdin": subprocess.PIPE,
         }
         proc = subprocess.Popen(full_command, **popen_kwargs)
         try:
-            proc.communicate()
+            proc.wait()
         finally:
             spawns.end_spawn(spawn.id)
     else:
-        import sys
-
         popen_kwargs = {
             "env": env,
             "cwd": str(paths.space_root()),
-            "stdin": subprocess.PIPE,
-            "stdout": sys.stdout,
-            "stderr": sys.stderr,
         }
         proc = subprocess.Popen(full_command, **popen_kwargs)
         try:
-            proc.stdin.write(context.encode() + b"\n")
-            proc.stdin.close()
             proc.wait()
         finally:
             spawns.end_spawn(spawn.id)
@@ -329,14 +329,17 @@ def _spawn_ephemeral_codex(
     """
     from space.os.sessions.api import linker, sync
 
-    launch_args = Codex.task_launch_args()
+    # Parse model ID for reasoning effort
+    model_id, reasoning_effort = Codex.parse_model_id(agent.model)
+    launch_args = Codex.task_launch_args(reasoning_effort=reasoning_effort)
 
     context = build_spawn_context(
         agent.identity, task=instruction, channel=channel_name, is_ephemeral=True
     )
     add_dir_args = ["--add-dir", str(paths.space_root())]
+    model_args = ["--model", model_id]
     resume_args = _build_resume_args("codex", session_id, is_continue)
-    cmd = ["codex"] + resume_args + ["exec"] + launch_args + add_dir_args
+    cmd = ["codex"] + resume_args + ["exec"] + launch_args + model_args + add_dir_args
 
     spawn_dir = paths.identity_dir(agent.identity)
 

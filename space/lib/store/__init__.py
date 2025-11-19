@@ -7,6 +7,7 @@ from space.lib.store.connection import (
     database_exists,
     ensure,
     from_row,
+    set_test_db_path,
 )
 from space.lib.store.health import (
     check_backup_has_data,
@@ -21,6 +22,7 @@ __all__ = [
     "Row",
     "database_exists",
     "_reset_for_testing",
+    "set_test_db_path",
     "close_all",
     "connect",
     "resolve",
