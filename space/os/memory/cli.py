@@ -85,8 +85,6 @@ def edit(
         api.edit_memory(uuid, message)
         output.out_text(f"Edited {uuid[-8:]}", ctx.obj)
     except ValueError as e:
-        agent_id = entry.agent_id if entry else None
-        output.emit_error("memory", agent_id, "edit", e)
         raise typer.BadParameter(str(e)) from e
 
 
@@ -107,7 +105,6 @@ def list_cmd(
     try:
         entries = api.list_memories(identity, topic=topic, show_all=show_all)
     except ValueError as e:
-        output.emit_error("memory", None, "list", e)
         raise typer.BadParameter(str(e)) from e
 
     entries = sorted(entries, key=lambda e: (not e.core, e.created_at), reverse=True)
@@ -149,7 +146,6 @@ def search(
         entries = api.list_memories(ident, show_all=show_all)
         results = [e for e in entries if query.lower() in e.message.lower()]
     except ValueError as e:
-        output.emit_error("memory", None, "search", e)
         raise typer.BadParameter(str(e)) from e
 
     if not results:
@@ -179,8 +175,6 @@ def archive(
         action = "restored" if restore else "archived"
         output.out_text(f"{action} {uuid[-8:]}", ctx.obj)
     except ValueError as e:
-        agent_id = entry.agent_id if entry else None
-        output.emit_error("memory", agent_id, "archive", e)
         raise typer.BadParameter(str(e)) from e
 
 
@@ -198,8 +192,6 @@ def core(
         is_core = api.toggle_memory_core(uuid)
         output.out_text(f"{'★' if is_core else ''} {uuid[-8:]}", ctx.obj)
     except ValueError as e:
-        agent_id = entry.agent_id if entry else None
-        output.emit_error("memory", agent_id, "core", e)
         raise typer.BadParameter(str(e)) from e
 
 
@@ -215,7 +207,6 @@ def inspect(
     try:
         entry = api.get_memory(uuid)
     except ValueError as e:
-        output.emit_error("memory", None, "inspect", e)
         raise typer.BadParameter(str(e)) from e
 
     if not entry:

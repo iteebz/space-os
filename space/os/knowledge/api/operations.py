@@ -137,38 +137,35 @@ def archive_knowledge(entry_id: str, restore: bool = False) -> None:
 
 
 def get_domain_tree(parent_domain: str | None = None, show_all: bool = False) -> dict:
-    """Get hierarchical domain tree with entry IDs, optionally filtered by parent domain."""
     from space.lib.uuid7 import short_id
-
-    archive_filter = "" if show_all else "WHERE archived_at IS NULL"
 
     with store.ensure() as conn:
         if parent_domain:
-            prefix = f"{parent_domain}/"
-            rows = conn.execute(
-                f"SELECT domain, knowledge_id FROM knowledge WHERE domain LIKE ? {archive_filter} ORDER BY domain",
-                (f"{prefix}%",),
-            ).fetchall()
+            query = "SELECT domain, knowledge_id FROM knowledge WHERE domain LIKE ?"
+            params = [f"{parent_domain}/%"]
+            if not show_all:
+                query += " AND archived_at IS NULL"
         else:
-            rows = conn.execute(
-                f"SELECT domain, knowledge_id FROM knowledge {archive_filter} ORDER BY domain"
-            ).fetchall()
+            query = "SELECT domain, knowledge_id FROM knowledge"
+            params = []
+            if not show_all:
+                query += " WHERE archived_at IS NULL"
 
-    tree = {}
+        query += " ORDER BY domain"
+        rows = conn.execute(query, params).fetchall()
+
+    tree: dict = {}
     for domain, knowledge_id in rows:
         parts = domain.split("/")
         current = tree
         for i, part in enumerate(parts):
-            is_leaf = i == len(parts) - 1
-            if is_leaf:
-                if part not in current:
-                    current[part] = {"__ids": []}
-                elif isinstance(current[part], dict) and "__ids" not in current[part]:
+            if i == len(parts) - 1:
+                current.setdefault(part, {"__ids": []})
+                if "__ids" not in current[part]:
                     current[part]["__ids"] = []
                 current[part]["__ids"].append(short_id(knowledge_id))
             else:
-                if part not in current or not isinstance(current[part], dict):
-                    current[part] = {}
+                current.setdefault(part, {})
                 current = current[part]
 
     return tree
@@ -212,8 +209,7 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
     return results
 
 
-def stats() -> "Knowledge.KnowledgeStats":
-    """Get knowledge statistics."""
+def stats() -> "KnowledgeStats":
     from space.core.models import KnowledgeStats
 
     total, active, archived = count_knowledge()

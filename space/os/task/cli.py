@@ -124,7 +124,6 @@ def start(
             api.start_task(task_id, agent.agent_id)
             output.out_text(f"Claimed: {task_id[-8:]}", ctx.obj)
     except ValueError as e:
-        output.emit_error("task", agent.agent_id, "start", e)
         raise typer.BadParameter(str(e)) from e
 
 
@@ -147,7 +146,6 @@ def done(
         api.done_task(task_id, agent.agent_id)
         output.out_text(f"Completed: {task_id[-8:]}", ctx.obj)
     except ValueError as e:
-        output.emit_error("task", agent.agent_id, "done", e)
         raise typer.BadParameter(str(e)) from e
 
 

@@ -40,7 +40,7 @@ def list_memories(
     topic: str | None = None,
     show_all: bool = False,
     limit: int | None = None,
-    filter: str | None = None,
+    filter_type: str | None = None,
 ) -> list[Memory]:
     from space.os import spawn
 
@@ -57,10 +57,10 @@ def list_memories(
             query += " AND topic = ?"
             params.append(topic)
 
-        if filter == "core":
+        if filter_type == "core":
             query += " AND core = 1"
-        elif filter and filter.startswith("recent:"):
-            days = int(filter.split(":")[1])
+        elif filter_type and filter_type.startswith("recent:"):
+            days = int(filter_type.split(":")[1])
             cutoff = (datetime.now() - timedelta(days=days)).isoformat()
             query += " AND created_at >= ?"
             params.append(cutoff)
@@ -102,7 +102,6 @@ def search_memories(
     agent_id = agent.agent_id
 
     archive_filter = "" if show_all else "AND archived_at IS NULL"
-    limit_clause = f"LIMIT {limit}" if limit else ""
 
     with store.ensure() as conn:
         sql = f"""
@@ -113,9 +112,12 @@ def search_memories(
                 SELECT rowid FROM memory_fts WHERE memory_fts MATCH ?
             ) {archive_filter}
             ORDER BY m.created_at DESC
-            {limit_clause}
         """
-        rows = conn.execute(sql, (agent_id, query)).fetchall()
+        params = [agent_id, query]
+        if limit:
+            sql += " LIMIT ?"
+            params.append(limit)
+        rows = conn.execute(sql, params).fetchall()
         return [_row_to_memory(row) for row in rows]
 
 
@@ -352,7 +354,10 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
 
             fts_query += " ORDER BY m.created_at ASC"
             rows = conn.execute(fts_query, params).fetchall()
-        except Exception:
+        except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).debug(f"FTS query failed, falling back to LIKE: {e}")
             rows = []
             fallback_query = (
                 "SELECT memory_id, agent_id, topic, message, created_at FROM memories "

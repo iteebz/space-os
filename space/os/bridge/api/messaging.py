@@ -1,33 +1,33 @@
 """Message operations: send, receive, format, history."""
 
+import re
 import sqlite3
 import time
+from datetime import datetime, timedelta
 
 from space.core.models import Channel, Message
 from space.lib import store
-from space.lib.codec import decode_base64
+from space.lib.codec import decode_base64 as decode_base64_content
 from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
+
+from .channels import _to_channel_id
 
 
 def _row_to_message(row: store.Row) -> Message:
     return from_row(row, Message)
 
 
-def _to_channel_id(channel: str | Channel) -> str:
-    return channel.channel_id if isinstance(channel, Channel) else channel
-
-
 def send_message(
-    channel: str | Channel, identity: str, content: str, decode_base64_flag: bool = False
+    channel: str | Channel, identity: str, content: str, decode_base64: bool = False
 ) -> str:
     """Send message. Returns agent_id.
 
     Args:
         channel: Channel name or ID.
         identity: Sender identity (caller responsible for validation).
-        content: Message content (or base64-encoded if decode_base64_flag=True).
-        decode_base64_flag: If True, decode content from base64.
+        content: Message content (or base64-encoded if decode_base64=True).
+        decode_base64: If True, decode content from base64.
 
     Raises:
         ValueError: If channel not found, identity not registered, or base64 payload invalid.
@@ -36,8 +36,8 @@ def send_message(
 
     from . import channels
 
-    if decode_base64_flag:
-        content = decode_base64(content)
+    if decode_base64:
+        content = decode_base64_content(content)
 
     channel_id = _to_channel_id(channel)
     if not identity:
@@ -200,9 +200,7 @@ def recv_messages(
     messages = get_messages(channel_id)
 
     if ago:
-        from datetime import datetime, timedelta
-
-        match = __import__("re").match(r"(\d+)([hm])", ago)
+        match = re.match(r"(\d+)([hm])", ago)
         if not match:
             raise ValueError("Invalid time format. Use '1h' or '30m'")
         val, unit = int(match.group(1)), match.group(2)
@@ -254,8 +252,6 @@ def format_messages(messages: list[Message], title: str = "Messages", as_json: b
     for msg in messages:
         sender = spawn.get_agent(msg.agent_id)
         sender_name = sender.identity if sender else msg.agent_id[:8]
-        from datetime import datetime
-
         ts = datetime.fromisoformat(msg.created_at).strftime("%H:%M:%S")
         lines.append(f"**{sender_name}** ({ts}):")
         lines.append(msg.content)
@@ -290,7 +286,7 @@ def wait_for_message(
     channel_id = _to_channel_id(channel)
 
     while True:
-        msgs, count, context, participants = recv_messages(channel_id, identity, session_id)
+        msgs, count, context, participants = recv_messages(channel_id, identity)
         other_messages = [msg for msg in msgs if msg.agent_id != agent_id]
 
         if other_messages:

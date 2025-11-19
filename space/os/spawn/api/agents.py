@@ -1,13 +1,12 @@
 """Agent operations: CRUD, merging, caching."""
 
 import hashlib
-import uuid
 from datetime import datetime
-from functools import lru_cache
 
 from space.core.models import Agent
 from space.lib import paths, store
 from space.lib.store import from_row
+from space.lib.uuid7 import uuid7
 
 
 def _validate_identity(identity: str) -> None:
@@ -21,20 +20,6 @@ def _validate_identity(identity: str) -> None:
 
 def _row_to_agent(row: store.Row) -> Agent:
     return from_row(row, Agent)
-
-
-@lru_cache(maxsize=256)
-def _get_agent_by_name_cached(name: str) -> Agent | None:
-    with store.ensure() as conn:
-        row = conn.execute(
-            "SELECT agent_id, identity, constitution, model, role, spawn_count, archived_at, created_at FROM agents WHERE identity = ? AND archived_at IS NULL LIMIT 1",
-            (name,),
-        ).fetchone()
-        return _row_to_agent(row) if row else None
-
-
-def _clear_cache():
-    _get_agent_by_name_cached.cache_clear()
 
 
 def compute_constitution_hash(constitution_name: str | None) -> str | None:
@@ -82,14 +67,13 @@ def register_agent(
     if agent:
         raise ValueError(f"Identity '{identity}' already registered")
 
-    agent_id = str(uuid.uuid4())
+    agent_id = uuid7()
     now_iso = datetime.now().isoformat()
     with store.ensure() as conn:
         conn.execute(
             "INSERT INTO agents (agent_id, identity, constitution, model, role, created_at) VALUES (?, ?, ?, ?, ?, ?)",
             (agent_id, identity, constitution, model, role, now_iso),
         )
-    _clear_cache()
     touch_agent(agent_id)
     return agent_id
 
@@ -128,7 +112,6 @@ def update_agent(
     sql = f"UPDATE agents SET {', '.join(updates)} WHERE agent_id = ?"
     with store.ensure() as conn:
         conn.execute(sql, values)
-    _clear_cache()
     return True
 
 
@@ -159,7 +142,6 @@ def rename_agent(old_name: str, new_name: str) -> bool:
         conn.execute(
             "UPDATE agents SET identity = ? WHERE agent_id = ?", (new_name, old_agent.agent_id)
         )
-    _clear_cache()
     return True
 
 
@@ -174,7 +156,6 @@ def archive_agent(name: str) -> bool:
             "UPDATE agents SET archived_at = ? WHERE agent_id = ?",
             (datetime.now().isoformat(), agent_id),
         )
-    _clear_cache()
     return True
 
 
@@ -183,14 +164,10 @@ def unarchive_agent(name: str) -> bool:
         row = conn.execute(
             "SELECT agent_id FROM agents WHERE identity = ? LIMIT 1", (name,)
         ).fetchone()
-        agent_id = row["agent_id"] if row else None
+        if not row:
+            return False
 
-    if not agent_id:
-        return False
-
-    with store.ensure() as conn:
-        conn.execute("UPDATE agents SET archived_at = NULL WHERE agent_id = ?", (agent_id,))
-    _clear_cache()
+        conn.execute("UPDATE agents SET archived_at = NULL WHERE agent_id = ?", (row["agent_id"],))
     return True
 
 
@@ -203,7 +180,6 @@ def list_agents() -> list[str]:
 
 
 def merge_agents(from_name: str, to_name: str) -> bool:
-    """Merge agent histories. Migrates all references from source to target."""
     from_agent = get_agent(from_name)
     to_agent = get_agent(to_name)
 
@@ -216,13 +192,18 @@ def merge_agents(from_name: str, to_name: str) -> bool:
         return False
 
     with store.ensure() as conn:
-        conn.execute("UPDATE messages SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
-        conn.execute("UPDATE spawns SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
-        conn.execute("UPDATE knowledge SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
-        conn.execute("UPDATE memories SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
-        conn.execute("DELETE FROM agents WHERE agent_id = ?", (from_id,))
+        conn.execute("BEGIN")
+        try:
+            conn.execute("UPDATE messages SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
+            conn.execute("UPDATE spawns SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
+            conn.execute("UPDATE knowledge SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
+            conn.execute("UPDATE memories SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
+            conn.execute("DELETE FROM agents WHERE agent_id = ?", (from_id,))
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
 
-    _clear_cache()
     return True
 
 

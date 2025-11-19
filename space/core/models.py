@@ -35,11 +35,11 @@ class Agent:
         model_lower = self.model.lower()
         if model_lower.startswith("gpt-"):
             return "codex"
-        if model_lower.startswith("gemini-"):
+        if model_lower.startswith("gemini"):
             return "gemini"
-        if model_lower.startswith("claude-"):
+        if model_lower.startswith("claude"):
             return "claude"
-        raise ValueError(f"Unknown provider for model: {self.model}")
+        return "claude"
 
 
 @dataclass

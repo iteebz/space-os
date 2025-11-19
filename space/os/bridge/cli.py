@@ -131,7 +131,7 @@ def channels(
 ):
     """List active and archived channels."""
     try:
-        chans = api.list_channels(all=all)
+        chans = api.list_channels(show_all=all)
 
         if not chans:
             output_json([], ctx) or echo_if_output("No channels found", ctx)
@@ -282,7 +282,7 @@ def send(
         agent = spawn.get_agent(identity)
         if not agent:
             raise ValueError(f"Identity '{identity}' not registered.")
-        api.send_message(channel, identity, content, decode_base64_flag=decode_base64)
+        api.send_message(channel, identity, content, decode_base64=decode_base64)
         output_json(
             {"status": "success", "channel": channel, "identity": identity}, ctx
         ) or echo_if_output(

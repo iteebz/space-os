@@ -55,8 +55,8 @@ def test_get_agent_missing_returns_none(mock_db):
 
 def test_register_agent_success(mock_db):
     mock_db.execute.return_value.fetchone.return_value = None  # Agent not found
-    with patch("space.os.spawn.api.agents.uuid.uuid4") as mock_uuid:
-        mock_uuid.return_value = "new-uuid"
+    with patch("space.os.spawn.api.agents.uuid7") as mock_uuid7:
+        mock_uuid7.return_value = "new-uuid"
         agent_id = spawn.register_agent("newagent", "claude-haiku-4-5", "c.md")
 
     assert agent_id == "new-uuid"

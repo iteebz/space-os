@@ -1,11 +1,11 @@
 """Channel operations: create, rename, archive, pin, list, resolve."""
 
 import sqlite3
-import uuid
 
 from space.core.models import Channel
 from space.lib import store
 from space.lib.store import from_row
+from space.lib.uuid7 import uuid7
 
 
 def _row_to_channel(row: store.Row) -> Channel:
@@ -20,7 +20,7 @@ def create_channel(name: str, topic: str | None = None) -> Channel:
     if not name:
         raise ValueError("Channel name is required")
 
-    channel_id = uuid.uuid4().hex
+    channel_id = uuid7()
     with store.ensure() as conn:
         conn.execute(
             "INSERT INTO channels (channel_id, name, topic) VALUES (?, ?, ?)",
@@ -118,10 +118,10 @@ def delete_channel(name: str) -> None:
         conn.execute("DELETE FROM channels WHERE channel_id = ?", (channel_id,))
 
 
-def list_channels(all: bool = False) -> list[Channel]:
+def list_channels(show_all: bool = False) -> list[Channel]:
     """Get all channels."""
     with store.ensure() as conn:
-        archived_clause = "" if all else "AND c.archived_at IS NULL"
+        archived_clause = "" if show_all else "AND c.archived_at IS NULL"
         query = f"""
             SELECT
                 c.channel_id,

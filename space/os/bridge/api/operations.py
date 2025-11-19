@@ -1,6 +1,6 @@
-"""Bridge operations: search, statistics."""
+"""Bridge operations: search."""
 
-from space.core.models import BridgeStats, SearchResult
+from space.core.models import SearchResult
 from space.lib import store
 from space.os import spawn
 
@@ -32,21 +32,3 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
             )
 
     return results
-
-
-def stats() -> BridgeStats:
-    with store.ensure() as conn:
-        total_messages = conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
-        total_channels = conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0]
-        archived_channels = conn.execute(
-            "SELECT COUNT(*) FROM channels WHERE archived_at IS NOT NULL"
-        ).fetchone()[0]
-        active_channels = total_channels - archived_channels
-
-    return BridgeStats(
-        available=True,
-        total=total_messages,
-        channels=total_channels,
-        active_channels=active_channels,
-        archived_channels=archived_channels,
-    )

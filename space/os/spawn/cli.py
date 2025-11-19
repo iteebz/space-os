@@ -34,9 +34,7 @@ def main_callback(
     ),
 ):
     """Constitutional identity registry. Register agents with constitution, spawn by identity, track execution."""
-    output.set_flags(ctx, json_output, quiet_output)
-    if ctx.obj is None:
-        ctx.obj = {}
+    output.init_context(ctx, json_output, quiet_output)
 
     if ctx.resilient_parsing:
         return
@@ -426,8 +424,8 @@ def dispatch_agent_from_name() -> NoReturn:
 
     agent = api.get_agent(prog_name)
     if not agent:
-        click.echo(f"Error: '{prog_name}' is not a registered agent identity.", err=True)
-        click.echo("Run 'spawn agents' to list available agents.", err=True)
+        typer.echo(f"Error: '{prog_name}' is not a registered agent identity.", err=True)
+        typer.echo("Run 'spawn agents' to list available agents.", err=True)
         sys.exit(1)
 
     args = sys.argv[1:] if len(sys.argv) > 1 else []

@@ -90,7 +90,7 @@ def test_list_memories_with_topic_filter(mock_db, mock_get_agent):
 def test_list_memories_with_core_filter(mock_db, mock_get_agent):
     mock_db.execute.return_value.fetchall.return_value = []
 
-    memory.api.list_memories("test-agent-id", filter="core")
+    memory.api.list_memories("test-agent-id", filter_type="core")
 
     args = mock_db.execute.call_args[0]
     assert "AND core = 1" in args[0]

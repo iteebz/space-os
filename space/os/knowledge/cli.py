@@ -232,7 +232,6 @@ def archive(
         action = "restored" if restore else "archived"
         output.out_text(f"{action} {knowledge_id[-8:]}", ctx.obj)
     except ValueError as e:
-        output.emit_error("knowledge", entry.agent_id, "archive", e)
         raise typer.BadParameter(str(e)) from e
 
 

@@ -207,7 +207,7 @@ def identify_query_type(query: str) -> tuple[str, str]:
             return (query_type, agent.identity)
         if query_type == "session_id":
             try:
-                trace_session(value)
+                trace_spawn(value)
             except ValueError as e:
                 raise ValueError(f"Session '{value}' not found") from e
             return (query_type, value)

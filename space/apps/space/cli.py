@@ -15,14 +15,7 @@ def main_callback(ctx: typer.Context):
     Manage agents, their memories, shared knowledge, and coordination."""
     from space.cli import output
 
-    output.set_flags(ctx, False, False)
-
-    if ctx.obj is None:
-        ctx.obj = {}
-
-    ctx.obj["identity"] = None
-    ctx.obj["json"] = False
-    ctx.obj["quiet"] = False
+    output.init_context(ctx, json_output=False, quiet_output=False, identity=None)
 
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help())

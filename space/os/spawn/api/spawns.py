@@ -122,27 +122,22 @@ def get_spawn_count(agent_id: str) -> int:
         return result[0] if result else 0
 
 
-def get_spawns_for_agent(agent_id: str, limit: int | None = None) -> list[Spawn]:
-    """Get all spawns for an agent, ordered by most recent first.
-
-    Args:
-        agent_id: Agent ID
-        limit: Maximum number of spawns to return (None for all)
-
-    Returns:
-        List of Spawn objects
-    """
+def get_spawns_for_agent(
+    agent_id: str, limit: int | None = None, status: str | None = None
+) -> list[Spawn]:
     with store.ensure() as conn:
-        query = """
-            SELECT * FROM spawns
-            WHERE agent_id = ?
-            ORDER BY created_at DESC
-        """
-        params = (agent_id,)
+        query = "SELECT * FROM spawns WHERE agent_id = ?"
+        params = [agent_id]
+
+        if status:
+            query += " AND status = ?"
+            params.append(status)
+
+        query += " ORDER BY created_at DESC"
 
         if limit:
             query += " LIMIT ?"
-            params = (agent_id, limit)
+            params.append(limit)
 
         rows = conn.execute(query, params).fetchall()
         return [from_row(row, Spawn) for row in rows]
