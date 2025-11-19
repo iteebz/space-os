@@ -49,9 +49,7 @@ export function SpawnList({ selected, onSelect, channelId }: Props) {
   if (isLoading) return <div className="text-neutral-500">Loading...</div>
   if (error) return <div className="text-red-500">Error loading spawns</div>
 
-  const filtered = channelId
-    ? spawns?.filter((s) => s.channel_id === channelId)
-    : spawns
+  const filtered = channelId ? spawns?.filter((s) => s.channel_id === channelId) : spawns
 
   if (!filtered?.length) {
     return (
@@ -82,11 +80,10 @@ export function SpawnList({ selected, onSelect, channelId }: Props) {
         ))}
       </ul>
       <div className="mt-4 pt-2 border-t border-neutral-800 text-xs text-neutral-500">
-        <span className="text-green-400">R</span> running{' '}
-        <span className="text-yellow-400">P</span> paused{' '}
-        <span className="text-neutral-400">W</span> pending{' '}
-        <span className="text-neutral-500">✓</span> done{' '}
-        <span className="text-red-400">✗</span> failed
+        <span className="text-green-400">R</span> running <span className="text-yellow-400">P</span>{' '}
+        paused <span className="text-neutral-400">W</span> pending{' '}
+        <span className="text-neutral-500">✓</span> done <span className="text-red-400">✗</span>{' '}
+        failed
       </div>
     </div>
   )

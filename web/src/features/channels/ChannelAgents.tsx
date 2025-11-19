@@ -35,9 +35,7 @@ export function ChannelAgents({ channel }: Props) {
             <span className="text-sm text-neutral-300">
               {agent?.identity ?? agentId.slice(0, 7)}
             </span>
-            {agent?.role && (
-              <span className="text-xs text-neutral-500 truncate">{agent.role}</span>
-            )}
+            {agent?.role && <span className="text-xs text-neutral-500 truncate">{agent.role}</span>}
           </div>
         )
       })}

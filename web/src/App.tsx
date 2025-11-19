@@ -1,11 +1,21 @@
 import { useState } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
-import { ChannelList, MessageList, ComposeBox, ChannelAgents } from './features/channels'
+import {
+  ChannelList,
+  MessageList,
+  ComposeBox,
+  ChannelAgents,
+  CreateChannel,
+  useChannels,
+} from './features/channels'
 import { SpawnList } from './features/spawns'
 
 export default function App() {
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null)
   const [selectedSpawn, setSelectedSpawn] = useState<string | null>(null)
+  const { data: channels } = useChannels()
+
+  const channel = channels?.find((c) => c.name === selectedChannel)
 
   return (
     <div className="h-screen w-screen">
@@ -15,6 +25,7 @@ export default function App() {
             <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide mb-4">
               Channels
             </h2>
+            <CreateChannel />
             <ChannelList selected={selectedChannel} onSelect={setSelectedChannel} />
           </div>
         </Panel>
@@ -23,11 +34,14 @@ export default function App() {
 
         <Panel defaultSize={50}>
           <div className="h-full p-4 flex flex-col">
-            <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide mb-4">
-              Messages
-            </h2>
-            {selectedChannel ? (
+            {selectedChannel && channel ? (
               <>
+                <div className="mb-4">
+                  <h2 className="text-lg font-semibold text-white">#{channel.name}</h2>
+                  {channel.topic && (
+                    <p className="text-sm text-neutral-400 mt-1">{channel.topic}</p>
+                  )}
+                </div>
                 <div className="flex-1 overflow-y-auto">
                   <MessageList channel={selectedChannel} />
                 </div>

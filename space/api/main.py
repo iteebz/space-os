@@ -32,6 +32,17 @@ def get_channels():
     return run_cli(["bridge", "--json", "channels"])
 
 
+@app.post("/api/channels")
+def create_channel(body: CreateChannel):
+    cmd = ["bridge", "create", body.name]
+    if body.topic:
+        cmd.extend(["--topic", body.topic])
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        return {"error": result.stderr.strip()}
+    return {"ok": True, "name": body.name}
+
+
 @app.get("/api/channels/{channel}/messages")
 def get_messages(channel: str):
     return run_cli(["bridge", "recv", channel, "--json"])
@@ -50,6 +61,11 @@ def get_agents():
 class SendMessage(BaseModel):
     content: str
     sender: str = "human"
+
+
+class CreateChannel(BaseModel):
+    name: str
+    topic: str | None = None
 
 
 @app.post("/api/channels/{channel}/messages")
