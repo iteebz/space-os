@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
-import { ChannelList, MessageList, ComposeBox } from './features/channels'
+import { ChannelList, MessageList, ComposeBox, ChannelAgents } from './features/channels'
 import { SpawnList } from './features/spawns'
 
 export default function App() {
@@ -44,9 +44,13 @@ export default function App() {
         <Panel defaultSize={30} minSize={20}>
           <div className="h-full border-l border-neutral-800 p-4">
             <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide mb-4">
-              Spawns
+              {selectedChannel ? `Agents` : 'All Spawns'}
             </h2>
-            <SpawnList selected={selectedSpawn} onSelect={setSelectedSpawn} />
+            {selectedChannel ? (
+              <ChannelAgents channel={selectedChannel} />
+            ) : (
+              <SpawnList selected={selectedSpawn} onSelect={setSelectedSpawn} />
+            )}
           </div>
         </Panel>
       </PanelGroup>

@@ -1,5 +1,6 @@
 export { ChannelList } from './ChannelList'
 export { MessageList } from './MessageList'
 export { ComposeBox } from './ComposeBox'
+export { ChannelAgents } from './ChannelAgents'
 export { useChannels, useMessages, useSendMessage } from './hooks'
 export type { Channel, Message } from './types'

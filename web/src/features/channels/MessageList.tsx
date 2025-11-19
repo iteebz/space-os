@@ -29,7 +29,7 @@ export function MessageList({ channel }: Props) {
               {new Date(msg.created_at).toLocaleTimeString()}
             </span>
           </div>
-          <div className="text-neutral-300 text-sm prose prose-invert prose-sm max-w-none">
+          <div className="text-neutral-300 text-sm prose prose-invert prose-sm max-w-none prose-strong:text-white prose-headings:text-white prose-p:my-2 prose-li:my-1">
             <Markdown>{msg.content}</Markdown>
           </div>
         </div>
