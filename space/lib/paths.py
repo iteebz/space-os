@@ -48,14 +48,6 @@ def backup_sessions_dir() -> Path:
     return backups_dir() / "sessions"
 
 
-def validate_backup_path(backup_path: Path) -> bool:
-    try:
-        backup_path.resolve().relative_to(backups_dir().resolve())
-        return True
-    except ValueError:
-        return False
-
-
 def validate_domain_path(domain: str) -> tuple[bool, str]:
     if not domain:
         return False, "Domain/topic cannot be empty"

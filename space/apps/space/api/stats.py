@@ -18,21 +18,18 @@ logger = logging.getLogger(__name__)
 
 
 def _get_agent_identities() -> dict[str, str]:
-    """Get agent_id -> identity mapping."""
     from space.os import spawn
 
     return spawn.api.agent_identities()
 
 
 def _get_archived_agents() -> set[str]:
-    """Get set of archived agent IDs."""
     from space.os import spawn
 
     return spawn.api.archived_agents()
 
 
 def _get_memory_stats() -> dict:
-    """Get memory statistics."""
     from space.os import memory
 
     total, active, archived = memory.api.count_memories()
@@ -53,7 +50,6 @@ def _get_memory_stats() -> dict:
 
 
 def _get_knowledge_stats() -> dict:
-    """Get knowledge statistics."""
     from space.os import knowledge
 
     total, active, archived = knowledge.api.count_knowledge()
@@ -74,7 +70,6 @@ def _get_knowledge_stats() -> dict:
 
 
 def _aggregate_events(rows: list) -> tuple[int, list[dict]]:
-    """Aggregate event rows into total and per-agent stats."""
     agent_events = {}
     for agent_id, event_type, timestamp in rows:
         if agent_id not in agent_events:
@@ -87,7 +82,6 @@ def _aggregate_events(rows: list) -> tuple[int, list[dict]]:
 
 
 def _get_bridge_stats() -> dict:
-    """Get bridge statistics: messages, channels, and events by agent."""
     from space.os import bridge
 
     total_msgs, active_msgs, archived_msgs = bridge.api.messaging.count_messages()
@@ -125,14 +119,12 @@ def _get_bridge_stats() -> dict:
 
 
 def _get_spawn_stats() -> dict:
-    """Get spawn statistics."""
     from space.os import spawn
 
     return spawn.api.stats()
 
 
 def _get_session_stats() -> dict:
-    """Get session statistics from sessions primitive."""
     from space.os import sessions
 
     stats_obj = sessions.api.stats()
@@ -147,7 +139,6 @@ def _get_session_stats() -> dict:
 
 
 def _safe_stats(fn, *args, **kwargs):
-    """Safely call stats function, logging errors."""
     try:
         return fn(*args, **kwargs)
     except Exception as exc:

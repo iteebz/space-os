@@ -13,13 +13,11 @@ logger = logging.getLogger(__name__)
 
 
 class Claude(Provider):
-    """Claude provider: chat discovery and message parsing."""
-
     SESSIONS_DIR = Path.home() / ".claude" / "projects"
+    DISALLOWED_TOOLS = ["NotebookRead", "NotebookEdit", "Task", "TodoWrite"]
 
     @staticmethod
     def allowed_tools() -> list[str]:
-        """Return allowed tools for Claude."""
         return [
             "Bash",
             "Read",
@@ -35,45 +33,23 @@ class Claude(Provider):
 
     @staticmethod
     def launch_args(is_ephemeral: bool = False) -> list[str]:
-        """Return launch arguments for Claude.
-
-        Args:
-            is_ephemeral: Whether this is an ephemeral spawn. Only ephemeral spawns skip permissions.
-        """
-        disallowed = [
-            "NotebookRead",
-            "NotebookEdit",
-            "Task",
-            "TodoWrite",
-        ]
-        args = ["--disallowedTools", ",".join(disallowed)]
+        args = ["--disallowedTools", ",".join(Claude.DISALLOWED_TOOLS)]
         if is_ephemeral:
             args.insert(0, "--dangerously-skip-permissions")
         return args
 
     @staticmethod
     def task_launch_args() -> list[str]:
-        """Return launch arguments for task-based Claude execution.
-
-        Task mode uses stdin input and stream-json output format for real-time event streaming.
-        """
-        disallowed = [
-            "NotebookRead",
-            "NotebookEdit",
-            "Task",
-            "TodoWrite",
-        ]
         return [
             "--dangerously-skip-permissions",
             "--output-format",
             "stream-json",
             "--disallowedTools",
-            ",".join(disallowed),
+            ",".join(Claude.DISALLOWED_TOOLS),
         ]
 
     @staticmethod
     def discover() -> list[dict]:
-        """Discover Claude sessions."""
         sessions = []
         if not Claude.SESSIONS_DIR.exists():
             return sessions
@@ -119,7 +95,6 @@ class Claude(Provider):
 
     @staticmethod
     def index(session_id: str) -> int:
-        """Index one Claude session into database."""
         from space.os.sessions.api.sync import _index_transcripts
 
         sessions_dir = Path.home() / ".space" / "sessions" / "claude"
@@ -137,12 +112,6 @@ class Claude(Provider):
 
     @staticmethod
     def parse(file_path: Path | str, from_offset: int = 0) -> list[SessionMessage]:
-        """Parse Claude session data to unified message format.
-
-        Accepts file path or raw JSONL string content.
-        Emits all event types: messages, tool calls, and tool results.
-        Consumers filter based on their needs (transcripts filters by type="message", trace includes all).
-        """
         messages = []
 
         if isinstance(file_path, str):
@@ -200,10 +169,6 @@ class Claude(Provider):
 
     @staticmethod
     def tokens(file_path: Path) -> tuple[int | None, int | None]:
-        """Extract input and output tokens from Claude JSONL.
-
-        Claude stores tokens in message.usage.{input,output}_tokens
-        """
         input_total = 0
         output_total = 0
         found_any = False
@@ -232,10 +197,6 @@ class Claude(Provider):
 
     @staticmethod
     def session_id_from_stream(output: str) -> str | None:
-        """Extract session_id from Claude execution output.
-
-        Claude returns a JSON object with session_id at root level.
-        """
         try:
             data = json.loads(output)
             if isinstance(data, dict):
@@ -246,10 +207,6 @@ class Claude(Provider):
 
     @staticmethod
     def session_id_from_contents(file_path: Path) -> str | None:
-        """Extract session_id from Claude JSONL file contents.
-
-        Claude stores sessionId in first line of JSONL.
-        """
         try:
             with open(file_path) as f:
                 first_line = f.readline()
@@ -264,7 +221,6 @@ class Claude(Provider):
 
     @staticmethod
     def _parse_assistant_message(message: dict, timestamp: str | None) -> list[SessionMessage]:
-        """Extract tool calls and text from assistant message."""
         messages = []
         content = message.get("content", [])
 
@@ -302,7 +258,6 @@ class Claude(Provider):
 
     @staticmethod
     def _parse_user_message(message: dict, timestamp: str | None) -> list[SessionMessage]:
-        """Extract tool results from user message."""
         messages = []
         content = message.get("content", [])
 

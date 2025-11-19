@@ -20,17 +20,6 @@ def add_task(
     project: str | None = None,
     agent_id: str | None = None,
 ) -> str:
-    """Create a new task.
-
-    Args:
-        content: Task description
-        creator_id: Agent ID of task creator
-        project: Optional project/epic name
-        agent_id: Optional agent to claim task immediately
-
-    Returns:
-        task_id
-    """
     task_id = uuid7()
     now = datetime.now().isoformat()
     with store.ensure() as conn:
@@ -48,17 +37,6 @@ def list_tasks(
     agent_id: str | None = None,
     limit: int | None = None,
 ) -> list[Task]:
-    """List tasks with optional filtering.
-
-    Args:
-        status: Filter by status (open, in_progress, done)
-        project: Filter by project
-        agent_id: Filter by claimed agent
-        limit: Maximum results
-
-    Returns:
-        List of Task objects
-    """
     with store.ensure() as conn:
         params = []
         query = "SELECT task_id, creator_id, agent_id, content, project, status, created_at, started_at, completed_at FROM tasks WHERE 1=1"
@@ -90,7 +68,6 @@ def list_tasks(
 
 
 def get_task(task_id: str) -> Task | None:
-    """Get task by ID (supports partial ID resolution)."""
     try:
         full_id = resolve_id("tasks", "task_id", task_id)
     except ValueError:
@@ -106,15 +83,6 @@ def get_task(task_id: str) -> Task | None:
 
 
 def start_task(task_id: str, agent_id: str) -> None:
-    """Claim a task (mark as in_progress).
-
-    Args:
-        task_id: Task ID to claim
-        agent_id: Agent claiming the task
-
-    Raises:
-        ValueError: If task not found
-    """
     full_id = resolve_id("tasks", "task_id", task_id)
     task = get_task(full_id)
     if not task:
@@ -130,15 +98,6 @@ def start_task(task_id: str, agent_id: str) -> None:
 
 
 def remove_claim(task_id: str, agent_id: str) -> None:
-    """Unclaim a task (return to open).
-
-    Args:
-        task_id: Task ID to unclaim
-        agent_id: Agent unclaiming (for verification)
-
-    Raises:
-        ValueError: If task not found or not claimed by agent
-    """
     full_id = resolve_id("tasks", "task_id", task_id)
     task = get_task(full_id)
     if not task:
@@ -155,15 +114,6 @@ def remove_claim(task_id: str, agent_id: str) -> None:
 
 
 def done_task(task_id: str, agent_id: str) -> None:
-    """Mark task as complete.
-
-    Args:
-        task_id: Task ID to complete
-        agent_id: Agent completing (for verification)
-
-    Raises:
-        ValueError: If task not found or not claimed by agent
-    """
     full_id = resolve_id("tasks", "task_id", task_id)
     task = get_task(full_id)
     if not task:

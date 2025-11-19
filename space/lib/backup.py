@@ -56,7 +56,6 @@ def _backup_sessions(quiet_output: bool) -> dict:
     backup_path = paths.backup_sessions_dir()
 
     def count_provider_files(path: Path, provider: str) -> int:
-        """Count JSONL files for a provider."""
         provider_dir = path / provider
         if not provider_dir.exists():
             return 0
@@ -146,7 +145,6 @@ def backup(
 
 
 def _do_backup(quiet_output: bool = False):
-    """Perform the backup operation."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     data_stats = _backup_data_snapshot(timestamp, quiet_output)
     session_stats = _backup_sessions(quiet_output)

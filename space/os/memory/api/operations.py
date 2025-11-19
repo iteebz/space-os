@@ -83,19 +83,6 @@ def search_memories(
     show_all: bool = False,
     limit: int | None = None,
 ) -> list[Memory]:
-    """Full-text search on memory messages for an agent.
-
-    Uses FTS5 virtual table for fast content search.
-
-    Args:
-        identity: Agent identity
-        query: FTS5 search query (supports AND, OR, NOT, phrase search)
-        show_all: Include archived memories
-        limit: Maximum number of results
-
-    Returns:
-        List of Memory objects matching query, ordered by relevance
-    """
     agent = spawn.get_agent(identity)
     if not agent:
         raise ValueError(f"Agent '{identity}' not found")
@@ -192,7 +179,6 @@ def toggle_memory_core(memory_id: str) -> bool:
 def find_related_memories(
     entry: Memory, limit: int = 5, show_all: bool = False
 ) -> list[tuple[Memory, int]]:
-    """Find memories related by keyword similarity."""
     from space.lib.stopwords import stopwords
 
     tokens = set(entry.message.lower().split())
@@ -228,7 +214,6 @@ def find_related_memories(
 
 
 def get_memory(memory_id: str) -> Memory | None:
-    """Get memory entry by ID."""
     try:
         full_id = resolve_id("memories", "memory_id", memory_id)
     except ValueError:
@@ -250,16 +235,6 @@ def get_agent_memories(
     after_timestamp: str | None = None,
     limit: int | None = None,
 ) -> list[Memory]:
-    """Get memories for an agent by ID (low-level API for primitives/apps).
-
-    Args:
-        agent_id: Agent ID
-        after_timestamp: Optional ISO timestamp cutoff (memories after this time)
-        limit: Maximum number of memories to return
-
-    Returns:
-        List of Memory objects, ordered by creation time (newest first)
-    """
     with store.ensure() as conn:
         query = "SELECT memory_id, agent_id, message, topic, created_at, archived_at, core, source FROM memories WHERE agent_id = ? AND archived_at IS NULL"
         params = [agent_id]
@@ -278,7 +253,6 @@ def get_agent_memories(
 
 
 def count_memories() -> tuple[int, int, int]:
-    """Get memory counts: (total, active, archived)."""
     with store.ensure() as conn:
         total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
         active = conn.execute("SELECT COUNT(*) FROM memories WHERE archived_at IS NULL").fetchone()[
@@ -289,7 +263,6 @@ def count_memories() -> tuple[int, int, int]:
 
 
 def stats(agent_id: str | None = None) -> "MemoryStats":
-    """Get memory statistics for an agent or all agents."""
     from space.core.models import MemoryStats
 
     with store.ensure() as conn:
@@ -323,11 +296,6 @@ def stats(agent_id: str | None = None) -> "MemoryStats":
 
 
 def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[SearchResult]:
-    """Search memory entries by query using full-text search.
-
-    Searches message content via FTS5. Falls back to LIKE queries on topic.
-    Filters by agent if identity provided.
-    """
     results = []
 
     agent_id = None

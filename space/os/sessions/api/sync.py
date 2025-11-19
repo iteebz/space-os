@@ -9,17 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 def _get_session_identity(session_id: str, conn) -> str | None:
-    """Get agent identity for a session via spawn relationship.
-
-    Queries spawns by session_id, then agents by agent_id to get identity.
-
-    Args:
-        session_id: Session UUID
-        conn: Database connection
-
-    Returns:
-        Agent identity string, or None if no spawn found
-    """
     try:
         row = conn.execute(
             """
@@ -38,8 +27,6 @@ def _get_session_identity(session_id: str, conn) -> str | None:
 
 @dataclass
 class ProgressEvent:
-    """Progress event with provider and counts."""
-
     provider: str
     discovered: int
     synced: int
@@ -51,20 +38,6 @@ class ProgressEvent:
 
 
 def _index_transcripts(session_id: str, provider: str, content: str, conn) -> int:
-    """Index session JSONL content into transcripts table for FTS5 search.
-
-    Uses provider parser to extract all events, filters to user/assistant messages only
-    (noise reduction for search). Tool calls and results are skipped.
-
-    Args:
-        session_id: Session UUID
-        provider: Provider name (claude, codex, gemini)
-        content: JSONL content (one JSON object per line)
-        conn: Database connection (caller handles transaction)
-
-    Returns:
-        Number of messages indexed
-    """
     from datetime import datetime
 
     from space.lib import providers
@@ -131,11 +104,6 @@ def _index_transcripts(session_id: str, provider: str, content: str, conn) -> in
 
 
 def discover() -> list[dict]:
-    """Discover all sessions from all providers.
-
-    Returns:
-        List of {cli, session_id, file_path, created_at, ...}
-    """
     all_sessions = []
     provider_map = {"claude": "Claude", "codex": "Codex", "gemini": "Gemini"}
 
@@ -152,14 +120,6 @@ def discover() -> list[dict]:
 
 
 def index(session_id: str) -> int:
-    """Index one session from ~/.space/sessions/ into transcripts table.
-
-    Args:
-        session_id: Session ID to index
-
-    Returns:
-        Number of messages indexed
-    """
     sessions_dir = paths.sessions_dir()
 
     for provider_name in ("claude", "codex", "gemini"):
@@ -179,14 +139,6 @@ def index(session_id: str) -> int:
 
 
 def ingest(session_id: str) -> bool:
-    """Ingest one session: copy/convert to ~/.space/sessions/{provider}/.
-
-    Args:
-        session_id: Session ID to ingest
-
-    Returns:
-        True if successfully ingested, False otherwise
-    """
     sessions_dir = paths.sessions_dir()
     all_sessions = discover()
 
@@ -210,11 +162,6 @@ def ingest(session_id: str) -> bool:
 
 
 def sync_all(on_progress=None) -> dict[str, tuple[int, int]]:
-    """Sync all sessions: discover, ingest, then index.
-
-    Returns:
-        {provider_name: (sessions_discovered, sessions_synced)} for each provider
-    """
     sessions_dir = paths.sessions_dir()
     sessions_dir.mkdir(parents=True, exist_ok=True)
 

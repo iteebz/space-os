@@ -120,7 +120,6 @@ def find_related_knowledge(
 
 
 def archive_knowledge(entry_id: str, restore: bool = False) -> None:
-    """Archive or restore knowledge entry."""
     if restore:
         with store.ensure() as conn:
             conn.execute(
@@ -172,7 +171,6 @@ def get_domain_tree(parent_domain: str | None = None, show_all: bool = False) ->
 
 
 def count_knowledge() -> tuple[int, int, int]:
-    """Get knowledge counts: (total, active, archived)."""
     with store.ensure() as conn:
         total = conn.execute("SELECT COUNT(*) FROM knowledge").fetchone()[0]
         active = conn.execute(
@@ -183,7 +181,6 @@ def count_knowledge() -> tuple[int, int, int]:
 
 
 def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[SearchResult]:
-    """Search knowledge entries by query (shared across all agents)."""
     results = []
     with store.ensure() as conn:
         sql_query = (
