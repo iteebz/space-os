@@ -21,6 +21,8 @@ python = "^3.12"
 typer = "^0.17.4"
 pyyaml = "^6.0"
 prompt-toolkit = "^3.0.47"
+fastapi = "^0.121.2"
+uvicorn = "^0.38.0"
 
 [tool.poetry.scripts]
 bridge = "space.os.bridge.cli:main"
@@ -32,6 +34,7 @@ sessions = "space.os.sessions.cli:main"
 space = "space.apps.space.cli:main"
 spawn = "space.os.spawn.cli:main"
 task = "space.os.task.cli:main"
+space-api = "space.api.main:main"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.13.0"

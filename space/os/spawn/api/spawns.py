@@ -227,3 +227,12 @@ def get_channel_spawns(channel_id: str, status: str | None = None) -> list[Spawn
                 "SELECT * FROM spawns WHERE channel_id = ? ORDER BY created_at DESC", (channel_id,)
             ).fetchall()
         return [from_row(row, Spawn) for row in rows]
+
+
+def get_all_spawns(limit: int = 100) -> list[Spawn]:
+    """Get all spawns across all agents."""
+    with store.ensure() as conn:
+        rows = conn.execute(
+            "SELECT * FROM spawns ORDER BY created_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [from_row(row, Spawn) for row in rows]

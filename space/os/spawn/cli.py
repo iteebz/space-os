@@ -280,6 +280,7 @@ def merge(id_from: str, id_to: str):
 
 @app.command(name="tasks")
 def show_tasks(
+    ctx: typer.Context,
     status: str | None = None,
     identity: str | None = None,
     all: bool = typer.Option(
@@ -294,7 +295,6 @@ def show_tasks(
     if not all and status is None:
         status = "pending|running"
 
-    # Get agent if filtering by identity
     agent = None
     if identity:
         agent = api.get_agent(identity)
@@ -302,21 +302,32 @@ def show_tasks(
             typer.echo(f"❌ Agent not found: {identity}", err=True)
             raise typer.Exit(1)
 
-    # Get spawns
     if agent:
         all_spawns = spawns.get_spawns_for_agent(agent.agent_id)
     else:
-        # For now, just get empty list if no agent specified
-        # Could extend to get all spawns across agents
-        typer.echo("Please specify --identity to list spawns")
-        return
+        all_spawns = spawns.get_all_spawns()
 
-    # Filter by status
     if status and "|" in status:
         statuses = status.split("|")
         spawns_list = [s for s in all_spawns if s.status in statuses]
     else:
         spawns_list = [s for s in all_spawns if status is None or s.status == status]
+
+    if ctx.obj and ctx.obj.get("json_output"):
+        data = [
+            {
+                "id": s.id,
+                "agent_id": s.agent_id,
+                "status": s.status,
+                "session_id": s.session_id,
+                "channel_id": s.channel_id,
+                "created_at": s.created_at,
+                "ended_at": s.ended_at,
+            }
+            for s in spawns_list
+        ]
+        typer.echo(json.dumps(data))
+        return
 
     if not spawns_list:
         typer.echo("No spawns.")

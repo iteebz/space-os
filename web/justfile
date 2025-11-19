@@ -1,0 +1,37 @@
+default:
+    @just --list
+
+install:
+    @pnpm install
+
+dev:
+    @pnpm dev
+
+start:
+    @pnpm dev & sleep 1 && open http://localhost:3000
+
+build:
+    @pnpm build
+
+test:
+    @pnpm test
+
+lint:
+    @pnpm lint
+
+format:
+    @pnpm format
+
+typecheck:
+    @pnpm typecheck
+
+ci:
+    @pnpm format
+    @pnpm lint:fix
+    @pnpm lint
+    @pnpm typecheck
+    @pnpm test
+    @pnpm build
+
+clean:
+    @rm -rf node_modules dist .vite

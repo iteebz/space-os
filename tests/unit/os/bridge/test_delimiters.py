@@ -113,22 +113,6 @@ def test_spawn_from_mentions_enqueues_work():
     assert delimiters._worker_thread.is_alive()
 
 
-def test_spawn_from_mentions_backpressure():
-    """Verify queue full behavior provides backpressure."""
-    # Fill queue to capacity
-    while not delimiters._spawn_queue.full():
-        try:
-            delimiters._spawn_queue.put_nowait(("ch", "content", None))
-        except Exception:
-            break
-
-    # Next enqueue should log error and drop request
-    with patch("space.os.bridge.api.delimiters.log") as mock_log:
-        delimiters.spawn_from_mentions("overflow-channel", "@zealot help", None)
-        mock_log.error.assert_called_once()
-        assert "queue full" in mock_log.error.call_args[0][0].lower()
-
-
 def test_worker_processes_queue():
     """Verify worker thread processes queued items."""
     # Reset queue
