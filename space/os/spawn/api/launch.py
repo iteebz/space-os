@@ -59,6 +59,8 @@ def spawn_interactive(
 
     constitute(spawn, agent)
 
+    env["SPACE_SPAWN_ID"] = spawn.id
+
     provider_class = PROVIDERS.get(agent.provider)
     launch_args = _get_launch_args(
         provider_class, agent.provider, bool(passthrough), reasoning_effort
@@ -68,6 +70,9 @@ def spawn_interactive(
 
     session_id = resolve_session_id(agent.agent_id, resume)
     resume_args = _build_resume_args(agent.provider, session_id, resume is None and session_id)
+
+    if session_id:
+        _copy_bookmarks_from_session(session_id, spawn.id)
 
     context = build_spawn_context(identity, task=passthrough[0] if passthrough else None)
 
@@ -112,11 +117,16 @@ def spawn_ephemeral(
 
     constitute(spawn, agent)
 
+    os.environ["SPACE_SPAWN_ID"] = spawn.id
+
     channel = channels.get_channel(channel_id) if channel_id else None
     channel_name = channel.name if channel else None
 
     session_id = resolve_session_id(agent.agent_id, resume)
     is_continue = resume is None and session_id
+
+    if session_id:
+        _copy_bookmarks_from_session(session_id, spawn.id)
 
     try:
         _run_ephemeral(agent, instruction, spawn, channel_name, session_id, is_continue)
@@ -243,3 +253,19 @@ def _build_resume_args(provider: str, session_id: str | None, is_continue: bool)
         return ["resume", "--last"] if is_continue else ["resume", session_id]
 
     return []
+
+
+def _copy_bookmarks_from_session(session_id: str, new_spawn_id: str) -> None:
+    from space.lib import store
+
+    with store.ensure() as conn:
+        row = conn.execute(
+            "SELECT id FROM spawns WHERE session_id = ? ORDER BY created_at DESC LIMIT 1",
+            (session_id,),
+        ).fetchone()
+
+        if row:
+            previous_spawn_id = row[0]
+            from space.os.bridge.api.messaging import copy_bookmarks
+
+            copy_bookmarks(previous_spawn_id, new_spawn_id)

@@ -251,12 +251,35 @@ def recv(
     ctx: typer.Context,
     channel: str = typer.Argument(..., help="Channel to read from"),
     ago: str = typer.Option(None, "--ago", help="Time window (e.g., 1h, 30m)"),
+    reader: str = typer.Option(None, "--reader", help="Explicit reader ID for bookmark tracking"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON instead of markdown"),
 ):
     """Read messages from channel (markdown by default)."""
+    import os
+    import sys
+
     try:
-        identity = ctx.obj.get("identity")
-        msgs, count, context, participants = api.recv_messages(channel, identity, ago)
+        reader_id = None
+
+        spawn_id = os.environ.get("SPACE_SPAWN_ID")
+        if spawn_id:
+            reader_id = spawn_id
+        elif reader:
+            reader_id = reader
+        else:
+            identity = ctx.obj.get("identity")
+            if identity:
+                agent = spawn.get_agent(identity)
+                if agent:
+                    reader_id = agent.agent_id
+                    if sys.stderr.isatty():
+                        typer.echo(
+                            "⚠ Using agent-scoped bookmark (shared across manual sessions). "
+                            "For isolation, use --reader <id>",
+                            err=True,
+                        )
+
+        msgs, count, context, participants = api.recv_messages(channel, ago, reader_id)
         if should_output(ctx):
             output = api.format_messages(msgs, context or "Messages", as_json=json_output)
             typer.echo(output)

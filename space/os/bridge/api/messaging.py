@@ -1,7 +1,6 @@
 """Message operations: send, receive, format, history."""
 
 import re
-import sqlite3
 import time
 from datetime import datetime, timedelta
 
@@ -55,30 +54,6 @@ def send_message(
 
     delimiters.spawn_from_mentions(actual_channel_id, content, agent_id)
     return agent_id
-
-
-def _build_pagination_query_and_params(
-    conn: sqlite3.Connection, channel_id: str, last_seen_id: str | None, base_query: str
-) -> tuple[str, tuple]:
-    if last_seen_id is None:
-        query = f"{base_query} ORDER BY m.created_at"
-        params = (channel_id,)
-    else:
-        last_seen_row = conn.execute(
-            "SELECT created_at, rowid FROM messages WHERE message_id = ?", (last_seen_id,)
-        ).fetchone()
-        if last_seen_row:
-            query = f"{base_query} AND (m.created_at > ? OR (m.created_at = ? AND m.rowid > ?)) ORDER BY m.created_at, m.rowid"
-            params = (
-                channel_id,
-                last_seen_row["created_at"],
-                last_seen_row["created_at"],
-                last_seen_row["rowid"],
-            )
-        else:
-            query = f"{base_query} ORDER BY m.created_at"
-            params = (channel_id,)
-    return query, params
 
 
 def get_messages(channel: str | Channel) -> list[Message]:
@@ -148,18 +123,16 @@ def get_messages_before(channel: str | Channel, timestamp: str, limit: int = 1) 
 
 
 def recv_messages(
-    channel: str | Channel, identity: str, ago: str | None = None
+    channel: str | Channel, ago: str | None = None, reader_id: str | None = None
 ) -> tuple[list[Message], int, str | None, list[str]]:
-    from space.os import spawn
-
     from . import channels
 
     channel_id = _to_channel_id(channel)
+    channel_obj = channels.get_channel(channel_id)
+    if not channel_obj:
+        raise ValueError(f"Channel {channel_id} not found")
 
-    agent = spawn.get_agent(identity)
-    if not agent:
-        raise ValueError(f"Identity '{identity}' not registered.")
-
+    actual_channel_id = channel_obj.channel_id
     messages = get_messages(channel_id)
 
     if ago:
@@ -170,16 +143,67 @@ def recv_messages(
         delta = timedelta(hours=val if unit == "h" else 0, minutes=val if unit == "m" else 0)
         cutoff = (datetime.now() - delta).isoformat()
         messages = [m for m in messages if m.created_at > cutoff]
+    elif reader_id:
+        last_read_id = get_bookmark(reader_id, actual_channel_id)
+        if last_read_id:
+            found_bookmark = False
+            filtered = []
+            for m in messages:
+                if found_bookmark:
+                    filtered.append(m)
+                elif m.message_id == last_read_id:
+                    found_bookmark = True
+            messages = filtered
+
+    if reader_id and messages:
+        update_bookmark(reader_id, actual_channel_id, messages[-1].message_id)
 
     unread_count = len(messages)
-
-    channel_obj = channels.get_channel(channel_id)
-
     topic = channel_obj.topic if channel_obj else None
-
     members = channel_obj.members if channel_obj else []
 
     return messages, unread_count, topic, members
+
+
+def get_bookmark(reader_id: str, channel_id: str) -> str | None:
+    with store.ensure() as conn:
+        row = conn.execute(
+            "SELECT last_read_id FROM bookmarks WHERE reader_id = ? AND channel_id = ?",
+            (reader_id, channel_id),
+        ).fetchone()
+        return row[0] if row else None
+
+
+def update_bookmark(reader_id: str, channel_id: str, last_read_id: str) -> None:
+    now = datetime.now().isoformat()
+    with store.ensure() as conn:
+        conn.execute(
+            """
+            INSERT INTO bookmarks (reader_id, channel_id, last_read_id, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT (reader_id, channel_id) DO UPDATE SET
+                last_read_id = excluded.last_read_id,
+                updated_at = excluded.updated_at
+            """,
+            (reader_id, channel_id, last_read_id, now),
+        )
+
+
+def copy_bookmarks(from_reader_id: str, to_reader_id: str) -> None:
+    now = datetime.now().isoformat()
+    with store.ensure() as conn:
+        conn.execute(
+            """
+            INSERT INTO bookmarks (reader_id, channel_id, last_read_id, updated_at)
+            SELECT ?, channel_id, last_read_id, ?
+            FROM bookmarks
+            WHERE reader_id = ?
+            ON CONFLICT (reader_id, channel_id) DO UPDATE SET
+                last_read_id = excluded.last_read_id,
+                updated_at = excluded.updated_at
+            """,
+            (to_reader_id, now, from_reader_id),
+        )
 
 
 def format_messages(messages: list[Message], title: str = "Messages", as_json: bool = False) -> str:
@@ -213,7 +237,7 @@ def format_messages(messages: list[Message], title: str = "Messages", as_json: b
 
 
 def wait_for_message(
-    channel: str | Channel, identity: str, session_id: str, poll_interval: float = 0.1
+    channel: str | Channel, identity: str, poll_interval: float = 0.1
 ) -> tuple[list[Message], int, str | None, list[str]]:
     from space.os import spawn
 
@@ -224,7 +248,7 @@ def wait_for_message(
     channel_id = _to_channel_id(channel)
 
     while True:
-        msgs, count, context, participants = recv_messages(channel_id, identity)
+        msgs, count, context, participants = recv_messages(channel_id)
         other_messages = [msg for msg in msgs if msg.agent_id != agent_id]
 
         if other_messages:

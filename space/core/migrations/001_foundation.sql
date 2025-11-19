@@ -101,6 +101,15 @@ CREATE TABLE IF NOT EXISTS tasks (
     FOREIGN KEY (agent_id) REFERENCES agents(agent_id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS bookmarks (
+    reader_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    last_read_id TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%f', 'now')),
+    PRIMARY KEY (reader_id, channel_id),
+    FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS transcripts (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
@@ -149,6 +158,8 @@ CREATE INDEX IF NOT EXISTS idx_transcripts_session ON transcripts(session_id);
 CREATE INDEX IF NOT EXISTS idx_transcripts_provider ON transcripts(provider);
 CREATE INDEX IF NOT EXISTS idx_transcripts_timestamp ON transcripts(timestamp);
 CREATE INDEX IF NOT EXISTS idx_transcripts_identity ON transcripts(identity);
+
+CREATE INDEX IF NOT EXISTS idx_bookmarks_channel ON bookmarks(channel_id);
 
 -- FTS5 triggers to keep index in sync with inserts/updates/deletes
 CREATE TRIGGER IF NOT EXISTS transcripts_ai AFTER INSERT ON transcripts BEGIN

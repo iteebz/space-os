@@ -27,7 +27,7 @@ def test_agent_posts_mid_execution(test_space, default_agents):
     assert len(messages) >= 2
     assert "@sentinel" in messages[1].content
 
-    new_for_zealot2, count, _, participants = bridge.recv_messages(dev_channel_id, zealot_2_id)
+    new_for_zealot2, count, _, participants = bridge.recv_messages(dev_channel_id)
     assert count >= 2
     assert any("bug" in msg.content for msg in new_for_zealot2)
 
@@ -40,7 +40,7 @@ def test_agent_posts_mid_execution(test_space, default_agents):
     assert len(messages) >= 3
     assert any("Fix:" in msg.content for msg in messages)
 
-    new_for_zealot1, count, _, _ = bridge.recv_messages(dev_channel_id, zealot_1_id)
+    new_for_zealot1, count, _, _ = bridge.recv_messages(dev_channel_id)
     assert count >= 1
     assert any("Fix:" in msg.content for msg in new_for_zealot1)
 

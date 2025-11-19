@@ -118,7 +118,7 @@ def test_recv_messages_returns_new(mock_db, mock_get_channel, mock_get_agent):
     mock_db.execute.return_value.fetchall.return_value = [mock_row]
     mock_db.execute.return_value.fetchone.return_value = None
 
-    messages, count, _, _ = bridge.recv_messages("ch-1", "a-2")
+    messages, count, _, _ = bridge.recv_messages("ch-1")
 
     assert len(messages) == 1
     assert count == 1
@@ -128,6 +128,6 @@ def test_recv_messages_count_zero_when_none(mock_db, mock_get_channel, mock_get_
     mock_db.execute.return_value.fetchall.return_value = []
     mock_db.execute.return_value.fetchone.return_value = None
 
-    messages, count, _, _ = bridge.recv_messages("ch-1", "a-1")
+    messages, count, _, _ = bridge.recv_messages("ch-1")
 
     assert count == 0
