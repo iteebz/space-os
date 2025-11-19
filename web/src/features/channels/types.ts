@@ -1,4 +1,5 @@
 export interface Channel {
+  channel_id?: string
   name: string
   topic: string | null
   message_count: number

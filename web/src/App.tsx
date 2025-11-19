@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
-import { ChannelList } from './features/channels'
+import { ChannelList, MessageList } from './features/channels'
 import { SpawnList } from './features/spawns'
 
 export default function App() {
@@ -27,7 +27,7 @@ export default function App() {
               Messages
             </h2>
             {selectedChannel ? (
-              <div className="text-neutral-300">#{selectedChannel}</div>
+              <MessageList channel={selectedChannel} />
             ) : (
               <div className="text-neutral-500">Select a channel</div>
             )}
