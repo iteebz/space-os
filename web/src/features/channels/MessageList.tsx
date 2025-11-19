@@ -1,3 +1,4 @@
+import Markdown from 'react-markdown'
 import { useMessages } from './hooks'
 import { useAgents } from '../agents'
 import type { Message } from './types'
@@ -28,7 +29,9 @@ export function MessageList({ channel }: Props) {
               {new Date(msg.created_at).toLocaleTimeString()}
             </span>
           </div>
-          <div className="text-neutral-300 text-sm whitespace-pre-wrap">{msg.content}</div>
+          <div className="text-neutral-300 text-sm prose prose-invert prose-sm max-w-none">
+            <Markdown>{msg.content}</Markdown>
+          </div>
         </div>
       ))}
     </div>
