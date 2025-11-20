@@ -4,9 +4,10 @@ import { useSpawns } from '../spawns'
 
 interface Props {
   channel: string
+  onAgentClick?: (agentId: string) => void
 }
 
-export function ChannelAgents({ channel }: Props) {
+export function ChannelAgents({ channel, onAgentClick }: Props) {
   const { data: messages } = useMessages(channel)
   const { data: agents } = useAgents()
   const { data: spawns } = useSpawns()
@@ -28,14 +29,18 @@ export function ChannelAgents({ channel }: Props) {
         const agent = agentMap.get(agentId)
         const isRunning = runningAgents.has(agentId)
         return (
-          <div key={agentId} className="flex items-center gap-2">
+          <button
+            key={agentId}
+            onClick={() => onAgentClick?.(agentId)}
+            className="flex items-center gap-2 w-full text-left hover:bg-neutral-800 rounded px-2 py-1 -mx-2"
+          >
             <span
               className={`w-2 h-2 rounded-full ${isRunning ? 'bg-green-400' : 'bg-neutral-600'}`}
             />
             <span className="text-sm text-neutral-300">
               {agent?.identity ?? agentId.slice(0, 7)}
             </span>
-          </div>
+          </button>
         )
       })}
     </div>

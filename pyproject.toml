@@ -23,6 +23,7 @@ pyyaml = "^6.0"
 prompt-toolkit = "^3.0.47"
 fastapi = "^0.121.2"
 uvicorn = "^0.38.0"
+watchdog = "^6.0.0"
 
 [tool.poetry.scripts]
 bridge = "space.os.bridge.cli:main"
