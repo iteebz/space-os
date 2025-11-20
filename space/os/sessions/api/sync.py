@@ -25,6 +25,22 @@ def _get_session_identity(session_id: str, conn) -> str | None:
         return None
 
 
+def _link_session_to_agent(session_id: str, conn) -> None:
+    """Link session to agent via spawns table."""
+    try:
+        row = conn.execute(
+            "SELECT agent_id FROM spawns WHERE session_id = ? LIMIT 1",
+            (session_id,),
+        ).fetchone()
+        if row:
+            conn.execute(
+                "UPDATE sessions SET agent_id = ? WHERE session_id = ?",
+                (row[0], session_id),
+            )
+    except Exception as e:
+        logger.debug(f"Failed to link session {session_id} to agent: {e}")
+
+
 @dataclass
 class ProgressEvent:
     provider: str
@@ -217,14 +233,27 @@ def sync_all(on_progress=None) -> dict[str, tuple[int, int]]:
                         session_id = jsonl_file.stem
                         content = jsonl_file.read_text()
                         if content.strip():
+                            provider_class = getattr(providers, provider_name.title())
+                            input_tokens, output_tokens = provider_class.tokens(jsonl_file)
+
                             conn.execute(
                                 """
-                                INSERT OR IGNORE INTO sessions
-                                (session_id, provider, model)
-                                VALUES (?, ?, ?)
+                                INSERT INTO sessions
+                                (session_id, provider, model, input_tokens, output_tokens)
+                                VALUES (?, ?, ?, ?, ?)
+                                ON CONFLICT(session_id) DO UPDATE SET
+                                    input_tokens = excluded.input_tokens,
+                                    output_tokens = excluded.output_tokens
                                 """,
-                                (session_id, provider_name, f"{provider_name}-unknown"),
+                                (
+                                    session_id,
+                                    provider_name,
+                                    f"{provider_name}-unknown",
+                                    input_tokens or 0,
+                                    output_tokens or 0,
+                                ),
                             )
+                            _link_session_to_agent(session_id, conn)
                             _index_transcripts(session_id, provider_name, content, conn)
                         indexed_count += 1
 

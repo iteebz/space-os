@@ -68,11 +68,14 @@ def spawn_interactive(
 
     add_dir_args = ["--add-dir", str(paths.space_root())]
 
-    session_id = resolve_session_id(agent.agent_id, resume)
-    resume_args = _build_resume_args(agent.provider, session_id, resume is None and session_id)
+    known_session_id = resolve_session_id(agent.agent_id, resume)
+    resume_args = _build_resume_args(
+        agent.provider, known_session_id, resume is None and known_session_id
+    )
 
-    if session_id:
-        _copy_bookmarks_from_session(session_id, spawn.id)
+    if known_session_id:
+        spawns.link_session_to_spawn(spawn.id, known_session_id)
+        _copy_bookmarks_from_session(known_session_id, spawn.id)
 
     context = build_spawn_context(identity, task=passthrough[0] if passthrough else None)
 
@@ -87,10 +90,63 @@ def spawn_interactive(
     cwd = str(paths.identity_dir(agent.identity) if passthrough else paths.space_root())
 
     proc = subprocess.Popen(full_command, env=env, cwd=cwd)
+
+    # Link session as soon as Claude creates the JSONL (only for new sessions)
+    if not known_session_id:
+        import threading
+        import time
+
+        def link_session():
+            try:
+                for _ in range(30):  # Try for 30 seconds
+                    time.sleep(1)
+                    session_id = _discover_recent_session(agent.provider, spawn.created_at)
+                    if session_id:
+                        spawns.link_session_to_spawn(spawn.id, session_id)
+                        return
+            except Exception as e:
+                logger.debug(f"Session linking failed: {e}")
+
+        linker_thread = threading.Thread(target=link_session, daemon=True)
+        linker_thread.start()
+
     try:
         proc.wait()
     finally:
         spawns.end_spawn(spawn.id)
+
+
+def _discover_recent_session(provider: str, after_timestamp: str) -> str | None:
+    """Find most recent session file created after timestamp."""
+    from datetime import datetime
+
+    if provider == "claude":
+        sessions_dir = Claude.SESSIONS_DIR
+    else:
+        return None
+
+    if not sessions_dir.exists():
+        return None
+
+    after_dt = datetime.fromisoformat(after_timestamp.replace("Z", "+00:00"))
+    if after_dt.tzinfo:
+        after_dt = after_dt.replace(tzinfo=None)
+    best_match = None
+    best_time = None
+
+    for jsonl in sessions_dir.rglob("*.jsonl"):
+        try:
+            ctime = datetime.fromtimestamp(jsonl.stat().st_birthtime)
+            if ctime > after_dt and (best_time is None or ctime > best_time):
+                session_id = Claude.session_id_from_contents(jsonl)
+                if not session_id:
+                    session_id = jsonl.stem  # Fallback to filename
+                best_match = session_id
+                best_time = ctime
+        except (OSError, ValueError, AttributeError):
+            continue
+
+    return best_match
 
 
 def spawn_ephemeral(

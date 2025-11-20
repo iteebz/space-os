@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE TABLE IF NOT EXISTS sessions (
     session_id TEXT PRIMARY KEY,
+    agent_id TEXT REFERENCES agents(agent_id),
     provider TEXT NOT NULL,
     model TEXT NOT NULL,
     message_count INTEGER DEFAULT 0,
@@ -61,8 +62,7 @@ CREATE TABLE IF NOT EXISTS spawns (
     created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%f', 'now')),
     ended_at TEXT,
     FOREIGN KEY (agent_id) REFERENCES agents(agent_id) ON DELETE CASCADE,
-    FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE SET NULL,
-    FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE SET NULL
+    FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS memories (
@@ -119,7 +119,6 @@ CREATE TABLE IF NOT EXISTS transcripts (
     identity TEXT,
     content TEXT NOT NULL,
     timestamp INTEGER NOT NULL,          -- unix epoch for efficient range queries
-    FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE,
     UNIQUE (session_id, message_index)
 );
 
@@ -140,6 +139,7 @@ CREATE INDEX IF NOT EXISTS idx_spawns_status ON spawns(status);
 CREATE INDEX IF NOT EXISTS idx_spawns_channel_created ON spawns(channel_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_sessions_provider ON sessions(provider);
+CREATE INDEX IF NOT EXISTS idx_sessions_agent ON sessions(agent_id);
 
 CREATE INDEX IF NOT EXISTS idx_memories_agent_created ON memories(agent_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_memories_archived ON memories(archived_at);

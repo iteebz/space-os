@@ -42,6 +42,7 @@ class Claude(Provider):
     def task_launch_args() -> list[str]:
         return [
             "--dangerously-skip-permissions",
+            "--verbose",
             "--output-format",
             "stream-json",
             "--disallowedTools",

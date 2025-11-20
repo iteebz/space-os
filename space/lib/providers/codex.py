@@ -154,6 +154,20 @@ class Codex(Provider):
                 elif role == "tool":
                     events.extend(Codex._parse_tool_result_message(obj, timestamp))
 
+                payload = obj.get("payload", {})
+                if payload.get("type") == "message":
+                    payload_role = payload.get("role", "").lower()
+                    if payload_role in ("user", "assistant"):
+                        text = Codex._extract_payload_text(payload)
+                        if text:
+                            events.append(
+                                SessionMessage(
+                                    type="message",
+                                    timestamp=timestamp,
+                                    content={"role": payload_role, "text": text},
+                                )
+                            )
+
         return events
 
     @staticmethod
@@ -206,9 +220,9 @@ class Codex(Provider):
 
     @staticmethod
     def session_id_from_contents(file_path: Path) -> str | None:
-        """Extract session_id (thread_id) from Codex JSONL file contents.
+        """Extract session_id from Codex JSONL file contents.
 
-        Codex stores thread_id in first line under 'thread_id' field.
+        Codex stores session ID in first line's payload.id field (session_meta event).
         """
         try:
             with open(file_path) as f:
@@ -217,7 +231,9 @@ class Codex(Provider):
                     return None
                 obj = json.loads(first_line)
                 if isinstance(obj, dict):
-                    return obj.get("thread_id")
+                    payload = obj.get("payload", {})
+                    if isinstance(payload, dict):
+                        return payload.get("id")
         except (OSError, json.JSONDecodeError, ValueError) as e:
             logger.error(f"Failed to extract session_id from {file_path}: {e}")
         return None
@@ -254,6 +270,19 @@ class Codex(Provider):
                 )
 
         return messages
+
+    @staticmethod
+    def _extract_payload_text(payload: dict) -> str:
+        """Extract text from Codex payload content array."""
+        content = payload.get("content", [])
+        if not isinstance(content, list):
+            return ""
+
+        texts = []
+        for item in content:
+            if isinstance(item, dict) and item.get("type") in ("input_text", "output_text"):
+                texts.append(item.get("text", ""))
+        return "\n".join(texts).strip()
 
     @staticmethod
     def _parse_tool_result_message(message: dict, timestamp: str | None) -> list[SessionMessage]:

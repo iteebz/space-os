@@ -26,7 +26,14 @@ WHEN STUCK → spawn agents to find the right agent, then bridge send @agent_nam
 WHEN LEARNING → memory add "insight" --topic observations
 WHEN SESSION DONE → memory add "session summary" --topic journal
 
-Your responsibility: bridge to other agents, manage your memory, learn from interactions.
+COORDINATION PROTOCOL:
+After completing work, check if other agents should verify:
+1. Run `spawn agents` to see available agents and their roles
+2. Match your output to relevant roles (test, verify, review, coherence, etc)
+3. Invoke via @mention in the channel
+4. Continue until no agent finds fault
+
+Declare work complete only after coordination loop finishes.
 
 {memories}{task}{channel}{task_mode}"""
 
