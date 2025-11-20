@@ -183,8 +183,14 @@ class Claude(Provider):
                         if isinstance(obj, dict) and "message" in obj:
                             msg = obj["message"]
                             if isinstance(msg, dict) and "usage" in msg:
+                                # Only count completed turns (not streaming chunks)
+                                stop_reason = msg.get("stop_reason")
+                                if stop_reason not in ("end_turn", "tool_use"):
+                                    continue
                                 usage = msg["usage"]
                                 inp = usage.get("input_tokens", 0)
+                                inp += usage.get("cache_read_input_tokens", 0)
+                                inp += usage.get("cache_creation_input_tokens", 0)
                                 out = usage.get("output_tokens", 0)
                                 if inp or out:
                                     input_total += inp

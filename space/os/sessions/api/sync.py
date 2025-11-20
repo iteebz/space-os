@@ -53,6 +53,52 @@ class ProgressEvent:
     total_indexed: int = 0
 
 
+def _extract_tokens(provider: str, content: str) -> tuple[int, int]:
+    """Extract tokens from JSONL content without re-reading file."""
+    import io
+    import json
+    
+    input_total = 0
+    output_total = 0
+    
+    if provider == "claude":
+        for line in io.StringIO(content):
+            if not line.strip():
+                continue
+            try:
+                obj = json.loads(line)
+                if isinstance(obj, dict) and "message" in obj:
+                    msg = obj["message"]
+                    if isinstance(msg, dict) and "usage" in msg:
+                        stop_reason = msg.get("stop_reason")
+                        if stop_reason not in ("end_turn", "tool_use"):
+                            continue
+                        usage = msg["usage"]
+                        input_total += usage.get("input_tokens", 0)
+                        input_total += usage.get("cache_read_input_tokens", 0)
+                        input_total += usage.get("cache_creation_input_tokens", 0)
+                        output_total += usage.get("output_tokens", 0)
+            except json.JSONDecodeError:
+                continue
+    elif provider == "codex":
+        for line in io.StringIO(content):
+            if not line.strip():
+                continue
+            try:
+                obj = json.loads(line)
+                payload = obj.get("payload", {})
+                if payload.get("type") == "token_count" and "info" in payload:
+                    info = payload["info"]
+                    if isinstance(info, dict) and "total_token_usage" in info:
+                        usage = info["total_token_usage"]
+                        input_total = usage.get("input_tokens", 0)
+                        output_total = usage.get("output_tokens", 0)
+            except json.JSONDecodeError:
+                continue
+    
+    return (input_total or 0, output_total or 0)
+
+
 def _index_transcripts(session_id: str, provider: str, content: str, conn) -> int:
     from datetime import datetime
 
@@ -222,19 +268,24 @@ def sync_all(on_progress=None) -> dict[str, tuple[int, int]]:
     try:
         with store.ensure() as conn:
             conn.execute("DELETE FROM transcripts")
+            conn.execute("PRAGMA synchronous = OFF")
+            conn.execute("PRAGMA journal_mode = MEMORY")
 
             for provider_name in ("claude", "codex", "gemini"):
                 provider_dir = sessions_dir / provider_name
                 if not provider_dir.exists():
                     continue
 
-                for jsonl_file in provider_dir.glob("*.jsonl"):
+                provider_class = getattr(providers, provider_name.title())
+                files = list(provider_dir.glob("*.jsonl"))
+                
+                for jsonl_file in files:
                     try:
                         session_id = jsonl_file.stem
                         content = jsonl_file.read_text()
                         if content.strip():
-                            provider_class = getattr(providers, provider_name.title())
-                            input_tokens, output_tokens = provider_class.tokens(jsonl_file)
+                            # Extract tokens from content (avoid re-reading file)
+                            input_tokens, output_tokens = _extract_tokens(provider_name, content)
 
                             conn.execute(
                                 """
@@ -257,18 +308,20 @@ def sync_all(on_progress=None) -> dict[str, tuple[int, int]]:
                             _index_transcripts(session_id, provider_name, content, conn)
                         indexed_count += 1
 
-                        if on_progress:
+                        if on_progress and indexed_count % 50 == 0:
                             event = ProgressEvent(
                                 provider=provider_name,
                                 discovered=0,
                                 synced=0,
                                 phase="index",
                                 indexed=indexed_count,
+                                total_indexed=len(files),
                             )
                             on_progress(event)
                     except Exception as e:
                         logger.warning(f"Failed to index {jsonl_file}: {e}")
 
+            conn.execute("PRAGMA synchronous = NORMAL")
             conn.commit()
     except Exception as e:
         logger.warning(f"Failed to batch index sessions: {e}")
