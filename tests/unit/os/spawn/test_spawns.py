@@ -69,3 +69,35 @@ def test_update_status_syncs_on_timeout():
                 spawns.update_status("spawn-123", "timeout")
 
                 mock_index.assert_called_once_with("sess-456")
+
+
+def test_get_spawn_depth(test_space):
+    """Contract: get_spawn_depth returns correct ancestor count."""
+    from space.os.spawn.api import agents
+
+    agents.register_agent("test-agent", "claude-haiku-4-5", None)
+    agent = agents.get_agent("test-agent")
+
+    root = spawns.create_spawn(agent.agent_id, is_ephemeral=True)
+    child1 = spawns.create_spawn(agent.agent_id, is_ephemeral=True, parent_spawn_id=root.id)
+    child2 = spawns.create_spawn(agent.agent_id, is_ephemeral=True, parent_spawn_id=child1.id)
+
+    assert spawns.get_spawn_depth(root.id) == 0
+    assert spawns.get_spawn_depth(child1.id) == 1
+    assert spawns.get_spawn_depth(child2.id) == 2
+
+
+def test_get_spawn_lineage(test_space):
+    """Contract: get_spawn_lineage returns [spawn, parent, grandparent, ...]."""
+    from space.os.spawn.api import agents
+
+    agents.register_agent("test-agent", "claude-haiku-4-5", None)
+    agent = agents.get_agent("test-agent")
+
+    root = spawns.create_spawn(agent.agent_id, is_ephemeral=True)
+    child1 = spawns.create_spawn(agent.agent_id, is_ephemeral=True, parent_spawn_id=root.id)
+    child2 = spawns.create_spawn(agent.agent_id, is_ephemeral=True, parent_spawn_id=child1.id)
+
+    lineage = spawns.get_spawn_lineage(child2.id)
+
+    assert lineage == [child2.id, child1.id, root.id]

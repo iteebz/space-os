@@ -229,9 +229,9 @@ class Gemini(Provider):
                 if not first_char:
                     return (None, None)
                 f.seek(0)
-                
+
                 # Check if JSON (starts with {) or JSONL
-                if first_char == '{':
+                if first_char == "{":
                     # Try as single JSON object (raw Gemini format)
                     try:
                         data = json.load(f)

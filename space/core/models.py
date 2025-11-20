@@ -75,6 +75,7 @@ class Spawn:
     channel_id: str | None = None
     pid: int | None = None
     session_id: str | None = None
+    parent_spawn_id: str | None = None
     created_at: str | None = None
     ended_at: str | None = None
 

@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS spawns (
     id TEXT PRIMARY KEY,
     agent_id TEXT NOT NULL,
+    parent_spawn_id TEXT,
     session_id TEXT,
     channel_id TEXT,
     constitution_hash TEXT,
@@ -62,7 +63,8 @@ CREATE TABLE IF NOT EXISTS spawns (
     created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%f', 'now')),
     ended_at TEXT,
     FOREIGN KEY (agent_id) REFERENCES agents(agent_id) ON DELETE CASCADE,
-    FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE SET NULL
+    FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE SET NULL,
+    FOREIGN KEY (parent_spawn_id) REFERENCES spawns(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS memories (

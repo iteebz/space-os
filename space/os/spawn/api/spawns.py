@@ -7,6 +7,8 @@ from space.lib import store
 from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
 
+MAX_SPAWN_DEPTH = 3
+
 
 def create_spawn(
     agent_id: str,
@@ -14,6 +16,7 @@ def create_spawn(
     constitution_hash: str | None = None,
     channel_id: str | None = None,
     session_id: str | None = None,
+    parent_spawn_id: str | None = None,
 ) -> Spawn:
     """Create a new spawn for agent invocation.
 
@@ -25,6 +28,7 @@ def create_spawn(
         constitution_hash: Hash of the constitution file (if loaded)
         channel_id: Channel ID if triggered by bridge
         session_id: Session ID if already linked to provider session. Can be set later.
+        parent_spawn_id: Parent spawn ID for depth tracking
 
     Returns:
         Spawn object
@@ -43,10 +47,19 @@ def create_spawn(
         cursor.execute(
             """
             INSERT INTO spawns
-            (id, agent_id, is_ephemeral, constitution_hash, channel_id, session_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (id, agent_id, is_ephemeral, constitution_hash, channel_id, session_id, parent_spawn_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (spawn_id, agent_id, is_ephemeral, constitution_hash, channel_id, session_id, now),
+            (
+                spawn_id,
+                agent_id,
+                is_ephemeral,
+                constitution_hash,
+                channel_id,
+                session_id,
+                parent_spawn_id,
+                now,
+            ),
         )
 
         cursor.execute("SELECT * FROM spawns WHERE id = ?", (spawn_id,))
@@ -236,3 +249,57 @@ def get_all_spawns(limit: int = 100) -> list[Spawn]:
             "SELECT * FROM spawns ORDER BY created_at DESC LIMIT ?", (limit,)
         ).fetchall()
         return [from_row(row, Spawn) for row in rows]
+
+
+def get_spawn_depth(spawn_id: str) -> int:
+    """Follow parent_spawn_id chain to count depth.
+
+    Args:
+        spawn_id: Spawn ID
+
+    Returns:
+        Depth (0 = root, 1 = first child, etc.)
+    """
+    depth = 0
+    current_id = spawn_id
+
+    with store.ensure() as conn:
+        while current_id:
+            row = conn.execute(
+                "SELECT parent_spawn_id FROM spawns WHERE id = ?", (current_id,)
+            ).fetchone()
+            if not row or not row[0]:
+                break
+            current_id = row[0]
+            depth += 1
+            if depth > MAX_SPAWN_DEPTH + 5:
+                raise RuntimeError(f"Spawn depth loop detected for {spawn_id}")
+
+    return depth
+
+
+def get_spawn_lineage(spawn_id: str) -> list[str]:
+    """Return spawn lineage from child to root.
+
+    Args:
+        spawn_id: Spawn ID
+
+    Returns:
+        [spawn_id, parent_id, grandparent_id, ...]
+    """
+    lineage = [spawn_id]
+    current_id = spawn_id
+
+    with store.ensure() as conn:
+        while current_id:
+            row = conn.execute(
+                "SELECT parent_spawn_id FROM spawns WHERE id = ?", (current_id,)
+            ).fetchone()
+            if not row or not row[0]:
+                break
+            current_id = row[0]
+            lineage.append(current_id)
+            if len(lineage) > MAX_SPAWN_DEPTH + 5:
+                raise RuntimeError(f"Spawn lineage loop detected for {spawn_id}")
+
+    return lineage

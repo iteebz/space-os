@@ -55,6 +55,7 @@ def spawn_interactive(
         agent_id=agent.agent_id,
         is_ephemeral=bool(passthrough),
         constitution_hash=constitution_hash,
+        parent_spawn_id=None,
     )
 
     constitute(spawn, agent)
@@ -161,6 +162,18 @@ def spawn_ephemeral(
     if not agent:
         raise ValueError(f"Agent '{identity}' not found in registry")
 
+    parent_spawn_id = os.environ.get("SPACE_SPAWN_ID")
+    if parent_spawn_id:
+        parent_spawn = spawns.get_spawn(parent_spawn_id)
+        if parent_spawn:
+            depth = spawns.get_spawn_depth(parent_spawn_id)
+            if depth >= spawns.MAX_SPAWN_DEPTH:
+                raise ValueError(
+                    f"Cannot spawn: max depth {spawns.MAX_SPAWN_DEPTH} reached (current depth: {depth})"
+                )
+        else:
+            parent_spawn_id = None
+
     constitution_hash = agents.compute_constitution_hash(agent.constitution)
 
     spawn = spawns.create_spawn(
@@ -168,6 +181,7 @@ def spawn_ephemeral(
         is_ephemeral=True,
         channel_id=channel_id,
         constitution_hash=constitution_hash,
+        parent_spawn_id=parent_spawn_id,
     )
     spawns.update_status(spawn.id, "running")
 

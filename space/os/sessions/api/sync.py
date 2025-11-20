@@ -57,10 +57,10 @@ def _extract_tokens(provider: str, content: str) -> tuple[int, int]:
     """Extract tokens from JSONL content without re-reading file."""
     import io
     import json
-    
+
     input_total = 0
     output_total = 0
-    
+
     if provider == "claude":
         for line in io.StringIO(content):
             if not line.strip():
@@ -95,7 +95,7 @@ def _extract_tokens(provider: str, content: str) -> tuple[int, int]:
                         output_total = usage.get("output_tokens", 0)
             except json.JSONDecodeError:
                 continue
-    
+
     return (input_total or 0, output_total or 0)
 
 
@@ -278,7 +278,7 @@ def sync_all(on_progress=None) -> dict[str, tuple[int, int]]:
 
                 provider_class = getattr(providers, provider_name.title())
                 files = list(provider_dir.glob("*.jsonl"))
-                
+
                 for jsonl_file in files:
                     try:
                         session_id = jsonl_file.stem

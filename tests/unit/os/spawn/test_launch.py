@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from space.os.bridge.api import channels
-from space.os.spawn.api import agents, launch
+from space.os.spawn.api import agents, launch, spawns
 
 
 @pytest.fixture
@@ -154,3 +154,18 @@ def test_spawn_ephemeral_timeout_raises(test_agent, test_channel):
                         instruction="test",
                         channel_id=test_channel.channel_id,
                     )
+
+
+def test_spawn_depth_limit_enforced(test_agent, test_channel, monkeypatch):
+    """Contract: Spawn rejected when parent depth >= MAX_SPAWN_DEPTH."""
+    root = spawns.create_spawn(test_agent.agent_id, is_ephemeral=True)
+    child1 = spawns.create_spawn(test_agent.agent_id, is_ephemeral=True, parent_spawn_id=root.id)
+    child2 = spawns.create_spawn(test_agent.agent_id, is_ephemeral=True, parent_spawn_id=child1.id)
+    child3 = spawns.create_spawn(test_agent.agent_id, is_ephemeral=True, parent_spawn_id=child2.id)
+
+    monkeypatch.setenv("SPACE_SPAWN_ID", child3.id)
+
+    with pytest.raises(ValueError, match="max depth"):
+        launch.spawn_ephemeral(
+            identity="test-agent", instruction="test", channel_id=test_channel.channel_id
+        )
