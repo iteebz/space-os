@@ -53,13 +53,14 @@ class ProgressEvent:
     total_indexed: int = 0
 
 
-def _extract_tokens(provider: str, content: str) -> tuple[int, int]:
-    """Extract tokens from JSONL content without re-reading file."""
+def _extract_tokens(provider: str, content: str) -> tuple[int, int, str]:
+    """Extract tokens and model from JSONL content without re-reading file."""
     import io
     import json
 
     input_total = 0
     output_total = 0
+    model = None
 
     if provider == "claude":
         for line in io.StringIO(content):
@@ -69,15 +70,18 @@ def _extract_tokens(provider: str, content: str) -> tuple[int, int]:
                 obj = json.loads(line)
                 if isinstance(obj, dict) and "message" in obj:
                     msg = obj["message"]
-                    if isinstance(msg, dict) and "usage" in msg:
-                        stop_reason = msg.get("stop_reason")
-                        if stop_reason not in ("end_turn", "tool_use"):
-                            continue
-                        usage = msg["usage"]
-                        input_total += usage.get("input_tokens", 0)
-                        input_total += usage.get("cache_read_input_tokens", 0)
-                        input_total += usage.get("cache_creation_input_tokens", 0)
-                        output_total += usage.get("output_tokens", 0)
+                    if isinstance(msg, dict):
+                        if not model and "model" in msg:
+                            model = msg["model"]
+                        if "usage" in msg:
+                            stop_reason = msg.get("stop_reason")
+                            if stop_reason not in ("end_turn", "tool_use"):
+                                continue
+                            usage = msg["usage"]
+                            input_total += usage.get("input_tokens", 0)
+                            input_total += usage.get("cache_read_input_tokens", 0)
+                            input_total += usage.get("cache_creation_input_tokens", 0)
+                            output_total += usage.get("output_tokens", 0)
             except json.JSONDecodeError:
                 continue
     elif provider == "codex":
@@ -87,7 +91,9 @@ def _extract_tokens(provider: str, content: str) -> tuple[int, int]:
             try:
                 obj = json.loads(line)
                 payload = obj.get("payload", {})
-                if payload.get("type") == "token_count" and "info" in payload:
+                if payload.get("type") == "turn_context" and not model:
+                    model = payload.get("model")
+                elif payload.get("type") == "token_count" and "info" in payload:
                     info = payload["info"]
                     if isinstance(info, dict) and "total_token_usage" in info:
                         usage = info["total_token_usage"]
@@ -96,7 +102,7 @@ def _extract_tokens(provider: str, content: str) -> tuple[int, int]:
             except json.JSONDecodeError:
                 continue
 
-    return (input_total or 0, output_total or 0)
+    return (input_total or 0, output_total or 0, model or f"{provider}-unknown")
 
 
 def _index_transcripts(session_id: str, provider: str, content: str, conn) -> int:
@@ -284,8 +290,8 @@ def sync_all(on_progress=None) -> dict[str, tuple[int, int]]:
                         session_id = jsonl_file.stem
                         content = jsonl_file.read_text()
                         if content.strip():
-                            # Extract tokens from content (avoid re-reading file)
-                            input_tokens, output_tokens = _extract_tokens(provider_name, content)
+                            # Extract tokens and model from content (avoid re-reading file)
+                            input_tokens, output_tokens, model = _extract_tokens(provider_name, content)
 
                             conn.execute(
                                 """
@@ -293,13 +299,14 @@ def sync_all(on_progress=None) -> dict[str, tuple[int, int]]:
                                 (session_id, provider, model, input_tokens, output_tokens)
                                 VALUES (?, ?, ?, ?, ?)
                                 ON CONFLICT(session_id) DO UPDATE SET
+                                    model = excluded.model,
                                     input_tokens = excluded.input_tokens,
                                     output_tokens = excluded.output_tokens
                                 """,
                                 (
                                     session_id,
                                     provider_name,
-                                    f"{provider_name}-unknown",
+                                    model,
                                     input_tokens or 0,
                                     output_tokens or 0,
                                 ),

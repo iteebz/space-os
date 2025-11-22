@@ -22,7 +22,7 @@ class TaskStatus(str, Enum):
 class Agent:
     agent_id: str
     identity: str
-    model: str
+    model: str | None = None
     constitution: str | None = None
     role: str | None = None
     spawn_count: int = 0
@@ -31,7 +31,9 @@ class Agent:
     archived_at: str | None = None
 
     @property
-    def provider(self) -> str:
+    def provider(self) -> str | None:
+        if not self.model:
+            return None
         model_lower = self.model.lower()
         if model_lower.startswith("gpt-"):
             return "codex"

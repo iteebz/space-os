@@ -56,11 +56,14 @@ def get_agent(identifier: str) -> Agent | None:
 
 
 def register_agent(
-    identity: str, model: str, constitution: str | None = None, role: str | None = None
+    identity: str,
+    model: str | None = None,
+    constitution: str | None = None,
+    role: str | None = None,
 ) -> str:
     """Explicitly register an identity. Fails if identity already exists.
 
-    Provider is inferred from model.
+    If model is None, this is a human identity (no spawning capability).
     """
     _validate_identity(identity)
     agent = get_agent(identity)

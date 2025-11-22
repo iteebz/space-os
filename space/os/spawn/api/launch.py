@@ -161,6 +161,8 @@ def spawn_ephemeral(
     agent = agents.get_agent(identity)
     if not agent:
         raise ValueError(f"Agent '{identity}' not found in registry")
+    if not agent.model:
+        raise ValueError(f"Agent '{identity}' has no model (human identity, cannot spawn)")
 
     parent_spawn_id = os.environ.get("SPACE_SPAWN_ID")
     if parent_spawn_id:

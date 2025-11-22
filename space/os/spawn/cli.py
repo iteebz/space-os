@@ -143,8 +143,8 @@ def agents(
 @error_feedback
 def register(
     identity: str,
-    model: str = typer.Option(
-        ..., "--model", "-m", help="Model ID. Run 'spawn models' to list available models"
+    model: str | None = typer.Option(
+        None, "--model", "-m", help="Model ID. Run 'spawn models' to list available models"
     ),
     constitution: str | None = typer.Option(
         None, "--constitution", "-c", help="Constitution filename (e.g., zealot.md) - optional"

@@ -1,12 +1,14 @@
 -- 001_foundation.sql
 -- Unified schema for space.db covering agents, sessions, transcripts, bridge, memory, knowledge, and tasks.
 
+PRAGMA journal_mode=WAL;
+
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS agents (
     agent_id TEXT PRIMARY KEY,
     identity TEXT NOT NULL UNIQUE,
-    model TEXT NOT NULL,
+    model TEXT,
     constitution TEXT,
     role TEXT,
     spawn_count INTEGER NOT NULL DEFAULT 0,
