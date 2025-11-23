@@ -11,17 +11,23 @@ interface Session {
 
 interface Props {
   agentId: string
+  channelId?: string
   onSessionClick: (sessionId: string) => void
 }
 
-export function SessionList({ agentId, onSessionClick }: Props) {
+export function SessionList({ agentId, channelId, onSessionClick }: Props) {
   const {
     data: sessions,
     error,
     isLoading,
   } = useQuery({
-    queryKey: ['agent-sessions', agentId],
-    queryFn: () => fetchApi<Session[]>(`/agents/${agentId}/sessions`),
+    queryKey: channelId
+      ? ['channel-agent-sessions', channelId, agentId]
+      : ['agent-sessions', agentId],
+    queryFn: () =>
+      channelId
+        ? fetchApi<Session[]>(`/channels/${channelId}/agents/${agentId}/sessions`)
+        : fetchApi<Session[]>(`/agents/${agentId}/sessions`),
     retry: false,
   })
 

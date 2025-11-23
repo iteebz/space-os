@@ -109,7 +109,11 @@ export default function App() {
                   {selectedSessionId ? (
                     <SessionStream sessionId={selectedSessionId} />
                   ) : selectedAgentId ? (
-                    <SessionList agentId={selectedAgentId} onSessionClick={handleSessionClick} />
+                    <SessionList
+                      agentId={selectedAgentId}
+                      channelId={channel?.channel_id}
+                      onSessionClick={handleSessionClick}
+                    />
                   ) : (
                     selectedChannel && (
                       <ChannelAgents channel={selectedChannel} onAgentClick={handleAgentClick} />

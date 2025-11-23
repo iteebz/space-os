@@ -85,18 +85,19 @@ def update_status(spawn_id: str, status: str) -> None:
             )
             conn.commit()
 
-            # Index session for context search (ingest happened during streaming)
+            # Ingest and index session for context search
             spawn = get_spawn(spawn_id)
             if spawn and spawn.session_id:
                 try:
                     from space.os.sessions.api import sync
 
+                    sync.ingest(spawn.session_id)
                     sync.index(spawn.session_id)
                 except Exception as e:
                     import logging
 
                     logging.getLogger(__name__).warning(
-                        f"Failed to index session {spawn.session_id} for spawn {spawn_id}: {e}"
+                        f"Failed to ingest/index session {spawn.session_id} for spawn {spawn_id}: {e}"
                     )
         else:
             cursor.execute(

@@ -214,6 +214,8 @@ def spawn_ephemeral(
         logger.error(f"Headless spawn failed for {identity}: {e}", exc_info=True)
         spawns.update_status(spawn.id, "failed")
         raise
+    finally:
+        spawns.end_spawn(spawn.id)
 
 
 def _run_ephemeral(

@@ -158,6 +158,34 @@ def get_agent_sessions(agent_id: str):
     ]
 
 
+@app.get("/api/channels/{channel_id}/agents/{agent_id}/sessions")
+def get_channel_agent_sessions(channel_id: str, agent_id: str):
+    from space.lib import store
+
+    with store.ensure() as conn:
+        rows = conn.execute(
+            """
+            SELECT DISTINCT s.session_id, s.provider, s.model, s.first_message_at, s.last_message_at
+            FROM sessions s
+            JOIN spawns sp ON s.session_id = sp.session_id
+            WHERE sp.channel_id = ? AND sp.agent_id = ?
+            ORDER BY s.last_message_at DESC
+            """,
+            (channel_id, agent_id),
+        ).fetchall()
+
+    return [
+        {
+            "session_id": row[0],
+            "provider": row[1],
+            "model": row[2],
+            "first_message_at": row[3],
+            "last_message_at": row[4],
+        }
+        for row in rows
+    ]
+
+
 @app.get("/api/spawns/{spawn_id}/tree")
 def get_spawn_tree(spawn_id: str):
     from space.lib import store

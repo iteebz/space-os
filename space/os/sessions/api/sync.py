@@ -196,7 +196,28 @@ def index(session_id: str) -> int:
             try:
                 content = jsonl_file.read_text()
                 if content.strip():
+                    input_tokens, output_tokens, model = _extract_tokens(provider_name, content)
+
                     with store.ensure() as conn:
+                        conn.execute(
+                            """
+                            INSERT INTO sessions
+                            (session_id, provider, model, input_tokens, output_tokens)
+                            VALUES (?, ?, ?, ?, ?)
+                            ON CONFLICT(session_id) DO UPDATE SET
+                                model = excluded.model,
+                                input_tokens = excluded.input_tokens,
+                                output_tokens = excluded.output_tokens
+                            """,
+                            (
+                                session_id,
+                                provider_name,
+                                model,
+                                input_tokens or 0,
+                                output_tokens or 0,
+                            ),
+                        )
+                        _link_session_to_agent(session_id, conn)
                         count = _index_transcripts(session_id, provider_name, content, conn)
                         conn.commit()
                         return count
