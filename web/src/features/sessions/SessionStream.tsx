@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { BashCall, BashResult, EditCall, GenericTool } from './ToolRenderers'
 
 interface SessionEvent {
   type: string
@@ -8,6 +9,21 @@ interface SessionEvent {
 
 interface Props {
   sessionId: string
+}
+
+function formatRelativeTime(timestamp: string | null): string {
+  if (!timestamp) return ''
+  const now = Date.now()
+  const then = new Date(timestamp).getTime()
+  const diffMs = now - then
+  const diffSec = Math.floor(diffMs / 1000)
+  const diffMin = Math.floor(diffSec / 60)
+  const diffHour = Math.floor(diffMin / 60)
+
+  if (diffSec < 60) return `${diffSec}s ago`
+  if (diffMin < 60) return `${diffMin}m ago`
+  if (diffHour < 24) return `${diffHour}h ago`
+  return new Date(timestamp).toLocaleDateString()
 }
 
 export function SessionStream({ sessionId }: Props) {
@@ -44,17 +60,17 @@ export function SessionStream({ sessionId }: Props) {
     return <div className="text-neutral-500 text-sm">Waiting for events...</div>
   }
 
+  const filteredEvents = events.filter((e) => e.type !== 'message')
+
   return (
-    <div className="space-y-2 text-sm overflow-y-auto">
-      {events.map((event, i) => (
-        <div key={i} className="border-b border-neutral-800 pb-2">
-          <div className="text-xs text-neutral-500 mb-1">
-            {event.type}
-            {event.timestamp && (
-              <span className="ml-2">{new Date(event.timestamp).toLocaleTimeString()}</span>
-            )}
+    <div className="space-y-3 text-sm overflow-y-auto font-mono">
+      {filteredEvents.map((event, i) => (
+        <div key={`${sessionId}-${i}`} className="space-y-1">
+          <div className="flex justify-between items-center text-xs text-neutral-600">
+            <span>{event.type}</span>
+            <span>{formatRelativeTime(event.timestamp)}</span>
           </div>
-          <div className="text-neutral-300">
+          <div className={event.type === 'tool_result' ? 'pl-4 border-l-2 border-neutral-800' : ''}>
             <EventContent event={event} />
           </div>
         </div>
@@ -65,32 +81,41 @@ export function SessionStream({ sessionId }: Props) {
 
 function EventContent({ event }: { event: SessionEvent }) {
   if (event.type === 'text') {
-    return <span>{String(event.content)}</span>
+    return <div className="text-neutral-300">{String(event.content)}</div>
   }
 
   if (event.type === 'tool_call') {
-    const content = event.content as { tool_name: string; input: unknown }
-    return (
-      <div>
-        <span className="text-cyan-400">{content.tool_name}</span>
-        <pre className="text-xs text-neutral-500 mt-1 overflow-x-auto">
-          {JSON.stringify(content.input, null, 2)}
-        </pre>
-      </div>
-    )
+    const content = event.content as { tool_name: string; input: Record<string, unknown> }
+    const toolName = content.tool_name
+
+    if (toolName === 'Bash') {
+      return (
+        <BashCall
+          command={String(content.input.command || '')}
+          description={content.input.description ? String(content.input.description) : undefined}
+        />
+      )
+    }
+
+    if (toolName === 'Edit' || toolName === 'MultiEdit') {
+      const input = content.input as Record<string, unknown>
+      return (
+        <EditCall
+          file_path={String(input.file_path || '')}
+          edits={input.edits as Array<{ old_string: string; new_string: string }> | undefined}
+          old_string={input.old_string ? String(input.old_string) : undefined}
+          new_string={input.new_string ? String(input.new_string) : undefined}
+        />
+      )
+    }
+
+    return <GenericTool name={toolName} input={content.input} />
   }
 
   if (event.type === 'tool_result') {
     const content = event.content as { output: string; is_error: boolean }
-    return (
-      <pre
-        className={`text-xs overflow-x-auto ${content.is_error ? 'text-red-400' : 'text-neutral-400'}`}
-      >
-        {String(content.output).slice(0, 500)}
-        {String(content.output).length > 500 && '...'}
-      </pre>
-    )
+    return <BashResult output={String(content.output)} is_error={content.is_error} />
   }
 
-  return <pre className="text-xs">{JSON.stringify(event.content, null, 2)}</pre>
+  return <pre className="text-xs text-neutral-500">{JSON.stringify(event.content, null, 2)}</pre>
 }
