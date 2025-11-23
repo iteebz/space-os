@@ -74,8 +74,8 @@ def register_agent(
     now_iso = datetime.now().isoformat()
     with store.ensure() as conn:
         conn.execute(
-            "INSERT INTO agents (agent_id, identity, constitution, model, role, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (agent_id, identity, constitution, model, role, now_iso),
+            "INSERT INTO agents (agent_id, identity, model, constitution, role, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (agent_id, identity, model, constitution, role, now_iso),
         )
     touch_agent(agent_id)
     return agent_id

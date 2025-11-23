@@ -273,6 +273,7 @@ def sync_all(on_progress=None) -> dict[str, tuple[int, int]]:
     indexed_count = 0
     try:
         with store.ensure() as conn:
+            conn.execute("PRAGMA busy_timeout = 30000")
             conn.execute("DELETE FROM transcripts")
             conn.execute("PRAGMA synchronous = OFF")
             conn.execute("PRAGMA journal_mode = MEMORY")
@@ -291,7 +292,9 @@ def sync_all(on_progress=None) -> dict[str, tuple[int, int]]:
                         content = jsonl_file.read_text()
                         if content.strip():
                             # Extract tokens and model from content (avoid re-reading file)
-                            input_tokens, output_tokens, model = _extract_tokens(provider_name, content)
+                            input_tokens, output_tokens, model = _extract_tokens(
+                                provider_name, content
+                            )
 
                             conn.execute(
                                 """

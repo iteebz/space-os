@@ -31,3 +31,23 @@ export async function patchApi<T>(endpoint: string, data: unknown): Promise<T> {
   }
   return res.json()
 }
+
+export async function deleteApi<T>(endpoint: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${endpoint}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) {
+    throw new Error(`API error: ${res.status}`)
+  }
+  return res.json()
+}
+
+export async function postApiNoBody<T>(endpoint: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${endpoint}`, {
+    method: 'POST',
+  })
+  if (!res.ok) {
+    throw new Error(`API error: ${res.status}`)
+  }
+  return res.json()
+}

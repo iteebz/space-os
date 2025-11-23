@@ -14,10 +14,10 @@ def package_root() -> Path:
 
 
 def constitution(constitution_file: str) -> Path:
-    canon = canon_path() / "constitutions" / constitution_file
+    canon = canon_path() / "constitutions" / f"{constitution_file}.md"
     if canon.exists():
         return canon
-    return package_root() / "core" / "spawn" / "constitutions" / constitution_file
+    return package_root() / "os" / "spawn" / "constitutions" / f"{constitution_file}.md"
 
 
 def canon_path() -> Path:

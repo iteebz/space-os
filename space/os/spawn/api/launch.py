@@ -2,6 +2,7 @@
 
 import logging
 import os
+import shlex
 import shutil
 import subprocess
 
@@ -67,7 +68,7 @@ def spawn_interactive(
         provider_class, agent.provider, bool(passthrough), reasoning_effort
     )
 
-    add_dir_args = ["--add-dir", str(paths.space_root())]
+    add_dir_args = ["--add-dir", str(paths.space_root())] if agent.provider != "codex" else []
 
     known_session_id = resolve_session_id(agent.agent_id, resume)
     resume_args = _build_resume_args(
@@ -78,19 +79,21 @@ def spawn_interactive(
         spawns.link_session_to_spawn(spawn.id, known_session_id)
         _copy_bookmarks_from_session(known_session_id, spawn.id)
 
+    cwd = str(paths.identity_dir(agent.identity) if passthrough else paths.space_root())
     context = build_spawn_context(identity, task=passthrough[0] if passthrough else None)
 
-    full_command = [executable] + add_dir_args + [context] + model_args + launch_args + resume_args
-    display_command = (
-        [executable] + add_dir_args + ['"<context>"'] + model_args + launch_args + resume_args
-    )
+    base_command = [executable] + model_args + add_dir_args + launch_args + resume_args
 
-    typer.echo(f"Executing: {' '.join(display_command)}")
-    typer.echo("")
-
-    cwd = str(paths.identity_dir(agent.identity) if passthrough else paths.space_root())
-
-    proc = subprocess.Popen(full_command, env=env, cwd=cwd)
+    if passthrough:
+        full_command = base_command + [context]
+        display_command = base_command + ['"<context>"']
+        typer.echo(f"Executing: {' '.join(display_command)}")
+        typer.echo(f"Task: {passthrough[0]}\n")
+        proc = subprocess.Popen(full_command, env=env, cwd=cwd)
+    else:
+        typer.echo(f"Executing: echo <context> | {' '.join(base_command)}\n")
+        shell_cmd = f"echo {shlex.quote(context)} | {' '.join(base_command)}"
+        proc = subprocess.Popen(shell_cmd, shell=True, env=env, cwd=cwd)
 
     # Link session as soon as Claude creates the JSONL (only for new sessions)
     if not known_session_id:
@@ -189,7 +192,9 @@ def spawn_ephemeral(
 
     constitute(spawn, agent)
 
-    os.environ["SPACE_SPAWN_ID"] = spawn.id
+    env = build_launch_env()
+    env["SPACE_SPAWN_ID"] = spawn.id
+    env["SPACE_AGENT_IDENTITY"] = identity
 
     channel = channels.get_channel(channel_id) if channel_id else None
     channel_name = channel.name if channel else None
@@ -201,7 +206,7 @@ def spawn_ephemeral(
         _copy_bookmarks_from_session(session_id, spawn.id)
 
     try:
-        _run_ephemeral(agent, instruction, spawn, channel_name, session_id, is_continue)
+        _run_ephemeral(agent, instruction, spawn, channel_name, session_id, is_continue, env)
         spawns.update_status(spawn.id, "completed")
         return spawn
     except Exception as e:
@@ -217,6 +222,7 @@ def _run_ephemeral(
     channel_name: str | None,
     session_id: str | None,
     is_continue: bool,
+    env: dict[str, str],
 ) -> None:
     from space.os.sessions.api import linker, sync
 
@@ -236,11 +242,11 @@ def _run_ephemeral(
     context = build_spawn_context(
         agent.identity, task=instruction, channel=channel_name, is_ephemeral=True
     )
-    add_dir_args = ["--add-dir", str(paths.space_root())]
+    add_dir_args = ["--add-dir", str(paths.space_root())] if provider != "codex" else []
     resume_args = _build_resume_args(provider, session_id, is_continue)
 
     if provider == "codex":
-        cmd = ["codex"] + resume_args + ["exec"] + launch_args + model_args + add_dir_args
+        cmd = ["codex"] + resume_args + ["exec"] + launch_args + model_args
     else:
         cmd = [provider] + launch_args + add_dir_args + resume_args
 
@@ -253,6 +259,7 @@ def _run_ephemeral(
         stderr=subprocess.PIPE,
         text=True,
         cwd=str(spawn_dir),
+        env=env,
     )
 
     try:

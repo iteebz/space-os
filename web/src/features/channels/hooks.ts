@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchApi, postApi } from '../../lib/api'
+import { fetchApi, postApi, deleteApi, postApiNoBody } from '../../lib/api'
 import type { Channel, Message } from './types'
 
 export function useChannels() {
@@ -24,6 +24,26 @@ export function useSendMessage(channel: string) {
       postApi(`/channels/${channel}/messages`, { content, sender: 'human' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['messages', channel] })
+    },
+  })
+}
+
+export function useArchiveChannel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (channel: string) => postApiNoBody(`/channels/${channel}/archive`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] })
+    },
+  })
+}
+
+export function useDeleteChannel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (channel: string) => deleteApi(`/channels/${channel}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] })
     },
   })
 }

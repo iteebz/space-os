@@ -51,7 +51,7 @@ export default function App() {
             <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide mb-4">
               Channels
             </h2>
-            <CreateChannel />
+            <CreateChannel onChannelCreated={setSelectedChannel} />
             <ChannelList selected={selectedChannel} onSelect={setSelectedChannel} />
           </div>
         </Panel>

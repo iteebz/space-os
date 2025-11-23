@@ -65,14 +65,14 @@ def test_register_agent_success(mock_db):
     agents_call = next((call for call in calls if "INSERT INTO agents" in call[0][0]), None)
     assert agents_call is not None
     assert (
-        "INSERT INTO agents (agent_id, identity, constitution, model, role, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+        "INSERT INTO agents (agent_id, identity, model, constitution, role, created_at) VALUES (?, ?, ?, ?, ?, ?)"
         in agents_call[0][0]
     )
     assert agents_call[0][1] == (
         "new-uuid",
         "newagent",
-        "c.md",
         "claude-haiku-4-5",
+        "c.md",
         None,
         agents_call[0][1][5],
     )

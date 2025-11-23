@@ -300,8 +300,10 @@ def send(
     decode_base64: bool = typer.Option(False, "--base64", help="Decode base64 content"),
 ):
     """Post message to channel."""
+    import os
+
     try:
-        identity = ctx.obj.get("identity") or "human"
+        identity = ctx.obj.get("identity") or os.environ.get("SPACE_AGENT_IDENTITY") or "human"
         agent = spawn.get_agent(identity)
         if not agent:
             raise ValueError(f"Identity '{identity}' not registered.")

@@ -94,6 +94,30 @@ def update_topic(channel: str, body: UpdateTopic):
     return {"ok": True}
 
 
+@app.delete("/api/channels/{channel}")
+def delete_channel(channel: str):
+    result = subprocess.run(
+        ["bridge", "delete", channel],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return {"error": result.stderr.strip()}
+    return {"ok": True}
+
+
+@app.post("/api/channels/{channel}/archive")
+def archive_channel(channel: str):
+    result = subprocess.run(
+        ["bridge", "archive", channel],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return {"error": result.stderr.strip()}
+    return {"ok": True}
+
+
 @app.get("/api/spawns")
 def get_spawns():
     return run_cli(["spawn", "--json", "tasks", "--all"])
@@ -251,7 +275,7 @@ async def stream_session_events(session_path: Path) -> AsyncGenerator[str, None]
 def main():
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000, access_log=False)
+    uvicorn.run("space.api.main:app", host="0.0.0.0", port=8000, access_log=False, reload=True)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,11 @@ import React, { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { postApi } from '../../lib/api'
 
-export function CreateChannel() {
+interface Props {
+  onChannelCreated?: (name: string) => void
+}
+
+export function CreateChannel({ onChannelCreated }: Props) {
   const [isOpen, setIsOpen] = useState(false)
   const [name, setName] = useState('')
   const [topic, setTopic] = useState('')
@@ -12,9 +16,11 @@ export function CreateChannel() {
     mutationFn: () => postApi('/channels', { name, topic: topic || null }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['channels'] })
+      const createdName = name
       setName('')
       setTopic('')
       setIsOpen(false)
+      onChannelCreated?.(createdName)
     },
   })
 
