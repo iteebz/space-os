@@ -41,10 +41,8 @@ class Claude(Provider):
     @staticmethod
     def task_launch_args() -> list[str]:
         return [
+            "--print",
             "--dangerously-skip-permissions",
-            "--verbose",
-            "--output-format",
-            "stream-json",
             "--disallowedTools",
             ",".join(Claude.DISALLOWED_TOOLS),
         ]

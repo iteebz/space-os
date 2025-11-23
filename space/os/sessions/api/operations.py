@@ -125,7 +125,9 @@ def stats() -> SessionStats:
     )
 
 
-def resolve_session_id(agent_id: str, resume: str | None) -> str | None:
+def resolve_session_id(
+    agent_id: str, resume: str | None, channel_id: str | None = None
+) -> str | None:
     """Resolve session ID from resume arg (spawn_id or session_id, full or short).
 
     Tries spawn lookup first (for recent spawns), then session lookup.
@@ -133,6 +135,7 @@ def resolve_session_id(agent_id: str, resume: str | None) -> str | None:
     Args:
         agent_id: Agent ID to look up spawns for
         resume: Spawn ID, session ID, or short form of either. None to continue last.
+        channel_id: Scope session resolution to specific channel (for channel continuity)
 
     Returns:
         Full session ID or None if no session found
@@ -140,6 +143,12 @@ def resolve_session_id(agent_id: str, resume: str | None) -> str | None:
     from space.os.spawn.api import spawns
 
     if not resume:
+        if channel_id:
+            all_spawns = spawns.get_channel_spawns(channel_id)
+            for spawn in all_spawns:
+                if spawn.agent_id == agent_id and spawn.session_id:
+                    return spawn.session_id
+            return None
         last_spawns = spawns.get_spawns_for_agent(agent_id, limit=1)
         if last_spawns:
             return last_spawns[0].session_id

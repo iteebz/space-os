@@ -1,5 +1,6 @@
 """Agent launching: provider execution and lifecycle management."""
 
+import contextlib
 import logging
 import os
 import shlex
@@ -199,7 +200,7 @@ def spawn_ephemeral(
     channel = channels.get_channel(channel_id) if channel_id else None
     channel_name = channel.name if channel else None
 
-    session_id = resolve_session_id(agent.agent_id, resume)
+    session_id = resolve_session_id(agent.agent_id, resume, channel_id=channel_id)
     is_continue = resume is None and session_id
 
     if session_id:
@@ -224,7 +225,7 @@ def _run_ephemeral(
     is_continue: bool,
     env: dict[str, str],
 ) -> None:
-    from space.os.sessions.api import linker, sync
+    from space.os.sessions.api import linker
 
     provider = agent.provider
     provider_class = PROVIDERS.get(provider)
@@ -252,48 +253,51 @@ def _run_ephemeral(
 
     spawn_dir = paths.identity_dir(agent.identity)
 
-    proc = subprocess.Popen(
-        cmd,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        cwd=str(spawn_dir),
-        env=env,
-    )
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+        f.write(context)
+        context_file = f.name
 
     try:
-        provider_session_id = None
-        proc.stdin.write(context)
-        proc.stdin.close()
-
-        for line in proc.stdout:
-            if not line.strip():
-                continue
-
-            if not provider_session_id:
-                provider_session_id = provider_class.session_id_from_stream(line)
-                if provider_session_id:
-                    linker.link_spawn_to_session(spawn.id, provider_session_id)
-
-            if provider_session_id:
-                try:
-                    sync.ingest(provider_session_id)
-                except Exception as e:
-                    logger.debug(f"Ingest error (non-fatal): {e}")
-
-        proc.wait(timeout=SPAWN_TIMEOUT)
+        with open(context_file) as stdin_file:
+            proc = subprocess.Popen(
+                cmd,
+                stdin=stdin_file,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                cwd=str(spawn_dir),
+                env=env,
+            )
+            stdout, stderr = proc.communicate(timeout=SPAWN_TIMEOUT)
 
         if proc.returncode != 0:
-            stderr = proc.stderr.read()
             raise RuntimeError(f"{provider.title()} spawn failed: {stderr}")
 
-        if not provider_session_id:
-            raise RuntimeError(f"No session_id in {provider.title()} output stream")
+        if session_id:
+            linker.link_spawn_to_session(spawn.id, session_id)
+        else:
+            try:
+                discovered_session_id = _discover_recent_session(provider, spawn.created_at)
+                if discovered_session_id:
+                    linker.link_spawn_to_session(spawn.id, discovered_session_id)
+            except Exception as e:
+                logger.debug(f"Session discovery failed (non-fatal): {e}")
+
+        from space.os.bridge.api import messaging
+
+        if channel_name and stdout.strip():
+            messaging.send_message(channel_name, agent.identity, stdout.strip())
 
     except subprocess.TimeoutExpired:
         proc.kill()
         raise RuntimeError(f"{provider.title()} spawn timed out") from None
+    finally:
+        import os
+
+        with contextlib.suppress(Exception):
+            os.unlink(context_file)
 
 
 def _get_launch_args(
@@ -326,10 +330,10 @@ def _build_resume_args(provider: str, session_id: str | None, is_continue: bool)
         return []
 
     if provider == "claude":
-        return ["-c"] if is_continue else ["-r", session_id]
+        return ["-r", session_id]
 
     if provider == "codex":
-        return ["resume", "--last"] if is_continue else ["resume", session_id]
+        return ["resume", session_id]
 
     return []
 
