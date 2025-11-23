@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import json
 import subprocess
+import time
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from queue import Empty, Queue
@@ -19,6 +20,7 @@ from space.lib import paths
 from space.lib.providers import Claude
 
 app = FastAPI(title="Space API")
+START_TIME = time.time()
 
 app.add_middleware(
     CORSMiddleware,
@@ -126,6 +128,30 @@ def get_spawns():
 @app.get("/api/agents")
 def get_agents():
     return run_cli(["spawn", "agents", "--json"])
+
+
+@app.get("/api/health")
+def health_check():
+    from space.lib import store
+
+    uptime_seconds = int(time.time() - START_TIME)
+    db_ok = False
+    db_error = None
+
+    try:
+        with store.ensure() as conn:
+            conn.execute("SELECT 1").fetchone()
+        db_ok = True
+    except Exception as e:
+        db_error = str(e)
+
+    return {
+        "uptime_seconds": uptime_seconds,
+        "database": {
+            "connected": db_ok,
+            "error": db_error,
+        },
+    }
 
 
 @app.get("/api/agents/{agent_id}/sessions")

@@ -26,14 +26,16 @@ WHEN STUCK → spawn agents to find the right agent, then bridge send @agent_nam
 WHEN LEARNING → memory add "insight" --topic observations
 WHEN SESSION DONE → memory add "session summary" --topic journal
 
-COORDINATION PROTOCOL:
-After completing work, check if other agents should verify:
-1. Run `spawn agents` to see available agents and their roles
-2. Match your output to relevant roles (test, verify, review, coherence, etc)
-3. Invoke via @mention in the channel
-4. Continue until no agent finds fault
+COORDINATION:
+You are part of a multi-agent system. Your completion message MUST hand off to next agent or human.
 
-Declare work complete only after coordination loop finishes.
+Examples:
+  "Implementation complete. @prime please review session X"
+  "Analysis done. @human awaiting decision on approach"
+  "Feature shipped, CI passing. @human work complete"
+
+Run `spawn agents` to see available agents and their roles.
+Default: when uncertain who's next, ask @human.
 
 {memories}{task}{channel}{task_mode}"""
 

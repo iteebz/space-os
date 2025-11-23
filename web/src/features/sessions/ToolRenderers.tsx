@@ -44,11 +44,7 @@ export function EditCall({ file_path, edits, old_string, new_string }: EditCallP
   const editList = edits || (old_string && new_string ? [{ old_string, new_string }] : [])
 
   if (!editList.length) {
-    return (
-      <div className="text-xs text-neutral-500">
-        {file_path} - No edits
-      </div>
-    )
+    return <div className="text-xs text-neutral-500">{file_path} - No edits</div>
   }
 
   const firstEdit = editList[0]

@@ -51,11 +51,9 @@ def _shutdown_worker() -> None:
     if _worker_thread is None or not _worker_thread.is_alive():
         return
 
-    log.info("Shutting down spawn worker (draining queue)...")
+    log.info("Shutting down spawn worker...")
     _shutdown_flag.set()
-    _spawn_queue.join()
-    _worker_thread.join(timeout=5)
-    log.info("Spawn worker shutdown complete")
+    log.info("Spawn worker shutdown signaled (daemon will finish async)")
 
 
 atexit.register(_shutdown_worker)
@@ -70,36 +68,76 @@ def _parse_mentions(content: str) -> list[str]:
 def _parse_control_commands(content: str) -> dict[str, list[str] | bool]:
     pause_pattern = r"!pause(?:\s+([\w-]+))?"
     resume_pattern = r"!resume(?:\s+([\w-]+))?"
+    abort_pattern = r"!abort(?:\s+([\w-]+))?"
 
     pause_matches = re.findall(pause_pattern, content)
     resume_matches = re.findall(resume_pattern, content)
+    abort_matches = re.findall(abort_pattern, content)
 
-    bare_identity_pattern = r"!(?!pause|resume)([\w-]+)"
+    bare_identity_pattern = r"!(?!pause|resume|abort)([\w-]+)"
     bare_identities = re.findall(bare_identity_pattern, content)
 
     pause_identities = [m for m in pause_matches if m]
     resume_identities = [m for m in resume_matches if m]
+    abort_identities = [m for m in abort_matches if m]
 
     has_bare_pause = bool(re.search(r"!pause(?:\s|$|[^\w-])", content))
     has_bare_resume = bool(re.search(r"!resume(?:\s|$|[^\w-])", content))
+    has_bare_abort = bool(re.search(r"!abort(?:\s|$|[^\w-])", content))
 
     all_pause_identities = pause_identities + bare_identities
 
     return {
         "pause_identities": all_pause_identities,
         "resume_identities": resume_identities,
+        "abort_identities": abort_identities,
         "pause_all": has_bare_pause and not all_pause_identities,
         "resume_all": has_bare_resume and not resume_identities,
+        "abort_all": has_bare_abort and not abort_identities,
     }
 
 
-def spawn_from_mentions(channel_id: str, content: str, agent_id: str | None = None) -> None:
-    _start_worker()
-
+def _process_delimiters_worker(channel_id: str, content: str, agent_id: str | None) -> None:
+    from . import channels
+    
+    channel = channels.get_channel(channel_id)
+    if not channel:
+        log.error(f"Channel {channel_id} not found")
+        return
+    
     try:
-        _spawn_queue.put_nowait((channel_id, content, agent_id))
-    except queue.Full:
-        log.error(f"Spawn queue full (1000 items), dropping request for channel {channel_id}")
+        _process_control_commands_impl(channel_id, content)
+        _process_mentions(channel_id, content, agent_id)
+    except Exception as e:
+        log.error(f"Failed to process delimiters: {e}", exc_info=True)
+
+
+def spawn_from_mentions(channel_id: str, content: str, agent_id: str | None = None) -> None:
+    import subprocess
+    import sys
+    import base64
+    import json
+    
+    # Spawn background process via subprocess to avoid blocking and db connection issues
+    payload = json.dumps({"channel_id": channel_id, "content": content, "agent_id": agent_id})
+    payload_b64 = base64.b64encode(payload.encode()).decode()
+    
+    subprocess.Popen(
+        [sys.executable, "-c", f"""
+import sys
+import json
+import base64
+sys.path.insert(0, {repr(sys.path[0])})
+from space.os.bridge.api.delimiters import _process_delimiters_worker
+
+payload = json.loads(base64.b64decode({repr(payload_b64)}).decode())
+_process_delimiters_worker(payload['channel_id'], payload['content'], payload['agent_id'])
+"""],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True
+    )
 
 
 def _process_control_commands_impl(channel_id: str, content: str) -> None:
@@ -116,6 +154,29 @@ def _process_control_commands_impl(channel_id: str, content: str) -> None:
     elif commands["resume_identities"]:
         for identity in commands["resume_identities"]:
             _update_spawns_status(channel_id, identity, "paused", "resume")
+
+    if commands["abort_all"]:
+        _update_spawns_status(channel_id, None, "running", "abort")
+    elif commands["abort_identities"]:
+        for identity in commands["abort_identities"]:
+            _update_spawns_status(channel_id, identity, "running", "abort")
+
+
+def _abort_spawn(spawn_id: str) -> None:
+    """Abort a running spawn - terminates task execution, agent identity preserved."""
+    import contextlib
+    import os
+    import signal
+    
+    spawn_obj = spawns.get_spawn(spawn_id)
+    if not spawn_obj:
+        return
+    
+    if spawn_obj.pid:
+        with contextlib.suppress(OSError, ProcessLookupError):
+            os.kill(spawn_obj.pid, signal.SIGTERM)
+    
+    spawns.update_status(spawn_id, "killed")
 
 
 def _update_spawns_status(
@@ -139,7 +200,15 @@ def _update_spawns_status(
             log.info(f"No {from_status} spawns for {identity}")
             return
 
-    action_fn = spawns.pause_spawn if action == "pause" else spawns.resume_spawn
+    if action == "pause":
+        action_fn = spawns.pause_spawn
+    elif action == "resume":
+        action_fn = spawns.resume_spawn
+    elif action == "abort":
+        action_fn = _abort_spawn
+    else:
+        log.warning(f"Unknown action: {action}")
+        return
 
     for spawn_obj in spawn_list:
         try:
@@ -174,6 +243,11 @@ def _process_mentions(channel_id: str, content: str, sender_agent_id: str | None
         agent = spawn_agents.get_agent(identity)
         if not agent:
             log.warning(f"Identity {identity} not found in registry")
+            continue
+        
+        # Skip human mentions - humans can't spawn
+        if identity == "human" or not agent.model:
+            log.info(f"Skipping @{identity} mention (human identity)")
             continue
 
         paused_spawns = spawns.get_spawns_for_agent(agent.agent_id, status="paused")

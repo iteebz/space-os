@@ -40,7 +40,7 @@ class Codex(Provider):
     @staticmethod
     def launch_args(reasoning_effort: str | None = None) -> list[str]:
         """Return launch arguments for Codex."""
-        args = ["--dangerously-bypass-approvals-and-sandbox"]
+        args = ["--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check"]
         if reasoning_effort:
             args.extend(["-c", f"model_reasoning_effort={reasoning_effort}"])
         return args
@@ -51,7 +51,7 @@ class Codex(Provider):
 
         Task mode uses --json flag, returns JSONL with thread_id in first event.
         """
-        args = ["--json", "--dangerously-bypass-approvals-and-sandbox"]
+        args = ["--json", "--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check"]
         if reasoning_effort:
             args.extend(["-c", f"model_reasoning_effort={reasoning_effort}"])
         return args

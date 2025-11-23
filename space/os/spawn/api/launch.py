@@ -83,7 +83,10 @@ def spawn_interactive(
     cwd = str(paths.identity_dir(agent.identity) if passthrough else paths.space_root())
     context = build_spawn_context(identity, task=passthrough[0] if passthrough else None)
 
-    base_command = [executable] + model_args + add_dir_args + launch_args + resume_args
+    if agent.provider == "codex":
+        base_command = [executable] + resume_args + ["exec"] + model_args + launch_args
+    else:
+        base_command = [executable] + model_args + add_dir_args + launch_args + resume_args
 
     if passthrough:
         full_command = base_command + [context]
@@ -234,13 +237,15 @@ def _run_ephemeral(
     if not provider_class:
         raise ValueError(f"Unknown provider: {provider}")
 
+    model_id = agent.model
+    reasoning_effort = None
     if provider == "codex":
         model_id, reasoning_effort = Codex.parse_model_id(agent.model)
         launch_args = provider_class.task_launch_args(reasoning_effort=reasoning_effort)
         model_args = ["--model", model_id]
     else:
         launch_args = provider_class.task_launch_args()
-        model_args = []
+        model_args = ["--model", model_id]
 
     context = build_spawn_context(
         agent.identity, task=instruction, channel=channel_name, is_ephemeral=True
@@ -251,7 +256,7 @@ def _run_ephemeral(
     if provider == "codex":
         cmd = ["codex"] + resume_args + ["exec"] + launch_args + model_args
     else:
-        cmd = [provider] + launch_args + add_dir_args + resume_args
+        cmd = [provider] + model_args + launch_args + add_dir_args + resume_args
 
     spawn_dir = paths.identity_dir(agent.identity)
 
@@ -290,7 +295,15 @@ def _run_ephemeral(
         from space.os.bridge.api import messaging
 
         if channel_name and stdout.strip():
-            messaging.send_message(channel_name, agent.identity, stdout.strip())
+            # Parse output based on provider
+            if provider == "codex":
+                # Extract agent messages from JSONL
+                output_text = _parse_codex_output(stdout)
+            else:
+                output_text = stdout.strip()
+            
+            if output_text:
+                messaging.send_message(channel_name, agent.identity, output_text)
 
     except subprocess.TimeoutExpired:
         proc.kill()
@@ -300,6 +313,28 @@ def _run_ephemeral(
 
         with contextlib.suppress(Exception):
             os.unlink(context_file)
+
+
+def _parse_codex_output(jsonl_output: str) -> str:
+    """Parse Codex JSONL output and extract agent message text."""
+    import json
+    
+    messages = []
+    for line in jsonl_output.strip().split("\n"):
+        if not line.strip():
+            continue
+        try:
+            obj = json.loads(line)
+            if obj.get("type") == "item.completed":
+                item = obj.get("item", {})
+                if item.get("type") == "agent_message":
+                    text = item.get("text", "")
+                    if text:
+                        messages.append(text)
+        except json.JSONDecodeError:
+            continue
+    
+    return "\n\n".join(messages) if messages else ""
 
 
 def _get_launch_args(
