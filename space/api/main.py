@@ -149,6 +149,23 @@ async def get_agents():
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@app.get("/api/identity")
+async def get_human_identity():
+    from space.lib import store
+
+    try:
+        with store.ensure() as conn:
+            row = conn.execute(
+                "SELECT identity FROM agents WHERE model IS NULL LIMIT 1"
+            ).fetchone()
+        
+        if row:
+            return {"identity": row[0]}
+        return {"identity": "human"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
 @app.get("/api/health")
 def health_check():
     from space.lib import store

@@ -8,8 +8,10 @@ import {
   CreateChannel,
   ChannelHeader,
   useChannels,
+  useMessages,
 } from './features/channels'
 import { SessionList, SessionStream } from './features/sessions'
+import { useAgentMap } from './features/agents'
 
 export default function App() {
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null)
@@ -17,6 +19,8 @@ export default function App() {
   const [selectedAgentIdentity, setSelectedAgentIdentity] = useState<string | null>(null)
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const { data: channels } = useChannels()
+  const { data: messages = [] } = useMessages(selectedChannel)
+  const agentMap = useAgentMap()
 
   const handleAgentClick = (agentIdentity: string) => {
     setSelectedAgentIdentity(agentIdentity)
@@ -43,6 +47,22 @@ export default function App() {
 
   const channel = channels?.find((c) => c.name === selectedChannel)
 
+  const handleExportChannel = () => {
+    if (!messages.length) return
+    
+    const text = messages
+      .map((msg) => {
+        const identity = agentMap.get(msg.agent_id) ?? msg.agent_id.slice(0, 7)
+        const timestamp = new Date(msg.created_at).toLocaleString()
+        return `[${timestamp}] ${identity}:\n${msg.content}\n`
+      })
+      .join('\n')
+    
+    navigator.clipboard.writeText(text).then(() => {
+      // Could add toast notification here
+    })
+  }
+
   return (
     <div className="h-screen w-screen">
       <PanelGroup direction="horizontal">
@@ -62,7 +82,11 @@ export default function App() {
           <div className="h-full p-4 flex flex-col">
             {selectedChannel && channel ? (
               <>
-                <ChannelHeader channel={channel} onInfoClick={() => setShowPanel(!showPanel)} />
+                <ChannelHeader 
+                  channel={channel} 
+                  onInfoClick={() => setShowPanel(!showPanel)}
+                  onExportClick={handleExportChannel}
+                />
                 <div className="flex-1 overflow-y-auto">
                   <MessageList channel={selectedChannel} />
                 </div>

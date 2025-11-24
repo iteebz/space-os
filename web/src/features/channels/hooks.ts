@@ -9,6 +9,13 @@ export function useChannels() {
   })
 }
 
+export function useHumanIdentity() {
+  return useQuery({
+    queryKey: ['identity'],
+    queryFn: () => fetchApi<{ identity: string }>('/identity'),
+  })
+}
+
 export function useMessages(channel: string | null) {
   return useQuery({
     queryKey: ['messages', channel],
@@ -17,11 +24,11 @@ export function useMessages(channel: string | null) {
   })
 }
 
-export function useSendMessage(channel: string) {
+export function useSendMessage(channel: string, sender: string = 'human') {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (content: string) =>
-      postApi(`/channels/${channel}/messages`, { content, sender: 'human' }),
+      postApi(`/channels/${channel}/messages`, { content, sender }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['messages', channel] })
     },

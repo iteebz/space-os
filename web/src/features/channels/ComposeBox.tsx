@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react'
-import { useSendMessage } from './hooks'
+import { useSendMessage, useHumanIdentity } from './hooks'
 import { useAgents } from '../agents'
 import { useChannels } from './hooks'
 import { DelimiterAutocomplete } from './DelimiterAutocomplete'
@@ -13,7 +13,9 @@ export function ComposeBox({ channel }: Props) {
   const [cursorPosition, setCursorPosition] = useState(0)
   const [showAutocomplete, setShowAutocomplete] = useState(false)
   const textareaRef = useRef<globalThis.HTMLTextAreaElement>(null)
-  const { mutate: send, isPending } = useSendMessage(channel)
+  const { data: identityData } = useHumanIdentity()
+  const humanIdentity = identityData?.identity ?? 'human'
+  const { mutate: send, isPending } = useSendMessage(channel, humanIdentity)
   const { data: agents = [] } = useAgents()
   const { data: channels = [] } = useChannels()
 

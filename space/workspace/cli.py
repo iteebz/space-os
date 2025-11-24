@@ -137,6 +137,61 @@ def health_cmd():
     typer.echo("\n✓ Space infrastructure healthy")
 
 
+identity_app = typer.Typer()
+
+
+@identity_app.command(name="set")
+def identity_set_cmd(name: str):
+    """Set your human identity (default: human)."""
+    from space.os.spawn.api import agents
+    
+    if ' ' in name:
+        typer.echo("Identity cannot contain spaces. Use hyphens instead.", err=True)
+        raise typer.Exit(1)
+    
+    # Check if identity already exists as an agent
+    existing = agents.get_agent(name)
+    if existing and existing.model:
+        typer.echo(f"Identity '{name}' already registered as agent. Choose different name.", err=True)
+        raise typer.Exit(1)
+    
+    # Get current human identity
+    human_agent = agents.get_agent("human")
+    if not human_agent:
+        typer.echo("No human identity found. Run: space init", err=True)
+        raise typer.Exit(1)
+    
+    if name == "human":
+        typer.echo("Already set to: human")
+        return
+    
+    # Rename human -> new identity
+    success = agents.rename_agent("human", name)
+    if not success:
+        typer.echo(f"Failed to set identity to: {name}", err=True)
+        raise typer.Exit(1)
+    
+    typer.echo(f"Identity set to: {name}")
+
+
+@identity_app.command(name="get")
+def identity_get_cmd():
+    """Show your current identity."""
+    from space.lib import store
+    
+    with store.ensure() as conn:
+        row = conn.execute(
+            "SELECT identity FROM agents WHERE model IS NULL LIMIT 1"
+        ).fetchone()
+    
+    if row:
+        typer.echo(row[0])
+    else:
+        typer.echo("No human identity found. Run: space init", err=True)
+        raise typer.Exit(1)
+
+
+app.add_typer(identity_app, name="identity", help="Manage your human identity.")
 app.add_typer(init_app, name="init", help="Initialize space workspace structure and databases.")
 app.add_typer(backup.app, name="backup", help="Backup and restore space data.")
 app.add_typer(stats_app, name="stats", help="Show space overview and agent statistics.")
