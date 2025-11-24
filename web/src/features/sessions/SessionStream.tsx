@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { BashCall, BashResult, EditCall, GenericTool } from './ToolRenderers'
+import { formatLocalDate } from '../../lib/utils'
 
 interface SessionEvent {
   type: string
@@ -23,7 +24,7 @@ function formatRelativeTime(timestamp: string | null): string {
   if (diffSec < 60) return `${diffSec}s ago`
   if (diffMin < 60) return `${diffMin}m ago`
   if (diffHour < 24) return `${diffHour}h ago`
-  return new Date(timestamp).toLocaleDateString()
+  return formatLocalDate(timestamp)
 }
 
 export function SessionStream({ sessionId }: Props) {
@@ -34,7 +35,7 @@ export function SessionStream({ sessionId }: Props) {
   useEffect(() => {
     setEvents([])
     setError(null)
-    
+
     const eventSource = new window.EventSource(`/api/sessions/${sessionId}/stream`)
 
     eventSource.onmessage = (event) => {

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Markdown from 'react-markdown'
 import { useMessages, useDeleteMessage } from './hooks'
-import { useAgentMap } from '../agents'
+import { useAgentMap, useAgentIdentities } from '../agents'
 import { QueryState } from '../../lib/QueryState'
+import { formatLocalTime } from '../../lib/utils'
 import type { Message } from './types'
 
 interface Props {
@@ -53,13 +54,14 @@ function getMentionColor(identity: string): { bg: string; text: string } {
   return colors[hash % colors.length]
 }
 
-function highlightDelimiters(content: unknown): React.ReactNode {
+function highlightDelimiters(content: unknown, validIdentities: Set<string>): React.ReactNode {
   const text = extractText(content)
-  const parts = text.split(/(@[\w-]+|~\/[\w\/.@-]+|\.\/[\w\/.@-]*)/g)
+  const parts = text.split(/(@[\w-]+|~\/[\w/.@-]+|\.\/[\w/.@-]*)/g)
   return parts.map((part, idx) => {
     if (!part) return null
     if (part.startsWith('@')) {
       const identity = part.slice(1)
+      if (!validIdentities.has(identity)) return part
       const colors = getMentionColor(identity)
       return (
         <span key={idx} className={`px-1.5 py-0.5 ${colors.bg} ${colors.text} rounded font-medium`}>
@@ -69,7 +71,10 @@ function highlightDelimiters(content: unknown): React.ReactNode {
     }
     if (part.startsWith('~/') || part.startsWith('./')) {
       return (
-        <span key={idx} className="px-1.5 py-0.5 bg-neutral-800 text-neutral-300 rounded font-mono text-xs">
+        <span
+          key={idx}
+          className="px-1.5 py-0.5 bg-neutral-800 text-neutral-300 rounded font-mono text-xs"
+        >
           {part}
         </span>
       )
@@ -78,13 +83,20 @@ function highlightDelimiters(content: unknown): React.ReactNode {
   })
 }
 
-function DelimiterHighlighter({ content }: { content: unknown }) {
-  return <>{highlightDelimiters(content)}</>
+function DelimiterHighlighter({
+  content,
+  validIdentities,
+}: {
+  content: unknown
+  validIdentities: Set<string>
+}) {
+  return <>{highlightDelimiters(content, validIdentities)}</>
 }
 
 export function MessageList({ channel }: Props) {
   const query = useMessages(channel)
   const agentMap = useAgentMap()
+  const agentIdentities = useAgentIdentities()
   const deleteMessage = useDeleteMessage(channel)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -105,11 +117,13 @@ export function MessageList({ channel }: Props) {
               onMouseLeave={() => setHoveredId(null)}
             >
               <div className="flex items-center gap-2 mb-2">
-                <span className={`font-semibold ${getIdentityColor(agentMap.get(msg.agent_id) ?? msg.agent_id)}`}>
+                <span
+                  className={`font-semibold ${getIdentityColor(agentMap.get(msg.agent_id) ?? msg.agent_id)}`}
+                >
                   {agentMap.get(msg.agent_id) ?? msg.agent_id.slice(0, 7)}
                 </span>
                 <span className="text-xs text-neutral-500">
-                  {new Date(msg.created_at).toLocaleTimeString()}
+                  {formatLocalTime(msg.created_at)}
                 </span>
                 {hoveredId === msg.message_id && (
                   <button
@@ -129,17 +143,26 @@ export function MessageList({ channel }: Props) {
                   components={{
                     p: ({ children }) => (
                       <p>
-                        <DelimiterHighlighter content={children} />
+                        <DelimiterHighlighter
+                          content={children}
+                          validIdentities={agentIdentities}
+                        />
                       </p>
                     ),
                     strong: ({ children }) => (
                       <strong>
-                        <DelimiterHighlighter content={children} />
+                        <DelimiterHighlighter
+                          content={children}
+                          validIdentities={agentIdentities}
+                        />
                       </strong>
                     ),
                     em: ({ children }) => (
                       <em>
-                        <DelimiterHighlighter content={children} />
+                        <DelimiterHighlighter
+                          content={children}
+                          validIdentities={agentIdentities}
+                        />
                       </em>
                     ),
                   }}

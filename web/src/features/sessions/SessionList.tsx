@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchApi } from '../../lib/api'
+import { formatLocalDate } from '../../lib/utils'
 
 interface Session {
   session_id: string
@@ -57,7 +58,7 @@ export function SessionList({ agentId, channelId, onSessionClick }: Props) {
           </div>
           {session.last_message_at && (
             <div className="text-xs text-neutral-600">
-              {new Date(session.last_message_at).toLocaleDateString()}
+              {formatLocalDate(session.last_message_at)}
             </div>
           )}
         </button>

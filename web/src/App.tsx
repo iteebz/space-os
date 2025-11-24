@@ -23,6 +23,22 @@ export default function App() {
   const agentMap = useAgentMap()
 
   const handleAgentClick = (agentIdentity: string) => {
+    // Find agent's most recent session from spawns
+    const agent = agents?.find((a) => a.identity === agentIdentity)
+    if (agent) {
+      const agentSpawns = spawns
+        ?.filter((s) => s.agent_id === agent.agent_id && s.session_id)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      
+      if (agentSpawns && agentSpawns.length > 0) {
+        // Open most recent session immediately
+        setSelectedSessionId(agentSpawns[0].session_id)
+        setSelectedAgentIdentity(agentIdentity)
+        return
+      }
+    }
+    
+    // Fallback: show session list
     setSelectedAgentIdentity(agentIdentity)
     setSelectedSessionId(null)
   }
@@ -49,16 +65,17 @@ export default function App() {
 
   const handleExportChannel = () => {
     if (!messages.length) return
-    
+
     const text = messages
       .map((msg) => {
         const identity = agentMap.get(msg.agent_id) ?? msg.agent_id.slice(0, 7)
-        const timestamp = new Date(msg.created_at).toLocaleString()
+        const isoString = msg.created_at.endsWith('Z') ? msg.created_at : `${msg.created_at}Z`
+        const timestamp = new Date(isoString).toLocaleString()
         return `[${timestamp}] ${identity}:\n${msg.content}\n`
       })
       .join('\n')
-    
-    navigator.clipboard.writeText(text).then(() => {
+
+    void navigator.clipboard.writeText(text).then(() => {
       // Could add toast notification here
     })
   }
@@ -82,8 +99,8 @@ export default function App() {
           <div className="h-full p-4 flex flex-col">
             {selectedChannel && channel ? (
               <>
-                <ChannelHeader 
-                  channel={channel} 
+                <ChannelHeader
+                  channel={channel}
                   onInfoClick={() => setShowPanel(!showPanel)}
                   onExportClick={handleExportChannel}
                 />
