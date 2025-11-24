@@ -110,45 +110,42 @@ def search_memories(
 
 def edit_memory(memory_id: str, new_message: str) -> None:
     full_id = resolve_id("memories", "memory_id", memory_id)
-    entry = get_memory(full_id)
-    if not entry:
-        raise ValueError(f"Memory '{memory_id}' not found")
     with store.ensure() as conn:
-        conn.execute(
-            "UPDATE memories SET message = ? WHERE memory_id = ?",
+        cursor = conn.execute(
+            "UPDATE memories SET message = ? WHERE memory_id = ? RETURNING agent_id",
             (new_message, full_id),
         )
-    spawn.api.touch_agent(entry.agent_id)
+        row = cursor.fetchone()
+        if not row:
+            raise ValueError(f"Memory '{memory_id}' not found")
+        spawn.api.touch_agent(row[0])
 
 
 def delete_memory(memory_id: str) -> None:
     full_id = resolve_id("memories", "memory_id", memory_id)
-    entry = get_memory(full_id)
-    if not entry:
-        raise ValueError(f"Memory '{memory_id}' not found")
     with store.ensure() as conn:
-        conn.execute("DELETE FROM memories WHERE memory_id = ?", (full_id,))
+        cursor = conn.execute("DELETE FROM memories WHERE memory_id = ?", (full_id,))
+        if cursor.rowcount == 0:
+            raise ValueError(f"Memory '{memory_id}' not found")
 
 
 def archive_memory(memory_id: str, restore: bool = False) -> None:
     full_id = resolve_id("memories", "memory_id", memory_id)
-    entry = get_memory(full_id)
-    if not entry:
-        raise ValueError(f"Memory '{memory_id}' not found")
 
-    if restore:
-        with store.ensure() as conn:
-            conn.execute(
+    with store.ensure() as conn:
+        if restore:
+            cursor = conn.execute(
                 "UPDATE memories SET archived_at = NULL WHERE memory_id = ?",
                 (full_id,),
             )
-    else:
-        now = datetime.now().isoformat()
-        with store.ensure() as conn:
-            conn.execute(
+        else:
+            now = datetime.now().isoformat()
+            cursor = conn.execute(
                 "UPDATE memories SET archived_at = ? WHERE memory_id = ?",
                 (now, full_id),
             )
+        if cursor.rowcount == 0:
+            raise ValueError(f"Memory '{memory_id}' not found")
 
 
 def mark_memory_core(memory_id: str, core: bool = True) -> None:
@@ -179,17 +176,15 @@ def toggle_memory_core(memory_id: str) -> bool:
 def find_related_memories(
     entry: Memory, limit: int = 5, show_all: bool = False
 ) -> list[tuple[Memory, int]]:
-    from space.lib.stopwords import stopwords
+    from space.lib.stopwords import extract_keywords
 
-    tokens = set(entry.message.lower().split())
+    text = entry.message
     if entry.topic:
-        tokens |= set(entry.topic.lower().split())
-    keywords = {t.strip(".,;:!?()[]{}") for t in tokens if len(t) > 3 and t not in stopwords}
+        text += " " + entry.topic
+    keywords = extract_keywords(text)
 
     if not keywords:
         return []
-
-    agent_id = entry.agent_id
 
     archive_filter = "" if show_all else "AND archived_at IS NULL"
     with store.ensure() as conn:
@@ -206,7 +201,7 @@ def find_related_memories(
                 ORDER BY score DESC
                 LIMIT ?
             """
-            rows = conn.execute(query, (agent_id, entry.memory_id, limit)).fetchall()
+            rows = conn.execute(query, (entry.agent_id, entry.memory_id, limit)).fetchall()
         finally:
             conn.execute("DROP TABLE IF EXISTS keywords")
 

@@ -29,6 +29,25 @@ PROVIDERS = {
 }
 
 
+def _start_session_discovery(spawn, agent):
+    """Start background thread to discover and link session."""
+    import threading
+    import time
+
+    def link_session():
+        try:
+            for _ in range(30):
+                time.sleep(1)
+                session_id = _discover_recent_session(agent.provider, spawn.created_at)
+                if session_id:
+                    spawns.link_session_to_spawn(spawn.id, session_id)
+                    return
+        except Exception as e:
+            logger.debug(f"Session linking failed: {e}")
+
+    threading.Thread(target=link_session, daemon=True).start()
+
+
 def spawn_interactive(
     identity: str,
     extra_args: list[str] | None = None,
@@ -45,13 +64,6 @@ def spawn_interactive(
     executable = _resolve_executable(agent.provider, env)
     passthrough = extra_args or []
 
-    model_id = agent.model
-    reasoning_effort = None
-    if agent.provider == "codex":
-        model_id, reasoning_effort = Codex.parse_model_id(agent.model)
-
-    model_args = ["--model", model_id]
-
     typer.echo(f"Spawning {identity}...\n")
     spawn = spawns.create_spawn(
         agent_id=agent.agent_id,
@@ -61,21 +73,9 @@ def spawn_interactive(
     )
 
     constitute(spawn, agent)
-
     env["SPACE_SPAWN_ID"] = spawn.id
 
-    provider_class = PROVIDERS.get(agent.provider)
-    launch_args = _get_launch_args(
-        provider_class, agent.provider, bool(passthrough), reasoning_effort
-    )
-
-    add_dir_args = ["--add-dir", str(paths.space_root())] if agent.provider != "codex" else []
-
     known_session_id = resolve_session_id(agent.agent_id, resume)
-    resume_args = _build_resume_args(
-        agent.provider, known_session_id, resume is None and known_session_id
-    )
-
     if known_session_id:
         spawns.link_session_to_spawn(spawn.id, known_session_id)
         _copy_bookmarks_from_session(known_session_id, spawn.id)
@@ -83,10 +83,9 @@ def spawn_interactive(
     cwd = str(paths.identity_dir(agent.identity) if passthrough else paths.space_root())
     context = build_spawn_context(identity, task=passthrough[0] if passthrough else None)
 
-    if agent.provider == "codex":
-        base_command = [executable] + resume_args + ["exec"] + model_args + launch_args
-    else:
-        base_command = [executable] + model_args + add_dir_args + launch_args + resume_args
+    base_command = [executable] + _build_spawn_command(
+        agent, known_session_id, resume is None and known_session_id, is_task=bool(passthrough)
+    )[1:]  # Skip provider name, use resolved executable
 
     if passthrough:
         full_command = base_command + [context]
@@ -99,24 +98,8 @@ def spawn_interactive(
         shell_cmd = f"echo {shlex.quote(context)} | {' '.join(base_command)}"
         proc = subprocess.Popen(shell_cmd, shell=True, env=env, cwd=cwd)
 
-    # Link session as soon as Claude creates the JSONL (only for new sessions)
     if not known_session_id:
-        import threading
-        import time
-
-        def link_session():
-            try:
-                for _ in range(30):  # Try for 30 seconds
-                    time.sleep(1)
-                    session_id = _discover_recent_session(agent.provider, spawn.created_at)
-                    if session_id:
-                        spawns.link_session_to_spawn(spawn.id, session_id)
-                        return
-            except Exception as e:
-                logger.debug(f"Session linking failed: {e}")
-
-        linker_thread = threading.Thread(target=link_session, daemon=True)
-        linker_thread.start()
+        _start_session_discovery(spawn, agent)
 
     try:
         proc.wait()
@@ -230,37 +213,61 @@ def _run_ephemeral(
     is_continue: bool,
     env: dict[str, str],
 ) -> None:
-    from space.os.sessions.api import linker
-
-    provider = agent.provider
-    provider_class = PROVIDERS.get(provider)
-    if not provider_class:
-        raise ValueError(f"Unknown provider: {provider}")
-
-    model_id = agent.model
-    reasoning_effort = None
-    if provider == "codex":
-        model_id, reasoning_effort = Codex.parse_model_id(agent.model)
-        launch_args = provider_class.task_launch_args(reasoning_effort=reasoning_effort)
-        model_args = ["--model", model_id]
-    else:
-        launch_args = provider_class.task_launch_args()
-        model_args = ["--model", model_id]
-
     context = build_spawn_context(
         agent.identity, task=instruction, channel=channel_name, is_ephemeral=True
     )
-    add_dir_args = ["--add-dir", str(paths.space_root())] if provider != "codex" else []
-    resume_args = _build_resume_args(provider, session_id, is_continue)
+    cmd = _build_spawn_command(agent, session_id, is_continue)
+    stdout = _execute_spawn(cmd, context, agent, env)
+    _link_session_if_needed(spawn, session_id, agent.provider)
+    _send_output_to_channel(stdout, agent, channel_name)
 
-    if provider == "codex":
-        cmd = ["codex"] + resume_args + ["exec"] + launch_args + model_args
-    else:
-        cmd = [provider] + model_args + launch_args + add_dir_args + resume_args
+
+def _parse_model_and_effort(agent) -> tuple[str, str | None]:
+    """Extract model ID and reasoning effort (codex only)."""
+    if agent.provider == "codex":
+        return Codex.parse_model_id(agent.model)
+    return agent.model, None
+
+
+def _build_launch_args(agent, is_task: bool, reasoning_effort: str | None) -> list[str]:
+    """Build provider-specific launch arguments."""
+    provider_class = PROVIDERS.get(agent.provider)
+    if not provider_class:
+        raise ValueError(f"Unknown provider: {agent.provider}")
+
+    if is_task:
+        if agent.provider == "codex":
+            return provider_class.task_launch_args(reasoning_effort=reasoning_effort)
+        return provider_class.task_launch_args()
+
+    if agent.provider == "gemini":
+        return provider_class.launch_args(has_prompt=False)
+    if agent.provider == "claude":
+        return provider_class.launch_args(is_ephemeral=False)
+    if agent.provider == "codex":
+        return provider_class.launch_args(reasoning_effort=reasoning_effort)
+    return provider_class.launch_args()
+
+
+def _build_spawn_command(
+    agent, session_id: str | None, is_continue: bool, is_task: bool = True
+) -> list[str]:
+    """Assemble provider command for spawn execution."""
+    model_id, reasoning_effort = _parse_model_and_effort(agent)
+    launch_args = _build_launch_args(agent, is_task, reasoning_effort)
+    model_args = ["--model", model_id]
+    add_dir_args = ["--add-dir", str(paths.space_root())] if agent.provider != "codex" else []
+    resume_args = _build_resume_args(agent.provider, session_id, is_continue)
+
+    if agent.provider == "codex":
+        return ["codex"] + resume_args + ["exec"] + launch_args + model_args
+    return [agent.provider] + model_args + launch_args + add_dir_args + resume_args
+
+
+def _execute_spawn(cmd: list[str], context: str, agent, env: dict[str, str]) -> str:
+    import tempfile
 
     spawn_dir = paths.identity_dir(agent.identity)
-
-    import tempfile
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
         f.write(context)
@@ -280,41 +287,49 @@ def _run_ephemeral(
             stdout, stderr = proc.communicate(timeout=SPAWN_TIMEOUT)
 
         if proc.returncode != 0:
-            raise RuntimeError(f"{provider.title()} spawn failed: {stderr}")
+            raise RuntimeError(f"{agent.provider.title()} spawn failed: {stderr}")
 
-        if session_id:
-            linker.link_spawn_to_session(spawn.id, session_id)
-        else:
-            try:
-                discovered_session_id = _discover_recent_session(provider, spawn.created_at)
-                if discovered_session_id:
-                    linker.link_spawn_to_session(spawn.id, discovered_session_id)
-            except Exception as e:
-                logger.debug(f"Session discovery failed (non-fatal): {e}")
-
-        from space.os.bridge.api import messaging
-
-        if channel_name and stdout.strip():
-            # Parse output based on provider
-            if provider == "codex":
-                # Extract agent messages from JSONL
-                output_text = _parse_codex_output(stdout)
-            else:
-                output_text = stdout.strip()
-
-            if output_text:
-                import asyncio
-
-                asyncio.run(messaging.send_message(channel_name, agent.identity, output_text))
+        return stdout
 
     except subprocess.TimeoutExpired:
         proc.kill()
-        raise RuntimeError(f"{provider.title()} spawn timed out") from None
+        raise RuntimeError(f"{agent.provider.title()} spawn timed out") from None
     finally:
         import os
 
         with contextlib.suppress(Exception):
             os.unlink(context_file)
+
+
+def _link_session_if_needed(spawn, session_id: str | None, provider: str) -> None:
+    from space.os.sessions.api import linker
+
+    if session_id:
+        linker.link_spawn_to_session(spawn.id, session_id)
+    else:
+        try:
+            discovered_session_id = _discover_recent_session(provider, spawn.created_at)
+            if discovered_session_id:
+                linker.link_spawn_to_session(spawn.id, discovered_session_id)
+        except Exception as e:
+            logger.debug(f"Session discovery failed (non-fatal): {e}")
+
+
+def _send_output_to_channel(stdout: str, agent, channel_name: str | None) -> None:
+    if not channel_name or not stdout.strip():
+        return
+
+    if agent.provider == "codex":
+        output_text = _parse_codex_output(stdout)
+    else:
+        output_text = stdout.strip()
+
+    if output_text:
+        import asyncio
+
+        from space.os.bridge.api import messaging
+
+        asyncio.run(messaging.send_message(channel_name, agent.identity, output_text))
 
 
 def _parse_codex_output(jsonl_output: str) -> str:

@@ -10,8 +10,7 @@ from space.os import spawn
 
 
 def _row_to_task(row: store.Row) -> Task:
-    data = dict(row)
-    return from_row(data, Task)
+    return from_row(row, Task)
 
 
 def add_task(
@@ -37,34 +36,35 @@ def list_tasks(
     agent_id: str | None = None,
     limit: int | None = None,
 ) -> list[Task]:
+    """List tasks. Default: open + in_progress only."""
     with store.ensure() as conn:
+        base = "SELECT task_id, creator_id, agent_id, content, project, status, created_at, started_at, completed_at FROM tasks WHERE"
+
+        conditions = []
         params = []
-        query = "SELECT task_id, creator_id, agent_id, content, project, status, created_at, started_at, completed_at FROM tasks WHERE 1=1"
 
         if status:
-            query += " AND status = ?"
+            conditions.append("status = ?")
             params.append(status)
-        elif status is None:
-            # Default: show open + in_progress
-            query += " AND status IN (?, ?)"
+        else:
+            conditions.append("status IN (?, ?)")
             params.extend(["open", "in_progress"])
 
         if project:
-            query += " AND project = ?"
+            conditions.append("project = ?")
             params.append(project)
 
         if agent_id:
-            query += " AND agent_id = ?"
+            conditions.append("agent_id = ?")
             params.append(agent_id)
 
-        query += " ORDER BY created_at DESC"
+        query = f"{base} {' AND '.join(conditions)} ORDER BY created_at DESC"
 
         if limit:
             query += " LIMIT ?"
             params.append(limit)
 
-        rows = conn.execute(query, params).fetchall()
-        return [_row_to_task(row) for row in rows]
+        return [_row_to_task(row) for row in conn.execute(query, params).fetchall()]
 
 
 def get_task(task_id: str) -> Task | None:
@@ -84,47 +84,47 @@ def get_task(task_id: str) -> Task | None:
 
 def start_task(task_id: str, agent_id: str) -> None:
     full_id = resolve_id("tasks", "task_id", task_id)
-    task = get_task(full_id)
-    if not task:
-        raise ValueError(f"Task '{task_id}' not found")
 
     now = datetime.now().isoformat()
     with store.ensure() as conn:
-        conn.execute(
+        cursor = conn.execute(
             "UPDATE tasks SET agent_id = ?, status = ?, started_at = ? WHERE task_id = ?",
             (agent_id, "in_progress", now, full_id),
         )
+        if cursor.rowcount == 0:
+            raise ValueError(f"Task '{task_id}' not found")
+
     spawn.api.touch_agent(agent_id)
 
 
 def remove_claim(task_id: str, agent_id: str) -> None:
     full_id = resolve_id("tasks", "task_id", task_id)
-    task = get_task(full_id)
-    if not task:
-        raise ValueError(f"Task '{task_id}' not found")
-    if task.agent_id != agent_id:
-        raise ValueError(f"Task not claimed by {agent_id}")
 
     with store.ensure() as conn:
-        conn.execute(
-            "UPDATE tasks SET agent_id = NULL, status = ?, started_at = NULL WHERE task_id = ?",
-            ("open", full_id),
+        cursor = conn.execute(
+            "UPDATE tasks SET agent_id = NULL, status = ?, started_at = NULL WHERE task_id = ? AND agent_id = ?",
+            ("open", full_id, agent_id),
         )
+        if cursor.rowcount == 0:
+            task = get_task(full_id)
+            if not task:
+                raise ValueError(f"Task '{task_id}' not found")
+            raise ValueError(f"Task not claimed by {agent_id}")
     spawn.api.touch_agent(agent_id)
 
 
 def done_task(task_id: str, agent_id: str) -> None:
     full_id = resolve_id("tasks", "task_id", task_id)
-    task = get_task(full_id)
-    if not task:
-        raise ValueError(f"Task '{task_id}' not found")
-    if task.agent_id != agent_id:
-        raise ValueError(f"Task not claimed by {agent_id}")
 
     now = datetime.now().isoformat()
     with store.ensure() as conn:
-        conn.execute(
-            "UPDATE tasks SET status = ?, completed_at = ? WHERE task_id = ?",
-            ("done", now, full_id),
+        cursor = conn.execute(
+            "UPDATE tasks SET status = ?, completed_at = ? WHERE task_id = ? AND agent_id = ?",
+            ("done", now, full_id, agent_id),
         )
+        if cursor.rowcount == 0:
+            task = get_task(full_id)
+            if not task:
+                raise ValueError(f"Task '{task_id}' not found")
+            raise ValueError(f"Task not claimed by {agent_id}")
     spawn.api.touch_agent(agent_id)

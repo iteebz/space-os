@@ -9,10 +9,11 @@ from typing import NoReturn
 
 import typer
 
-from space.cli import output
+from space.cli import argv, output
 from space.cli.errors import error_feedback
 from space.core.models import SpawnStatus
 from space.lib import paths, providers
+from space.os.sessions.parsing import parse_jsonl_message
 from space.os.spawn import api
 from space.os.spawn.api import spawns
 from space.os.spawn.formatting import (
@@ -70,7 +71,6 @@ def _find_session_file(spawn):
 
 def _display_session(session_file, tail_lines=0):
     """Display session content with optional tail."""
-    import json
     from pathlib import Path
 
     if not Path(session_file).exists():
@@ -80,24 +80,9 @@ def _display_session(session_file, tail_lines=0):
     lines = []
     with open(session_file) as f:
         for line in f:
-            if not line.strip():
-                continue
-            try:
-                obj = json.loads(line)
-                msg_type = obj.get("type")
-                message = obj.get("message", {})
-
-                if msg_type == "assistant":
-                    content = message.get("content", [])
-                    for item in content:
-                        if isinstance(item, dict) and item.get("type") == "text":
-                            lines.append(f"[Assistant] {item.get('text', '')}")
-                elif msg_type == "user":
-                    content = message.get("content", [])
-                    if isinstance(content, str):
-                        lines.append(f"[User] {content}")
-            except json.JSONDecodeError:
-                continue
+            msg = parse_jsonl_message(line)
+            if msg:
+                lines.append(f"[{msg['role'].capitalize()}] {msg['text']}")
 
     if tail_lines > 0:
         lines = lines[-tail_lines:]
@@ -108,7 +93,6 @@ def _display_session(session_file, tail_lines=0):
 
 def _follow_session(session_file):
     """Follow active session file (tail -f style)."""
-    import json
     import time
     from pathlib import Path
 
@@ -127,24 +111,9 @@ def _follow_session(session_file):
                 new_lines = lines[seen_lines:]
 
                 for line in new_lines:
-                    if not line.strip():
-                        continue
-                    try:
-                        obj = json.loads(line)
-                        msg_type = obj.get("type")
-                        message = obj.get("message", {})
-
-                        if msg_type == "assistant":
-                            content = message.get("content", [])
-                            for item in content:
-                                if isinstance(item, dict) and item.get("type") == "text":
-                                    typer.echo(f"[Assistant] {item.get('text', '')}")
-                        elif msg_type == "user":
-                            content = message.get("content", [])
-                            if isinstance(content, str):
-                                typer.echo(f"[User] {content}")
-                    except json.JSONDecodeError:
-                        continue
+                    msg = parse_jsonl_message(line)
+                    if msg:
+                        typer.echo(f"[{msg['role'].capitalize()}] {msg['text']}")
 
                 seen_lines = len(lines)
 
@@ -190,16 +159,7 @@ def main_callback(
             identity = sys.argv[1]
             agent = api.get_agent(identity)
             if agent:
-                resume, extra_args = _extract_resume_flag(sys.argv[2:])
-                if extra_args:
-                    typer.echo(f"Spawning {identity}...\n")
-                    spawn = api.spawn_ephemeral(
-                        identity, " ".join(extra_args), channel_id=None, resume=resume
-                    )
-                    typer.echo(f"\nSpawn ID: {spawn.id[:8]}")
-                    typer.echo(f"Track: spawn trace {spawn.id[:8]}")
-                else:
-                    api.spawn_interactive(identity, resume=resume)
+                _dispatch_spawn(identity, sys.argv[2:], verbose=True)
                 raise typer.Exit(0)
         typer.echo(ctx.get_help())
 
@@ -220,21 +180,31 @@ def _extract_resume_flag(args: list[str]) -> tuple[str | None, list[str]]:
     Returns:
         (resume_value, remaining_args) where resume_value is None if --resume not present
     """
-    resume = None
-    remaining = []
-    i = 0
-    while i < len(args):
-        if args[i] in ("--resume", "-r"):
-            if i + 1 < len(args) and not args[i + 1].startswith("-"):
-                resume = args[i + 1]
-                i += 2
-            else:
-                resume = ""
-                i += 1
-        else:
-            remaining.append(args[i])
-            i += 1
-    return resume, remaining
+    return argv.extract_flag(args, "--resume", "-r")
+
+
+def _dispatch_spawn(identity: str, args: list[str], verbose: bool = False):
+    """Dispatch spawn (ephemeral or interactive) based on args.
+
+    Args:
+        identity: Agent identity to spawn
+        args: Command arguments (may contain --resume flag)
+        verbose: Show spawn progress messages
+
+    Returns:
+        Spawn object if ephemeral, None if interactive
+    """
+    resume, extra_args = _extract_resume_flag(args)
+    if extra_args:
+        if verbose:
+            typer.echo(f"Spawning {identity}...\n")
+        spawn = api.spawn_ephemeral(identity, " ".join(extra_args), channel_id=None, resume=resume)
+        if verbose:
+            typer.echo(f"\nSpawn ID: {spawn.id[:8]}")
+            typer.echo(f"Track: spawn trace {spawn.id[:8]}")
+        return spawn
+    api.spawn_interactive(identity, resume=resume)
+    return None
 
 
 @app.command()
@@ -313,7 +283,7 @@ def register(
 @error_feedback
 def models():
     """Show available LLM models."""
-    for prov in ["claude", "codex", "gemini"]:
+    for prov in providers.PROVIDER_NAMES:
         provider_models = providers.MODELS.get(prov, [])
         typer.echo(f"\n📦 {prov.capitalize()} Models:\n")
         for model in provider_models:
@@ -604,11 +574,7 @@ def dispatch_agent_from_name() -> NoReturn:
         sys.exit(1)
 
     args = sys.argv[1:] if len(sys.argv) > 1 else []
-    resume, extra_args = _extract_resume_flag(args)
-    if extra_args:
-        api.spawn_ephemeral(agent.identity, " ".join(extra_args), channel_id=None, resume=resume)
-    else:
-        api.spawn_interactive(agent.identity, resume=resume)
+    _dispatch_spawn(agent.identity, args)
     sys.exit(0)
 
 
@@ -619,16 +585,7 @@ def main() -> None:
             potential_identity = sys.argv[1]
             agent = api.get_agent(potential_identity)
             if agent:
-                resume, extra_args = _extract_resume_flag(sys.argv[2:])
-                if extra_args:
-                    typer.echo(f"Spawning {potential_identity}...\n")
-                    spawn = api.spawn_ephemeral(
-                        potential_identity, " ".join(extra_args), channel_id=None, resume=resume
-                    )
-                    typer.echo(f"\nSpawn ID: {spawn.id[:8]}")
-                    typer.echo(f"Track: spawn trace {spawn.id[:8]}")
-                else:
-                    api.spawn_interactive(potential_identity, resume=resume)
+                _dispatch_spawn(potential_identity, sys.argv[2:], verbose=True)
                 return
             # Check if it looks like an identity (not a subcommand)
             known_commands = {

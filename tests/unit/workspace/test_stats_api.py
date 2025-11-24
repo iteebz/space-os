@@ -1,6 +1,6 @@
 """Tests for stats aggregation functionality."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -29,16 +29,9 @@ def mock_get_bridge_stats():
 
 
 @pytest.fixture
-def mock_get_memory_stats():
-    """Mock _get_memory_stats."""
-    with patch("space.workspace.stats._get_memory_stats") as mock:
-        yield mock
-
-
-@pytest.fixture
-def mock_get_knowledge_stats():
-    """Mock _get_knowledge_stats."""
-    with patch("space.workspace.stats._get_knowledge_stats") as mock:
+def mock_store_ensure():
+    """Mock store.ensure for DB queries in agent_stats."""
+    with patch("space.workspace.stats.store.ensure") as mock:
         yield mock
 
 
@@ -46,8 +39,7 @@ def test_agent_stats_aggregates_data(
     mock_get_agent_identities,
     mock_get_archived_agents,
     mock_get_bridge_stats,
-    mock_get_memory_stats,
-    mock_get_knowledge_stats,
+    mock_store_ensure,
 ):
     mock_get_agent_identities.return_value = {
         "agent1": "Alice",
@@ -63,8 +55,13 @@ def test_agent_stats_aggregates_data(
             ]
         },
     }
-    mock_get_memory_stats.return_value = {"mem_by_agent": [{"agent_id": "agent1", "count": 3}]}
-    mock_get_knowledge_stats.return_value = {"know_by_agent": [{"agent_id": "agent1", "count": 2}]}
+
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchall.side_effect = [
+        [("agent1", 3)],
+        [("agent1", 2)],
+    ]
+    mock_store_ensure.return_value.__enter__.return_value = mock_conn
 
     result = stats_api.agent_stats()
 
@@ -82,8 +79,7 @@ def test_agent_stats_filters_archived(
     mock_get_agent_identities,
     mock_get_archived_agents,
     mock_get_bridge_stats,
-    mock_get_memory_stats,
-    mock_get_knowledge_stats,
+    mock_store_ensure,
 ):
     mock_get_agent_identities.return_value = {
         "agent1": "Alice",
@@ -95,8 +91,10 @@ def test_agent_stats_filters_archived(
         "messages": {"by_agent": []},
         "events": {"by_agent": []},
     }
-    mock_get_memory_stats.return_value = {"mem_by_agent": []}
-    mock_get_knowledge_stats.return_value = {"know_by_agent": []}
+
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchall.side_effect = [[], []]
+    mock_store_ensure.return_value.__enter__.return_value = mock_conn
 
     result = stats_api.agent_stats()
 
@@ -108,8 +106,7 @@ def test_agent_stats_show_all(
     mock_get_agent_identities,
     mock_get_archived_agents,
     mock_get_bridge_stats,
-    mock_get_memory_stats,
-    mock_get_knowledge_stats,
+    mock_store_ensure,
 ):
     mock_get_agent_identities.return_value = {
         "agent1": "Alice",
@@ -121,8 +118,10 @@ def test_agent_stats_show_all(
         "messages": {"by_agent": []},
         "events": {"by_agent": []},
     }
-    mock_get_memory_stats.return_value = {"mem_by_agent": []}
-    mock_get_knowledge_stats.return_value = {"know_by_agent": []}
+
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchall.side_effect = [[], []]
+    mock_store_ensure.return_value.__enter__.return_value = mock_conn
 
     result = stats_api.agent_stats(show_all=True)
 

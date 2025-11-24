@@ -115,8 +115,8 @@ def _index_transcripts(session_id: str, provider: str, content: str, conn) -> in
     identity = _get_session_identity(session_id, conn)
 
     try:
-        provider_class = getattr(providers, provider.title())
-    except AttributeError:
+        provider_class = providers.get_provider(provider)
+    except ValueError:
         logger.warning(f"Unknown provider: {provider}")
         return 0
 
@@ -173,52 +173,50 @@ def _index_transcripts(session_id: str, provider: str, content: str, conn) -> in
 
 def discover() -> list[dict]:
     all_sessions = []
-    provider_map = {"claude": "Claude", "codex": "Codex", "gemini": "Gemini"}
 
-    for cli_name, class_name in provider_map.items():
+    for provider_name in providers.PROVIDER_NAMES:
         try:
-            provider_class = getattr(providers, class_name)
+            provider_class = providers.get_provider(provider_name)
             provider = provider_class()
             sessions = provider.discover()
             all_sessions.extend(sessions)
         except Exception as e:
-            logger.warning(f"Error discovering {cli_name} sessions: {e}")
+            logger.warning(f"Error discovering {provider_name} sessions: {e}")
 
     return all_sessions
+
+
+def _index_session_file(session_id: str, provider_name: str, content: str, conn) -> int:
+    """Index single session: extract tokens, upsert session, link agent, index transcripts."""
+    input_tokens, output_tokens, model = _extract_tokens(provider_name, content)
+
+    conn.execute(
+        """
+        INSERT INTO sessions
+        (session_id, provider, model, input_tokens, output_tokens)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(session_id) DO UPDATE SET
+            model = excluded.model,
+            input_tokens = excluded.input_tokens,
+            output_tokens = excluded.output_tokens
+        """,
+        (session_id, provider_name, model, input_tokens or 0, output_tokens or 0),
+    )
+    _link_session_to_agent(session_id, conn)
+    return _index_transcripts(session_id, provider_name, content, conn)
 
 
 def index(session_id: str) -> int:
     sessions_dir = paths.sessions_dir()
 
-    for provider_name in ("claude", "codex", "gemini"):
+    for provider_name in providers.PROVIDER_NAMES:
         jsonl_file = sessions_dir / provider_name / f"{session_id}.jsonl"
         if jsonl_file.exists():
             try:
                 content = jsonl_file.read_text()
                 if content.strip():
-                    input_tokens, output_tokens, model = _extract_tokens(provider_name, content)
-
                     with store.ensure() as conn:
-                        conn.execute(
-                            """
-                            INSERT INTO sessions
-                            (session_id, provider, model, input_tokens, output_tokens)
-                            VALUES (?, ?, ?, ?, ?)
-                            ON CONFLICT(session_id) DO UPDATE SET
-                                model = excluded.model,
-                                input_tokens = excluded.input_tokens,
-                                output_tokens = excluded.output_tokens
-                            """,
-                            (
-                                session_id,
-                                provider_name,
-                                model,
-                                input_tokens or 0,
-                                output_tokens or 0,
-                            ),
-                        )
-                        _link_session_to_agent(session_id, conn)
-                        count = _index_transcripts(session_id, provider_name, content, conn)
+                        count = _index_session_file(session_id, provider_name, content, conn)
                         conn.commit()
                         return count
             except Exception as e:
@@ -238,7 +236,7 @@ def ingest(session_id: str) -> bool:
                 return False
 
             try:
-                provider_class = getattr(providers, cli_name.title())
+                provider_class = providers.get_provider(cli_name)
                 provider = provider_class()
                 dest_dir = sessions_dir / cli_name
                 dest_dir.mkdir(parents=True, exist_ok=True)
@@ -250,10 +248,8 @@ def ingest(session_id: str) -> bool:
     return False
 
 
-def sync_all(on_progress=None) -> dict[str, tuple[int, int]]:
-    sessions_dir = paths.sessions_dir()
-    sessions_dir.mkdir(parents=True, exist_ok=True)
-
+def _sync_sessions(sessions_dir, on_progress=None) -> dict[str, dict]:
+    """Discover and ingest sessions from all providers."""
     all_sessions = discover()
     provider_counts = {}
     total_synced = 0
@@ -272,7 +268,7 @@ def sync_all(on_progress=None) -> dict[str, tuple[int, int]]:
 
         try:
             dest_dir = sessions_dir / cli_name
-            provider_class = getattr(providers, cli_name.title())
+            provider_class = providers.get_provider(cli_name)
             provider = provider_class()
 
             if provider.ingest(session, dest_dir) and session_id not in synced_ids:
@@ -282,16 +278,19 @@ def sync_all(on_progress=None) -> dict[str, tuple[int, int]]:
 
             if on_progress:
                 event = ProgressEvent(
-                    provider=cli_name,
-                    discovered=0,
-                    synced=total_synced,
-                    phase="sync",
+                    provider=cli_name, discovered=0, synced=total_synced, phase="sync"
                 )
                 on_progress(event)
         except Exception as e:
             logger.warning(f"Failed to ingest session {session_id}: {e}")
 
+    return provider_counts
+
+
+def _batch_index_sessions(sessions_dir, on_progress=None) -> int:
+    """Index all JSONL files across providers with optimized pragmas."""
     indexed_count = 0
+
     try:
         with store.ensure() as conn:
             conn.execute("PRAGMA busy_timeout = 30000")
@@ -299,12 +298,11 @@ def sync_all(on_progress=None) -> dict[str, tuple[int, int]]:
             conn.execute("PRAGMA synchronous = OFF")
             conn.execute("PRAGMA journal_mode = MEMORY")
 
-            for provider_name in ("claude", "codex", "gemini"):
+            for provider_name in providers.PROVIDER_NAMES:
                 provider_dir = sessions_dir / provider_name
                 if not provider_dir.exists():
                     continue
 
-                provider_class = getattr(providers, provider_name.title())
                 files = list(provider_dir.glob("*.jsonl"))
 
                 for jsonl_file in files:
@@ -312,31 +310,7 @@ def sync_all(on_progress=None) -> dict[str, tuple[int, int]]:
                         session_id = jsonl_file.stem
                         content = jsonl_file.read_text()
                         if content.strip():
-                            # Extract tokens and model from content (avoid re-reading file)
-                            input_tokens, output_tokens, model = _extract_tokens(
-                                provider_name, content
-                            )
-
-                            conn.execute(
-                                """
-                                INSERT INTO sessions
-                                (session_id, provider, model, input_tokens, output_tokens)
-                                VALUES (?, ?, ?, ?, ?)
-                                ON CONFLICT(session_id) DO UPDATE SET
-                                    model = excluded.model,
-                                    input_tokens = excluded.input_tokens,
-                                    output_tokens = excluded.output_tokens
-                                """,
-                                (
-                                    session_id,
-                                    provider_name,
-                                    model,
-                                    input_tokens or 0,
-                                    output_tokens or 0,
-                                ),
-                            )
-                            _link_session_to_agent(session_id, conn)
-                            _index_transcripts(session_id, provider_name, content, conn)
+                            _index_session_file(session_id, provider_name, content, conn)
                         indexed_count += 1
 
                         if on_progress and indexed_count % 50 == 0:
@@ -357,8 +331,16 @@ def sync_all(on_progress=None) -> dict[str, tuple[int, int]]:
     except Exception as e:
         logger.warning(f"Failed to batch index sessions: {e}")
 
-    results = {}
-    for cli_name, counts in provider_counts.items():
-        results[cli_name] = (counts["discovered"], counts["synced"])
+    return indexed_count
 
-    return results
+
+def sync_all(on_progress=None) -> dict[str, tuple[int, int]]:
+    sessions_dir = paths.sessions_dir()
+    sessions_dir.mkdir(parents=True, exist_ok=True)
+
+    provider_counts = _sync_sessions(sessions_dir, on_progress)
+    _batch_index_sessions(sessions_dir, on_progress)
+
+    return {
+        cli: (counts["discovered"], counts["synced"]) for cli, counts in provider_counts.items()
+    }

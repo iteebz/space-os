@@ -43,7 +43,9 @@ def sync_cmd():
             return 0
         return len(list(provider_dir.glob("*.jsonl")))
 
-    before = {p: count_files(p) for p in ["claude", "codex", "gemini"]}
+    from space.lib import providers
+
+    before = {p: count_files(p) for p in providers.PROVIDER_NAMES}
 
     from space.cli.spinner import Spinner
 
@@ -79,14 +81,14 @@ def sync_cmd():
     elif not sync_done:
         sync_spinner.finish(f"Ingested {last_sync_count} files")
 
-    after = {p: count_files(p) for p in ["claude", "codex", "gemini"]}
+    after = {p: count_files(p) for p in providers.PROVIDER_NAMES}
 
     sum(after.values())
 
     typer.echo("\nSession files in ~/.space/sessions:")
     typer.echo(f"{'Provider':<10} {'Before':<8} {'After':<8} {'Added'}")
     typer.echo("-" * 36)
-    for provider in ["claude", "codex", "gemini"]:
+    for provider in providers.PROVIDER_NAMES:
         added = after[provider] - before[provider]
         typer.echo(f"{provider:<10} {before[provider]:<8} {after[provider]:<8} {added}")
     typer.echo("-" * 36)

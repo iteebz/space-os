@@ -1,4 +1,19 @@
-# space/lib/text_utils.py
+# space/lib/stopwords.py
+
+
+def extract_keywords(text: str, min_length: int = 3) -> set[str]:
+    """Extract keywords from text: tokenize, filter stopwords, strip punctuation.
+
+    Args:
+        text: Input text to extract keywords from
+        min_length: Minimum keyword length (default 3)
+
+    Returns:
+        Set of normalized keywords
+    """
+    tokens = set(text.lower().split())
+    return {t.strip(".,;:!?()[]{}") for t in tokens if len(t) > min_length and t not in stopwords}
+
 
 stopwords = {
     "the",

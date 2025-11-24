@@ -60,33 +60,29 @@ def rename_channel(old_name: str, new_name: str) -> bool:
 
 
 def update_topic(name: str, topic: str | None) -> bool:
-    """Update channel topic. Returns True if successful."""
     name = name.lstrip("#")
     with store.ensure() as conn:
-        cursor = conn.execute(
-            "UPDATE channels SET topic = ? WHERE name = ?",
-            (topic, name),
-        )
-        return cursor.rowcount > 0
+        result = conn.execute("UPDATE channels SET topic = ? WHERE name = ?", (topic, name))
+        return result.rowcount > 0
 
 
 def archive_channel(name: str) -> None:
     with store.ensure() as conn:
-        cursor = conn.execute(
+        result = conn.execute(
             "UPDATE channels SET archived_at = CURRENT_TIMESTAMP WHERE name = ? AND archived_at IS NULL",
             (name,),
         )
-        if cursor.rowcount == 0:
+        if result.rowcount == 0:
             raise ValueError(f"Channel '{name}' not found or already archived")
 
 
 def restore_channel(name: str) -> None:
     with store.ensure() as conn:
-        cursor = conn.execute(
+        result = conn.execute(
             "UPDATE channels SET archived_at = NULL WHERE name = ? AND archived_at IS NOT NULL",
             (name,),
         )
-        if cursor.rowcount == 0:
+        if result.rowcount == 0:
             raise ValueError(f"Channel '{name}' not found or not archived")
 
 
@@ -130,9 +126,8 @@ def delete_channel(name: str) -> None:
 
 
 def list_channels(show_all: bool = False) -> list[Channel]:
-    """Get all channels."""
     with store.ensure() as conn:
-        archived_clause = "" if show_all else "AND c.archived_at IS NULL"
+        archived_filter = "" if show_all else "WHERE c.archived_at IS NULL"
         query = f"""
             SELECT
                 c.channel_id,
@@ -145,12 +140,11 @@ def list_channels(show_all: bool = False) -> list[Channel]:
                 0 as unread_count
             FROM channels c
             LEFT JOIN messages m ON c.channel_id = m.channel_id
-            WHERE 1=1 {archived_clause}
+            {archived_filter}
             GROUP BY c.channel_id
             ORDER BY COALESCE(MAX(m.created_at), c.created_at) DESC
         """
-        cursor = conn.execute(query)
-        return [_row_to_channel(row) for row in cursor.fetchall()]
+        return [_row_to_channel(row) for row in conn.execute(query).fetchall()]
 
 
 def get_channel(channel: str | Channel) -> Channel | None:
@@ -167,26 +161,22 @@ def get_channel(channel: str | Channel) -> Channel | None:
 
         channel = _row_to_channel(row)
 
-        members_cursor = conn.execute(
+        member_rows = conn.execute(
             "SELECT DISTINCT agent_id FROM messages WHERE channel_id = ? ORDER BY agent_id",
             (channel.channel_id,),
-        )
-        channel.members = [p_row["agent_id"] for p_row in members_cursor.fetchall()]
+        ).fetchall()
+        channel.members = [row["agent_id"] for row in member_rows]
         return channel
 
 
 def count_channels() -> tuple[int, int, int]:
-    """Get channel counts: (distinct_in_messages, active, archived).
-
-    Distinct: channels with messages (used in stats)
-    Active: channels not archived
-    Archived: channels archived
-    """
+    """Return (distinct_in_messages, active, archived)."""
     with store.ensure() as conn:
         distinct = conn.execute("SELECT COUNT(DISTINCT channel_id) FROM messages").fetchone()[0]
-        total = conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0]
         active = conn.execute("SELECT COUNT(*) FROM channels WHERE archived_at IS NULL").fetchone()[
             0
         ]
-        archived = total - active
+        archived = conn.execute(
+            "SELECT COUNT(*) FROM channels WHERE archived_at IS NOT NULL"
+        ).fetchone()[0]
     return distinct, active, archived

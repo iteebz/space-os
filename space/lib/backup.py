@@ -52,6 +52,8 @@ def _backup_data_snapshot(timestamp: str, quiet_output: bool) -> dict:
 
 
 def _backup_sessions(quiet_output: bool) -> dict:
+    from space.lib import providers
+
     src = paths.sessions_dir()
     backup_path = paths.backup_sessions_dir()
 
@@ -61,7 +63,7 @@ def _backup_sessions(quiet_output: bool) -> dict:
             return 0
         return len(list(provider_dir.glob("*.jsonl")))
 
-    before = {p: count_provider_files(backup_path, p) for p in ["claude", "codex", "gemini"]}
+    before = {p: count_provider_files(backup_path, p) for p in providers.PROVIDER_NAMES}
 
     if backup_path.exists():
         os.chmod(backup_path, 0o755)
@@ -85,11 +87,11 @@ def _backup_sessions(quiet_output: bool) -> dict:
 
     os.chmod(backup_path, 0o555)
 
-    after = {p: count_provider_files(backup_path, p) for p in ["claude", "codex", "gemini"]}
+    after = {p: count_provider_files(backup_path, p) for p in providers.PROVIDER_NAMES}
     return {
         "before": before,
         "after": after,
-        "added": {p: after[p] - before[p] for p in ["claude", "codex", "gemini"]},
+        "added": {p: after[p] - before[p] for p in providers.PROVIDER_NAMES},
     }
 
 

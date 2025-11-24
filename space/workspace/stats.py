@@ -29,44 +29,30 @@ def _get_archived_agents() -> set[str]:
     return spawn.api.archived_agents()
 
 
-def _get_memory_stats() -> dict:
-    from space.os import memory
-
-    total, active, archived = memory.api.count_memories()
+def _get_resource_stats(api_count_fn: callable, table: str, topic_column: str) -> dict:
+    total, active, archived = api_count_fn()
     with store.ensure() as conn:
         topics = conn.execute(
-            "SELECT COUNT(DISTINCT topic) FROM memories WHERE archived_at IS NULL"
+            f"SELECT COUNT(DISTINCT {topic_column}) FROM {table} WHERE archived_at IS NULL"
         ).fetchone()[0]
-        by_agent = conn.execute(
-            "SELECT agent_id, COUNT(*) as count FROM memories GROUP BY agent_id ORDER BY count DESC"
-        ).fetchall()
     return {
         "total": total,
         "active": active,
         "archived": archived,
         "topics": topics,
-        "mem_by_agent": [{"agent_id": row[0], "count": row[1]} for row in by_agent],
     }
+
+
+def _get_memory_stats() -> dict:
+    from space.os import memory
+
+    return _get_resource_stats(memory.api.count_memories, "memories", "topic")
 
 
 def _get_knowledge_stats() -> dict:
     from space.os import knowledge
 
-    total, active, archived = knowledge.api.count_knowledge()
-    with store.ensure() as conn:
-        topics = conn.execute(
-            "SELECT COUNT(DISTINCT domain) FROM knowledge WHERE archived_at IS NULL"
-        ).fetchone()[0]
-        by_agent = conn.execute(
-            "SELECT agent_id, COUNT(*) as count FROM knowledge GROUP BY agent_id ORDER BY count DESC"
-        ).fetchall()
-    return {
-        "total": total,
-        "active": active,
-        "archived": archived,
-        "topics": topics,
-        "know_by_agent": [{"agent_id": row[0], "count": row[1]} for row in by_agent],
-    }
+    return _get_resource_stats(knowledge.api.count_knowledge, "knowledge", "domain")
 
 
 def _aggregate_events(rows: list) -> tuple[int, list[dict]]:
@@ -169,8 +155,6 @@ def memory_stats() -> MemoryStats:
     stats_data = _safe_stats(_get_memory_stats)
     if not stats_data:
         return MemoryStats(available=False)
-
-    stats_data.pop("mem_by_agent", None)
     return MemoryStats(available=True, **stats_data)
 
 
@@ -178,8 +162,6 @@ def knowledge_stats() -> KnowledgeStats:
     stats_data = _safe_stats(_get_knowledge_stats)
     if not stats_data:
         return KnowledgeStats(available=False)
-
-    stats_data.pop("know_by_agent", None)
     return KnowledgeStats(available=True, **stats_data)
 
 
@@ -200,14 +182,24 @@ def agent_stats(limit: int = None, show_all: bool = False) -> list[AgentStats] |
         archived_set = _get_archived_agents()
 
         bridge_data = _get_bridge_stats()
-        memory_data = _get_memory_stats()
-        knowledge_data = _get_knowledge_stats()
+
+        with store.ensure() as conn:
+            mem_by_agent = conn.execute(
+                "SELECT agent_id, COUNT(*) as count FROM memories GROUP BY agent_id ORDER BY count DESC"
+            ).fetchall()
+            know_by_agent = conn.execute(
+                "SELECT agent_id, COUNT(*) as count FROM knowledge GROUP BY agent_id ORDER BY count DESC"
+            ).fetchall()
 
         data_sources = [
             (bridge_data.get("messages", {}).get("by_agent", []), "msgs", "count"),
             (bridge_data.get("events", {}).get("by_agent", []), None, None),
-            (memory_data.get("mem_by_agent", []), "mems", "count"),
-            (knowledge_data.get("know_by_agent", []), "knowledge", "count"),
+            ([{"agent_id": row[0], "count": row[1]} for row in mem_by_agent], "mems", "count"),
+            (
+                [{"agent_id": row[0], "count": row[1]} for row in know_by_agent],
+                "knowledge",
+                "count",
+            ),
         ]
 
         for items, field, key in data_sources:

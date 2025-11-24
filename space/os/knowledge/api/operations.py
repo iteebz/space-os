@@ -86,53 +86,52 @@ def get_knowledge(entry_id: str) -> Knowledge | None:
 def find_related_knowledge(
     entry: Knowledge, limit: int = 5, show_all: bool = False
 ) -> list[tuple[Knowledge, int]]:
-    from space.lib.stopwords import stopwords
+    from space.lib.stopwords import extract_keywords
 
-    tokens = set(entry.content.lower().split()) | set(entry.domain.lower().split())
-    keywords = {t.strip(".,;:!?()[]{}") for t in tokens if len(t) > 3 and t not in stopwords}
+    keywords = extract_keywords(entry.content + " " + entry.domain)
 
     if not keywords:
         return []
 
     archive = archive_filter(show_all, prefix="AND")
     with store.ensure() as conn:
-        all_entries = conn.execute(
-            f"SELECT knowledge_id, domain, agent_id, content, created_at, archived_at FROM knowledge WHERE knowledge_id != ? {archive}",
-            (entry.knowledge_id,),
-        ).fetchall()
+        try:
+            conn.execute("CREATE TEMPORARY TABLE keywords (keyword TEXT)")
+            conn.executemany("INSERT INTO keywords VALUES (?)", [(k,) for k in keywords])
 
-    scored = []
-    for row in all_entries:
-        candidate = _row_to_knowledge(row)
-        candidate_tokens = set(candidate.content.lower().split()) | set(
-            candidate.domain.lower().split()
-        )
-        candidate_keywords = {
-            t.strip(".,;:!?()[]{}") for t in candidate_tokens if len(t) > 3 and t not in stopwords
-        }
+            query = f"""
+                SELECT k_entry.knowledge_id, k_entry.domain, k_entry.agent_id, k_entry.content,
+                       k_entry.created_at, k_entry.archived_at, COUNT(kw.keyword) as score
+                FROM knowledge k_entry, keywords kw
+                WHERE k_entry.knowledge_id != ? AND
+                      (k_entry.content LIKE '%' || kw.keyword || '%' OR k_entry.domain LIKE '%' || kw.keyword || '%')
+                      {archive}
+                GROUP BY k_entry.knowledge_id
+                ORDER BY score DESC
+                LIMIT ?
+            """
+            rows = conn.execute(query, (entry.knowledge_id, limit)).fetchall()
+        finally:
+            conn.execute("DROP TABLE IF EXISTS keywords")
 
-        overlap = len(keywords & candidate_keywords)
-        if overlap > 0:
-            scored.append((candidate, overlap))
-
-    scored.sort(key=lambda x: x[1], reverse=True)
-    return scored[:limit]
+    return [(_row_to_knowledge(row), row["score"]) for row in rows]
 
 
 def archive_knowledge(entry_id: str, restore: bool = False) -> None:
-    if restore:
-        with store.ensure() as conn:
-            conn.execute(
+    with store.ensure() as conn:
+        if restore:
+            cursor = conn.execute(
                 "UPDATE knowledge SET archived_at = NULL WHERE knowledge_id = ?",
                 (entry_id,),
             )
-    else:
-        now = datetime.now().isoformat()
-        with store.ensure() as conn:
-            conn.execute(
+        else:
+            now = datetime.now().isoformat()
+            cursor = conn.execute(
                 "UPDATE knowledge SET archived_at = ? WHERE knowledge_id = ?",
                 (now, entry_id),
             )
+        if cursor.rowcount == 0:
+            raise ValueError(f"Knowledge entry '{entry_id}' not found")
 
 
 def get_domain_tree(parent_domain: str | None = None, show_all: bool = False) -> dict:
@@ -182,12 +181,26 @@ def count_knowledge() -> tuple[int, int, int]:
 
 def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[SearchResult]:
     results = []
+
+    agent_id = None
+    if identity and not all_agents:
+        agent = spawn.get_agent(identity)
+        if not agent:
+            raise ValueError(f"Agent '{identity}' not found")
+        agent_id = agent.agent_id
+
     with store.ensure() as conn:
         sql_query = (
             "SELECT knowledge_id, domain, agent_id, content, created_at FROM knowledge "
-            "WHERE (content LIKE ? OR domain LIKE ?) AND archived_at IS NULL ORDER BY created_at ASC"
+            "WHERE (content LIKE ? OR domain LIKE ?) AND archived_at IS NULL"
         )
         params = [f"%{query}%", f"%{query}%"]
+
+        if agent_id:
+            sql_query += " AND agent_id = ?"
+            params.append(agent_id)
+
+        sql_query += " ORDER BY created_at ASC"
         rows = conn.execute(sql_query, params).fetchall()
 
         for row in rows:

@@ -18,21 +18,7 @@ def create_spawn(
     session_id: str | None = None,
     parent_spawn_id: str | None = None,
 ) -> Spawn:
-    """Create a new spawn for agent invocation.
-
-    Atomically increments agent.spawn_count.
-
-    Args:
-        agent_id: Agent ID
-        is_ephemeral: Whether this was invoked directly (CLI, mention, or direct call), not persistent interactive session
-        constitution_hash: Hash of the constitution file (if loaded)
-        channel_id: Channel ID if triggered by bridge
-        session_id: Session ID if already linked to provider session. Can be set later.
-        parent_spawn_id: Parent spawn ID for depth tracking
-
-    Returns:
-        Spawn object
-    """
+    """Create spawn and atomically increment agent.spawn_count."""
     spawn_id = uuid7()
     now = datetime.now().isoformat()
 
@@ -68,72 +54,66 @@ def create_spawn(
 
 
 def update_status(spawn_id: str, status: str) -> None:
-    """Update spawn status and finalize session on terminal state.
-
-    For terminal states (completed/failed/timeout/killed), indexes the linked session
-    to populate transcripts table for context search (ingest already happened during streaming).
-    """
+    """Update spawn status. Terminal states trigger session indexing."""
     now = datetime.now().isoformat()
-    terminal_states = ("completed", "failed", "timeout", "killed")
+    terminal_states = {"completed", "failed", "timeout", "killed"}
 
     with store.ensure() as conn:
-        cursor = conn.cursor()
         if status in terminal_states:
-            cursor.execute(
+            conn.execute(
                 "UPDATE spawns SET status = ?, ended_at = ? WHERE id = ?",
                 (status, now, spawn_id),
             )
-            conn.commit()
-
-            # Ingest and index session for context search
-            spawn = get_spawn(spawn_id)
-            if spawn and spawn.session_id:
-                try:
-                    from space.os.sessions.api import sync
-
-                    sync.ingest(spawn.session_id)
-                    sync.index(spawn.session_id)
-                except Exception as e:
-                    import logging
-
-                    logging.getLogger(__name__).warning(
-                        f"Failed to ingest/index session {spawn.session_id} for spawn {spawn_id}: {e}"
-                    )
         else:
-            cursor.execute(
+            conn.execute(
                 "UPDATE spawns SET status = ? WHERE id = ?",
                 (status, spawn_id),
             )
-            conn.commit()
+
+    if status in terminal_states:
+        _finalize_session(spawn_id)
+
+
+def _finalize_session(spawn_id: str) -> None:
+    spawn = get_spawn(spawn_id)
+    if not spawn or not spawn.session_id:
+        return
+
+    try:
+        from space.os.sessions.api import sync
+
+        sync.ingest(spawn.session_id)
+        sync.index(spawn.session_id)
+    except Exception as e:
+        import logging
+
+        logging.getLogger(__name__).warning(
+            f"Failed to finalize session {spawn.session_id} for spawn {spawn_id}: {e}"
+        )
 
 
 def end_spawn(spawn_id: str) -> None:
-    """End a spawn."""
     with store.ensure() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
+        conn.execute(
             "UPDATE spawns SET ended_at = ? WHERE id = ?",
             (datetime.now().isoformat(), spawn_id),
         )
 
 
 def link_session_to_spawn(spawn_id: str, session_id: str) -> None:
-    """Link a spawn to a provider session (for interactive spawns discovered later)."""
     with store.ensure() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
+        conn.execute(
             "UPDATE spawns SET session_id = ? WHERE id = ?",
             (session_id, spawn_id),
         )
 
 
 def get_spawn_count(agent_id: str) -> int:
-    """Get total spawn count for agent."""
     with store.ensure() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT spawn_count FROM agents WHERE agent_id = ?", (agent_id,))
-        result = cursor.fetchone()
-        return result[0] if result else 0
+        row = conn.execute(
+            "SELECT spawn_count FROM agents WHERE agent_id = ?", (agent_id,)
+        ).fetchone()
+        return row[0] if row else 0
 
 
 def get_spawns_for_agent(
@@ -158,14 +138,7 @@ def get_spawns_for_agent(
 
 
 def get_spawn(spawn_id: str) -> Spawn | None:
-    """Get a single spawn by ID (supports partial ID match).
-
-    Args:
-        spawn_id: Spawn ID or partial ID (will be matched with LIKE)
-
-    Returns:
-        Spawn object or None if not found
-    """
+    """Get spawn by full or partial ID."""
     with store.ensure() as conn:
         row = conn.execute(
             "SELECT * FROM spawns WHERE id = ? OR id LIKE ? LIMIT 1",
@@ -175,17 +148,7 @@ def get_spawn(spawn_id: str) -> Spawn | None:
 
 
 def pause_spawn(spawn_id: str) -> Spawn:
-    """Pause a running spawn for mid-task steering.
-
-    Args:
-        spawn_id: Spawn ID to pause
-
-    Returns:
-        Updated Spawn object
-
-    Raises:
-        ValueError: If spawn not found or not in running state
-    """
+    """Pause running spawn. Raises ValueError if not found or not running."""
     spawn = get_spawn(spawn_id)
     if not spawn:
         raise ValueError(f"Spawn {spawn_id} not found")
@@ -197,17 +160,7 @@ def pause_spawn(spawn_id: str) -> Spawn:
 
 
 def resume_spawn(spawn_id: str) -> Spawn:
-    """Resume a paused spawn, reusing session context.
-
-    Args:
-        spawn_id: Spawn ID to resume
-
-    Returns:
-        Updated Spawn object
-
-    Raises:
-        ValueError: If spawn not found, not paused, or has no session_id
-    """
+    """Resume paused spawn. Raises ValueError if not found, not paused, or no session_id."""
     spawn = get_spawn(spawn_id)
     if not spawn:
         raise ValueError(f"Spawn {spawn_id} not found")
@@ -221,15 +174,7 @@ def resume_spawn(spawn_id: str) -> Spawn:
 
 
 def get_channel_spawns(channel_id: str, status: str | None = None) -> list[Spawn]:
-    """Get all spawns in a channel, optionally filtered by status.
-
-    Args:
-        channel_id: Channel ID to filter by
-        status: Optional status filter (e.g., 'running', 'paused'). If None, returns all.
-
-    Returns:
-        List of Spawn objects in the channel
-    """
+    """Get spawns in channel, optionally filtered by status."""
     with store.ensure() as conn:
         if status:
             rows = conn.execute(
@@ -244,7 +189,6 @@ def get_channel_spawns(channel_id: str, status: str | None = None) -> list[Spawn
 
 
 def get_all_spawns(limit: int = 100) -> list[Spawn]:
-    """Get all spawns across all agents."""
     with store.ensure() as conn:
         rows = conn.execute(
             "SELECT * FROM spawns ORDER BY created_at DESC LIMIT ?", (limit,)
@@ -253,41 +197,12 @@ def get_all_spawns(limit: int = 100) -> list[Spawn]:
 
 
 def get_spawn_depth(spawn_id: str) -> int:
-    """Follow parent_spawn_id chain to count depth.
-
-    Args:
-        spawn_id: Spawn ID
-
-    Returns:
-        Depth (0 = root, 1 = first child, etc.)
-    """
-    depth = 0
-    current_id = spawn_id
-
-    with store.ensure() as conn:
-        while current_id:
-            row = conn.execute(
-                "SELECT parent_spawn_id FROM spawns WHERE id = ?", (current_id,)
-            ).fetchone()
-            if not row or not row[0]:
-                break
-            current_id = row[0]
-            depth += 1
-            if depth > MAX_SPAWN_DEPTH + 5:
-                raise RuntimeError(f"Spawn depth loop detected for {spawn_id}")
-
-    return depth
+    """Count spawn depth (0 = root, 1 = first child, etc.)."""
+    return len(get_spawn_lineage(spawn_id)) - 1
 
 
 def get_spawn_lineage(spawn_id: str) -> list[str]:
-    """Return spawn lineage from child to root.
-
-    Args:
-        spawn_id: Spawn ID
-
-    Returns:
-        [spawn_id, parent_id, grandparent_id, ...]
-    """
+    """Return spawn lineage from child to root: [spawn_id, parent_id, grandparent_id, ...]."""
     lineage = [spawn_id]
     current_id = spawn_id
 

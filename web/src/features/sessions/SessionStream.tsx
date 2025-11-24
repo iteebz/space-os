@@ -79,6 +79,28 @@ export function SessionStream({ sessionId }: Props) {
   )
 }
 
+const TOOL_RENDERERS: Record<string, (input: Record<string, unknown>) => JSX.Element> = {
+  Bash: (input) => (
+    <BashCall
+      command={String(input.command || '')}
+      description={input.description ? String(input.description) : undefined}
+    />
+  ),
+  Edit: (input) => (
+    <EditCall
+      file_path={String(input.file_path || '')}
+      old_string={input.old_string ? String(input.old_string) : undefined}
+      new_string={input.new_string ? String(input.new_string) : undefined}
+    />
+  ),
+  MultiEdit: (input) => (
+    <EditCall
+      file_path={String(input.file_path || '')}
+      edits={input.edits as Array<{ old_string: string; new_string: string }> | undefined}
+    />
+  ),
+}
+
 function EventContent({ event }: { event: SessionEvent }) {
   if (event.type === 'text') {
     return <div className="text-neutral-300">{String(event.content)}</div>
@@ -86,30 +108,12 @@ function EventContent({ event }: { event: SessionEvent }) {
 
   if (event.type === 'tool_call') {
     const content = event.content as { tool_name: string; input: Record<string, unknown> }
-    const toolName = content.tool_name
-
-    if (toolName === 'Bash') {
-      return (
-        <BashCall
-          command={String(content.input.command || '')}
-          description={content.input.description ? String(content.input.description) : undefined}
-        />
-      )
-    }
-
-    if (toolName === 'Edit' || toolName === 'MultiEdit') {
-      const input = content.input as Record<string, unknown>
-      return (
-        <EditCall
-          file_path={String(input.file_path || '')}
-          edits={input.edits as Array<{ old_string: string; new_string: string }> | undefined}
-          old_string={input.old_string ? String(input.old_string) : undefined}
-          new_string={input.new_string ? String(input.new_string) : undefined}
-        />
-      )
-    }
-
-    return <GenericTool name={toolName} input={content.input} />
+    const renderer = TOOL_RENDERERS[content.tool_name]
+    return renderer ? (
+      renderer(content.input)
+    ) : (
+      <GenericTool name={content.tool_name} input={content.input} />
+    )
   }
 
   if (event.type === 'tool_result') {

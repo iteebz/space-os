@@ -12,28 +12,28 @@ from space.os.spawn.api.prompt import build_spawn_context
 def test_parse_mentions_single():
     """Extract single @mention."""
     content = "@zealot can you help?"
-    parsed = delimiters._parse_mentions(content)
+    parsed = delimiters._extract_mentions(content)
     assert parsed == ["zealot"]
 
 
 def test_parse_mentions_multiple():
     """Extract multiple @mentions."""
     content = "@zealot @sentinel what do you think?"
-    parsed = delimiters._parse_mentions(content)
+    parsed = delimiters._extract_mentions(content)
     assert set(parsed) == {"zealot", "sentinel"}
 
 
 def test_parse_mentions_no_duplicates():
     """Deduplicate mentions."""
     content = "@zealot please respond. @zealot are you there?"
-    parsed = delimiters._parse_mentions(content)
+    parsed = delimiters._extract_mentions(content)
     assert parsed == ["zealot"]
 
 
 def test_parse_mentions_none():
     """No mentions in content."""
     content = "just a regular message"
-    parsed = delimiters._parse_mentions(content)
+    parsed = delimiters._extract_mentions(content)
     assert parsed == []
 
 
@@ -107,7 +107,6 @@ def test_process_control_commands_pause():
         patch("space.os.bridge.api.delimiters.spawns.get_spawns_for_agent") as mock_get_spawns,
         patch("space.os.bridge.api.delimiters.spawns.pause_spawn") as mock_pause,
     ):
-        # Setup mocks
         mock_agent = MagicMock()
         mock_agent.agent_id = "agent-123"
         mock_get_agent.return_value = mock_agent
@@ -115,12 +114,11 @@ def test_process_control_commands_pause():
         mock_spawn = MagicMock()
         mock_spawn.id = "spawn-456"
         mock_spawn.status = "running"
+        mock_spawn.channel_id = "channel-1"
         mock_get_spawns.return_value = [mock_spawn]
 
-        # Process !zealot command
-        delimiters._process_control_commands_impl("channel-1", "!zealot")
+        delimiters._process_control_commands("channel-1", "!pause zealot")
 
-        # Verify pause was called
         mock_pause.assert_called_once_with("spawn-456")
 
 
@@ -138,12 +136,11 @@ def test_process_control_commands_resume():
         mock_spawn = MagicMock()
         mock_spawn.id = "spawn-456"
         mock_spawn.status = "paused"
+        mock_spawn.channel_id = "channel-1"
         mock_get_spawns.return_value = [mock_spawn]
 
-        # Process !resume zealot command
-        delimiters._process_control_commands_impl("channel-1", "!resume zealot")
+        delimiters._process_control_commands("channel-1", "!resume zealot")
 
-        # Verify resume was called
         mock_resume.assert_called_once_with("spawn-456")
 
 
@@ -152,7 +149,7 @@ async def test_process_delimiters_async():
     """Verify async delimiter processing."""
     with (
         patch("space.os.bridge.api.channels.get_channel") as mock_get_channel,
-        patch("space.os.bridge.api.delimiters._process_control_commands_impl") as mock_control,
+        patch("space.os.bridge.api.delimiters._process_control_commands") as mock_control,
         patch("space.os.bridge.api.delimiters._process_mentions") as mock_mentions,
     ):
         mock_channel = MagicMock()

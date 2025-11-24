@@ -62,7 +62,7 @@ def add(
         output.out_text(f"Agent not found: {contributor}", ctx.obj)
         return
     knowledge_id = api.add_knowledge(domain, agent_id, content)
-    if ctx.obj.get("json_output"):
+    if output.is_json_mode(ctx):
         typer.echo(output.out_json({"knowledge_id": knowledge_id}))
     else:
         output.out_text(f"Added to {domain}: {knowledge_id[-8:]} by {contributor}", ctx.obj)
@@ -118,13 +118,13 @@ def list_knowledge(
     """List all knowledge entries (metadata only)."""
     entries = api.list_knowledge(show_all=show_all)
     if not entries:
-        if ctx.obj.get("json_output"):
+        if output.is_json_mode(ctx):
             typer.echo(output.out_json([]))
         else:
             output.out_text("No knowledge entries found.", ctx.obj)
         return
 
-    if ctx.obj.get("json_output"):
+    if output.is_json_mode(ctx):
         typer.echo(output.out_json([asdict(e) for e in entries]))
         return
 
@@ -156,7 +156,7 @@ def query_domain(
         output.out_text(f"No entries for domain '{domain}'", ctx.obj)
         return
 
-    if ctx.obj.get("json_output"):
+    if output.is_json_mode(ctx):
         typer.echo(output.out_json([asdict(e) for e in entries]))
         return
 
@@ -189,7 +189,7 @@ def read(
         output.out_text(f"Not found: {knowledge_id}", ctx.obj)
         return
 
-    if ctx.obj.get("json_output"):
+    if output.is_json_mode(ctx):
         typer.echo(output.out_json(asdict(entry)))
         return
 

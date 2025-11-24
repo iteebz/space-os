@@ -129,9 +129,11 @@ def init():
     constitutions_dir.mkdir(parents=True, exist_ok=True)
     (root / "projects").mkdir(parents=True, exist_ok=True)
 
+    from space.lib import providers
+
     sessions_dir = paths.sessions_dir()
     sessions_dir.mkdir(parents=True, exist_ok=True)
-    for cli in ["claude", "codex", "gemini"]:
+    for cli in providers.PROVIDER_NAMES:
         (sessions_dir / cli).mkdir(exist_ok=True)
 
     with store.ensure():

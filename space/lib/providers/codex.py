@@ -1,13 +1,13 @@
 """Codex provider: chat discovery and message parsing."""
 
-import io
 import json
 import logging
-import shutil
 from pathlib import Path
 
 from space.core.models import SessionMessage
 from space.core.protocols import Provider
+
+from . import base
 
 logger = logging.getLogger(__name__)
 
@@ -83,42 +83,12 @@ class Codex(Provider):
 
         Extracts canonical session_id (thread_id) from file to normalize filename to {uuid}.jsonl.
         """
-        try:
-            src_file = Path(session.get("file_path", ""))
-
-            if not src_file.exists():
-                return False
-
-            session_id = Codex.session_id_from_contents(src_file)
-            if not session_id:
-                logger.warning(f"Could not extract session_id from {src_file}")
-                return False
-
-            dest_file = dest_dir / f"{session_id}.jsonl"
-            dest_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src_file, dest_file)
-            return True
-        except Exception as e:
-            logger.error(f"Error ingesting Codex session: {e}")
-        return False
+        return base.ingest_session_copy(session, dest_dir, "codex", Codex.session_id_from_contents)
 
     @staticmethod
     def index(session_id: str) -> int:
         """Index one Codex session into database."""
-        from space.os.sessions.api.sync import _index_transcripts
-
-        sessions_dir = Path.home() / ".space" / "sessions" / "codex"
-        jsonl_file = sessions_dir / f"{session_id}.jsonl"
-
-        if not jsonl_file.exists():
-            return 0
-
-        try:
-            content = jsonl_file.read_text()
-            return _index_transcripts(session_id, "codex", content)
-        except Exception as e:
-            logger.error(f"Error indexing Codex session {session_id}: {e}")
-        return 0
+        return base.index_session(session_id, "codex")
 
     @staticmethod
     def parse(file_path: Path | str, from_offset: int = 0) -> list[SessionMessage]:
@@ -126,49 +96,34 @@ class Codex(Provider):
 
         Accepts file path or raw JSONL string content.
         """
-        events = []
 
-        if isinstance(file_path, str):
-            file_obj = io.StringIO(file_path)
-        else:
-            file_path = Path(file_path)
-            if not file_path.exists():
-                return events
-            file_obj = open(file_path)
+        def parse_line(obj: dict, line_num: int) -> list[SessionMessage]:
+            events = []
+            role = obj.get("role")
+            timestamp = obj.get("timestamp")
 
-        with file_obj:
-            for line in file_obj:
-                if not line.strip():
-                    continue
+            if role == "assistant":
+                events.extend(Codex._parse_assistant_message(obj, timestamp))
+            elif role == "tool":
+                events.extend(Codex._parse_tool_result_message(obj, timestamp))
 
-                try:
-                    obj = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-
-                role = obj.get("role")
-                timestamp = obj.get("timestamp")
-
-                if role == "assistant":
-                    events.extend(Codex._parse_assistant_message(obj, timestamp))
-                elif role == "tool":
-                    events.extend(Codex._parse_tool_result_message(obj, timestamp))
-
-                payload = obj.get("payload", {})
-                if payload.get("type") == "message":
-                    payload_role = payload.get("role", "").lower()
-                    if payload_role in ("user", "assistant"):
-                        text = Codex._extract_payload_text(payload)
-                        if text:
-                            events.append(
-                                SessionMessage(
-                                    type="message",
-                                    timestamp=timestamp,
-                                    content={"role": payload_role, "text": text},
-                                )
+            payload = obj.get("payload", {})
+            if payload.get("type") == "message":
+                payload_role = payload.get("role", "").lower()
+                if payload_role in ("user", "assistant"):
+                    text = Codex._extract_payload_text(payload)
+                    if text:
+                        events.append(
+                            SessionMessage(
+                                type="message",
+                                timestamp=timestamp,
+                                content={"role": payload_role, "text": text},
                             )
+                        )
 
-        return events
+            return events
+
+        return base.parse_jsonl_file(file_path, parse_line, from_offset)
 
     @staticmethod
     def tokens(file_path: Path) -> tuple[int | None, int | None]:

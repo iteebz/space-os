@@ -46,24 +46,14 @@ def format_local_time(timestamp: str) -> str:
         return timestamp
 
 
-def output_json(data, ctx: typer.Context):
-    """Output data as JSON if requested. Returns True if output, False otherwise."""
-    if ctx.obj.get("json_output"):
-        typer.echo(json.dumps(data, indent=2))
-        return True
-    return False
+output_json = output.echo_json
 
 
-def should_output(ctx: typer.Context) -> bool:
-    """Check if output should be printed (not quiet mode)."""
-    return not ctx.obj.get("quiet_output")
+def should_output(ctx):
+    return not output.is_quiet_mode(ctx)
 
 
-def echo_if_output(msg: str, ctx: typer.Context):
-    """Echo message only if not in quiet mode."""
-    if should_output(ctx):
-        typer.echo(msg)
-
+echo_if_output = output.echo_text
 
 app = typer.Typer(invoke_without_command=True, add_completion=False)
 

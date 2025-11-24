@@ -23,14 +23,7 @@ def _row_to_agent(row: store.Row) -> Agent:
 
 
 def compute_constitution_hash(constitution_name: str | None) -> str | None:
-    """Compute SHA256 hash of constitution file.
-
-    Args:
-        constitution_name: Name of constitution file (e.g., 'zealot', 'sentinel')
-
-    Returns:
-        Hex digest of SHA256 hash, or None if no constitution
-    """
+    """Compute SHA256 hash of constitution file."""
     if not constitution_name:
         return None
     const_path = paths.constitution(constitution_name)
@@ -61,10 +54,7 @@ def register_agent(
     constitution: str | None = None,
     role: str | None = None,
 ) -> str:
-    """Explicitly register an identity. Fails if identity already exists.
-
-    If model is None, this is a human identity (no spawning capability).
-    """
+    """Register identity. Fails if already exists. No model = human (no spawning)."""
     _validate_identity(identity)
     agent = get_agent(identity)
     if agent:
@@ -87,34 +77,23 @@ def update_agent(
     model: str | None = None,
     role: str | None = None,
 ) -> bool:
-    """Update agent fields. Only specified fields are modified.
-
-    If model is specified, provider is inferred from it.
-    """
-
     agent = get_agent(identity)
     if not agent:
         raise ValueError(f"Agent '{identity}' not found")
 
-    updates = []
-    values = []
-    if constitution is not None:
-        updates.append("constitution = ?")
-        values.append(constitution)
-    if model is not None:
-        updates.append("model = ?")
-        values.append(model)
-    if role is not None:
-        updates.append("role = ?")
-        values.append(role)
-
-    if not updates:
+    if constitution is None and model is None and role is None:
         return True
 
-    values.append(agent.agent_id)
-    sql = f"UPDATE agents SET {', '.join(updates)} WHERE agent_id = ?"
     with store.ensure() as conn:
-        conn.execute(sql, values)
+        if constitution is not None:
+            conn.execute(
+                "UPDATE agents SET constitution = ? WHERE agent_id = ?",
+                (constitution, agent.agent_id),
+            )
+        if model is not None:
+            conn.execute("UPDATE agents SET model = ? WHERE agent_id = ?", (model, agent.agent_id))
+        if role is not None:
+            conn.execute("UPDATE agents SET role = ? WHERE agent_id = ?", (role, agent.agent_id))
     return True
 
 
@@ -195,37 +174,28 @@ def merge_agents(from_name: str, to_name: str) -> bool:
         return False
 
     with store.ensure() as conn:
-        conn.execute("BEGIN")
-        try:
-            conn.execute("UPDATE messages SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
-            conn.execute("UPDATE spawns SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
-            conn.execute("UPDATE knowledge SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
-            conn.execute("UPDATE memories SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
-            conn.execute("DELETE FROM agents WHERE agent_id = ?", (from_id,))
-            conn.execute("COMMIT")
-        except Exception:
-            conn.execute("ROLLBACK")
-            raise
+        conn.execute("UPDATE messages SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
+        conn.execute("UPDATE spawns SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
+        conn.execute("UPDATE knowledge SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
+        conn.execute("UPDATE memories SET agent_id = ? WHERE agent_id = ?", (to_id, from_id))
+        conn.execute("DELETE FROM agents WHERE agent_id = ?", (from_id,))
 
     return True
 
 
 def agent_identities() -> dict[str, str]:
-    """Get agent_id -> identity mapping."""
     with store.ensure() as conn:
         rows = conn.execute("SELECT agent_id, identity FROM agents").fetchall()
         return {row[0]: row[1] for row in rows}
 
 
 def archived_agents() -> set[str]:
-    """Get set of archived agent IDs."""
     with store.ensure() as conn:
         rows = conn.execute("SELECT agent_id FROM agents WHERE archived_at IS NOT NULL").fetchall()
         return {row[0] for row in rows}
 
 
 def stats() -> dict:
-    """Get spawn statistics."""
     with store.ensure() as conn:
         total_agents = conn.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
         active_agents = conn.execute(

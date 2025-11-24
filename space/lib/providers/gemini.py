@@ -1,12 +1,13 @@
 """Gemini provider: chat discovery and message parsing."""
 
-import io
 import json
 import logging
 from pathlib import Path
 
 from space.core.models import SessionMessage
 from space.core.protocols import Provider
+
+from . import base
 
 logger = logging.getLogger(__name__)
 
@@ -139,43 +140,14 @@ class Gemini(Provider):
 
         Extracts canonical session_id from file to normalize filename to {uuid}.jsonl.
         """
-        try:
-            src_file = Path(session.get("file_path", ""))
-
-            if not src_file.exists():
-                return False
-
-            session_id = Gemini.session_id_from_contents(src_file)
-            if not session_id:
-                logger.warning(f"Could not extract session_id from {src_file}")
-                return False
-
-            dest_file = dest_dir / f"{session_id}.jsonl"
-            dest_dir.mkdir(parents=True, exist_ok=True)
-            jsonl_content = Gemini.to_jsonl(src_file)
-            dest_file.write_text(jsonl_content)
-            return bool(jsonl_content)
-        except Exception as e:
-            logger.error(f"Error ingesting Gemini session: {e}")
-        return False
+        return base.ingest_session_transform(
+            session, dest_dir, "gemini", Gemini.session_id_from_contents, Gemini.to_jsonl
+        )
 
     @staticmethod
     def index(session_id: str) -> int:
         """Index one Gemini session into database."""
-        from space.os.sessions.api.sync import _index_transcripts
-
-        sessions_dir = Path.home() / ".space" / "sessions" / "gemini"
-        jsonl_file = sessions_dir / f"{session_id}.jsonl"
-
-        if not jsonl_file.exists():
-            return 0
-
-        try:
-            content = jsonl_file.read_text()
-            return _index_transcripts(session_id, "gemini", content)
-        except Exception as e:
-            logger.error(f"Error indexing Gemini session {session_id}: {e}")
-        return 0
+        return base.index_session(session_id, "gemini")
 
     @staticmethod
     def parse(file_path: Path | str, from_offset: int = 0) -> list[SessionMessage]:
@@ -183,35 +155,20 @@ class Gemini(Provider):
 
         Accepts file path or raw JSONL string content.
         """
-        events = []
 
-        if isinstance(file_path, str):
-            file_obj = io.StringIO(file_path)
-        else:
-            file_path = Path(file_path)
-            if not file_path.exists():
-                return events
-            file_obj = open(file_path)
+        def parse_line(obj: dict, line_num: int) -> list[SessionMessage]:
+            events = []
+            msg_type = obj.get("type")
+            timestamp = obj.get("timestamp")
 
-        with file_obj:
-            for line in file_obj:
-                if not line.strip():
-                    continue
+            if msg_type == "model":
+                events.extend(Gemini._parse_model_message(obj.get("parts", []), timestamp))
+            elif msg_type == "user":
+                events.extend(Gemini._parse_user_message(obj.get("parts", []), timestamp))
 
-                try:
-                    obj = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
+            return events
 
-                msg_type = obj.get("type")
-                timestamp = obj.get("timestamp")
-
-                if msg_type == "model":
-                    events.extend(Gemini._parse_model_message(obj.get("parts", []), timestamp))
-                elif msg_type == "user":
-                    events.extend(Gemini._parse_user_message(obj.get("parts", []), timestamp))
-
-        return events
+        return base.parse_jsonl_file(file_path, parse_line, from_offset)
 
     @staticmethod
     def tokens(file_path: Path) -> tuple[int | None, int | None]:

@@ -29,3 +29,27 @@ def out_text(msg: str, ctx_obj: dict | None = None) -> None:
 
 def show_sync_progress(event) -> None:
     typer.echo(f"  {event.provider:<10} {event.discovered:<12} {event.synced}")
+
+
+def is_json_mode(ctx: typer.Context) -> bool:
+    """Check if JSON output mode is enabled."""
+    return ctx.obj.get("json_output", False) if ctx.obj else False
+
+
+def is_quiet_mode(ctx: typer.Context) -> bool:
+    """Check if quiet output mode is enabled."""
+    return ctx.obj.get("quiet_output", False) if ctx.obj else False
+
+
+def echo_json(data, ctx: typer.Context) -> bool:
+    """Output data as JSON if in JSON mode. Returns True if output, False otherwise."""
+    if is_json_mode(ctx):
+        typer.echo(json_lib.dumps(data, indent=2))
+        return True
+    return False
+
+
+def echo_text(msg: str, ctx: typer.Context) -> None:
+    """Echo message only if not in quiet mode."""
+    if not is_quiet_mode(ctx):
+        typer.echo(msg)

@@ -1,9 +1,8 @@
-"""FastAPI wrapper around CLI primitives."""
+"""FastAPI wrapper for Space-OS APIs."""
 
 import asyncio
 import contextlib
 import json
-import subprocess
 import time
 from collections.abc import AsyncGenerator
 from pathlib import Path
@@ -53,81 +52,95 @@ class SessionFileHandler(FileSystemEventHandler):
             self.queue.put("modified")
 
 
-def run_cli(cmd: list[str]) -> dict | list:
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        return {"error": result.stderr.strip()}
-    try:
-        return json.loads(result.stdout)
-    except json.JSONDecodeError:
-        return {"error": "Invalid JSON response", "raw": result.stdout}
-
-
 @app.get("/api/channels")
-def get_channels():
-    return run_cli(["bridge", "--json", "channels"])
+async def get_channels():
+    from space.os.bridge.api import channels
+
+    try:
+        channels_list = channels.list_channels(show_all=False)
+        return [ch.model_dump() for ch in channels_list]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/api/channels")
-def create_channel(body: CreateChannel):
-    cmd = ["bridge", "create", body.name]
-    if body.topic:
-        cmd.extend(["--topic", body.topic])
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        return {"error": result.stderr.strip()}
-    return {"ok": True, "name": body.name}
+async def create_channel(body: CreateChannel):
+    from space.os.bridge.api import channels
+
+    try:
+        channel = channels.create_channel(body.name, body.topic)
+        return {"ok": True, "name": channel.name}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/channels/{channel}/messages")
-def get_messages(channel: str):
-    return run_cli(["bridge", "recv", channel, "--json"])
+async def get_messages(channel: str):
+    from space.os.bridge.api import messaging
+
+    try:
+        messages = messaging.recv_messages(channel, limit=100)
+        return [msg.model_dump() for msg in messages]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.patch("/api/channels/{channel}/topic")
-def update_topic(channel: str, body: UpdateTopic):
-    result = subprocess.run(
-        ["bridge", "topic", channel, body.topic],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        return {"error": result.stderr.strip()}
-    return {"ok": True}
+async def update_channel_topic(channel: str, body: UpdateTopic):
+    from space.os.bridge.api import channels
+
+    try:
+        success = channels.update_topic(channel, body.topic)
+        if not success:
+            raise HTTPException(status_code=404, detail=f"Channel {channel} not found")
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.delete("/api/channels/{channel}")
-def delete_channel(channel: str):
-    result = subprocess.run(
-        ["bridge", "delete", channel],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        return {"error": result.stderr.strip()}
-    return {"ok": True}
+async def delete_channel(channel: str):
+    from space.os.bridge.api import channels
+
+    try:
+        channels.delete_channel(channel)
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/api/channels/{channel}/archive")
-def archive_channel(channel: str):
-    result = subprocess.run(
-        ["bridge", "archive", channel],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        return {"error": result.stderr.strip()}
-    return {"ok": True}
+async def archive_channel(channel: str):
+    from space.os.bridge.api import channels
+
+    try:
+        channels.archive_channel(channel)
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/spawns")
-def get_spawns():
-    return run_cli(["spawn", "--json", "tasks", "--all"])
+async def get_spawns():
+    from space.os.spawn.api import spawns
+
+    try:
+        spawns_list = spawns.get_all_spawns(limit=100)
+        return [sp.model_dump() for sp in spawns_list]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/agents")
-def get_agents():
-    return run_cli(["spawn", "agents", "--json"])
+async def get_agents():
+    from space.os.spawn.api import agents
+
+    try:
+        return agents.list_agents()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/health")
@@ -259,23 +272,24 @@ def get_spawn_tree(spawn_id: str):
 
 
 @app.post("/api/channels/{channel}/messages")
-def send_message(channel: str, body: SendMessage):
-    result = subprocess.run(
-        ["bridge", "--as", body.sender, "send", channel, body.content],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        return {"error": result.stderr.strip()}
-    return {"ok": True}
+async def send_message(channel: str, body: SendMessage):
+    from space.os.bridge.api import messaging
+
+    try:
+        message_id = await messaging.send_message(channel, body.sender, body.content)
+        return {"ok": True, "message_id": message_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/sessions/{session_id}/stream")
 async def stream_session(session_id: str) -> StreamingResponse:
+    from space.lib import providers
+
     sessions_dir = paths.sessions_dir()
     session_path = None
 
-    for provider in ("claude", "codex", "gemini"):
+    for provider in providers.PROVIDER_NAMES:
         candidate = sessions_dir / provider / f"{session_id}.jsonl"
         if candidate.exists():
             session_path = candidate

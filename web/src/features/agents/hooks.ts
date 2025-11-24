@@ -8,3 +8,8 @@ export function useAgents() {
     queryFn: () => fetchApi<Agent[]>('/agents'),
   })
 }
+
+export function useAgentMap() {
+  const { data: agents } = useAgents()
+  return new Map(agents?.map((a) => [a.agent_id, a.identity]) ?? [])
+}

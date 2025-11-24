@@ -3,9 +3,32 @@
 Providers implement the Provider protocol (chat discovery, message parsing, spawning).
 """
 
+import sys
+
 from .claude import Claude
 from .codex import Codex
 from .gemini import Gemini
+
+PROVIDER_NAMES = ("claude", "codex", "gemini")
+
+
+def get_provider(name: str):
+    """Get provider class by name.
+
+    Args:
+        name: Provider name (claude, codex, gemini)
+
+    Returns:
+        Provider class
+
+    Raises:
+        ValueError: If provider not found
+    """
+    try:
+        return getattr(sys.modules[__name__], name.capitalize())
+    except AttributeError:
+        raise ValueError(f"Unknown provider: {name}") from None
+
 
 MODELS = {
     "claude": [
@@ -92,4 +115,4 @@ MODELS = {
     ],
 }
 
-__all__ = ["Claude", "Codex", "Gemini", "MODELS"]
+__all__ = ["Claude", "Codex", "Gemini", "MODELS", "PROVIDER_NAMES", "get_provider"]

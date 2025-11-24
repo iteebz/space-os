@@ -1,13 +1,13 @@
 """Claude provider: chat discovery and message parsing."""
 
-import io
 import json
 import logging
-import shutil
 from pathlib import Path
 
 from space.core.models import SessionMessage
 from space.core.protocols import Provider
+
+from . import base
 
 logger = logging.getLogger(__name__)
 
@@ -74,97 +74,57 @@ class Claude(Provider):
 
         Extracts canonical session_id from file, falls back to filename if extraction fails.
         """
-        try:
-            src_file = Path(session.get("file_path", ""))
 
-            if not src_file.exists():
-                return False
-
+        def extract_id(src_file: Path) -> str | None:
             session_id = Claude.session_id_from_contents(src_file)
-            if not session_id:
-                session_id = src_file.stem
+            return session_id or src_file.stem
 
-            dest_file = dest_dir / f"{session_id}.jsonl"
-            dest_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src_file, dest_file)
-            return True
-        except Exception as e:
-            logger.error(f"Error ingesting Claude session: {e}")
-        return False
+        return base.ingest_session_copy(session, dest_dir, "claude", extract_id)
 
     @staticmethod
     def index(session_id: str) -> int:
-        from space.os.sessions.api.sync import _index_transcripts
-
-        sessions_dir = Path.home() / ".space" / "sessions" / "claude"
-        jsonl_file = sessions_dir / f"{session_id}.jsonl"
-
-        if not jsonl_file.exists():
-            return 0
-
-        try:
-            content = jsonl_file.read_text()
-            return _index_transcripts(session_id, "claude", content)
-        except Exception as e:
-            logger.error(f"Error indexing Claude session {session_id}: {e}")
-        return 0
+        return base.index_session(session_id, "claude")
 
     @staticmethod
     def parse(file_path: Path | str, from_offset: int = 0) -> list[SessionMessage]:
-        messages = []
+        def parse_line(obj: dict, line_num: int) -> list[SessionMessage]:
+            messages = []
+            msg_type = obj.get("type")
+            timestamp = obj.get("timestamp")
+            message = obj.get("message", {})
 
-        if isinstance(file_path, str):
-            file_obj = io.StringIO(file_path)
-        else:
-            file_path = Path(file_path)
-            if not file_path.exists():
-                return messages
-            file_obj = open(file_path)
+            if msg_type == "assistant":
+                messages.extend(Claude._parse_assistant_message(message, timestamp))
 
-        with file_obj:
-            for line in file_obj:
-                if not line.strip():
-                    continue
-
-                try:
-                    obj = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-
-                msg_type = obj.get("type")
-                timestamp = obj.get("timestamp")
-                message = obj.get("message", {})
-
-                if msg_type == "assistant":
-                    messages.extend(Claude._parse_assistant_message(message, timestamp))
-
-                    if isinstance(message, dict) and message.get("role"):
-                        messages.append(
-                            SessionMessage(
-                                type="message",
-                                timestamp=timestamp,
-                                content={
-                                    "role": message.get("role"),
-                                    "text": message.get("content", ""),
-                                },
-                            )
+                if isinstance(message, dict) and message.get("role"):
+                    messages.append(
+                        SessionMessage(
+                            type="message",
+                            timestamp=timestamp,
+                            content={
+                                "role": message.get("role"),
+                                "text": message.get("content", ""),
+                            },
                         )
-                elif msg_type == "user":
-                    messages.extend(Claude._parse_user_message(message, timestamp))
+                    )
+            elif msg_type == "user":
+                messages.extend(Claude._parse_user_message(message, timestamp))
 
-                    if isinstance(message, dict) and message.get("role"):
-                        messages.append(
-                            SessionMessage(
-                                type="message",
-                                timestamp=timestamp,
-                                content={
-                                    "role": message.get("role"),
-                                    "text": message.get("content", ""),
-                                },
-                            )
+                if isinstance(message, dict) and message.get("role"):
+                    messages.append(
+                        SessionMessage(
+                            type="message",
+                            timestamp=timestamp,
+                            content={
+                                "role": message.get("role"),
+                                "text": message.get("content", ""),
+                            },
                         )
+                    )
 
-        return messages
+            return messages
+
+        return base.parse_jsonl_file(file_path, parse_line, from_offset)
 
     @staticmethod
     def tokens(file_path: Path) -> tuple[int | None, int | None]:

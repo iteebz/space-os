@@ -63,7 +63,7 @@ def add(
     agent_id = agent.agent_id
 
     memory_id = api.add_memory(agent_id, message, topic=topic)
-    if ctx.obj.get("json_output"):
+    if output.is_json_mode(ctx):
         typer.echo(output.out_json({"memory_id": memory_id}))
     else:
         topic_str = f" [{topic}]" if topic else ""
@@ -112,11 +112,11 @@ def list_cmd(
         output.out_text("No memories", ctx.obj)
         return
 
-    if ctx.obj.get("json_output"):
+    if output.is_json_mode(ctx):
         typer.echo(output.out_json([asdict(e) for e in entries]))
     else:
         output.out_text(format_memory_entries(entries, raw_output=raw_output), ctx.obj)
-        if not ctx.obj.get("quiet_output"):
+        if not output.is_quiet_mode(ctx):
             display.show_context(identity)
 
 
@@ -152,7 +152,7 @@ def search(
         output.out_text(f"No results for '{query}'", ctx.obj)
         return
 
-    if ctx.obj.get("json_output"):
+    if output.is_json_mode(ctx):
         typer.echo(output.out_json([asdict(e) for e in results]))
     else:
         output.out_text(f"Found {len(results)} matches:", ctx.obj)
@@ -214,7 +214,7 @@ def inspect(
         return
 
     related = api.find_related_memories(entry, limit=limit, show_all=show_all)
-    if ctx.obj.get("json_output"):
+    if output.is_json_mode(ctx):
         payload = {
             "memory": asdict(entry),
             "related": [{"memory": asdict(r[0]), "overlap": r[1]} for r in related],

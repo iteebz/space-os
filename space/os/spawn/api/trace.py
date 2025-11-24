@@ -6,15 +6,7 @@ from space.os import bridge, spawn
 
 
 def trace_agent(identity: str, limit: int = 10) -> dict:
-    """Get agent spawns and recent activity.
-
-    Args:
-        identity: Agent identity (name)
-        limit: Max recent spawns to show
-
-    Returns:
-        Dict with agent info and spawn history
-    """
+    """Get agent info and spawn history."""
     agent = spawn.get_agent(identity)
     if not agent:
         raise ValueError(f"Agent '{identity}' not found")
@@ -46,25 +38,23 @@ def trace_agent(identity: str, limit: int = 10) -> dict:
 
 
 def trace_channel(channel_id: str) -> dict:
-    """Get agents active in channel with their recent activity.
-
-    Args:
-        channel_id: Channel UUID or name
-
-    Returns:
-        Dict with channel info and participant activity
-    """
+    """Get channel info and participant activity."""
     channel = bridge.get_channel(channel_id)
     if not channel:
         raise ValueError(f"Channel '{channel_id}' not found")
 
-    actual_channel_id = channel.channel_id
-    channel_name = channel.name
+    messages = bridge.get_messages(channel.channel_id)
 
-    messages = bridge.get_messages(actual_channel_id)
-    agents_list = spawn.list_agents()
-    agents_map = {agent: agent for agent in agents_list}
+    # Build agent_id -> identity lookup
+    from space.os.spawn.api import agents as spawn_agents
 
+    agent_id_to_identity = {}
+    for msg in messages:
+        if msg.agent_id not in agent_id_to_identity:
+            agent = spawn_agents.get_agent(msg.agent_id)
+            agent_id_to_identity[msg.agent_id] = agent.identity if agent else "unknown"
+
+    # Track last message per participant
     participant_data = {}
     for msg in messages:
         if msg.agent_id not in participant_data:
@@ -76,7 +66,7 @@ def trace_channel(channel_id: str) -> dict:
     participants = [
         {
             "agent_id": agent_id,
-            "identity": agents_map.get(agent_id, "unknown"),
+            "identity": agent_id_to_identity.get(agent_id, "unknown"),
             "last_message_at": data["last_message_at"],
             "last_message": data["last_message"],
         }
@@ -89,21 +79,14 @@ def trace_channel(channel_id: str) -> dict:
 
     return {
         "type": "channel",
-        "channel_id": actual_channel_id,
-        "channel_name": channel_name,
+        "channel_id": channel.channel_id,
+        "channel_name": channel.name,
         "participants": participants,
     }
 
 
 def trace_spawn(spawn_id: str) -> dict:
-    """Get spawn execution context with synced session data.
-
-    Args:
-        spawn_id: Spawn UUID
-
-    Returns:
-        Dict with spawn and session context
-    """
+    """Get spawn execution context with synced session data."""
     spawn_obj = spawn.api.get_spawn(spawn_id)
     if not spawn_obj:
         raise ValueError(f"Spawn '{spawn_id}' not found")

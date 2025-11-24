@@ -1,53 +1,27 @@
 const API_BASE = '/api'
 
-export async function fetchApi<T>(endpoint: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${endpoint}`)
-  if (!res.ok) {
-    throw new Error(`API error: ${res.status}`)
-  }
+export async function api<T>(endpoint: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${endpoint}`, init)
+  if (!res.ok) throw new Error(`API error: ${res.status}`)
   return res.json()
 }
 
-export async function postApi<T>(endpoint: string, data: unknown): Promise<T> {
-  const res = await fetch(`${API_BASE}${endpoint}`, {
+export const fetchApi = <T>(endpoint: string) => api<T>(endpoint)
+
+export const postApi = <T>(endpoint: string, data: unknown) =>
+  api<T>(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
-  if (!res.ok) {
-    throw new Error(`API error: ${res.status}`)
-  }
-  return res.json()
-}
 
-export async function patchApi<T>(endpoint: string, data: unknown): Promise<T> {
-  const res = await fetch(`${API_BASE}${endpoint}`, {
+export const patchApi = <T>(endpoint: string, data: unknown) =>
+  api<T>(endpoint, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
-  if (!res.ok) {
-    throw new Error(`API error: ${res.status}`)
-  }
-  return res.json()
-}
 
-export async function deleteApi<T>(endpoint: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    method: 'DELETE',
-  })
-  if (!res.ok) {
-    throw new Error(`API error: ${res.status}`)
-  }
-  return res.json()
-}
+export const deleteApi = <T>(endpoint: string) => api<T>(endpoint, { method: 'DELETE' })
 
-export async function postApiNoBody<T>(endpoint: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    method: 'POST',
-  })
-  if (!res.ok) {
-    throw new Error(`API error: ${res.status}`)
-  }
-  return res.json()
-}
+export const postApiNoBody = <T>(endpoint: string) => api<T>(endpoint, { method: 'POST' })
