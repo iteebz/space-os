@@ -81,7 +81,10 @@ def spawn_interactive(
         _copy_bookmarks_from_session(known_session_id, spawn.id)
 
     cwd = str(paths.identity_dir(agent.identity) if passthrough else paths.space_root())
-    context = build_spawn_context(identity, task=passthrough[0] if passthrough else None)
+    is_continue = resume is None and known_session_id
+    context = build_spawn_context(
+        identity, task=passthrough[0] if passthrough else None, is_continue=is_continue
+    )
 
     base_command = [executable] + _build_spawn_command(
         agent, known_session_id, resume is None and known_session_id, is_task=bool(passthrough)
@@ -214,11 +217,21 @@ def _run_ephemeral(
     env: dict[str, str],
 ) -> None:
     context = build_spawn_context(
-        agent.identity, task=instruction, channel=channel_name, is_ephemeral=True
+        agent.identity,
+        task=instruction,
+        channel=channel_name,
+        is_ephemeral=True,
+        is_continue=is_continue,
     )
     cmd = _build_spawn_command(agent, session_id, is_continue)
     stdout = _execute_spawn(cmd, context, agent, env)
-    _link_session_if_needed(spawn, session_id, agent.provider)
+    
+    extracted_session_id = _extract_session_id_from_output(stdout, agent.provider)
+    if extracted_session_id and not session_id:
+        spawns.link_session_to_spawn(spawn.id, extracted_session_id)
+    else:
+        _link_session_if_needed(spawn, session_id, agent.provider)
+    
     _send_output_to_channel(stdout, agent, channel_name)
 
 
@@ -299,6 +312,15 @@ def _execute_spawn(cmd: list[str], context: str, agent, env: dict[str, str]) -> 
 
         with contextlib.suppress(Exception):
             os.unlink(context_file)
+
+
+def _extract_session_id_from_output(stdout: str, provider: str) -> str | None:
+    """Extract session_id from provider stdout immediately."""
+    if provider == "claude":
+        first_line = stdout.split('\n')[0] if stdout else ""
+        if first_line.strip():
+            return Claude.session_id_from_stream(first_line)
+    return None
 
 
 def _link_session_if_needed(spawn, session_id: str | None, provider: str) -> None:

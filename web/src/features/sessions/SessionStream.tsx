@@ -60,11 +60,9 @@ export function SessionStream({ sessionId }: Props) {
     return <div className="text-neutral-500 text-sm">Waiting for events...</div>
   }
 
-  const filteredEvents = events.filter((e) => e.type !== 'message')
-
   return (
     <div className="space-y-3 text-sm overflow-y-auto font-mono">
-      {filteredEvents.map((event, i) => (
+      {events.map((event, i) => (
         <div key={`${sessionId}-${i}`} className="space-y-1">
           <div className="flex justify-between items-center text-xs text-neutral-600">
             <span>{event.type}</span>

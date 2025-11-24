@@ -59,15 +59,21 @@ TASK:
 
 TASK_MODE_TEMPLATE = """\
 
-EXECUTION MODE: Task-based spawn (non-interactive).
+EXECUTION MODE: Task-based spawn (non-interactive).{cwd_instruction}
+"""
+
+TASK_MODE_CWD_INSTRUCTION = """
 IMPORTANT: Always cd to ~/space/ first before executing commands. Example:
   cd ~/space && your-command-here
-Verify with: cd ~/space && pwd
-"""
+Verify with: cd ~/space && pwd"""
 
 
 def build_spawn_context(
-    identity: str, task: str | None = None, channel: str | None = None, is_ephemeral: bool = False
+    identity: str,
+    task: str | None = None,
+    channel: str | None = None,
+    is_ephemeral: bool = False,
+    is_continue: bool = False,
 ) -> str:
     """Assemble spawn context: bootloader for agent execution.
 
@@ -78,6 +84,7 @@ def build_spawn_context(
         task: Task instruction (optional)
         channel: Channel name if responding in channel (optional)
         is_ephemeral: Whether this is an ephemeral spawn (sets execution mode notice)
+        is_continue: Whether resuming existing session (omits cwd instruction)
 
     Returns:
         Complete prompt for agent execution
@@ -110,7 +117,8 @@ def build_spawn_context(
 
     task_mode_context = ""
     if is_ephemeral:
-        task_mode_context = TASK_MODE_TEMPLATE
+        cwd_instruction = "" if is_continue else TASK_MODE_CWD_INSTRUCTION
+        task_mode_context = TASK_MODE_TEMPLATE.format(cwd_instruction=cwd_instruction)
 
     return SPAWN_CONTEXT_TEMPLATE.format(
         identity=identity,

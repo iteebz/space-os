@@ -138,6 +138,35 @@ def _process_mentions(channel_id: str, content: str, sender_agent_id: str | None
         _spawn_agent(identity, content, channel_id)
 
 
+def _attempt_relink_for_agent(agent_id: str) -> None:
+    """Try to discover and link session_id for recent unlinked spawns."""
+    from space.lib import store
+    from space.os.spawn.api.launch import _discover_recent_session
+    
+    agent = spawn_agents.get_agent(agent_id)
+    if not agent or not agent.model:
+        return
+    
+    provider = agent.model.split('-')[0] if agent.model else None
+    if provider not in ('claude', 'codex', 'gemini'):
+        return
+    
+    with store.ensure() as conn:
+        unlinked = conn.execute(
+            """SELECT id, created_at FROM spawns 
+            WHERE agent_id = ? AND session_id IS NULL AND status = 'completed'
+            ORDER BY created_at DESC LIMIT 5""",
+            (agent_id,)
+        ).fetchall()
+    
+    for row in unlinked:
+        spawn_id, created_at = row
+        session_id = _discover_recent_session(provider, created_at)
+        if session_id:
+            spawns.link_session_to_spawn(spawn_id, session_id)
+            log.info(f"Relinked spawn {spawn_id[:12]} -> session {session_id[:12]}")
+
+
 def _try_resume_paused_spawn(agent_id: str) -> bool:
     paused = spawns.get_spawns_for_agent(agent_id, status="paused")
     if not paused:
@@ -153,6 +182,9 @@ def _try_resume_paused_spawn(agent_id: str) -> bool:
 
 def _spawn_agent(identity: str, instruction: str, channel_id: str) -> None:
     try:
+        agent = spawn_agents.get_agent(identity)
+        if agent:
+            _attempt_relink_for_agent(agent.agent_id)
         spawn_ephemeral(identity, instruction=instruction, channel_id=channel_id)
     except Exception as e:
         log.error(f"Failed to spawn {identity}: {e}")

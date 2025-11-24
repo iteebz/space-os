@@ -16,7 +16,6 @@ from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
 from space.lib import paths
-from space.lib.providers import Claude
 
 app = FastAPI(title="Space API")
 START_TIME = time.time()
@@ -320,18 +319,20 @@ async def stream_session(session_id: str) -> StreamingResponse:
 
     sessions_dir = paths.sessions_dir()
     session_path = None
+    provider_name = None
 
     for provider in providers.PROVIDER_NAMES:
         candidate = sessions_dir / provider / f"{session_id}.jsonl"
         if candidate.exists():
             session_path = candidate
+            provider_name = provider
             break
 
-    if not session_path:
+    if not session_path or not provider_name:
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
     return StreamingResponse(
-        stream_session_events(session_path),
+        stream_session_events(session_path, provider_name),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -341,17 +342,22 @@ async def stream_session(session_id: str) -> StreamingResponse:
     )
 
 
-async def stream_session_events(session_path: Path) -> AsyncGenerator[str, None]:
+async def stream_session_events(
+    session_path: Path, provider_name: str
+) -> AsyncGenerator[str, None]:
+    from space.lib import providers
+
     queue: Queue = Queue()
     handler = SessionFileHandler(queue)
     observer = Observer()
     observer.schedule(handler, str(session_path.parent), recursive=False)
     observer.start()
 
+    provider_class = providers.get_provider(provider_name)
     sent_count = 0
     try:
         while True:
-            messages = Claude.parse(session_path)
+            messages = provider_class.parse(session_path)
             new_messages = messages[sent_count:]
             if new_messages:
                 for msg in new_messages:
