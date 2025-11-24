@@ -1,8 +1,5 @@
-"""Context API: search across 5 domains (bridge, memory, knowledge, canon, sessions)."""
-
 from space.os import bridge, knowledge, memory, sessions
-
-from . import canon
+from space.os.context import canon
 
 
 def _validate_search_term(term: str, max_len: int = 256) -> None:

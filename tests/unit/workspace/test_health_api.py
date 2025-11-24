@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import sqlite3
 
-from space.apps.space.api import health as health_api
 from space.lib import paths, store
+from space.workspace import health as health_api
 
 
 def test_health_check_reports_ok(test_space):

@@ -44,8 +44,9 @@ def mock_get_channel():
         yield mock
 
 
-def test_send_message_inserts_record(mock_db, mock_get_agent):
-    bridge.send_message("ch-1", "sender", "hello")
+@pytest.mark.asyncio
+async def test_send_message_inserts_record(mock_db, mock_get_agent):
+    await bridge.send_message("ch-1", "sender", "hello")
 
     calls = mock_db.execute.call_args_list
 
@@ -64,20 +65,23 @@ def test_send_message_inserts_record(mock_db, mock_get_agent):
     assert params[1] == "agent-123"
 
 
-def test_send_message_returns_agent_id(mock_db, mock_get_agent):
-    result = bridge.send_message("ch-1", "sender", "msg")
+@pytest.mark.asyncio
+async def test_send_message_returns_agent_id(mock_db, mock_get_agent):
+    result = await bridge.send_message("ch-1", "sender", "msg")
 
     assert result == "agent-123"
 
 
-def test_send_message_requires_identity(mock_db):
+@pytest.mark.asyncio
+async def test_send_message_requires_identity(mock_db):
     with pytest.raises(ValueError, match="identity is required"):
-        bridge.send_message("ch-1", "", "msg")
+        await bridge.send_message("ch-1", "", "msg")
 
 
-def test_send_message_requires_channel_id(mock_db, mock_get_agent):
+@pytest.mark.asyncio
+async def test_send_message_requires_channel_id(mock_db, mock_get_agent):
     with pytest.raises(ValueError, match="channel_id is required"):
-        bridge.send_message("", "sender", "msg")
+        await bridge.send_message("", "sender", "msg")
 
 
 def test_get_messages_fetches_all(mock_db, mock_get_channel):

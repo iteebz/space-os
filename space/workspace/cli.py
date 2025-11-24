@@ -1,9 +1,7 @@
-"""Space orchestrator CLI: unified human interface."""
-
 import typer
 
-from space.apps.space import api
 from space.lib import backup
+from space.workspace import health, init, stats
 
 app = typer.Typer(invoke_without_command=True, no_args_is_help=False, add_completion=False)
 
@@ -41,7 +39,7 @@ def init_callback(ctx: typer.Context):
 @init_app.command()
 def init_cmd():
     """Initialize space workspace structure and databases."""
-    api.init.init()
+    init.init()
 
 
 stats_app = typer.Typer(invoke_without_command=True)
@@ -55,7 +53,7 @@ def stats_callback(ctx: typer.Context):
 
 def _show_overview():
     """Show space overview."""
-    s = api.stats.collect(agent_limit=10)
+    s = stats.collect(agent_limit=10)
 
     lines = [
         """
@@ -125,7 +123,7 @@ def health_callback(ctx: typer.Context):
 @health_app.command()
 def health_cmd():
     """Verify space-os lattice integrity."""
-    issues, counts_by_db = api.health.run_all_checks()
+    issues, counts_by_db = health.run_all_checks()
 
     for db_name, tables_counts in counts_by_db.items():
         for tbl, cnt in tables_counts.items():

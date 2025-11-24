@@ -9,7 +9,6 @@ from typing import NoReturn
 
 import typer
 
-from space.apps.space.api.stats import agent_stats
 from space.cli import output
 from space.cli.errors import error_feedback
 from space.core.models import SpawnStatus
@@ -21,39 +20,39 @@ from space.os.spawn.formatting import (
     display_channel_trace,
     display_session_trace,
 )
+from space.workspace.stats import agent_stats
 
 app = typer.Typer(invoke_without_command=True, add_completion=False, no_args_is_help=False)
 
 
 def _find_session_file(spawn):
     """Find session file for spawn - check archive first, then discover from provider."""
-    from pathlib import Path
     from datetime import datetime
-    
+
     agent = api.get_agent(spawn.agent_id)
     if not agent:
         return None
-    
+
     provider = agent.provider
-    
+
     # Completed spawn: check archive
     if spawn.session_id:
         archive = paths.sessions_dir() / provider / f"{spawn.session_id}.jsonl"
         if archive.exists():
             return archive
-    
+
     # Active spawn: discover from provider
     if spawn.status == "running":
         created_dt = datetime.fromisoformat(spawn.created_at.replace("Z", "+00:00"))
         created_ts = created_dt.timestamp()
-        
+
         if provider == "claude":
             sessions_dir = providers.Claude.SESSIONS_DIR
             if sessions_dir.exists():
                 # Find most recent session near spawn timestamp
                 best_match = None
-                best_time_diff = float('inf')
-                
+                best_time_diff = float("inf")
+
                 for jsonl in sessions_dir.rglob("*.jsonl"):
                     try:
                         file_ctime = jsonl.stat().st_birthtime
@@ -63,9 +62,9 @@ def _find_session_file(spawn):
                             best_time_diff = time_diff
                     except (OSError, AttributeError):
                         continue
-                
+
                 return best_match
-    
+
     return None
 
 
@@ -73,11 +72,11 @@ def _display_session(session_file, tail_lines=0):
     """Display session content with optional tail."""
     import json
     from pathlib import Path
-    
+
     if not Path(session_file).exists():
         typer.echo("⚠️  Session file not found")
         return
-    
+
     lines = []
     with open(session_file) as f:
         for line in f:
@@ -87,7 +86,7 @@ def _display_session(session_file, tail_lines=0):
                 obj = json.loads(line)
                 msg_type = obj.get("type")
                 message = obj.get("message", {})
-                
+
                 if msg_type == "assistant":
                     content = message.get("content", [])
                     for item in content:
@@ -99,34 +98,34 @@ def _display_session(session_file, tail_lines=0):
                         lines.append(f"[User] {content}")
             except json.JSONDecodeError:
                 continue
-    
+
     if tail_lines > 0:
         lines = lines[-tail_lines:]
-    
+
     for line in lines:
         typer.echo(line)
 
 
 def _follow_session(session_file):
     """Follow active session file (tail -f style)."""
-    import time
     import json
+    import time
     from pathlib import Path
-    
+
     path = Path(session_file)
     if not path.exists():
         typer.echo("⚠️  Session file not found")
         return
-    
+
     typer.echo("\n🔄 Following session (Ctrl+C to stop)...\n")
-    
+
     seen_lines = 0
     try:
         while True:
             with open(path) as f:
                 lines = f.readlines()
                 new_lines = lines[seen_lines:]
-                
+
                 for line in new_lines:
                     if not line.strip():
                         continue
@@ -134,7 +133,7 @@ def _follow_session(session_file):
                         obj = json.loads(line)
                         msg_type = obj.get("type")
                         message = obj.get("message", {})
-                        
+
                         if msg_type == "assistant":
                             content = message.get("content", [])
                             for item in content:
@@ -146,9 +145,9 @@ def _follow_session(session_file):
                                 typer.echo(f"[User] {content}")
                     except json.JSONDecodeError:
                         continue
-                
+
                 seen_lines = len(lines)
-            
+
             time.sleep(1)
     except KeyboardInterrupt:
         typer.echo("\n\n✓ Stopped following")
@@ -169,8 +168,25 @@ def main_callback(
         return
     if ctx.invoked_subcommand is None:
         # Check if first arg is a known command name
-        known_commands = {"register", "agents", "models", "inspect", "rename", "clone", "update", "merge", "tasks", "logs", "abort", "trace"}
-        if len(sys.argv) > 1 and not sys.argv[1].startswith("-") and sys.argv[1] not in known_commands:
+        known_commands = {
+            "register",
+            "agents",
+            "models",
+            "inspect",
+            "rename",
+            "clone",
+            "update",
+            "merge",
+            "tasks",
+            "logs",
+            "abort",
+            "trace",
+        }
+        if (
+            len(sys.argv) > 1
+            and not sys.argv[1].startswith("-")
+            and sys.argv[1] not in known_commands
+        ):
             identity = sys.argv[1]
             agent = api.get_agent(identity)
             if agent:
@@ -482,9 +498,7 @@ def logs(
     follow: bool = typer.Option(False, "--follow", "-f", help="Follow active session"),
 ):
     """Show spawn details and session output."""
-    from pathlib import Path
-    import time
-    
+
     spawn_obj = spawns.get_spawn(spawn_id)
     if not spawn_obj:
         typer.echo(f"❌ Spawn not found: {spawn_id}", err=True)
@@ -515,7 +529,7 @@ def logs(
         return
 
     typer.echo(f"\n📄 Session: {session_file}")
-    
+
     # Display session output
     if follow:
         _follow_session(session_file)

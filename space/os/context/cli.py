@@ -4,10 +4,10 @@ from typing import Annotated
 
 import typer
 
-from space.apps.context.api import collect_current_state, collect_timeline
 from space.cli import output
 from space.cli.errors import error_feedback
 from space.os.context import display
+from space.os.context.api import collect_current_state, collect_timeline
 
 app = typer.Typer(add_completion=False)
 

@@ -276,7 +276,7 @@ class TestIntegration:
 
     def test_context_includes_sessions(self, test_space):
         """Context search includes session results."""
-        from space.apps.context.api import collect_current_state
+        from space.os.context.api import collect_current_state
 
         sid = "test-context"
         with store.ensure() as conn:

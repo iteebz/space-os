@@ -1,7 +1,9 @@
 """Message operations: send, receive, format, history."""
 
+import asyncio
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 
 from space.core.models import Channel, Message
@@ -12,12 +14,20 @@ from space.lib.uuid7 import uuid7
 
 from .channels import _to_channel_id
 
+_delimiter_executor = ThreadPoolExecutor(max_workers=10, thread_name_prefix="delimiter-")
+
 
 def _row_to_message(row: store.Row) -> Message:
     return from_row(row, Message)
 
 
-def send_message(
+def _run_delimiter_processing(channel_id: str, content: str, agent_id: str | None) -> None:
+    from . import delimiters
+
+    asyncio.run(delimiters.process_delimiters(channel_id, content, agent_id))
+
+
+async def send_message(
     channel: str | Channel, identity: str, content: str, decode_base64: bool = False
 ) -> str:
     from space.os import spawn
@@ -50,9 +60,8 @@ def send_message(
         )
     spawn.api.touch_agent(agent_id)
 
-    from . import delimiters
+    _delimiter_executor.submit(_run_delimiter_processing, actual_channel_id, content, agent_id)
 
-    delimiters.spawn_from_mentions(actual_channel_id, content, agent_id)
     return agent_id
 
 

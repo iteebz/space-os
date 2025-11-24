@@ -300,6 +300,7 @@ def send(
     decode_base64: bool = typer.Option(False, "--base64", help="Decode base64 content"),
 ):
     """Post message to channel."""
+    import asyncio
     import os
 
     try:
@@ -307,7 +308,7 @@ def send(
         agent = spawn.get_agent(identity)
         if not agent:
             raise ValueError(f"Identity '{identity}' not registered.")
-        api.send_message(channel, identity, content, decode_base64=decode_base64)
+        asyncio.run(api.send_message(channel, identity, content, decode_base64=decode_base64))
         output_json(
             {"status": "success", "channel": channel, "identity": identity}, ctx
         ) or echo_if_output(

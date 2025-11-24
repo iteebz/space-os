@@ -1,6 +1,3 @@
-"""Context CLI: unified retrieval across 5 domains (memory, knowledge, bridge, chats, canon).
+from . import api, canon, display
 
-Context API lives in space.apps.context.api
-"""
-
-__all__ = []
+__all__ = ["api", "canon", "display"]

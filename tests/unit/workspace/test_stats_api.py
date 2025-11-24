@@ -4,41 +4,41 @@ from unittest.mock import patch
 
 import pytest
 
-from space.apps.space.api import stats as stats_api
+from space.workspace import stats as stats_api
 
 
 @pytest.fixture
 def mock_get_agent_identities():
     """Mock _get_agent_identities."""
-    with patch("space.apps.space.api.stats._get_agent_identities") as mock:
+    with patch("space.workspace.stats._get_agent_identities") as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_get_archived_agents():
     """Mock _get_archived_agents."""
-    with patch("space.apps.space.api.stats._get_archived_agents") as mock:
+    with patch("space.workspace.stats._get_archived_agents") as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_get_bridge_stats():
     """Mock _get_bridge_stats."""
-    with patch("space.apps.space.api.stats._get_bridge_stats") as mock:
+    with patch("space.workspace.stats._get_bridge_stats") as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_get_memory_stats():
     """Mock _get_memory_stats."""
-    with patch("space.apps.space.api.stats._get_memory_stats") as mock:
+    with patch("space.workspace.stats._get_memory_stats") as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_get_knowledge_stats():
     """Mock _get_knowledge_stats."""
-    with patch("space.apps.space.api.stats._get_knowledge_stats") as mock:
+    with patch("space.workspace.stats._get_knowledge_stats") as mock:
         yield mock
 
 

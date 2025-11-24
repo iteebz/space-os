@@ -1,7 +1,8 @@
 """Unit tests for bridge delimiter parsing and prompt building."""
 
-import time
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from space.core.models import Agent
 from space.os.bridge.api import delimiters
@@ -97,29 +98,58 @@ def test_build_spawn_context_with_channel():
         assert "respond here" in result
 
 
-def test_spawn_from_mentions_enqueues_work():
-    """Verify spawn_from_mentions enqueues work to bounded queue."""
-    # Reset queue state
-    while not delimiters._spawn_queue.empty():
-        delimiters._spawn_queue.get_nowait()
+def test_process_control_commands_pause():
+    """Control command processor pauses running spawns."""
+    from unittest.mock import MagicMock, patch
 
-    delimiters.spawn_from_mentions("test-channel", "@zealot do something", "agent-123")
+    with (
+        patch("space.os.bridge.api.delimiters.spawn_agents.get_agent") as mock_get_agent,
+        patch("space.os.bridge.api.delimiters.spawns.get_spawns_for_agent") as mock_get_spawns,
+        patch("space.os.bridge.api.delimiters.spawns.pause_spawn") as mock_pause,
+    ):
+        # Setup mocks
+        mock_agent = MagicMock()
+        mock_agent.agent_id = "agent-123"
+        mock_get_agent.return_value = mock_agent
 
-    # Verify item was enqueued
-    assert delimiters._spawn_queue.qsize() == 1
+        mock_spawn = MagicMock()
+        mock_spawn.id = "spawn-456"
+        mock_spawn.status = "running"
+        mock_get_spawns.return_value = [mock_spawn]
 
-    # Verify worker thread started
-    assert delimiters._worker_thread is not None
-    assert delimiters._worker_thread.is_alive()
+        # Process !zealot command
+        delimiters._process_control_commands_impl("channel-1", "!zealot")
+
+        # Verify pause was called
+        mock_pause.assert_called_once_with("spawn-456")
 
 
-def test_worker_processes_queue():
-    """Verify worker thread processes queued items."""
-    # Reset queue
-    while not delimiters._spawn_queue.empty():
-        delimiters._spawn_queue.get_nowait()
+def test_process_control_commands_resume():
+    """Control command processor resumes paused spawns."""
+    with (
+        patch("space.os.bridge.api.delimiters.spawn_agents.get_agent") as mock_get_agent,
+        patch("space.os.bridge.api.delimiters.spawns.get_spawns_for_agent") as mock_get_spawns,
+        patch("space.os.bridge.api.delimiters.spawns.resume_spawn") as mock_resume,
+    ):
+        mock_agent = MagicMock()
+        mock_agent.agent_id = "agent-123"
+        mock_get_agent.return_value = mock_agent
 
-    # Mock dependencies (channels is imported inside worker, so patch at import path)
+        mock_spawn = MagicMock()
+        mock_spawn.id = "spawn-456"
+        mock_spawn.status = "paused"
+        mock_get_spawns.return_value = [mock_spawn]
+
+        # Process !resume zealot command
+        delimiters._process_control_commands_impl("channel-1", "!resume zealot")
+
+        # Verify resume was called
+        mock_resume.assert_called_once_with("spawn-456")
+
+
+@pytest.mark.asyncio
+async def test_process_delimiters_async():
+    """Verify async delimiter processing."""
     with (
         patch("space.os.bridge.api.channels.get_channel") as mock_get_channel,
         patch("space.os.bridge.api.delimiters._process_control_commands_impl") as mock_control,
@@ -129,15 +159,7 @@ def test_worker_processes_queue():
         mock_channel.channel_id = "test-ch"
         mock_get_channel.return_value = mock_channel
 
-        # Enqueue work
-        delimiters.spawn_from_mentions("test-ch", "@zealot test", "agent-1")
+        await delimiters.process_delimiters("test-ch", "@zealot test", "agent-1")
 
-        # Wait for worker to process (max 2 seconds)
-        start = time.time()
-        while delimiters._spawn_queue.qsize() > 0 and (time.time() - start) < 2:
-            time.sleep(0.1)
-
-        # Verify processing happened
-        assert delimiters._spawn_queue.qsize() == 0
         mock_control.assert_called_once_with("test-ch", "@zealot test")
         mock_mentions.assert_called_once_with("test-ch", "@zealot test", "agent-1")

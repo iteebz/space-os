@@ -1,5 +1,3 @@
-"""Canon operations: read-only git-backed markdown files."""
-
 import contextlib
 
 from space.core.models import Canon

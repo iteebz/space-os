@@ -16,7 +16,7 @@ from .channels import (
     restore_channel,
     toggle_pin_channel,
 )
-from .delimiters import spawn_from_mentions
+from .delimiters import process_delimiters
 from .messaging import (
     count_messages,
     format_messages,
@@ -46,7 +46,7 @@ __all__ = [
     "restore_channel",
     "search",
     "send_message",
-    "spawn_from_mentions",
+    "process_delimiters",
     "toggle_pin_channel",
     "wait_for_message",
 ]

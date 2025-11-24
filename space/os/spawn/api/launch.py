@@ -301,9 +301,11 @@ def _run_ephemeral(
                 output_text = _parse_codex_output(stdout)
             else:
                 output_text = stdout.strip()
-            
+
             if output_text:
-                messaging.send_message(channel_name, agent.identity, output_text)
+                import asyncio
+
+                asyncio.run(messaging.send_message(channel_name, agent.identity, output_text))
 
     except subprocess.TimeoutExpired:
         proc.kill()
@@ -318,7 +320,7 @@ def _run_ephemeral(
 def _parse_codex_output(jsonl_output: str) -> str:
     """Parse Codex JSONL output and extract agent message text."""
     import json
-    
+
     messages = []
     for line in jsonl_output.strip().split("\n"):
         if not line.strip():
@@ -333,7 +335,7 @@ def _parse_codex_output(jsonl_output: str) -> str:
                         messages.append(text)
         except json.JSONDecodeError:
             continue
-    
+
     return "\n\n".join(messages) if messages else ""
 
 

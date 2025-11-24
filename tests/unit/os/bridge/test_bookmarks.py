@@ -25,11 +25,12 @@ def test_agent(test_space):
     return identity
 
 
-def test_recv_without_reader_returns_all_messages(test_space, test_channel, test_agent):
+@pytest.mark.asyncio
+async def test_recv_without_reader_returns_all_messages(test_space, test_channel, test_agent):
     """recv without reader_id returns all messages."""
-    messaging.send_message(test_channel.channel_id, test_agent, "msg 1")
-    messaging.send_message(test_channel.channel_id, test_agent, "msg 2")
-    messaging.send_message(test_channel.channel_id, test_agent, "msg 3")
+    await messaging.send_message(test_channel.channel_id, test_agent, "msg 1")
+    await messaging.send_message(test_channel.channel_id, test_agent, "msg 2")
+    await messaging.send_message(test_channel.channel_id, test_agent, "msg 3")
 
     msgs, count, _, _ = messaging.recv_messages(test_channel.channel_id)
 
@@ -37,28 +38,30 @@ def test_recv_without_reader_returns_all_messages(test_space, test_channel, test
     assert len(msgs) == 3
 
 
-def test_recv_with_reader_tracks_bookmark(test_space, test_channel, test_agent):
+@pytest.mark.asyncio
+async def test_recv_with_reader_tracks_bookmark(test_space, test_channel, test_agent):
     """recv with reader_id tracks bookmark and returns only unread."""
     reader_id = uuid7()
 
-    messaging.send_message(test_channel.channel_id, test_agent, "msg 1")
-    messaging.send_message(test_channel.channel_id, test_agent, "msg 2")
+    await messaging.send_message(test_channel.channel_id, test_agent, "msg 1")
+    await messaging.send_message(test_channel.channel_id, test_agent, "msg 2")
 
     msgs, count, _, _ = messaging.recv_messages(test_channel.channel_id, reader_id=reader_id)
     assert count == 2
 
-    messaging.send_message(test_channel.channel_id, test_agent, "msg 3")
+    await messaging.send_message(test_channel.channel_id, test_agent, "msg 3")
 
     msgs, count, _, _ = messaging.recv_messages(test_channel.channel_id, reader_id=reader_id)
     assert count == 1
     assert msgs[0].content == "msg 3"
 
 
-def test_recv_no_new_messages_returns_empty(test_space, test_channel, test_agent):
+@pytest.mark.asyncio
+async def test_recv_no_new_messages_returns_empty(test_space, test_channel, test_agent):
     """recv with bookmark at latest returns empty list."""
     reader_id = uuid7()
 
-    messaging.send_message(test_channel.channel_id, test_agent, "msg 1")
+    await messaging.send_message(test_channel.channel_id, test_agent, "msg 1")
 
     messaging.recv_messages(test_channel.channel_id, reader_id=reader_id)
 
@@ -67,20 +70,21 @@ def test_recv_no_new_messages_returns_empty(test_space, test_channel, test_agent
     assert len(msgs) == 0
 
 
-def test_different_readers_independent_bookmarks(test_space, test_channel, test_agent):
+@pytest.mark.asyncio
+async def test_different_readers_independent_bookmarks(test_space, test_channel, test_agent):
     """Different readers have independent bookmarks."""
     reader_1 = uuid7()
     reader_2 = uuid7()
 
-    messaging.send_message(test_channel.channel_id, test_agent, "msg 1")
-    messaging.send_message(test_channel.channel_id, test_agent, "msg 2")
+    await messaging.send_message(test_channel.channel_id, test_agent, "msg 1")
+    await messaging.send_message(test_channel.channel_id, test_agent, "msg 2")
 
     messaging.recv_messages(test_channel.channel_id, reader_id=reader_1)
 
     msgs, count, _, _ = messaging.recv_messages(test_channel.channel_id, reader_id=reader_2)
     assert count == 2
 
-    messaging.send_message(test_channel.channel_id, test_agent, "msg 3")
+    await messaging.send_message(test_channel.channel_id, test_agent, "msg 3")
 
     msgs_1, count_1, _, _ = messaging.recv_messages(test_channel.channel_id, reader_id=reader_1)
     msgs_2, count_2, _, _ = messaging.recv_messages(test_channel.channel_id, reader_id=reader_2)
@@ -89,26 +93,28 @@ def test_different_readers_independent_bookmarks(test_space, test_channel, test_
     assert count_2 == 1
 
 
-def test_copy_bookmarks(test_space, test_channel, test_agent):
+@pytest.mark.asyncio
+async def test_copy_bookmarks(test_space, test_channel, test_agent):
     """copy_bookmarks copies all bookmarks from one reader to another."""
     reader_1 = uuid7()
     reader_2 = uuid7()
 
-    messaging.send_message(test_channel.channel_id, test_agent, "msg 1")
-    messaging.send_message(test_channel.channel_id, test_agent, "msg 2")
+    await messaging.send_message(test_channel.channel_id, test_agent, "msg 1")
+    await messaging.send_message(test_channel.channel_id, test_agent, "msg 2")
 
     messaging.recv_messages(test_channel.channel_id, reader_id=reader_1)
 
     messaging.copy_bookmarks(reader_1, reader_2)
 
-    messaging.send_message(test_channel.channel_id, test_agent, "msg 3")
+    await messaging.send_message(test_channel.channel_id, test_agent, "msg 3")
 
     msgs, count, _, _ = messaging.recv_messages(test_channel.channel_id, reader_id=reader_2)
     assert count == 1
     assert msgs[0].content == "msg 3"
 
 
-def test_get_bookmark_returns_none_for_new_reader(test_space, test_channel):
+@pytest.mark.asyncio
+async def test_get_bookmark_returns_none_for_new_reader(test_space, test_channel):
     """get_bookmark returns None for reader with no bookmark."""
     reader_id = uuid7()
 
@@ -116,11 +122,12 @@ def test_get_bookmark_returns_none_for_new_reader(test_space, test_channel):
     assert result is None
 
 
-def test_update_bookmark_creates_and_updates(test_space, test_channel, test_agent):
+@pytest.mark.asyncio
+async def test_update_bookmark_creates_and_updates(test_space, test_channel, test_agent):
     """update_bookmark creates new bookmark and updates existing."""
     reader_id = uuid7()
 
-    messaging.send_message(test_channel.channel_id, test_agent, "msg 1")
+    await messaging.send_message(test_channel.channel_id, test_agent, "msg 1")
     msgs, _, _, _ = messaging.recv_messages(test_channel.channel_id)
     msg_1_id = msgs[0].message_id
 
@@ -129,7 +136,7 @@ def test_update_bookmark_creates_and_updates(test_space, test_channel, test_agen
     result = messaging.get_bookmark(reader_id, test_channel.channel_id)
     assert result == msg_1_id
 
-    messaging.send_message(test_channel.channel_id, test_agent, "msg 2")
+    await messaging.send_message(test_channel.channel_id, test_agent, "msg 2")
     msgs, _, _, _ = messaging.recv_messages(test_channel.channel_id)
     msg_2_id = msgs[-1].message_id
 
@@ -139,12 +146,13 @@ def test_update_bookmark_creates_and_updates(test_space, test_channel, test_agen
     assert result == msg_2_id
 
 
-def test_first_recv_creates_bookmark_at_latest(test_space, test_channel, test_agent):
+@pytest.mark.asyncio
+async def test_first_recv_creates_bookmark_at_latest(test_space, test_channel, test_agent):
     """First recv with reader_id sets bookmark at latest message."""
     reader_id = uuid7()
 
-    messaging.send_message(test_channel.channel_id, test_agent, "msg 1")
-    messaging.send_message(test_channel.channel_id, test_agent, "msg 2")
+    await messaging.send_message(test_channel.channel_id, test_agent, "msg 1")
+    await messaging.send_message(test_channel.channel_id, test_agent, "msg 2")
 
     msgs, count, _, _ = messaging.recv_messages(test_channel.channel_id, reader_id=reader_id)
     assert count == 2
