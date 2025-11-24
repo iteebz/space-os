@@ -48,6 +48,39 @@ class Claude(Provider):
         ]
 
     @staticmethod
+    def session_exists(session_id: str, expected_cwd: str | None = None) -> bool:
+        """Check if Claude CLI can resume this session.
+
+        Args:
+            session_id: Session ID to validate
+            expected_cwd: If provided, also validate session CWD matches
+        """
+        if not Claude.SESSIONS_DIR.exists():
+            return False
+
+        for jsonl in Claude.SESSIONS_DIR.rglob("*.jsonl"):
+            if jsonl.stem == session_id:
+                if not expected_cwd:
+                    return True
+
+                # Validate CWD matches (check first few lines for user message with cwd)
+                try:
+                    import json
+
+                    with open(jsonl) as f:
+                        for _ in range(5):  # Check first 5 lines
+                            line = f.readline()
+                            if not line.strip():
+                                continue
+                            obj = json.loads(line)
+                            if obj.get("cwd"):
+                                return obj["cwd"] == expected_cwd
+                except (OSError, json.JSONDecodeError, ValueError):
+                    pass
+                return False
+        return False
+
+    @staticmethod
     def discover() -> list[dict]:
         sessions = []
         if not Claude.SESSIONS_DIR.exists():

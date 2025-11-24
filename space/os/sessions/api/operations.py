@@ -126,45 +126,74 @@ def stats() -> SessionStats:
 
 
 def resolve_session_id(
-    agent_id: str, resume: str | None, channel_id: str | None = None
+    agent_id: str,
+    resume: str | None,
+    channel_id: str | None = None,
+    provider: str = "claude",
+    identity: str | None = None,
 ) -> str | None:
     """Resolve session ID from resume arg (spawn_id or session_id, full or short).
 
     Tries spawn lookup first (for recent spawns), then session lookup.
+    Validates session actually exists in provider before returning.
 
     Args:
         agent_id: Agent ID to look up spawns for
         resume: Spawn ID, session ID, or short form of either. None to continue last.
         channel_id: Scope session resolution to specific channel (for channel continuity)
+        provider: Provider name (default: claude)
+        identity: Agent identity for CWD validation (optional)
 
     Returns:
         Full session ID or None if no session found
     """
+    from space.lib import paths
+    from space.lib.providers.claude import Claude
     from space.os.spawn.api import spawns
+
+    def validate_session(session_id: str | None) -> str | None:
+        if not session_id:
+            return None
+
+        # For Claude, validate CWD matches spawn directory
+        expected_cwd = None
+        if provider == "claude" and identity:
+            expected_cwd = str(paths.identity_dir(identity))
+
+        if provider == "claude":
+            if Claude.session_exists(session_id, expected_cwd):
+                return session_id
+            logger.debug(f"Session {session_id} not accessible (wrong CWD or deleted)")
+            return None
+
+        return session_id
 
     if not resume:
         if channel_id:
             all_spawns = spawns.get_channel_spawns(channel_id)
             for spawn in all_spawns:
                 if spawn.agent_id == agent_id and spawn.session_id:
-                    return spawn.session_id
+                    validated = validate_session(spawn.session_id)
+                    if validated:
+                        return validated
             return None
         last_spawns = spawns.get_spawns_for_agent(agent_id, limit=1)
         if last_spawns:
-            return last_spawns[0].session_id
+            return validate_session(last_spawns[0].session_id)
         return None
 
     if len(resume) == 36 and resume.count("-") == 4:
-        return resume
+        return validate_session(resume)
 
     try:
         spawn = spawns.get_spawn(resume)
         if spawn and spawn.session_id:
-            return spawn.session_id
+            return validate_session(spawn.session_id)
     except (ValueError, AttributeError):
         pass
 
     try:
-        return uuid7.resolve_id("sessions", "id", resume, error_context="resume session")
+        resolved = uuid7.resolve_id("sessions", "id", resume, error_context="resume session")
+        return validate_session(resolved)
     except ValueError as e:
         raise ValueError(f"Cannot resolve session or spawn: {e}") from e

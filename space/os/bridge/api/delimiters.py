@@ -121,6 +121,8 @@ def _kill_spawn(spawn_id: str) -> None:
 
 
 def _process_mentions(channel_id: str, content: str, sender_agent_id: str | None = None) -> None:
+    import threading
+
     mentions = _extract_mentions(content)
     if not mentions:
         return
@@ -132,33 +134,37 @@ def _process_mentions(channel_id: str, content: str, sender_agent_id: str | None
         if not agent.model:
             continue
 
-        if _try_resume_paused_spawn(agent.agent_id):
+        if _try_resume_paused_spawn(agent.agent_id, channel_id):
             continue
 
-        _spawn_agent(identity, content, channel_id)
+        # Spawn in background thread to prevent blocking subsequent mentions
+        thread = threading.Thread(
+            target=_spawn_agent, args=(identity, content, channel_id), daemon=True
+        )
+        thread.start()
 
 
 def _attempt_relink_for_agent(agent_id: str) -> None:
     """Try to discover and link session_id for recent unlinked spawns."""
     from space.lib import store
     from space.os.spawn.api.launch import _discover_recent_session
-    
+
     agent = spawn_agents.get_agent(agent_id)
     if not agent or not agent.model:
         return
-    
-    provider = agent.model.split('-')[0] if agent.model else None
-    if provider not in ('claude', 'codex', 'gemini'):
+
+    provider = agent.model.split("-")[0] if agent.model else None
+    if provider not in ("claude", "codex", "gemini"):
         return
-    
+
     with store.ensure() as conn:
         unlinked = conn.execute(
-            """SELECT id, created_at FROM spawns 
+            """SELECT id, created_at FROM spawns
             WHERE agent_id = ? AND session_id IS NULL AND status = 'completed'
             ORDER BY created_at DESC LIMIT 5""",
-            (agent_id,)
+            (agent_id,),
         ).fetchall()
-    
+
     for row in unlinked:
         spawn_id, created_at = row
         session_id = _discover_recent_session(provider, created_at)
@@ -167,17 +173,32 @@ def _attempt_relink_for_agent(agent_id: str) -> None:
             log.info(f"Relinked spawn {spawn_id[:12]} -> session {session_id[:12]}")
 
 
-def _try_resume_paused_spawn(agent_id: str) -> bool:
+def _try_resume_paused_spawn(agent_id: str, channel_id: str | None = None) -> bool:
+    """Resume the most relevant paused spawn for agent (prefer same channel)."""
     paused = spawns.get_spawns_for_agent(agent_id, status="paused")
     if not paused:
         return False
 
-    most_recent = max(paused, key=lambda s: s.created_at or "")
-    try:
-        spawns.resume_spawn(most_recent.id)
-        return True
-    except ValueError:
+    attempted_ids: set[str] = set()
+
+    def _resume(candidates: list) -> bool:
+        for spawn in candidates:
+            if spawn.id in attempted_ids:
+                continue
+            attempted_ids.add(spawn.id)
+            try:
+                spawns.resume_spawn(spawn.id)
+                return True
+            except ValueError:
+                continue
         return False
+
+    if channel_id:
+        channel_matches = [spawn for spawn in paused if spawn.channel_id == channel_id]
+        if _resume(channel_matches):
+            return True
+
+    return _resume(paused)
 
 
 def _spawn_agent(identity: str, instruction: str, channel_id: str) -> None:

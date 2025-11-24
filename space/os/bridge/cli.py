@@ -242,7 +242,9 @@ def recv(
     channel: str = typer.Argument(..., help="Channel to read from"),
     ago: str = typer.Option(None, "--ago", help="Time window (e.g., 1h, 30m)"),
     reader: str = typer.Option(None, "--reader", help="Explicit reader ID for bookmark tracking"),
-    json_output: bool = typer.Option(False, "--json", help="Output as JSON instead of markdown"),
+    json_output: bool = typer.Option(
+        False, "--json", "-j", help="Output as JSON instead of markdown"
+    ),
 ):
     """Read messages from channel (markdown by default)."""
     import os

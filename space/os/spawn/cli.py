@@ -211,7 +211,7 @@ def _dispatch_spawn(identity: str, args: list[str], verbose: bool = False):
 @error_feedback
 def agents(
     show_all: bool = typer.Option(False, "--all", help="Show archived agents"),
-    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List registered and orphaned agents."""
     stats = agent_stats(show_all=show_all) or []

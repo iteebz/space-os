@@ -9,7 +9,7 @@ from space.cli.errors import error_feedback
 from space.os.context import display
 from space.os.context.api import collect_current_state, collect_timeline
 
-app = typer.Typer(add_completion=False)
+app = typer.Typer(add_completion=False, context_settings={"help_option_names": ["-h", "--help"]})
 
 
 @app.command()
