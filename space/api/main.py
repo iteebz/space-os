@@ -4,11 +4,12 @@ import asyncio
 import contextlib
 import json
 import time
+import uuid
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from queue import Empty, Queue
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -40,6 +41,10 @@ class CreateChannel(BaseModel):
 
 class UpdateTopic(BaseModel):
     topic: str
+
+
+class RenameChannel(BaseModel):
+    new_name: str
 
 
 class SessionFileHandler(FileSystemEventHandler):
@@ -76,13 +81,13 @@ async def create_channel(body: CreateChannel):
 
 
 @app.get("/api/channels/{channel}/messages")
-async def get_messages(channel: str):
+async def get_messages_endpoint(channel: str):
     from dataclasses import asdict
 
     from space.os.bridge.api import messaging
 
     try:
-        messages, _, _, _ = messaging.recv_messages(channel)
+        messages = messaging.get_messages(channel)
         return [asdict(msg) for msg in messages]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -96,6 +101,23 @@ async def update_channel_topic(channel: str, body: UpdateTopic):
         success = channels.update_topic(channel, body.topic)
         if not success:
             raise HTTPException(status_code=404, detail=f"Channel {channel} not found")
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.patch("/api/channels/{channel}")
+async def rename_channel(channel: str, body: RenameChannel):
+    from space.os.bridge.api import channels
+
+    try:
+        success = channels.rename_channel(channel, body.new_name)
+        if not success:
+            raise HTTPException(
+                status_code=404, detail=f"Channel {channel} not found or new name already exists"
+            )
         return {"ok": True}
     except HTTPException:
         raise
@@ -155,10 +177,8 @@ async def get_human_identity():
 
     try:
         with store.ensure() as conn:
-            row = conn.execute(
-                "SELECT identity FROM agents WHERE model IS NULL LIMIT 1"
-            ).fetchone()
-        
+            row = conn.execute("SELECT identity FROM agents WHERE model IS NULL LIMIT 1").fetchone()
+
         if row:
             return {"identity": row[0]}
         return {"identity": "human"}
@@ -302,6 +322,24 @@ def get_spawn_tree(spawn_id: str):
             for row in descendants
         ],
     }
+
+
+@app.post("/api/upload/image")
+async def upload_image(file: UploadFile):
+    try:
+        images_dir = Path.home() / ".space" / "images"
+        images_dir.mkdir(parents=True, exist_ok=True)
+
+        suffix = Path(file.filename or "image.jpg").suffix
+        file_id = str(uuid.uuid4())
+        filepath = images_dir / f"{file_id}{suffix}"
+
+        content = await file.read()
+        filepath.write_bytes(content)
+
+        return {"path": str(filepath).replace(str(Path.home()), "~")}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/api/channels/{channel}/messages")

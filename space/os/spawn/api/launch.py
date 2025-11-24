@@ -75,7 +75,9 @@ def spawn_interactive(
     constitute(spawn, agent)
     env["SPACE_SPAWN_ID"] = spawn.id
 
-    known_session_id = resolve_session_id(agent.agent_id, resume)
+    known_session_id = resolve_session_id(
+        agent.agent_id, resume, provider=agent.provider, identity=agent.identity
+    )
     if known_session_id:
         spawns.link_session_to_spawn(spawn.id, known_session_id)
         _copy_bookmarks_from_session(known_session_id, spawn.id)
@@ -189,7 +191,13 @@ def spawn_ephemeral(
     channel = channels.get_channel(channel_id) if channel_id else None
     channel_name = channel.name if channel else None
 
-    session_id = resolve_session_id(agent.agent_id, resume, channel_id=channel_id)
+    session_id = resolve_session_id(
+        agent.agent_id,
+        resume,
+        channel_id=channel_id,
+        provider=agent.provider,
+        identity=agent.identity,
+    )
     is_continue = resume is None and session_id
 
     if session_id:
@@ -216,22 +224,23 @@ def _run_ephemeral(
     is_continue: bool,
     env: dict[str, str],
 ) -> None:
+    instruction_text, image_paths = _extract_images_from_instruction(instruction)
     context = build_spawn_context(
         agent.identity,
-        task=instruction,
+        task=instruction_text,
         channel=channel_name,
         is_ephemeral=True,
         is_continue=is_continue,
     )
-    cmd = _build_spawn_command(agent, session_id, is_continue)
+    cmd = _build_spawn_command(agent, session_id, is_continue, image_paths=image_paths)
     stdout = _execute_spawn(cmd, context, agent, env)
-    
+
     extracted_session_id = _extract_session_id_from_output(stdout, agent.provider)
     if extracted_session_id and not session_id:
         spawns.link_session_to_spawn(spawn.id, extracted_session_id)
     else:
         _link_session_if_needed(spawn, session_id, agent.provider)
-    
+
     _send_output_to_channel(stdout, agent, channel_name)
 
 
@@ -242,7 +251,9 @@ def _parse_model_and_effort(agent) -> tuple[str, str | None]:
     return agent.model, None
 
 
-def _build_launch_args(agent, is_task: bool, reasoning_effort: str | None) -> list[str]:
+def _build_launch_args(
+    agent, is_task: bool, reasoning_effort: str | None, image_paths: list[str] | None = None
+) -> list[str]:
     """Build provider-specific launch arguments."""
     provider_class = PROVIDERS.get(agent.provider)
     if not provider_class:
@@ -250,7 +261,9 @@ def _build_launch_args(agent, is_task: bool, reasoning_effort: str | None) -> li
 
     if is_task:
         if agent.provider == "codex":
-            return provider_class.task_launch_args(reasoning_effort=reasoning_effort)
+            return provider_class.task_launch_args(
+                reasoning_effort=reasoning_effort, image_paths=image_paths
+            )
         return provider_class.task_launch_args()
 
     if agent.provider == "gemini":
@@ -263,11 +276,15 @@ def _build_launch_args(agent, is_task: bool, reasoning_effort: str | None) -> li
 
 
 def _build_spawn_command(
-    agent, session_id: str | None, is_continue: bool, is_task: bool = True
+    agent,
+    session_id: str | None,
+    is_continue: bool,
+    is_task: bool = True,
+    image_paths: list[str] | None = None,
 ) -> list[str]:
     """Assemble provider command for spawn execution."""
     model_id, reasoning_effort = _parse_model_and_effort(agent)
-    launch_args = _build_launch_args(agent, is_task, reasoning_effort)
+    launch_args = _build_launch_args(agent, is_task, reasoning_effort, image_paths)
     model_args = ["--model", model_id]
     add_dir_args = ["--add-dir", str(paths.space_root())] if agent.provider != "codex" else []
     resume_args = _build_resume_args(agent.provider, session_id, is_continue)
@@ -317,7 +334,7 @@ def _execute_spawn(cmd: list[str], context: str, agent, env: dict[str, str]) -> 
 def _extract_session_id_from_output(stdout: str, provider: str) -> str | None:
     """Extract session_id from provider stdout immediately."""
     if provider == "claude":
-        first_line = stdout.split('\n')[0] if stdout else ""
+        first_line = stdout.split("\n")[0] if stdout else ""
         if first_line.strip():
             return Claude.session_id_from_stream(first_line)
     return None
@@ -420,6 +437,32 @@ def _build_resume_args(provider: str, session_id: str | None, is_continue: bool)
         return ["resume", session_id]
 
     return []
+
+
+def _extract_images_from_instruction(instruction: str) -> tuple[str, list[str]]:
+    """Extract image paths from instruction text.
+
+    ComposeBox formats images as 'Image: /path/to/image.png' lines at start.
+    Returns (clean_instruction, image_paths).
+    """
+    lines = instruction.split("\n")
+    image_paths = []
+    content_lines = []
+
+    for line in lines:
+        if line.strip().startswith("Image:"):
+            path = line.strip()[6:].strip()
+            # Expand ~ to full path
+            if path.startswith("~"):
+                from pathlib import Path
+
+                path = str(Path(path).expanduser())
+            image_paths.append(path)
+        else:
+            content_lines.append(line)
+
+    clean_instruction = "\n".join(content_lines).strip()
+    return clean_instruction, image_paths
 
 
 def _copy_bookmarks_from_session(session_id: str, new_spawn_id: str) -> None:
