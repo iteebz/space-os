@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchApi, postApi, deleteApi, postApiNoBody } from '../../lib/api'
+import { fetchApi, postApi, deleteApi, postApiNoBody, patchApi } from '../../lib/api'
 import type { Channel, Message } from './types'
 
 export function useChannels() {
@@ -27,8 +27,7 @@ export function useMessages(channel: string | null) {
 export function useSendMessage(channel: string, sender: string = 'human') {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (content: string) =>
-      postApi(`/channels/${channel}/messages`, { content, sender }),
+    mutationFn: (content: string) => postApi(`/channels/${channel}/messages`, { content, sender }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['messages', channel] })
     },
@@ -49,6 +48,17 @@ export function useDeleteChannel() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (channel: string) => deleteApi(`/channels/${channel}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] })
+    },
+  })
+}
+
+export function useRenameChannel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ channel, newName }: { channel: string; newName: string }) =>
+      patchApi(`/channels/${channel}`, { new_name: newName }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['channels'] })
     },

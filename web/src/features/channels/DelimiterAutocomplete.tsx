@@ -18,9 +18,9 @@ interface Props {
 }
 
 const CONTROL_COMMANDS: Suggestion[] = [
-  { value: '!pause', label: '!pause', description: 'Pause running spawns (reversible)' },
-  { value: '!resume', label: '!resume', description: 'Resume paused spawns' },
-  { value: '!abort', label: '!abort', description: 'Kill running spawns (permanent)' },
+  { value: 'pause', label: 'pause', description: 'Pause running spawns (reversible)' },
+  { value: 'resume', label: 'resume', description: 'Resume paused spawns' },
+  { value: 'abort', label: 'abort', description: 'Kill running spawns (permanent)' },
 ]
 
 export function DelimiterAutocomplete({
