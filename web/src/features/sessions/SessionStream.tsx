@@ -29,8 +29,12 @@ function formatRelativeTime(timestamp: string | null): string {
 export function SessionStream({ sessionId }: Props) {
   const [events, setEvents] = useState<SessionEvent[]>([])
   const [error, setError] = useState<string | null>(null)
+  const endRef = React.useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    setEvents([])
+    setError(null)
+    
     const eventSource = new window.EventSource(`/api/sessions/${sessionId}/stream`)
 
     eventSource.onmessage = (event) => {
@@ -51,6 +55,10 @@ export function SessionStream({ sessionId }: Props) {
       eventSource.close()
     }
   }, [sessionId])
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'auto' })
+  }, [events])
 
   if (error) {
     return <div className="text-red-500 text-sm">{error}</div>
@@ -73,6 +81,7 @@ export function SessionStream({ sessionId }: Props) {
           </div>
         </div>
       ))}
+      <div ref={endRef} />
     </div>
   )
 }

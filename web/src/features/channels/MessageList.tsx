@@ -23,22 +23,63 @@ function extractText(node: unknown): string {
   return ''
 }
 
-function highlightMentions(content: unknown): React.ReactNode {
-  const text = extractText(content)
-  const parts = text.split(/(@\w+)/g)
-  return parts.map((part, idx) =>
-    part.startsWith('@') ? (
-      <span key={idx} className="px-1.5 py-0.5 bg-cyan-900 text-cyan-200 rounded font-medium">
-        {part}
-      </span>
-    ) : (
-      part
-    )
-  )
+function getIdentityColor(identity: string): string {
+  const hash = identity.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+  const colors = [
+    'text-cyan-400',
+    'text-emerald-400',
+    'text-purple-400',
+    'text-orange-400',
+    'text-pink-400',
+    'text-yellow-400',
+    'text-blue-400',
+    'text-rose-400',
+  ]
+  return colors[hash % colors.length]
 }
 
-function MentionHighlighter({ content }: { content: unknown }) {
-  return <>{highlightMentions(content)}</>
+function getMentionColor(identity: string): { bg: string; text: string } {
+  const hash = identity.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+  const colors = [
+    { bg: 'bg-cyan-900', text: 'text-cyan-200' },
+    { bg: 'bg-emerald-900', text: 'text-emerald-200' },
+    { bg: 'bg-purple-900', text: 'text-purple-200' },
+    { bg: 'bg-orange-900', text: 'text-orange-200' },
+    { bg: 'bg-pink-900', text: 'text-pink-200' },
+    { bg: 'bg-yellow-900', text: 'text-yellow-200' },
+    { bg: 'bg-blue-900', text: 'text-blue-200' },
+    { bg: 'bg-rose-900', text: 'text-rose-200' },
+  ]
+  return colors[hash % colors.length]
+}
+
+function highlightDelimiters(content: unknown): React.ReactNode {
+  const text = extractText(content)
+  const parts = text.split(/(@[\w-]+|~\/[\w\/.@-]+|\.\/[\w\/.@-]*)/g)
+  return parts.map((part, idx) => {
+    if (!part) return null
+    if (part.startsWith('@')) {
+      const identity = part.slice(1)
+      const colors = getMentionColor(identity)
+      return (
+        <span key={idx} className={`px-1.5 py-0.5 ${colors.bg} ${colors.text} rounded font-medium`}>
+          {part}
+        </span>
+      )
+    }
+    if (part.startsWith('~/') || part.startsWith('./')) {
+      return (
+        <span key={idx} className="px-1.5 py-0.5 bg-neutral-800 text-neutral-300 rounded font-mono text-xs">
+          {part}
+        </span>
+      )
+    }
+    return part
+  })
+}
+
+function DelimiterHighlighter({ content }: { content: unknown }) {
+  return <>{highlightDelimiters(content)}</>
 }
 
 export function MessageList({ channel }: Props) {
@@ -64,7 +105,7 @@ export function MessageList({ channel }: Props) {
               onMouseLeave={() => setHoveredId(null)}
             >
               <div className="flex items-center gap-2 mb-2">
-                <span className="font-semibold text-cyan-400">
+                <span className={`font-semibold ${getIdentityColor(agentMap.get(msg.agent_id) ?? msg.agent_id)}`}>
                   {agentMap.get(msg.agent_id) ?? msg.agent_id.slice(0, 7)}
                 </span>
                 <span className="text-xs text-neutral-500">
@@ -88,17 +129,17 @@ export function MessageList({ channel }: Props) {
                   components={{
                     p: ({ children }) => (
                       <p>
-                        <MentionHighlighter content={children} />
+                        <DelimiterHighlighter content={children} />
                       </p>
                     ),
                     strong: ({ children }) => (
                       <strong>
-                        <MentionHighlighter content={children} />
+                        <DelimiterHighlighter content={children} />
                       </strong>
                     ),
                     em: ({ children }) => (
                       <em>
-                        <MentionHighlighter content={children} />
+                        <DelimiterHighlighter content={children} />
                       </em>
                     ),
                   }}

@@ -30,7 +30,10 @@ export function ComposeBox({ channel }: Props) {
       return
     }
 
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter') {
+      if (e.shiftKey) {
+        return
+      }
       e.preventDefault()
       handleSubmit(e)
     }
