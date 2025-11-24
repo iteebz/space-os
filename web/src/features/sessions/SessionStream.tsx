@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { BashCall, BashResult, EditCall, GenericTool } from './ToolRenderers'
 
 interface SessionEvent {
@@ -79,7 +79,7 @@ export function SessionStream({ sessionId }: Props) {
   )
 }
 
-const TOOL_RENDERERS: Record<string, (input: Record<string, unknown>) => JSX.Element> = {
+const TOOL_RENDERERS: Record<string, (input: Record<string, unknown>) => React.JSX.Element> = {
   Bash: (input) => (
     <BashCall
       command={String(input.command || '')}

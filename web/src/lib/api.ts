@@ -1,6 +1,6 @@
 const API_BASE = '/api'
 
-export async function api<T>(endpoint: string, init?: RequestInit): Promise<T> {
+export async function api<T>(endpoint: string, init?: globalThis.RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${endpoint}`, init)
   if (!res.ok) throw new Error(`API error: ${res.status}`)
   return res.json()
