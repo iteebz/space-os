@@ -47,3 +47,13 @@ export function useDeleteChannel() {
     },
   })
 }
+
+export function useDeleteMessage(channel: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (messageId: string) => deleteApi(`/messages/${messageId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['messages', channel] })
+    },
+  })
+}

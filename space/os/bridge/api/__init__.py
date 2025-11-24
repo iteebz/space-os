@@ -19,6 +19,7 @@ from .channels import (
 from .delimiters import process_delimiters
 from .messaging import (
     count_messages,
+    delete_message,
     format_messages,
     get_messages,
     get_messages_before,
@@ -35,6 +36,7 @@ __all__ = [
     "count_messages",
     "create_channel",
     "delete_channel",
+    "delete_message",
     "format_messages",
     "get_channel",
     "get_messages",

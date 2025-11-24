@@ -54,11 +54,13 @@ class SessionFileHandler(FileSystemEventHandler):
 
 @app.get("/api/channels")
 async def get_channels():
+    from dataclasses import asdict
+
     from space.os.bridge.api import channels
 
     try:
         channels_list = channels.list_channels(show_all=False)
-        return [ch.model_dump() for ch in channels_list]
+        return [asdict(ch) for ch in channels_list]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -76,11 +78,13 @@ async def create_channel(body: CreateChannel):
 
 @app.get("/api/channels/{channel}/messages")
 async def get_messages(channel: str):
+    from dataclasses import asdict
+
     from space.os.bridge.api import messaging
 
     try:
-        messages = messaging.recv_messages(channel, limit=100)
-        return [msg.model_dump() for msg in messages]
+        messages, _, _, _ = messaging.recv_messages(channel)
+        return [asdict(msg) for msg in messages]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -124,11 +128,13 @@ async def archive_channel(channel: str):
 
 @app.get("/api/spawns")
 async def get_spawns():
+    from dataclasses import asdict
+
     from space.os.spawn.api import spawns
 
     try:
         spawns_list = spawns.get_all_spawns(limit=100)
-        return [sp.model_dump() for sp in spawns_list]
+        return [asdict(sp) for sp in spawns_list]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -138,7 +144,8 @@ async def get_agents():
     from space.os.spawn.api import agents
 
     try:
-        return agents.list_agents()
+        mapping = agents.agent_identities()
+        return [{"agent_id": aid, "identity": identity} for aid, identity in mapping.items()]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -197,9 +204,19 @@ def get_agent_sessions(agent_id: str):
     ]
 
 
-@app.get("/api/channels/{channel_id}/agents/{agent_id}/sessions")
-def get_channel_agent_sessions(channel_id: str, agent_id: str):
+@app.get("/api/channels/{channel_name}/agents/{agent_identity}/sessions")
+def get_channel_agent_sessions(channel_name: str, agent_identity: str):
     from space.lib import store
+    from space.os.bridge.api import channels
+    from space.os.spawn.api import agents
+
+    channel = channels.get_channel(channel_name)
+    if not channel:
+        raise HTTPException(status_code=404, detail=f"Channel {channel_name} not found")
+
+    agent = agents.get_agent(agent_identity)
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent {agent_identity} not found")
 
     with store.ensure() as conn:
         rows = conn.execute(
@@ -210,7 +227,7 @@ def get_channel_agent_sessions(channel_id: str, agent_id: str):
             WHERE sp.channel_id = ? AND sp.agent_id = ?
             ORDER BY s.last_message_at DESC
             """,
-            (channel_id, agent_id),
+            (channel.channel_id, agent.agent_id),
         ).fetchall()
 
     return [
@@ -278,6 +295,21 @@ async def send_message(channel: str, body: SendMessage):
     try:
         message_id = await messaging.send_message(channel, body.sender, body.content)
         return {"ok": True, "message_id": message_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.delete("/api/messages/{message_id}")
+async def delete_message(message_id: str):
+    from space.os.bridge.api import messaging
+
+    try:
+        deleted = messaging.delete_message(message_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Message not found")
+        return {"ok": True}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 

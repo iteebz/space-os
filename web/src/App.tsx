@@ -14,12 +14,12 @@ import { SessionList, SessionStream } from './features/sessions'
 export default function App() {
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null)
   const [showPanel, setShowPanel] = useState(false)
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
+  const [selectedAgentIdentity, setSelectedAgentIdentity] = useState<string | null>(null)
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const { data: channels } = useChannels()
 
-  const handleAgentClick = (agentId: string) => {
-    setSelectedAgentId(agentId)
+  const handleAgentClick = (agentIdentity: string) => {
+    setSelectedAgentIdentity(agentIdentity)
     setSelectedSessionId(null)
   }
 
@@ -30,14 +30,14 @@ export default function App() {
   const handleBack = () => {
     if (selectedSessionId) {
       setSelectedSessionId(null)
-    } else if (selectedAgentId) {
-      setSelectedAgentId(null)
+    } else if (selectedAgentIdentity) {
+      setSelectedAgentIdentity(null)
     }
   }
 
   const getPanelTitle = () => {
     if (selectedSessionId) return 'Stream'
-    if (selectedAgentId) return 'Sessions'
+    if (selectedAgentIdentity) return 'Sessions'
     return 'Agents'
   }
 
@@ -85,7 +85,7 @@ export default function App() {
                     {getPanelTitle()}
                   </h2>
                   <div className="flex gap-2">
-                    {(selectedAgentId || selectedSessionId) && (
+                    {(selectedAgentIdentity || selectedSessionId) && (
                       <button
                         onClick={handleBack}
                         className="text-neutral-500 hover:text-white text-sm"
@@ -96,7 +96,7 @@ export default function App() {
                     <button
                       onClick={() => {
                         setShowPanel(false)
-                        setSelectedAgentId(null)
+                        setSelectedAgentIdentity(null)
                         setSelectedSessionId(null)
                       }}
                       className="text-neutral-500 hover:text-white"
@@ -108,10 +108,10 @@ export default function App() {
                 <div className="flex-1 overflow-y-auto">
                   {selectedSessionId ? (
                     <SessionStream sessionId={selectedSessionId} />
-                  ) : selectedAgentId ? (
+                  ) : selectedAgentIdentity ? (
                     <SessionList
-                      agentId={selectedAgentId}
-                      channelId={channel?.channel_id}
+                      agentId={selectedAgentIdentity}
+                      channelId={selectedChannel}
                       onSessionClick={handleSessionClick}
                     />
                   ) : (

@@ -272,3 +272,10 @@ def count_messages() -> tuple[int, int, int]:
         ).fetchone()[0]
         active = total - archived
     return total, active, archived
+
+
+def delete_message(message_id: str) -> bool:
+    """Delete a message by ID. Returns True if deleted, False if not found."""
+    with store.ensure() as conn:
+        result = conn.execute("DELETE FROM messages WHERE message_id = ?", (message_id,))
+        return result.rowcount > 0

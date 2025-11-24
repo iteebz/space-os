@@ -1,20 +1,24 @@
-import { useMessages } from './hooks'
+import { useMessages, useChannels } from './hooks'
 import { useAgents } from '../agents'
 import { useSpawns } from '../spawns'
 
 interface Props {
   channel: string
-  onAgentClick?: (agentId: string) => void
+  onAgentClick?: (agentIdentity: string) => void
 }
 
 export function ChannelAgents({ channel, onAgentClick }: Props) {
   const { data: messages } = useMessages(channel)
   const { data: agents } = useAgents()
   const { data: spawns } = useSpawns()
+  const { data: channels } = useChannels()
 
+  const currentChannel = channels?.find((c) => c.name === channel)
   const agentMap = new Map(agents?.map((a) => [a.agent_id, a]) ?? [])
-  const runningAgents = new Set(
-    spawns?.filter((s) => s.status === 'running').map((s) => s.agent_id) ?? []
+  const runningInChannelAgents = new Set(
+    spawns
+      ?.filter((s) => s.status === 'running' && s.channel_id === currentChannel?.channel_id)
+      .map((s) => s.agent_id) ?? []
   )
 
   const channelAgentIds = [...new Set(messages?.map((m) => m.agent_id) ?? [])]
@@ -27,11 +31,11 @@ export function ChannelAgents({ channel, onAgentClick }: Props) {
     <div className="space-y-2">
       {channelAgentIds.map((agentId) => {
         const agent = agentMap.get(agentId)
-        const isRunning = runningAgents.has(agentId)
+        const isRunning = runningInChannelAgents.has(agentId)
         return (
           <button
             key={agentId}
-            onClick={() => onAgentClick?.(agentId)}
+            onClick={() => agent?.identity && onAgentClick?.(agent.identity)}
             className="flex items-center gap-2 w-full text-left hover:bg-neutral-800 rounded px-2 py-1 -mx-2"
           >
             <span

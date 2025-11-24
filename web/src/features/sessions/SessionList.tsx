@@ -11,7 +11,7 @@ interface Session {
 
 interface Props {
   agentId: string
-  channelId?: string
+  channelId?: string | null
   onSessionClick: (sessionId: string) => void
 }
 

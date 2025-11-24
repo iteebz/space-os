@@ -261,7 +261,7 @@ def _build_spawn_command(
 
     if agent.provider == "codex":
         return ["codex"] + resume_args + ["exec"] + launch_args + model_args
-    return [agent.provider] + model_args + launch_args + add_dir_args + resume_args
+    return [agent.provider] + launch_args + model_args + add_dir_args + resume_args
 
 
 def _execute_spawn(cmd: list[str], context: str, agent, env: dict[str, str]) -> str:
@@ -325,11 +325,19 @@ def _send_output_to_channel(stdout: str, agent, channel_name: str | None) -> Non
         output_text = stdout.strip()
 
     if output_text:
-        import asyncio
+        from space.lib import store
+        from space.lib.uuid7 import uuid7
 
-        from space.os.bridge.api import messaging
+        message_id = uuid7()
+        with store.ensure() as conn:
+            from space.os.bridge.api import channels
 
-        asyncio.run(messaging.send_message(channel_name, agent.identity, output_text))
+            channel = channels.get_channel(channel_name)
+            if channel:
+                conn.execute(
+                    "INSERT INTO messages (message_id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
+                    (message_id, channel.channel_id, agent.agent_id, output_text),
+                )
 
 
 def _parse_codex_output(jsonl_output: str) -> str:

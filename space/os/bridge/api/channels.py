@@ -152,7 +152,16 @@ def get_channel(channel: str | Channel) -> Channel | None:
     channel_id = _to_channel_id(channel)
     with store.ensure() as conn:
         row = conn.execute(
-            "SELECT channel_id, name, topic, created_at, archived_at FROM channels WHERE channel_id = ? OR name = ?",
+            """
+            SELECT
+                c.channel_id, c.name, c.topic, c.created_at, c.archived_at,
+                COUNT(m.message_id) as message_count,
+                MAX(m.created_at) as last_activity
+            FROM channels c
+            LEFT JOIN messages m ON c.channel_id = m.channel_id
+            WHERE c.channel_id = ? OR c.name = ?
+            GROUP BY c.channel_id
+            """,
             (channel_id, channel_id),
         ).fetchone()
 

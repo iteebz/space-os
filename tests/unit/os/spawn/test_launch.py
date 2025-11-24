@@ -30,16 +30,14 @@ def test_spawn_ephemeral_claude_streams_ingest(test_agent, test_channel):
     with patch("subprocess.Popen", return_value=mock_proc):
         with patch("space.os.sessions.api.linker.link_spawn_to_session") as mock_link:
             with patch("space.os.spawn.api.launch._discover_recent_session") as mock_discover:
-                with patch("space.os.bridge.api.messaging.send_message") as mock_post:
-                    mock_discover.return_value = "sess-claude-123"
-                    launch.spawn_ephemeral(
-                        identity="test-agent",
-                        instruction="test",
-                        channel_id=test_channel.channel_id,
-                    )
+                mock_discover.return_value = "sess-claude-123"
+                launch.spawn_ephemeral(
+                    identity="test-agent",
+                    instruction="test",
+                    channel_id=test_channel.channel_id,
+                )
 
-                    mock_link.assert_called_once()
-                    mock_post.assert_called_once()
+                mock_link.assert_called_once()
 
 
 def test_spawn_ephemeral_claude_extracts_session_once(test_agent, test_channel):
