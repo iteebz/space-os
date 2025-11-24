@@ -4,6 +4,16 @@ from space.os import memory
 
 from . import agents
 
+
+def _get_human_identity() -> str:
+    """Get current human identity (agent with model=NULL)."""
+    from space.lib import store
+
+    with store.ensure() as conn:
+        row = conn.execute("SELECT identity FROM agents WHERE model IS NULL LIMIT 1").fetchone()
+    return row[0] if row else "human"
+
+
 SPAWN_CONTEXT_TEMPLATE = """\
 You are {identity}, powered by {model}.
 
@@ -23,7 +33,7 @@ AGENT DISCOVERY:
 
 DECISION TREE:
 WHEN STUCK → spawn agents to find the right agent, then bridge send @agent_name
-WHEN NEED USER INPUT → bridge send <channel> "[question] @human" then exit (you'll resume when user @mentions you)
+WHEN NEED USER INPUT → bridge send <channel> "[question] @{human_identity}" then exit (you'll resume when user @mentions you)
 WHEN LEARNING → memory add "insight" --topic observations
 WHEN SESSION DONE → memory add "session summary" --topic journal
 
@@ -32,11 +42,11 @@ You are part of a multi-agent system. Your completion message MUST hand off to n
 
 Examples:
   "Implementation complete. @prime please review session X"
-  "Analysis done. @human awaiting decision on approach"
-  "Feature shipped, CI passing. @human work complete"
+  "Analysis done. @{human_identity} awaiting decision on approach"
+  "Feature shipped, CI passing. @{human_identity} work complete"
 
 Run `spawn agents` to see available agents and their roles.
-Default: when uncertain who's next, ask @human.
+Default: when uncertain who's next, ask @{human_identity}.
 
 {memories}{task}{channel}{task_mode}"""
 
@@ -48,7 +58,18 @@ YOUR CONTINUITY:
 CHANNEL_TEMPLATE = """\
 
 CHANNEL: #{channel}
-Post progress and results to this channel using: bridge send {channel} "<message>"
+CRITICAL: All communication via bridge. Do not respond to void.
+
+1. IMMEDIATELY bridge send on activation: bridge send {channel} "Acknowledged, working on [task]"
+2. Post progress and key decisions as you work
+3. ALWAYS bridge send before exit with completion status and handoff
+
+Example pattern:
+  bridge send {channel} "Acknowledged, investigating X"
+  [do work]
+  bridge send {channel} "Found Y, implementing Z"
+  [do more work]
+  bridge send {channel} "Complete. @human review needed"
 """
 
 TASK_TEMPLATE = """\
@@ -120,9 +141,12 @@ def build_spawn_context(
         cwd_instruction = "" if is_continue else TASK_MODE_CWD_INSTRUCTION
         task_mode_context = TASK_MODE_TEMPLATE.format(cwd_instruction=cwd_instruction)
 
+    human_identity = _get_human_identity()
+
     return SPAWN_CONTEXT_TEMPLATE.format(
         identity=identity,
         model=model,
+        human_identity=human_identity,
         memories=memories_context,
         task=task_context,
         channel=channel_context,

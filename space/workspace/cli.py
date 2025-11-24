@@ -3,10 +3,15 @@ import typer
 from space.lib import backup
 from space.workspace import health, init, stats
 
-app = typer.Typer(invoke_without_command=True, no_args_is_help=False, add_completion=False)
+app = typer.Typer(
+    invoke_without_command=True,
+    no_args_is_help=False,
+    add_completion=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
 
 
-@app.callback(invoke_without_command=True)
+@app.callback(invoke_without_command=True, context_settings={"help_option_names": ["-h", "--help"]})
 def main_callback(ctx: typer.Context):
     """Agent Orchestration System
 
@@ -144,33 +149,35 @@ identity_app = typer.Typer()
 def identity_set_cmd(name: str):
     """Set your human identity (default: human)."""
     from space.os.spawn.api import agents
-    
-    if ' ' in name:
+
+    if " " in name:
         typer.echo("Identity cannot contain spaces. Use hyphens instead.", err=True)
         raise typer.Exit(1)
-    
+
     # Check if identity already exists as an agent
     existing = agents.get_agent(name)
     if existing and existing.model:
-        typer.echo(f"Identity '{name}' already registered as agent. Choose different name.", err=True)
+        typer.echo(
+            f"Identity '{name}' already registered as agent. Choose different name.", err=True
+        )
         raise typer.Exit(1)
-    
+
     # Get current human identity
     human_agent = agents.get_agent("human")
     if not human_agent:
         typer.echo("No human identity found. Run: space init", err=True)
         raise typer.Exit(1)
-    
+
     if name == "human":
         typer.echo("Already set to: human")
         return
-    
+
     # Rename human -> new identity
     success = agents.rename_agent("human", name)
     if not success:
         typer.echo(f"Failed to set identity to: {name}", err=True)
         raise typer.Exit(1)
-    
+
     typer.echo(f"Identity set to: {name}")
 
 
@@ -178,12 +185,10 @@ def identity_set_cmd(name: str):
 def identity_get_cmd():
     """Show your current identity."""
     from space.lib import store
-    
+
     with store.ensure() as conn:
-        row = conn.execute(
-            "SELECT identity FROM agents WHERE model IS NULL LIMIT 1"
-        ).fetchone()
-    
+        row = conn.execute("SELECT identity FROM agents WHERE model IS NULL LIMIT 1").fetchone()
+
     if row:
         typer.echo(row[0])
     else:
