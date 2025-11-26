@@ -19,34 +19,13 @@ def agent():
 
 
 @pytest.fixture
-def spawn_interactive():
-    """Interactive spawn (is_ephemeral=False)."""
-    return Spawn(id="spawn-1", agent_id="agent-1", is_ephemeral=False, status=SpawnStatus.PENDING)
+def spawn():
+    """Ephemeral spawn."""
+    return Spawn(id="spawn-1", agent_id="agent-1", is_ephemeral=True, status=SpawnStatus.PENDING)
 
 
-@pytest.fixture
-def spawn_headless():
-    """Headless spawn (is_ephemeral=True)."""
-    return Spawn(id="spawn-2", agent_id="agent-1", is_ephemeral=True, status=SpawnStatus.PENDING)
-
-
-def test_constitute_interactive_writes_to_space_root(tmp_path, spawn_interactive, agent):
-    """Interactive spawn writes constitution to ~/space/."""
-    with patch("space.lib.paths.space_root", return_value=tmp_path):
-        with patch("space.lib.paths.constitution") as mock_const_path:
-            const_file = tmp_path / "zealot.md"
-            const_file.write_text("# Zealot")
-            mock_const_path.return_value = const_file
-
-            result = constitute(spawn_interactive, agent)
-
-            assert result == tmp_path
-            assert (tmp_path / "CLAUDE.md").exists()
-            assert (tmp_path / "CLAUDE.md").read_text() == "# Zealot"
-
-
-def test_constitute_headless_writes_to_spawns_dir(tmp_path, spawn_headless, agent):
-    """Headless spawn writes constitution to ~/.space/spawns/{identity}/."""
+def test_constitute_writes_to_identity_dir(tmp_path, spawn, agent):
+    """Spawn writes constitution to ~/.space/spawns/{identity}/."""
     spawns_dir = tmp_path / "spawns" / "zealot"
     with patch("space.lib.paths.identity_dir", return_value=spawns_dir):
         with patch("space.lib.paths.constitution") as mock_const_path:
@@ -54,20 +33,21 @@ def test_constitute_headless_writes_to_spawns_dir(tmp_path, spawn_headless, agen
             const_file.write_text("# Zealot")
             mock_const_path.return_value = const_file
 
-            result = constitute(spawn_headless, agent)
+            result = constitute(spawn, agent)
 
             assert result == spawns_dir
             assert (spawns_dir / "CLAUDE.md").exists()
             assert (spawns_dir / "CLAUDE.md").read_text() == "# Zealot"
 
 
-def test_constitute_no_constitution(tmp_path, spawn_interactive, agent):
+def test_constitute_no_constitution(tmp_path, spawn, agent):
     """Spawn without constitution still creates directory."""
     agent.constitution = None
-    with patch("space.lib.paths.space_root", return_value=tmp_path):
-        result = constitute(spawn_interactive, agent)
-        assert result == tmp_path
-        assert tmp_path.exists()
+    spawns_dir = tmp_path / "spawns" / "zealot"
+    with patch("space.lib.paths.identity_dir", return_value=spawns_dir):
+        result = constitute(spawn, agent)
+        assert result == spawns_dir
+        assert spawns_dir.exists()
 
 
 def test_constitute_provider_map():

@@ -3,11 +3,7 @@
 import contextlib
 import logging
 import os
-import shlex
-import shutil
 import subprocess
-
-import typer
 
 from space.lib import paths
 from space.lib.providers import Claude, Codex, Gemini
@@ -27,89 +23,6 @@ PROVIDERS = {
     "gemini": Gemini,
     "codex": Codex,
 }
-
-
-def _start_session_discovery(spawn, agent):
-    """Start background thread to discover and link session."""
-    import threading
-    import time
-
-    def link_session():
-        try:
-            for _ in range(30):
-                time.sleep(1)
-                session_id = _discover_recent_session(agent.provider, spawn.created_at)
-                if session_id:
-                    spawns.link_session_to_spawn(spawn.id, session_id)
-                    return
-        except Exception as e:
-            logger.debug(f"Session linking failed: {e}")
-
-    threading.Thread(target=link_session, daemon=True).start()
-
-
-def spawn_interactive(
-    identity: str,
-    extra_args: list[str] | None = None,
-    resume: str | None = None,
-):
-    agent = agents.get_agent(identity)
-    if not agent:
-        raise ValueError(f"Agent '{identity}' not found in registry")
-
-    constitution_hash = agents.compute_constitution_hash(agent.constitution)
-    env = build_launch_env()
-    env["PWD"] = str(paths.space_root())
-
-    executable = _resolve_executable(agent.provider, env)
-    passthrough = extra_args or []
-
-    typer.echo(f"Spawning {identity}...\n")
-    spawn = spawns.create_spawn(
-        agent_id=agent.agent_id,
-        is_ephemeral=bool(passthrough),
-        constitution_hash=constitution_hash,
-        parent_spawn_id=None,
-    )
-
-    constitute(spawn, agent)
-    env["SPACE_SPAWN_ID"] = spawn.id
-
-    known_session_id = resolve_session_id(
-        agent.agent_id, resume, provider=agent.provider, identity=agent.identity
-    )
-    if known_session_id:
-        spawns.link_session_to_spawn(spawn.id, known_session_id)
-        _copy_bookmarks_from_session(known_session_id, spawn.id)
-
-    cwd = str(paths.identity_dir(agent.identity) if passthrough else paths.space_root())
-    is_continue = resume is None and known_session_id
-    context = build_spawn_context(
-        identity, task=passthrough[0] if passthrough else None, is_continue=is_continue
-    )
-
-    base_command = [executable] + _build_spawn_command(
-        agent, known_session_id, resume is None and known_session_id, is_task=bool(passthrough)
-    )[1:]  # Skip provider name, use resolved executable
-
-    if passthrough:
-        full_command = base_command + [context]
-        display_command = base_command + ['"<context>"']
-        typer.echo(f"Executing: {' '.join(display_command)}")
-        typer.echo(f"Task: {passthrough[0]}\n")
-        proc = subprocess.Popen(full_command, env=env, cwd=cwd)
-    else:
-        typer.echo(f"Executing: echo <context> | {' '.join(base_command)}\n")
-        shell_cmd = f"echo {shlex.quote(context)} | {' '.join(base_command)}"
-        proc = subprocess.Popen(shell_cmd, shell=True, env=env, cwd=cwd)
-
-    if not known_session_id:
-        _start_session_discovery(spawn, agent)
-
-    try:
-        proc.wait()
-    finally:
-        spawns.end_spawn(spawn.id)
 
 
 def _discover_recent_session(provider: str, after_timestamp: str) -> str | None:

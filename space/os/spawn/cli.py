@@ -184,27 +184,29 @@ def _extract_resume_flag(args: list[str]) -> tuple[str | None, list[str]]:
 
 
 def _dispatch_spawn(identity: str, args: list[str], verbose: bool = False):
-    """Dispatch spawn (ephemeral or interactive) based on args.
+    """Dispatch ephemeral spawn with task.
 
     Args:
         identity: Agent identity to spawn
-        args: Command arguments (may contain --resume flag)
+        args: Command arguments (task required, may contain --resume flag)
         verbose: Show spawn progress messages
 
     Returns:
-        Spawn object if ephemeral, None if interactive
+        Spawn object
     """
     resume, extra_args = _extract_resume_flag(args)
-    if extra_args:
-        if verbose:
-            typer.echo(f"Spawning {identity}...\n")
-        spawn = api.spawn_ephemeral(identity, " ".join(extra_args), channel_id=None, resume=resume)
-        if verbose:
-            typer.echo(f"\nSpawn ID: {spawn.id[:8]}")
-            typer.echo(f"Track: spawn trace {spawn.id[:8]}")
-        return spawn
-    api.spawn_interactive(identity, resume=resume)
-    return None
+    if not extra_args:
+        raise ValueError(
+            f'Task required. Usage: {identity} "task description"\n'
+            f'For coordination, use: bridge send <channel> "@{identity} task"'
+        )
+    if verbose:
+        typer.echo(f"Spawning {identity}...\n")
+    spawn = api.spawn_ephemeral(identity, " ".join(extra_args), channel_id=None, resume=resume)
+    if verbose:
+        typer.echo(f"\nSpawn ID: {spawn.id[:8]}")
+        typer.echo(f"Track: spawn trace {spawn.id[:8]}")
+    return spawn
 
 
 @app.command()

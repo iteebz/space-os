@@ -11,7 +11,6 @@ from .api import (
     rename_agent,
     resume_spawn,
     spawn_ephemeral,
-    spawn_interactive,
     unarchive_agent,
     update_agent,
 )
@@ -30,7 +29,6 @@ __all__ = [
     "list_agents",
     "merge_agents",
     "build_spawn_context",
-    "spawn_interactive",
     "spawn_ephemeral",
     "pause_spawn",
     "resume_spawn",

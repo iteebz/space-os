@@ -13,7 +13,7 @@ from .agents import (
     unarchive_agent,
     update_agent,
 )
-from .launch import spawn_ephemeral, spawn_interactive
+from .launch import spawn_ephemeral
 from .prompt import build_spawn_context
 from .spawns import (
     create_spawn,
@@ -40,7 +40,6 @@ __all__ = [
     "merge_agents",
     "touch_agent",
     "build_spawn_context",
-    "spawn_interactive",
     "spawn_ephemeral",
     "create_spawn",
     "end_spawn",

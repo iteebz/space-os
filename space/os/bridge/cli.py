@@ -55,6 +55,14 @@ def should_output(ctx):
 
 echo_if_output = output.echo_text
 
+
+def _resolve_identity(ctx) -> str | None:
+    """Resolve identity from --as flag, env var, or None."""
+    import os
+
+    return ctx.obj.get("identity") or os.environ.get("SPACE_AGENT_IDENTITY")
+
+
 app = typer.Typer(invoke_without_command=True, add_completion=False)
 
 
@@ -259,7 +267,7 @@ def recv(
         elif reader:
             reader_id = reader
         else:
-            identity = ctx.obj.get("identity")
+            identity = _resolve_identity(ctx)
             if identity:
                 agent = spawn.get_agent(identity)
                 if agent:
@@ -293,10 +301,9 @@ def send(
 ):
     """Post message to channel."""
     import asyncio
-    import os
 
     try:
-        identity = ctx.obj.get("identity") or os.environ.get("SPACE_AGENT_IDENTITY") or "human"
+        identity = _resolve_identity(ctx) or "human"
         agent = spawn.get_agent(identity)
         if not agent:
             raise ValueError(f"Identity '{identity}' not registered.")
@@ -377,11 +384,13 @@ def topic(
 def wait(
     ctx: typer.Context,
     channel: str = typer.Argument(..., help="Channel to monitor"),
-    identity: str = typer.Option(..., "--as", help="Receiver identity"),
     poll_interval: float = typer.Option(0.1, "--interval", help="Poll interval in seconds"),
 ):
     """Block until new message arrives."""
     try:
+        identity = _resolve_identity(ctx)
+        if not identity:
+            raise ValueError("Identity required: use --as or set SPACE_AGENT_IDENTITY")
         agent = spawn.get_agent(identity)
         if not agent:
             raise ValueError(f"Identity '{identity}' not registered.")

@@ -37,8 +37,8 @@ def test_parse_mentions_none():
     assert parsed == []
 
 
-def test_build_spawn_context_interactive():
-    """Build spawn context for interactive mode."""
+def test_build_spawn_context_basic():
+    """Build spawn context with agent identity."""
     with patch("space.os.spawn.api.prompt.agents.get_agent") as mock_get_agent:
         mock_agent = Agent(
             agent_id="a-1",
