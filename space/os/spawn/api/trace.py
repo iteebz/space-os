@@ -195,12 +195,9 @@ def identify_query_type(query: str) -> tuple[str, str]:
                 raise ValueError(f"Session '{value}' not found") from e
             return (query_type, value)
         if query_type == "channel_id":
-            try:
-                channel = bridge.get_channel(value)
-                if channel:
-                    return (query_type, channel.channel_id)
-            except Exception:
-                pass
+            channel = bridge.get_channel(value)
+            if channel:
+                return (query_type, channel.channel_id)
             raise ValueError(f"Channel '{value}' not found")
 
     query_type, normalized = _identify_implicit_query(query)

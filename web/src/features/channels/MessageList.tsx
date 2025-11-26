@@ -122,9 +122,7 @@ export function MessageList({ channel }: Props) {
                 >
                   {agentMap.get(msg.agent_id) ?? msg.agent_id.slice(0, 7)}
                 </span>
-                <span className="text-xs text-neutral-500">
-                  {formatLocalTime(msg.created_at)}
-                </span>
+                <span className="text-xs text-neutral-500">{formatLocalTime(msg.created_at)}</span>
                 {hoveredId === msg.message_id && (
                   <button
                     onClick={() => deleteMessage.mutate(msg.message_id)}

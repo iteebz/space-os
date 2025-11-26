@@ -65,8 +65,6 @@ class Claude(Provider):
 
                 # Validate CWD matches (check first few lines for user message with cwd)
                 try:
-                    import json
-
                     with open(jsonl) as f:
                         for _ in range(5):  # Check first 5 lines
                             line = f.readline()

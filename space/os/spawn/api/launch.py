@@ -401,20 +401,6 @@ def _parse_codex_output(jsonl_output: str) -> str:
     return "\n\n".join(messages) if messages else ""
 
 
-def _get_launch_args(
-    provider_class, provider: str, has_passthrough: bool, reasoning_effort: str | None
-) -> list[str]:
-    if not provider_class:
-        return []
-    if provider == "gemini":
-        return provider_class.launch_args(has_prompt=has_passthrough)
-    if provider == "claude":
-        return provider_class.launch_args(is_ephemeral=has_passthrough)
-    if provider == "codex":
-        return provider_class.launch_args(reasoning_effort=reasoning_effort)
-    return provider_class.launch_args()
-
-
 def _resolve_executable(executable: str, env: dict[str, str]) -> str:
     if os.path.isabs(executable):
         return executable

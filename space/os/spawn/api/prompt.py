@@ -17,36 +17,17 @@ def _get_human_identity() -> str:
 SPAWN_CONTEXT_TEMPLATE = """\
 You are {identity}, powered by {model}.
 
-PRIMITIVES (actual API with examples):
-- memory add/list/search/core/inspect/archive: Working memory organized by --topic.
-  → memory add "resolved X via Y approach" --topic observations
-- bridge send/recv: Immutable async coordination on named channels.
-  → bridge send general "here's my thinking on X"
-  → bridge recv general  (read channel history before deciding)
-- knowledge add/search: Shared discoveries persisted and queryable.
-- context search: Unified search across memory, knowledge, bridge, chats, canon.
-  → context search "precedent for X pattern" --as {identity}
+PRIMITIVES:
+- memory add "X" --topic <topic>: Persist learnings (observations, decisions, blockers, journal)
+- bridge send/recv <channel>: Async coordination. All output MUST go through bridge, not stdout.
+- knowledge add/query: Shared discoveries across agents
+- context "query": Search across all primitives
+- spawn agents/inspect: Discover other agents
 
-AGENT DISCOVERY:
-→ spawn agents  (see all agents, their roles, and what they do)
-→ spawn inspect <agent-name>  (see full details)
-
-DECISION TREE:
-WHEN STUCK → spawn agents to find the right agent, then bridge send @agent_name
-WHEN NEED USER INPUT → bridge send <channel> "[question] @{human_identity}" then exit (you'll resume when user @mentions you)
-WHEN LEARNING → memory add "insight" --topic observations
-WHEN SESSION DONE → memory add "session summary" --topic journal
-
-COORDINATION:
-You are part of a multi-agent system. Your completion message MUST hand off to next agent or human.
-
-Examples:
-  "Implementation complete. @prime please review session X"
-  "Analysis done. @{human_identity} awaiting decision on approach"
-  "Feature shipped, CI passing. @{human_identity} work complete"
-
-Run `spawn agents` to see available agents and their roles.
-Default: when uncertain who's next, ask @{human_identity}.
+BEFORE EXIT:
+1. memory add anything worth remembering (skip if nothing)
+2. bridge send with completion status and @handoff
+   → @{human_identity} if uncertain who's next
 
 {memories}{task}{channel}{task_mode}"""
 
@@ -58,19 +39,9 @@ YOUR CONTINUITY:
 CHANNEL_TEMPLATE = """\
 
 CHANNEL: #{channel}
-CRITICAL: All communication via bridge. Do not respond to void.
-
-1. IMMEDIATELY bridge send on activation: bridge send {channel} "Acknowledged, working on [task]"
-2. Post progress and key decisions as you work
-3. ALWAYS bridge send before exit with completion status and handoff
-
-Example pattern:
-  bridge send {channel} "Acknowledged, investigating X"
-  [do work]
-  bridge send {channel} "Found Y, implementing Z"
-  [do more work]
-  bridge send {channel} "Complete. @human review needed"
-"""
+Stdout goes nowhere. Use: bridge send {channel} "message"
+First: bridge recv {channel} (see why you were summoned)
+Then: acknowledge, work, handoff."""
 
 TASK_TEMPLATE = """\
 
@@ -80,13 +51,7 @@ TASK:
 
 TASK_MODE_TEMPLATE = """\
 
-EXECUTION MODE: Task-based spawn (non-interactive).{cwd_instruction}
-"""
-
-TASK_MODE_CWD_INSTRUCTION = """
-IMPORTANT: Always cd to ~/space/ first before executing commands. Example:
-  cd ~/space && your-command-here
-Verify with: cd ~/space && pwd"""
+MODE: Ephemeral (non-interactive). Complete task and exit."""
 
 
 def build_spawn_context(
@@ -94,22 +59,9 @@ def build_spawn_context(
     task: str | None = None,
     channel: str | None = None,
     is_ephemeral: bool = False,
-    is_continue: bool = False,
+    is_continue: bool = False,  # unused, kept for API compatibility
 ) -> str:
-    """Assemble spawn context: bootloader for agent execution.
-
-    Provides: identity → space-os context → available primitives → continuity (memories) → task/channel → execution mode notice
-
-    Args:
-        identity: Agent identity
-        task: Task instruction (optional)
-        channel: Channel name if responding in channel (optional)
-        is_ephemeral: Whether this is an ephemeral spawn (sets execution mode notice)
-        is_continue: Whether resuming existing session (omits cwd instruction)
-
-    Returns:
-        Complete prompt for agent execution
-    """
+    """Assemble spawn context for agent execution."""
     agent = agents.get_agent(identity)
     agent_id = agent.agent_id if agent else None
     model = agent.model if agent else "unknown"
@@ -136,10 +88,7 @@ def build_spawn_context(
     if task:
         task_context = TASK_TEMPLATE.format(task=task)
 
-    task_mode_context = ""
-    if is_ephemeral:
-        cwd_instruction = "" if is_continue else TASK_MODE_CWD_INSTRUCTION
-        task_mode_context = TASK_MODE_TEMPLATE.format(cwd_instruction=cwd_instruction)
+    task_mode_context = TASK_MODE_TEMPLATE if is_ephemeral else ""
 
     human_identity = _get_human_identity()
 

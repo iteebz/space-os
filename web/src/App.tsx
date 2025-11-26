@@ -11,7 +11,8 @@ import {
   useMessages,
 } from './features/channels'
 import { SessionList, SessionStream } from './features/sessions'
-import { useAgentMap } from './features/agents'
+import { useAgents, useAgentMap } from './features/agents'
+import { useSpawns } from './features/spawns'
 
 export default function App() {
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null)
@@ -20,6 +21,8 @@ export default function App() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const { data: channels } = useChannels()
   const { data: messages = [] } = useMessages(selectedChannel)
+  const { data: agents } = useAgents()
+  const { data: spawns } = useSpawns()
   const agentMap = useAgentMap()
 
   const handleAgentClick = (agentIdentity: string) => {
@@ -29,7 +32,7 @@ export default function App() {
       const agentSpawns = spawns
         ?.filter((s) => s.agent_id === agent.agent_id && s.session_id)
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      
+
       if (agentSpawns && agentSpawns.length > 0) {
         // Open most recent session immediately
         setSelectedSessionId(agentSpawns[0].session_id)
@@ -37,7 +40,7 @@ export default function App() {
         return
       }
     }
-    
+
     // Fallback: show session list
     setSelectedAgentIdentity(agentIdentity)
     setSelectedSessionId(null)
