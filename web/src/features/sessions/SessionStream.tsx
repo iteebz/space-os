@@ -27,42 +27,84 @@ function formatRelativeTime(timestamp: string | null): string {
   return formatLocalDate(timestamp)
 }
 
+const MAX_RETRIES = 3
+const BASE_DELAY = 1000
+
 export function SessionStream({ sessionId }: Props) {
   const [events, setEvents] = useState<SessionEvent[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
   const endRef = React.useRef<HTMLDivElement>(null)
+  const eventSourceRef = React.useRef<globalThis.EventSource | null>(null)
+  void retryCount
 
-  useEffect(() => {
-    setEvents([])
-    setError(null)
+  const connect = React.useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close()
+    }
 
-    const eventSource = new window.EventSource(`/api/sessions/${sessionId}/stream`)
+    const eventSource = new globalThis.EventSource(`/api/sessions/${sessionId}/stream`)
+    eventSourceRef.current = eventSource
 
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data) as SessionEvent
         setEvents((prev) => [...prev, data])
+        setRetryCount(0)
+        setError(null)
       } catch {
         // Ignore parse errors
       }
     }
 
     eventSource.onerror = () => {
-      setError('Connection lost')
       eventSource.close()
-    }
-
-    return () => {
-      eventSource.close()
+      setRetryCount((prev) => {
+        const next = prev + 1
+        if (next <= MAX_RETRIES) {
+          const delay = BASE_DELAY * Math.pow(2, prev)
+          globalThis.setTimeout(connect, delay)
+          return next
+        }
+        setError('Connection lost')
+        return next
+      })
     }
   }, [sessionId])
+
+  useEffect(() => {
+    setEvents([])
+    setError(null)
+    setRetryCount(0)
+    connect()
+
+    return () => {
+      eventSourceRef.current?.close()
+    }
+  }, [sessionId, connect])
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'auto' })
   }, [events])
 
+  const handleManualReconnect = () => {
+    setRetryCount(0)
+    setError(null)
+    connect()
+  }
+
   if (error) {
-    return <div className="text-red-500 text-sm">{error}</div>
+    return (
+      <div className="text-sm">
+        <span className="text-red-500">{error}</span>
+        <button
+          onClick={handleManualReconnect}
+          className="ml-2 text-neutral-400 hover:text-white underline"
+        >
+          Reconnect
+        </button>
+      </div>
+    )
   }
 
   if (!events.length) {

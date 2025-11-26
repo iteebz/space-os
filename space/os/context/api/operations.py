@@ -89,12 +89,25 @@ def collect_timeline(query: str, identity: str | None, all_agents: bool) -> list
                     "type": "documentation",
                     "identity": None,
                     "data": result["content"],
-                    "timestamp": 0,
+                    "timestamp": "",
                     "reference": result["reference"],
                 }
             )
 
-    timeline.sort(key=lambda x: x["timestamp"])
+    def _sort_key(x):
+        ts = x["timestamp"]
+        if isinstance(ts, int):
+            return ts
+        if isinstance(ts, str) and ts:
+            from datetime import datetime
+
+            try:
+                return int(datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp())
+            except ValueError:
+                return 0
+        return 0
+
+    timeline.sort(key=_sort_key)
     return timeline[-10:]
 
 
