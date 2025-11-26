@@ -1,10 +1,84 @@
 import { useMessages, useChannels } from './hooks'
 import { useAgents } from '../agents'
-import { useSpawns } from '../spawns'
+import { useSpawns, type Spawn } from '../spawns'
 
 interface Props {
   channel: string
   onAgentClick?: (agentIdentity: string) => void
+}
+
+type SpawnState = 'running' | 'paused' | 'pending' | 'failed' | 'idle'
+
+function getSpawnState(
+  spawns: Spawn[],
+  agentId: string,
+  channelId: string | undefined
+): SpawnState {
+  const agentSpawns = spawns
+    .filter((s) => s.agent_id === agentId && s.channel_id === channelId)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+  if (!agentSpawns.length) return 'idle'
+
+  const latest = agentSpawns[0]
+  if (latest.status === 'running') return 'running'
+  if (latest.status === 'paused') return 'paused'
+  if (latest.status === 'pending') return 'pending'
+  if (['failed', 'timeout', 'killed'].includes(latest.status)) {
+    const endedAt = latest.ended_at ? new Date(latest.ended_at) : null
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000)
+    if (endedAt && endedAt > fiveMinAgo) return 'failed'
+  }
+  return 'idle'
+}
+
+function getStatusColor(state: SpawnState): string {
+  switch (state) {
+    case 'running':
+      return 'bg-green-400'
+    case 'paused':
+      return 'bg-yellow-400'
+    case 'pending':
+      return 'bg-blue-400 animate-pulse'
+    case 'failed':
+      return 'bg-red-400'
+    default:
+      return 'bg-neutral-600'
+  }
+}
+
+function getStatusLabel(
+  state: SpawnState,
+  spawns: Spawn[],
+  agentId: string,
+  channelId: string | undefined
+): string | null {
+  if (state === 'idle') return null
+
+  const agentSpawns = spawns
+    .filter((s) => s.agent_id === agentId && s.channel_id === channelId)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+  if (!agentSpawns.length) return null
+
+  const latest = agentSpawns[0]
+
+  if (state === 'running') {
+    const started = new Date(latest.created_at)
+    const mins = Math.floor((Date.now() - started.getTime()) / 60000)
+    return mins < 1 ? 'just started' : `${mins}m`
+  }
+  if (state === 'paused') return 'paused'
+  if (state === 'pending') return 'starting...'
+  if (state === 'failed') {
+    const ended = latest.ended_at ? new Date(latest.ended_at) : null
+    if (ended) {
+      const mins = Math.floor((Date.now() - ended.getTime()) / 60000)
+      return mins < 1 ? 'failed just now' : `failed ${mins}m ago`
+    }
+    return 'failed'
+  }
+  return null
 }
 
 export function ChannelAgents({ channel, onAgentClick }: Props) {
@@ -16,22 +90,6 @@ export function ChannelAgents({ channel, onAgentClick }: Props) {
   const currentChannel = channels?.find((c) => c.name === channel)
   const agentMap = new Map(agents?.map((a) => [a.agent_id, a]) ?? [])
 
-  // Agent is active if: has messages in last hour OR currently running spawn in this channel
-  const now = new Date()
-  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
-
-  const recentMessageAgents = new Set(
-    messages?.filter((m) => new Date(m.created_at) > oneHourAgo).map((m) => m.agent_id) ?? []
-  )
-
-  const runningInChannelAgents = new Set(
-    spawns
-      ?.filter((s) => s.status === 'running' && s.channel_id === currentChannel?.channel_id)
-      .map((s) => s.agent_id) ?? []
-  )
-
-  const activeAgents = new Set([...recentMessageAgents, ...runningInChannelAgents])
-
   const channelAgentIds = [...new Set(messages?.map((m) => m.agent_id) ?? [])]
 
   if (!channelAgentIds.length) {
@@ -42,19 +100,19 @@ export function ChannelAgents({ channel, onAgentClick }: Props) {
     <div className="space-y-2">
       {channelAgentIds.map((agentId) => {
         const agent = agentMap.get(agentId)
-        const isActive = activeAgents.has(agentId)
+        const state = getSpawnState(spawns ?? [], agentId, currentChannel?.channel_id)
+        const label = getStatusLabel(state, spawns ?? [], agentId, currentChannel?.channel_id)
         return (
           <button
             key={agentId}
             onClick={() => agent?.identity && onAgentClick?.(agent.identity)}
             className="flex items-center gap-2 w-full text-left hover:bg-neutral-800 rounded px-2 py-1 -mx-2"
           >
-            <span
-              className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-400' : 'bg-neutral-600'}`}
-            />
+            <span className={`w-2 h-2 rounded-full ${getStatusColor(state)}`} />
             <span className="text-sm text-neutral-300">
               {agent?.identity ?? agentId.slice(0, 7)}
             </span>
+            {label && <span className="text-xs text-neutral-500">{label}</span>}
           </button>
         )
       })}
