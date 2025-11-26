@@ -1,7 +1,8 @@
-"""Bridge operations: channels, messages, agent spawning.
+"""Bridge operations: channels, messages, handoffs, agent spawning.
 
 Channel operations: create, list, archive, delete, rename, pin.
 Message operations: send, recv, get all, get sender history.
+Handoff operations: create, close, list pending.
 Mention spawning: detect @identity in messages, spawn agents inline.
 """
 
@@ -17,6 +18,13 @@ from .channels import (
     toggle_pin_channel,
 )
 from .delimiters import process_delimiters
+from .handoffs import (
+    close_handoff,
+    create_handoff,
+    get_handoff,
+    list_handoffs_for_channel,
+    list_pending,
+)
 from .messaging import (
     count_messages,
     delete_message,
@@ -32,23 +40,28 @@ from .operations import search
 
 __all__ = [
     "archive_channel",
+    "close_handoff",
     "count_channels",
     "count_messages",
     "create_channel",
+    "create_handoff",
     "delete_channel",
     "delete_message",
     "format_messages",
     "get_channel",
+    "get_handoff",
     "get_messages",
     "get_messages_before",
     "get_sender_history",
     "list_channels",
+    "list_handoffs_for_channel",
+    "list_pending",
+    "process_delimiters",
     "recv_messages",
     "rename_channel",
     "restore_channel",
     "search",
     "send_message",
-    "process_delimiters",
     "toggle_pin_channel",
     "wait_for_message",
 ]
