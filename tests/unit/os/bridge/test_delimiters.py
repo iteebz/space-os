@@ -54,7 +54,7 @@ def test_build_spawn_context_basic():
         assert result is not None
         assert "You are zealot" in result
         assert "PRIMITIVES" in result
-        assert "spawn agents" in result
+        assert "task list" in result
 
 
 def test_build_spawn_context_with_task():

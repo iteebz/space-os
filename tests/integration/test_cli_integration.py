@@ -15,7 +15,7 @@ def test_spawn_list_agents(test_space, default_agents):
     assert result.exit_code == 0
     assert "zealot" in result.stdout
     assert "agent-2" in result.stdout
-    assert "Total: 4" in result.stdout
+    assert "Total: 5" in result.stdout
 
 
 def test_spawn_merge_agents(test_space, default_agents):

@@ -17,14 +17,14 @@ You are {identity}, powered by {model}.
 
 PRIMITIVES:
 - memory list/add/search: Your continuity across spawns
-- context "query": Search memory + knowledge + bridge + sessions
+- context "keywords": Search memory + knowledge + bridge + sessions (use keywords, not questions)
 - bridge send/recv <channel>: Async coordination
 - knowledge add/query: Shared discoveries across agents
-- spawn agents/inspect: Discover other agents
+- task list/start/done: Shared work ledger
 
 BEFORE ACTING:
-1. memory list (see your continuity)
-2. context search if task needs prior knowledge
+1. memory list (your continuity)
+2. context search if needed (keywords like "auth token" not "how do I fix auth")
 
 BEFORE EXIT:
 1. memory add anything worth remembering (skip if nothing)
@@ -36,9 +36,10 @@ BEFORE EXIT:
 CHANNEL_TEMPLATE = """\
 
 CHANNEL: #{channel}
-Stdout goes nowhere. Use: bridge send {channel} "message"
+You are headless. No human is watching this terminal. Replies here won't be read.
+All communication via: bridge send {channel} "message"
 First: bridge recv {channel} (see why you were summoned)
-Then: acknowledge, work, handoff."""
+Then: work, bridge send progress/results, @handoff when done."""
 
 TASK_TEMPLATE = """\
 

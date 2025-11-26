@@ -29,29 +29,40 @@ def _discover_recent_session(provider: str, after_timestamp: str) -> str | None:
     """Find most recent session file created after timestamp."""
     from datetime import datetime
 
-    if provider == "claude":
-        sessions_dir = Claude.SESSIONS_DIR
-    else:
+    provider_cls = PROVIDERS.get(provider)
+    if not provider_cls:
         return None
 
-    if not sessions_dir.exists():
+    sessions_dir = getattr(provider_cls, "SESSIONS_DIR", None)
+    if not sessions_dir or not sessions_dir.exists():
         return None
 
-    after_dt = datetime.fromisoformat(after_timestamp.replace("Z", "+00:00"))
-    if after_dt.tzinfo:
-        after_dt = after_dt.replace(tzinfo=None)
+    extractor = getattr(provider_cls, "session_id_from_contents", None)
+    file_pattern = getattr(provider_cls, "SESSION_FILE_PATTERN", "*.jsonl")
+
+    try:
+        after_dt = datetime.fromisoformat(after_timestamp.replace("Z", "+00:00"))
+        if after_dt.tzinfo:
+            after_dt = after_dt.replace(tzinfo=None)
+        after_ts = after_dt.timestamp()
+    except (ValueError, AttributeError):
+        after_ts = 0
+
     best_match = None
     best_time = None
 
-    for jsonl in sessions_dir.rglob("*.jsonl"):
+    for session_file in sessions_dir.rglob(file_pattern):
         try:
-            ctime = datetime.fromtimestamp(jsonl.stat().st_birthtime)
-            if ctime > after_dt and (best_time is None or ctime > best_time):
-                session_id = Claude.session_id_from_contents(jsonl)
+            stat = session_file.stat()
+            file_time = getattr(stat, "st_birthtime", None) or stat.st_mtime
+            if file_time <= after_ts:
+                continue
+            if best_time is None or file_time > best_time:
+                session_id = extractor(session_file) if extractor else None
                 if not session_id:
-                    session_id = jsonl.stem  # Fallback to filename
+                    session_id = session_file.stem
                 best_match = session_id
-                best_time = ctime
+                best_time = file_time
         except (OSError, ValueError, AttributeError):
             continue
 
@@ -145,15 +156,8 @@ def _run_ephemeral(
         is_ephemeral=True,
     )
     cmd = _build_spawn_command(agent, session_id, is_continue, image_paths=image_paths)
-    stdout = _execute_spawn(cmd, context, agent, env)
-
-    extracted_session_id = _extract_session_id_from_output(stdout, agent.provider)
-    if extracted_session_id and not session_id:
-        spawns.link_session_to_spawn(spawn.id, extracted_session_id)
-    else:
-        _link_session_if_needed(spawn, session_id, agent.provider)
-
-    _send_output_to_channel(stdout, agent, channel_name)
+    _execute_spawn(cmd, context, agent, env)
+    _link_session(spawn, session_id, agent.provider)
 
 
 def _parse_model_and_effort(agent) -> tuple[str, str | None]:
@@ -198,7 +202,13 @@ def _build_spawn_command(
     model_id, reasoning_effort = _parse_model_and_effort(agent)
     launch_args = _build_launch_args(agent, is_task, reasoning_effort, image_paths)
     model_args = ["--model", model_id]
-    add_dir_args = ["--add-dir", str(paths.space_root())] if agent.provider != "codex" else []
+    if agent.provider == "codex":
+        add_dir_args: list[str] = []
+    elif agent.provider == "gemini":
+        # Gemini CLI uses --include-directories instead of --add-dir.
+        add_dir_args = ["--include-directories", str(paths.space_root())]
+    else:
+        add_dir_args = ["--add-dir", str(paths.space_root())]
     resume_args = _build_resume_args(agent.provider, session_id, is_continue)
 
     if agent.provider == "codex":
@@ -243,74 +253,17 @@ def _execute_spawn(cmd: list[str], context: str, agent, env: dict[str, str]) -> 
             os.unlink(context_file)
 
 
-def _extract_session_id_from_output(stdout: str, provider: str) -> str | None:
-    """Extract session_id from provider stdout immediately."""
-    if provider == "claude":
-        first_line = stdout.split("\n")[0] if stdout else ""
-        if first_line.strip():
-            return Claude.session_id_from_stream(first_line)
-    return None
-
-
-def _link_session_if_needed(spawn, session_id: str | None, provider: str) -> None:
+def _link_session(spawn, session_id: str | None, provider: str) -> None:
+    """Link spawn to session, discovering from JSONL if not provided."""
     from space.os.sessions.api import linker
 
-    if session_id:
-        linker.link_spawn_to_session(spawn.id, session_id)
-    else:
-        try:
-            discovered_session_id = _discover_recent_session(provider, spawn.created_at)
-            if discovered_session_id:
-                linker.link_spawn_to_session(spawn.id, discovered_session_id)
-        except Exception as e:
-            logger.debug(f"Session discovery failed (non-fatal): {e}")
-
-
-def _send_output_to_channel(stdout: str, agent, channel_name: str | None) -> None:
-    if not channel_name or not stdout.strip():
-        return
-
-    if agent.provider == "codex":
-        output_text = _parse_codex_output(stdout)
-    else:
-        output_text = stdout.strip()
-
-    if output_text:
-        from space.lib import store
-        from space.lib.uuid7 import uuid7
-
-        message_id = uuid7()
-        with store.ensure() as conn:
-            from space.os.bridge.api import channels
-
-            channel = channels.get_channel(channel_name)
-            if channel:
-                conn.execute(
-                    "INSERT INTO messages (message_id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
-                    (message_id, channel.channel_id, agent.agent_id, output_text),
-                )
-
-
-def _parse_codex_output(jsonl_output: str) -> str:
-    """Parse Codex JSONL output and extract agent message text."""
-    import json
-
-    messages = []
-    for line in jsonl_output.strip().split("\n"):
-        if not line.strip():
-            continue
-        try:
-            obj = json.loads(line)
-            if obj.get("type") == "item.completed":
-                item = obj.get("item", {})
-                if item.get("type") == "agent_message":
-                    text = item.get("text", "")
-                    if text:
-                        messages.append(text)
-        except json.JSONDecodeError:
-            continue
-
-    return "\n\n".join(messages) if messages else ""
+    try:
+        if not session_id:
+            session_id = _discover_recent_session(provider, spawn.created_at)
+        if session_id:
+            linker.link_spawn_to_session(spawn.id, session_id)
+    except Exception as e:
+        logger.debug(f"Session linking failed (non-fatal): {e}")
 
 
 def _resolve_executable(executable: str, env: dict[str, str]) -> str:
@@ -333,6 +286,11 @@ def _build_resume_args(provider: str, session_id: str | None, is_continue: bool)
 
     if provider == "codex":
         return ["resume", session_id]
+
+    if provider == "gemini":
+        # Gemini uses index-based resume (--resume 1, --resume latest), not session_id.
+        # Skip resume for now; session linking still works for observability.
+        return []
 
     return []
 

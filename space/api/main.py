@@ -179,14 +179,24 @@ async def get_agents():
 @app.get("/api/identity")
 async def get_human_identity():
     from space.lib import store
+    from space.os.spawn.api import agents
 
     try:
         with store.ensure() as conn:
-            row = conn.execute("SELECT identity FROM agents WHERE model IS NULL LIMIT 1").fetchone()
+            row = conn.execute(
+                "SELECT identity FROM agents WHERE model IS NULL AND archived_at IS NULL LIMIT 1"
+            ).fetchone()
 
         if row:
             return {"identity": row[0]}
-        return {"identity": "human"}
+        # No active human identity found; ensure a default exists.
+        try:
+            agents.register_agent("human", model=None)
+            return {"identity": "human"}
+        except Exception:
+            # Fallback to a sane default even if registration fails;
+            # downstream send_message will surface any real issues.
+            return {"identity": "human"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 

@@ -25,6 +25,8 @@ class Gemini(Provider):
     """Gemini provider: chat discovery and message parsing."""
 
     TMP_DIR = Path.home() / ".gemini" / "tmp"
+    SESSIONS_DIR = TMP_DIR
+    SESSION_FILE_PATTERN = "*/chats/session-*.json"
 
     @staticmethod
     def allowed_tools() -> list[str]:
@@ -53,12 +55,9 @@ class Gemini(Provider):
 
     @staticmethod
     def task_launch_args() -> list[str]:
-        """Return launch arguments for task-based Gemini execution.
-
-        Task mode uses stream-json output format, returns JSONL with session_id in first event.
-        """
+        """Return launch arguments for task-based Gemini execution."""
         allowed = Gemini.allowed_tools()
-        return ["--output-format", "stream-json", "--allowed-tools"] + allowed
+        return ["--yolo", "--allowed-tools"] + allowed
 
     @staticmethod
     def discover() -> list[dict]:
