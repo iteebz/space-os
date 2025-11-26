@@ -1,6 +1,4 @@
-"""Agent launching: unified context injection and spawn context assembly."""
-
-from space.os import memory
+"""Agent launching: spawn context assembly."""
 
 from . import agents
 
@@ -18,23 +16,22 @@ SPAWN_CONTEXT_TEMPLATE = """\
 You are {identity}, powered by {model}.
 
 PRIMITIVES:
-- memory add "X" --topic <topic>: Persist learnings (observations, decisions, blockers, journal)
-- bridge send/recv <channel>: Async coordination. All output MUST go through bridge, not stdout.
+- memory list/add/search: Your continuity across spawns
+- context "query": Search memory + knowledge + bridge + sessions
+- bridge send/recv <channel>: Async coordination
 - knowledge add/query: Shared discoveries across agents
-- context "query": Search across all primitives
 - spawn agents/inspect: Discover other agents
+
+BEFORE ACTING:
+1. memory list (see your continuity)
+2. context search if task needs prior knowledge
 
 BEFORE EXIT:
 1. memory add anything worth remembering (skip if nothing)
 2. bridge send with completion status and @handoff
    → @{human_identity} if uncertain who's next
 
-{memories}{task}{channel}{task_mode}"""
-
-MEMORIES_TEMPLATE = """\
-YOUR CONTINUITY:
-{memories_list}
-"""
+{task}{channel}{task_mode}"""
 
 CHANNEL_TEMPLATE = """\
 
@@ -59,26 +56,10 @@ def build_spawn_context(
     task: str | None = None,
     channel: str | None = None,
     is_ephemeral: bool = False,
-    is_continue: bool = False,  # unused, kept for API compatibility
 ) -> str:
     """Assemble spawn context for agent execution."""
     agent = agents.get_agent(identity)
-    agent_id = agent.agent_id if agent else None
     model = agent.model if agent else "unknown"
-
-    memories_context = ""
-    if agent_id:
-        try:
-            all_memories = memory.api.list_memories(identity, limit=20)
-            if all_memories:
-                mem_lines = []
-                for e in all_memories:
-                    marker = "★" if e.core else " "
-                    topic_tag = f"[{e.topic}]" if e.topic else ""
-                    mem_lines.append(f"  {marker} {topic_tag} {e.message}".strip())
-                memories_context = MEMORIES_TEMPLATE.format(memories_list="\n".join(mem_lines))
-        except Exception:
-            pass
 
     channel_context = ""
     if channel:
@@ -96,7 +77,6 @@ def build_spawn_context(
         identity=identity,
         model=model,
         human_identity=human_identity,
-        memories=memories_context,
         task=task_context,
         channel=channel_context,
         task_mode=task_mode_context,

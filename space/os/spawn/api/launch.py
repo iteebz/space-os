@@ -143,7 +143,6 @@ def _run_ephemeral(
         task=instruction_text,
         channel=channel_name,
         is_ephemeral=True,
-        is_continue=is_continue,
     )
     cmd = _build_spawn_command(agent, session_id, is_continue, image_paths=image_paths)
     stdout = _execute_spawn(cmd, context, agent, env)
