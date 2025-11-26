@@ -1,2 +1,2 @@
-export { useAgents, useAgentMap, useAgentIdentities } from './hooks'
-export type { Agent } from './types'
+export { useAgents, useAgent, useAgentMemories, useAgentMap, useAgentIdentities } from './hooks'
+export type { Agent, Memory } from './types'

@@ -162,11 +162,16 @@ async def get_spawns():
 
 @app.get("/api/agents")
 async def get_agents():
-    from space.os.spawn.api import agents
+    from space.lib import store
 
     try:
-        mapping = agents.agent_identities()
-        return [{"agent_id": aid, "identity": identity} for aid, identity in mapping.items()]
+        with store.ensure() as conn:
+            rows = conn.execute(
+                """SELECT agent_id, identity, model, constitution, role, spawn_count,
+                          created_at, last_active_at, archived_at
+                   FROM agents WHERE archived_at IS NULL ORDER BY identity"""
+            ).fetchall()
+        return [dict(row) for row in rows]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -208,6 +213,21 @@ def health_check():
             "error": db_error,
         },
     }
+
+
+@app.get("/api/agents/{identity}/memories")
+def get_agent_memories(identity: str, topic: str | None = None, limit: int = 50):
+    from dataclasses import asdict
+
+    from space.os.memory.api import operations as memory
+
+    try:
+        memories = memory.list_memories(identity, topic=topic, limit=limit)
+        return [asdict(m) for m in memories]
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/agents/{agent_id}/sessions")

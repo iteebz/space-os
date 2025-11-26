@@ -1,11 +1,24 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchApi } from '../../lib/api'
-import type { Agent } from './types'
+import type { Agent, Memory } from './types'
 
 export function useAgents() {
   return useQuery({
     queryKey: ['agents'],
     queryFn: () => fetchApi<Agent[]>('/agents'),
+  })
+}
+
+export function useAgent(identity: string | null) {
+  const { data: agents } = useAgents()
+  return agents?.find((a) => a.identity === identity) ?? null
+}
+
+export function useAgentMemories(identity: string | null) {
+  return useQuery({
+    queryKey: ['memories', identity],
+    queryFn: () => fetchApi<Memory[]>(`/agents/${identity}/memories`),
+    enabled: !!identity,
   })
 }
 
