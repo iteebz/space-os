@@ -6,6 +6,7 @@ import typer
 
 from space.cli import argv, output
 from space.cli.errors import error_feedback
+from space.cli.identity import resolve_identity
 from space.os import spawn
 from space.os.task import api
 from space.os.task.format import format_task_list
@@ -45,9 +46,9 @@ def add(
     project: Annotated[str | None, typer.Option("--project", help="Project/epic name")] = None,
 ):
     """Create new task."""
-    identity = ctx.obj.get("identity")
+    identity = resolve_identity(ctx.obj.get("identity"))
     if not identity:
-        raise typer.BadParameter("--as required")
+        raise typer.BadParameter("--as required or set SPACE_IDENTITY")
 
     agent = spawn.get_agent(identity)
     if not agent:
@@ -108,9 +109,9 @@ def start(
     remove: bool = typer.Option(False, "-r", "--remove", help="Unclaim task"),
 ):
     """Claim task or unclaim if -r."""
-    identity = ctx.obj.get("identity")
+    identity = resolve_identity(ctx.obj.get("identity"))
     if not identity:
-        raise typer.BadParameter("--as required")
+        raise typer.BadParameter("--as required or set SPACE_IDENTITY")
 
     agent = spawn.get_agent(identity)
     if not agent:
@@ -134,9 +135,9 @@ def done(
     task_id: str = typer.Argument(..., help="Task ID to complete"),
 ):
     """Mark task as complete."""
-    identity = ctx.obj.get("identity")
+    identity = resolve_identity(ctx.obj.get("identity"))
     if not identity:
-        raise typer.BadParameter("--as required")
+        raise typer.BadParameter("--as required or set SPACE_IDENTITY")
 
     agent = spawn.get_agent(identity)
     if not agent:

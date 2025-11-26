@@ -99,7 +99,7 @@ def spawn_ephemeral(
 
     env = build_launch_env()
     env["SPACE_SPAWN_ID"] = spawn.id
-    env["SPACE_AGENT_IDENTITY"] = identity
+    env["SPACE_IDENTITY"] = identity
 
     channel = channels.get_channel(channel_id) if channel_id else None
     channel_name = channel.name if channel else None

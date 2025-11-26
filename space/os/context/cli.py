@@ -6,6 +6,7 @@ import typer
 
 from space.cli import output
 from space.cli.errors import error_feedback
+from space.cli.identity import resolve_identity
 from space.os.context import display
 from space.os.context.api import collect_current_state, collect_timeline
 
@@ -46,8 +47,9 @@ def search(
         )
         raise typer.Exit(1)
 
-    timeline = collect_timeline(query, identity, all_agents)
-    current_state = collect_current_state(query, identity, all_agents)
+    resolved_identity = resolve_identity(identity)
+    timeline = collect_timeline(query, resolved_identity, all_agents)
+    current_state = collect_current_state(query, resolved_identity, all_agents)
 
     if scope != "all":
         timeline = [item for item in timeline if item["source"].lower() == scope.lower()]

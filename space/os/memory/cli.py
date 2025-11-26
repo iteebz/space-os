@@ -7,6 +7,7 @@ import typer
 
 from space.cli import argv, output
 from space.cli.errors import error_feedback
+from space.cli.identity import resolve_identity
 from space.os import spawn
 from space.os.context import display
 from space.os.memory import api
@@ -54,9 +55,9 @@ def add(
     Example:
       memory add "Fix bug in caching layer" --topic observations --as sentinel
     """
-    ident = ctx.obj.get("identity")
+    ident = resolve_identity(ctx.obj.get("identity"))
     if not ident:
-        raise typer.BadParameter("--as required")
+        raise typer.BadParameter("--as required or set SPACE_IDENTITY")
     agent = spawn.get_agent(ident)
     if not agent:
         raise typer.BadParameter(f"Identity '{ident}' not registered.")
@@ -99,9 +100,9 @@ def list_cmd(
     ),
 ):
     """List memories for agent (--topic to filter)."""
-    identity = ctx.obj.get("identity")
+    identity = resolve_identity(ctx.obj.get("identity"))
     if not identity:
-        raise typer.BadParameter("--as required")
+        raise typer.BadParameter("--as required or set SPACE_IDENTITY")
     try:
         entries = api.list_memories(identity, topic=topic, show_all=show_all)
     except ValueError as e:
@@ -135,9 +136,9 @@ def search(
     Example:
       memory search "caching" --as sentinel
     """
-    ident = ctx.obj.get("identity")
+    ident = resolve_identity(ctx.obj.get("identity"))
     if not ident:
-        raise typer.BadParameter("--as required")
+        raise typer.BadParameter("--as required or set SPACE_IDENTITY")
     try:
         agent = spawn.get_agent(ident)
         if not agent:

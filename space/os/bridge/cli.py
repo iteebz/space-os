@@ -11,6 +11,7 @@ import typer
 
 from space.cli import argv, output
 from space.cli.errors import error_feedback
+from space.cli.identity import resolve_identity
 from space.os import spawn
 from space.os.bridge import api
 
@@ -58,9 +59,7 @@ echo_if_output = output.echo_text
 
 def _resolve_identity(ctx) -> str | None:
     """Resolve identity from --as flag, env var, or None."""
-    import os
-
-    return ctx.obj.get("identity") or os.environ.get("SPACE_AGENT_IDENTITY")
+    return resolve_identity(ctx.obj.get("identity"))
 
 
 app = typer.Typer(invoke_without_command=True, add_completion=False)
@@ -390,7 +389,7 @@ def wait(
     try:
         identity = _resolve_identity(ctx)
         if not identity:
-            raise ValueError("Identity required: use --as or set SPACE_AGENT_IDENTITY")
+            raise ValueError("Identity required: use --as or set SPACE_IDENTITY")
         agent = spawn.get_agent(identity)
         if not agent:
             raise ValueError(f"Identity '{identity}' not registered.")
@@ -437,7 +436,7 @@ def handoff(
     try:
         identity = _resolve_identity(ctx)
         if not identity:
-            raise ValueError("Identity required: use --as or set SPACE_AGENT_IDENTITY")
+            raise ValueError("Identity required: use --as or set SPACE_IDENTITY")
 
         to_identity = target.lstrip("@")
 
@@ -468,7 +467,7 @@ def inbox(
     try:
         identity = _resolve_identity(ctx)
         if not identity:
-            raise ValueError("Identity required: use --as or set SPACE_AGENT_IDENTITY")
+            raise ValueError("Identity required: use --as or set SPACE_IDENTITY")
 
         pending = handoffs.list_pending(to_identity=identity, channel=channel)
 

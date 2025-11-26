@@ -7,6 +7,7 @@ import typer
 
 from space.cli import argv, output
 from space.cli.errors import error_feedback
+from space.cli.identity import resolve_identity
 from space.os import spawn
 from space.os.knowledge import api
 
@@ -48,9 +49,9 @@ def add(
     """
     from space.lib.paths import validate_domain_path
 
-    contributor = ctx.obj.get("identity")
+    contributor = resolve_identity(ctx.obj.get("identity"))
     if not contributor:
-        raise typer.BadParameter("--as required")
+        raise typer.BadParameter("--as required or set SPACE_IDENTITY")
 
     valid, error = validate_domain_path(domain)
     if not valid:
