@@ -103,14 +103,15 @@ def set_pid(spawn_id: str, pid: int) -> None:
         conn.execute("UPDATE spawns SET pid = ? WHERE id = ?", (pid, spawn_id))
 
 
+SPAWN_TIMEOUT_MINUTES = 10
+STALL_THRESHOLD_MINUTES = 3
+
+
 def cleanup_orphans() -> int:
     """Mark spawns with dead PIDs as failed. Returns count cleaned."""
     import os
-    from datetime import datetime, timedelta
 
     cleaned = 0
-    (datetime.now() - timedelta(hours=1)).isoformat()
-
     with store.ensure() as conn:
         rows = conn.execute("SELECT id, pid FROM spawns WHERE status = 'running'").fetchall()
 
@@ -126,6 +127,45 @@ def cleanup_orphans() -> int:
                 cleaned += 1
 
     return cleaned
+
+
+def detect_failures() -> dict[str, list[str]]:
+    """Detect running spawns that are timed out or stalled. Returns {issue: [spawn_ids]}."""
+    from datetime import datetime, timedelta
+
+    now = datetime.now()
+    timeout_cutoff = (now - timedelta(minutes=SPAWN_TIMEOUT_MINUTES)).isoformat()
+    stall_cutoff = (now - timedelta(minutes=STALL_THRESHOLD_MINUTES)).isoformat()
+
+    issues: dict[str, list[str]] = {"timeout": [], "stalled": [], "no_session": []}
+
+    with store.ensure() as conn:
+        rows = conn.execute(
+            "SELECT id, pid, session_id, created_at FROM spawns WHERE status = 'running'"
+        ).fetchall()
+
+    for spawn_id, pid, session_id, created_at in rows:
+        if created_at < timeout_cutoff:
+            issues["timeout"].append(spawn_id)
+        elif session_id is None and created_at < stall_cutoff:
+            issues["no_session"].append(spawn_id)
+        elif session_id:
+            if _session_stalled(session_id, stall_cutoff):
+                issues["stalled"].append(spawn_id)
+
+    return issues
+
+
+def _session_stalled(session_id: str, cutoff: str) -> bool:
+    """Check if session file hasn't been modified since cutoff."""
+    from space.lib import paths
+
+    for provider in ("claude", "gemini", "codex"):
+        session_file = paths.sessions_dir() / provider / f"{session_id}.jsonl"
+        if session_file.exists():
+            mtime = datetime.fromtimestamp(session_file.stat().st_mtime).isoformat()
+            return mtime < cutoff
+    return False
 
 
 def link_session_to_spawn(spawn_id: str, session_id: str) -> None:

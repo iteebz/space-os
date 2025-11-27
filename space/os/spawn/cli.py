@@ -149,6 +149,7 @@ def main_callback(
             "list",
             "run",
             "cleanup",
+            "health",
             "logs",
             "abort",
             "trace",
@@ -575,6 +576,35 @@ def cleanup():
 
 @app.command()
 @error_feedback
+def health():
+    """Check for timed out or stalled spawns."""
+    issues = spawns.detect_failures()
+
+    total = sum(len(v) for v in issues.values())
+    if total == 0:
+        typer.echo("✓ All spawns healthy")
+        return
+
+    if issues["timeout"]:
+        typer.echo(f"⚠️  Timed out ({spawns.SPAWN_TIMEOUT_MINUTES}m+):")
+        for sid in issues["timeout"]:
+            typer.echo(f"   {sid[:8]}")
+
+    if issues["no_session"]:
+        typer.echo(f"⚠️  No session file ({spawns.STALL_THRESHOLD_MINUTES}m+):")
+        for sid in issues["no_session"]:
+            typer.echo(f"   {sid[:8]}")
+
+    if issues["stalled"]:
+        typer.echo(f"⚠️  Stalled (no output {spawns.STALL_THRESHOLD_MINUTES}m+):")
+        for sid in issues["stalled"]:
+            typer.echo(f"   {sid[:8]}")
+
+    typer.echo(f"\nTotal: {total} issue(s)")
+
+
+@app.command()
+@error_feedback
 def trace(query: str = typer.Argument(None)):
     """Trace execution: agent spawns, session context, or channel activity.
 
@@ -640,6 +670,7 @@ def main() -> None:
                 "list",
                 "run",
                 "cleanup",
+                "health",
                 "logs",
                 "abort",
                 "trace",
