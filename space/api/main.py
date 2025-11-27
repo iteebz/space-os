@@ -31,7 +31,7 @@ app.add_middleware(
 
 class SendMessage(BaseModel):
     content: str
-    sender: str = "human"
+    sender: str | None = None
 
 
 class CreateChannel(BaseModel):
@@ -181,7 +181,6 @@ async def get_agents():
 @app.get("/api/identity")
 async def get_human_identity():
     from space.lib import store
-    from space.os.spawn.api import agents
 
     try:
         with store.ensure() as conn:
@@ -191,14 +190,11 @@ async def get_human_identity():
 
         if row:
             return {"identity": row[0]}
-        # No active human identity found; ensure a default exists.
-        try:
-            agents.register_agent("human", model=None)
-            return {"identity": "human"}
-        except Exception:
-            # Fallback to a sane default even if registration fails;
-            # downstream send_message will surface any real issues.
-            return {"identity": "human"}
+        # No active human identity found; require explicit initialization.
+        raise HTTPException(
+            status_code=404,
+            detail="No human identity configured. Run 'space init' then 'space identity set <name>'.",
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -376,10 +372,18 @@ async def upload_image(file: UploadFile):
 
 @app.post("/api/channels/{channel}/messages")
 async def send_message(channel: str, body: SendMessage):
+    from space.lib import store
     from space.os.bridge.api import messaging
 
     try:
-        message_id = await messaging.send_message(channel, body.sender, body.content)
+        sender = body.sender
+        if not sender:
+            with store.ensure() as conn:
+                row = conn.execute(
+                    "SELECT identity FROM agents WHERE (model IS NULL OR model = '') AND archived_at IS NULL LIMIT 1"
+                ).fetchone()
+            sender = row[0] if row else "human"
+        message_id = await messaging.send_message(channel, sender, body.content)
         return {"ok": True, "message_id": message_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e

@@ -302,7 +302,15 @@ def send(
     import asyncio
 
     try:
-        identity = _resolve_identity(ctx) or "human"
+        identity = _resolve_identity(ctx)
+        if not identity:
+            from space.lib import store
+
+            with store.ensure() as conn:
+                row = conn.execute(
+                    "SELECT identity FROM agents WHERE (model IS NULL OR model = '') AND archived_at IS NULL LIMIT 1"
+                ).fetchone()
+            identity = row[0] if row else "human"
         agent = spawn.get_agent(identity)
         if not agent:
             raise ValueError(f"Identity '{identity}' not registered.")

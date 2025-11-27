@@ -17,7 +17,7 @@ export function ComposeBox({ channel }: Props) {
   const textareaRef = useRef<globalThis.HTMLTextAreaElement>(null)
   const fileInputRef = useRef<globalThis.HTMLInputElement>(null)
   const { data: identityData } = useHumanIdentity()
-  const humanIdentity = identityData?.identity ?? 'human'
+  const humanIdentity = identityData?.identity
   const { mutate: send, isPending } = useSendMessage(channel, humanIdentity)
   const { data: agents = [] } = useAgents()
   const { data: channels = [] } = useChannels()
@@ -32,10 +32,13 @@ export function ComposeBox({ channel }: Props) {
       messageContent = `${imagePaths}\n\n${messageContent}`
     }
 
-    send(messageContent)
-    setContent('')
-    setUploadedImages([])
-    setShowAutocomplete(false)
+    send(messageContent, {
+      onSuccess: () => {
+        setContent('')
+        setUploadedImages([])
+        setShowAutocomplete(false)
+      }
+    })
   }
 
   const handleFileSelect = async (e: React.ChangeEvent<globalThis.HTMLInputElement>) => {

@@ -4,11 +4,13 @@ from . import agents
 
 
 def _get_human_identity() -> str:
-    """Get current human identity (agent with model=NULL)."""
+    """Get current human identity (agent with model=NULL or empty string)."""
     from space.lib import store
 
     with store.ensure() as conn:
-        row = conn.execute("SELECT identity FROM agents WHERE model IS NULL LIMIT 1").fetchone()
+        row = conn.execute(
+            "SELECT identity FROM agents WHERE (model IS NULL OR model = '') AND archived_at IS NULL LIMIT 1"
+        ).fetchone()
     return row[0] if row else "human"
 
 
@@ -45,18 +47,18 @@ LIFECYCLE:
 3. Discuss with other agents BEFORE implementing (if multi-agent)
 4. Work, bridge send progress
 5. When YOUR work is done: bridge handoff {channel} <next-agent> "summary"
-6. When ALL work is done: bridge send {channel} "@human <summary>"
+6. When ALL work is done: bridge send {channel} "@{human_identity} <summary>"
 
 ESCALATION:
-- @human = task complete OR blocked, needs human
+- @{human_identity} = task complete OR blocked, needs human
 - bridge handoff = passing to specific agent
-- Do NOT @human until work is actually done or you're truly blocked
+- Do NOT @{human_identity} until work is actually done or you're truly blocked
 
 EXIT RULES:
-1. After YOU post @human → TERMINATE immediately
-2. If ANOTHER AGENT posts @human (task complete) → TERMINATE (don't respond to completion)
+1. After YOU post @{human_identity} → TERMINATE immediately
+2. If ANOTHER AGENT posts @{human_identity} (task complete) → TERMINATE (don't respond to completion)
 3. After YOU handoff to another agent → TERMINATE (your part done)
-Note: @human in the ORIGINAL TASK doesn't count - only agent completion messages."""
+Note: @{human_identity} in the ORIGINAL TASK doesn't count - only agent completion messages."""
 
 TASK_TEMPLATE = """\
 
@@ -74,15 +76,17 @@ def build_spawn_context(
     agent = agents.get_agent(identity)
     model = agent.model if agent else "unknown"
 
+    human_identity = _get_human_identity()
+
     channel_context = ""
     if channel:
-        channel_context = CHANNEL_TEMPLATE.format(channel=channel, identity=identity)
+        channel_context = CHANNEL_TEMPLATE.format(
+            channel=channel, identity=identity, human_identity=human_identity
+        )
 
     task_context = ""
     if task:
         task_context = TASK_TEMPLATE.format(task=task)
-
-    human_identity = _get_human_identity()
 
     return SPAWN_CONTEXT_TEMPLATE.format(
         identity=identity,

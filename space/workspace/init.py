@@ -67,8 +67,9 @@ def init_default_agents():
         return
 
     with store.ensure():
+        # Create canonical human identity once (no model = human; role marks intent).
         with contextlib.suppress(ValueError):
-            spawn.register_agent("human", "human", None)
+            spawn.register_agent("human", model=None, constitution=None, role="human")
 
         for const_file in constitution_files:
             if const_file.name == "README.md":

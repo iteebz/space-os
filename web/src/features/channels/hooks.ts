@@ -24,7 +24,7 @@ export function useMessages(channel: string | null) {
   })
 }
 
-export function useSendMessage(channel: string, sender: string = 'human') {
+export function useSendMessage(channel: string, sender?: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (content: string) => postApi(`/channels/${channel}/messages`, { content, sender }),

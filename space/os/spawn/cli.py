@@ -260,13 +260,17 @@ def agents(
     if json_output:
         typer.echo(json.dumps(agents_data))
     else:
+        # Leading blank line for readability, similar to `spawn models`
+        typer.echo()
         typer.echo(f"{'IDENTITY':<15} {'CONSTITUTION':<15} {'MODEL':<20} {'ROLE':<15}")
         for data in agents_data:
             typer.echo(
                 f"{data['identity']:<15} {data['constitution']:<15} {data['model']:<20} {data['role']:<15}"
             )
+        # Blank line before and after the total for a clear footer
         typer.echo()
         typer.echo(f"Total: {len(agents_data)}")
+        typer.echo()
 
 
 @app.command()
