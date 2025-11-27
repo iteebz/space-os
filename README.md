@@ -19,8 +19,6 @@ Coordination substrate for existing agent CLIs.
 
 Seven coordination primitives, single database (`space.db`), message-based coordination.
 
-**Human interface:** See [space-cmd](https://github.com/teebz/space-cmd) for the TUI command center (observability + steering).
-
 ## Design
 
 **Data hierarchy:**
@@ -33,7 +31,7 @@ knowledge  — shared truth (multi-agent writes)
   ↓
 memory     — working state (single-agent writes)
   ↓
-bridge     — ephemeral coordination (conversation until consensus)
+bridge     — async coordination (conversation until consensus)
   ↓
 spawn      — identity registry (constitutional provenance)
 ```
@@ -41,71 +39,61 @@ spawn      — identity registry (constitutional provenance)
 **Storage:** `.space/` directory (workspace-local)
 ```
 .space/
-├── space.db       # unified schema (agents, channels, messages, memories, knowledge, tasks, spawns, sessions)
-├── spawns/…       # per-identity constitution (isolated per spawn)
+├── space.db       # unified schema
 └── sessions/…     # synced provider chat files (Claude, Gemini, Codex)
 ```
 
 **Principles:**
-- Coordination substrate, not agent framework (connects existing agent CLIs)
+- Coordination substrate, not agent framework
 - Composable primitives over monolithic frameworks
 - Workspace sovereignty (no cloud dependencies)
-- Message passing, not orchestration (agents coordinate via conversation)
-- Constitutional identity as routing primitive (spawn layer)
+- Message passing, not orchestration
+- Constitutional identity as routing primitive
 - Filesystem as source of truth
 
-See [docs/architecture.md](docs/architecture.md) for design details, [canon/metaspace/cli-pattern.md](/Users/teebz/space/canon/metaspace/cli-pattern.md) for CLI context injection, [canon/metaspace/spawn-patterns.md](/Users/teebz/space/canon/metaspace/spawn-patterns.md) for ephemeral agent coordination.
+See [docs/architecture.md](docs/architecture.md) for design details.
 
 ## Spawn Patterns
 
-**Direct spawn** — Run existing agent CLI by constitutional identity:
+**Register agent:**
 ```bash
-spawn register zealot zealot-1 --model claude-sonnet-4
-zealot-1 "your task here"  # invokes claude-code with identity + channel context
+spawn register zealot-1 --constitution zealot --model claude-sonnet-4
 ```
 
-**@mention spawn** — Message triggers agent CLI invocation:
+**@mention spawn:**
 ```bash
-bridge send research "@zealot-1 analyze this proposal" --as you
-# System invokes zealot-1's agent CLI, injects channel context, posts reply to bridge
+bridge send research "@zealot-1 analyze this proposal" --as tyson
+# System spawns zealot-1 with channel context, posts reply to bridge
 ```
 
-**Task-based spawn** — Create task, agent executes:
+**Track execution:**
 ```bash
-spawn tasks
-spawn logs <spawn-id>      # track execution
-spawn kill <spawn-id>      # stop running task
+spawn list                     # list running spawns
+spawn logs <spawn-id>          # view session output
+spawn abort <spawn-id>         # terminate spawn
 ```
 
-**Session ingestion** — Discover and sync from providers:
+**Sync sessions:**
 ```bash
-sessions sync           # discover claude/gemini/codex sessions
-sessions <spawn-id>     # view full session transcript
+sessions sync                  # discover claude/gemini/codex sessions
+sessions query <spawn-id>      # view session transcript
 ```
 
 ## Core Workflows
 
-**Coordinate asynchronously:**
+**Coordinate via bridge:**
 ```bash
-# Send message to channel
 bridge send research "proposal for review" --as zealot-1
-
-# Read unread channels
-bridge inbox --as zealot-1
-
-# Unified context search (memory + knowledge + bridge + canon)
-context search "your query" --as zealot-1
+bridge recv research --as zealot-1
+bridge handoff research @sentinel "review complete" --as zealot-1
+bridge inbox --as sentinel
 ```
 
 **Manage memory and knowledge:**
 ```bash
-# Private working context (agent-specific)
-memory add --as zealot-1 --topic arch "core insight"
-memory list --as zealot-1
-
-# Shared discoveries (multi-agent, domain-indexed)
-knowledge add --domain architecture --as zealot-1 "shared discovery"
-knowledge query --domain architecture
+memory add "completed auth module" --topic tasks --as zealot-1
+knowledge add architecture/auth "JWT uses sliding window" --as zealot-1
+context "auth" --as zealot-1
 ```
 
 ## CLI Reference
@@ -113,13 +101,13 @@ knowledge query --domain architecture
 Run `<command> --help` for full options.
 
 **Primitives:**
-- `spawn` — agent registry, constitutional identity, tracing, task tracking
-- `bridge` — async channels, messages, coordination
+- `spawn` — agent registry, constitutional identity, tracing
+- `bridge` — async channels, messages, handoffs
 - `memory` — private working context
 - `knowledge` — shared discoveries
-- `task` — shared work ledger, project-scoped coordination
-- `context` — unified search across all primitives
-- `sessions` — query and sync provider chat history (Claude, Gemini, Codex)
+- `task` — shared work ledger
+- `context` — unified search
+- `sessions` — provider chat history
 
 **Utilities:**
 - `space` — workspace management (init, health, stats, backup)
@@ -128,21 +116,19 @@ Run `<command> --help` for full options.
 ## Development
 
 ```bash
-poetry install                              # includes dev dependencies
-poetry run pytest                           # run tests
-poetry run ruff format .                    # format
-poetry run ruff check . --fix               # lint + fix
+poetry install
+just ci                        # format, lint, typecheck, test
 ```
 
 ## Philosophy
 
-**Coordination substrate, not agent framework.** We don't invoke LLMs. We connect agent CLIs (Claude Code, Gemini CLI, Codex) via message passing.
+**Coordination substrate, not agent framework.** We don't invoke LLMs. We connect agent CLIs via message passing.
 
-**Cognitive multiplicity over task automation.** Constitutional identities as frames, not workers. Humans conduct multiple perspectives simultaneously. **Target: 1:100 human-to-agent coordination.** Current validation: 1:10 scale via protoss trials.
+**Cognitive multiplicity over task automation.** Constitutional identities as frames, not workers. **Target: 1:100 human-to-agent coordination.**
 
-**Primitives over platforms.** Composable layers that combine into coordination substrate, not monolithic framework.
+**Primitives over platforms.** Composable layers, not monolithic framework.
 
-**Workspace sovereignty.** All data local in `.space/`. Full control over cognitive infrastructure.
+**Workspace sovereignty.** All data local in `.space/`.
 
 **Message passing over orchestration.** Agents coordinate via conversation until consensus. No DAGs, no task queues, no control plane.
 

@@ -10,8 +10,6 @@ High-level design of space-os primitives and data flows.
 
 Seven coordination primitives, single database (`space.db`), message-based coordination.
 
-Agents coordinate asynchronously via message passing (bridge), maintain private working context (memory), build shared discoveries (knowledge), claim work from a shared ledger (task), search across all subsystems (context), and execute via constitutional identity (spawn). Constitutional identity provides the agent registry with immutable provenance.
-
 **Design principle:** Message passing, not orchestration. Agents are fully autonomous. Coordination emerges through shared communication channels and collective knowledge.
 
 ## Data Hierarchy
@@ -25,67 +23,61 @@ knowledge  — shared truth (multi-agent writes)
   ↓
 memory     — working state (single-agent writes)
   ↓
-bridge     — ephemeral coordination (conversation until consensus)
+bridge     — async coordination (conversation until consensus)
   ↓
 spawn      — identity registry (constitutional provenance)
 ```
 
-Pattern: Bridge → Memory → Knowledge (information flows "down" as consensus solidifies)
+Pattern: Bridge → Memory → Knowledge (information flows down as consensus solidifies)
 
 ## Primitives
 
-For detailed information and CLI reference:
+- [Spawn](spawn.md) — agent registry, constitutional identity, spawn tracking
+- [Bridge](bridge.md) — async coordination channels, handoffs
+- [Memory](memory.md) — private working context
+- [Knowledge](knowledge.md) — shared discoveries
+- [Task](task.md) — shared work ledger
+- [Sessions](sessions.md) — provider chat history
+- [Context](context.md) — unified search
+- [Constitutions](constitutions.md) — identity injection
 
-- [Spawn](spawn.md) — agent registry, constitutional identity, task/spawn tracking
-- [Bridge](bridge.md) — async coordination channels (append-only, bookmarks)
-- [Memory](memory.md) — private working context (identity-scoped, topic-sharded)
-- [Knowledge](knowledge.md) — shared discoveries (domain-indexed, immutable)
-- [Task](task.md) — shared work ledger (project-scoped, agent-claimable)
-- [Sessions](sessions.md) — provider-native chat history (Claude, Gemini, Codex)
-- [Context](context.md) — unified query primitive (search across all primitives, no dedicated storage)
+## Execution
 
-## Execution Patterns
-
-**Direct spawn** — Run agent by registered identity:
+**@mention spawn:**
 ```bash
-zealot-1 "task"
+bridge send research "@zealot-1 analyze proposal" --as tyson
+# System builds prompt from channel context + constitution, spawns agent, posts reply
 ```
 
-**@mention spawn** — Message with @identity triggers agent:
+**Spawn tracking:**
 ```bash
-bridge send channel "@zealot-1 analyze proposal" --as you
-# System builds prompt from channel context, spawns agent, posts reply
+spawn list                    # list spawns
+spawn logs <spawn-id>         # view session output
+spawn abort <spawn-id>        # terminate
 ```
 
-**Task tracking** — Create, monitor, kill tasks:
+**Session sync:**
 ```bash
-spawn tasks
-spawn logs <task-id>
-```
-
-**Session ingestion** — Discover and sync from providers:
-```bash
-sessions sync         # claude/gemini/codex sessions
+sessions sync                 # discover provider sessions
 ```
 
 ## Storage
 
 **Single database:** `.space/space.db` (SQLite)
 
-Each primitive owns its schema (see table definitions in primitive docs). Canonical full schema: `space/core/migrations/001_foundation.sql`
+Each primitive owns its schema. See table definitions in primitive docs.
 
 ## Coordination Flow
 
-1. **Send** — Agent A posts message to channel
-   - `bridge.send(channel_id, agent_id, "message")`
+1. **Send** — Agent posts message to channel
    - Message appended (immutable)
+   - @mentions trigger spawns
    
-2. **Read** — Agent B reads unread messages
-   - `bridge.recv(channel_id, agent_id)`
-   - Bookmark updated (last_seen_id)
-   - @mentions extracted, agents spawned if present
+2. **Read** — Agent reads channel
+   - Bookmark updated
+   - Context injected at spawn time
 
-3. **Consolidate** — Insights move down the hierarchy
-   - Bridge → ephemeral discussion
-   - Memory → working notes (if single agent)
-   - Knowledge → shared discovery (if consensus reached)
+3. **Consolidate** — Insights flow down hierarchy
+   - Bridge → discussion
+   - Memory → working notes
+   - Knowledge → shared discovery

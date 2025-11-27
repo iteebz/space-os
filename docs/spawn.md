@@ -1,108 +1,85 @@
 # Spawn — Agent Registry & Execution
 
-Agent identity, constitutional provenance, and task lifecycle.
+Agent identity, constitutional provenance, and spawn lifecycle.
 
 ## What
 
-- **Registry** — Persistent agent identity with model, constitution, provider
-- **Constitutional injection** — Identity-specific instructions loaded at spawn time
-- **Task tracking** — Create, monitor, and manage agent execution tasks
-- **Dynamic CLI** — Register agents, then invoke them as CLI commands: `zealot-1 "task"`
+- **Registry** — Persistent agent identity with model, constitution, role
+- **Constitutional injection** — Identity-specific instructions loaded at spawn time from `canon/constitutions/`
+- **Spawn tracking** — Monitor running agents, view logs, abort execution
+- **Tracing** — Unified execution introspection across agents, sessions, channels
 
 ## CLI
 
 ```bash
-spawn register <identity> <constitution> --model <model>
-spawn agents            # list all agents (registered and orphaned)
-spawn models            # show available LLM models
-spawn inspect <identity>
+spawn register <identity> [--model X] [--constitution Y] [--role Z]
+spawn agents                    # list registered and orphaned agents
+spawn models                    # show available LLM models
+spawn inspect <identity>        # view agent details and constitution
 spawn rename <old> <new>
-spawn clone <identity> <new-identity>
+spawn clone <identity> <new>
 spawn update <identity> [--constitution X] [--model Y] [--role Z]
 spawn merge <source> <target>
-spawn tasks             # list all spawns (filter by status/identity)
-spawn logs <spawn-id>   # view spawn details
-spawn kill <spawn-id>   # stop running spawn
-spawn trace <identity|spawn-id|channel>  # trace execution
+spawn list [--status X] [--identity Y] [--all]
+spawn logs <spawn-id> [--tail N] [--follow]
+spawn abort <spawn-id>
+spawn trace <query>             # agent:X, session:X, or channel:X
 ```
 
-For full options: `spawn --help`
+## Human Identity
 
-## Execution Modes
+Register yourself as a human identity (no model):
 
-**Interactive** — Agent has a terminal session, human provides feedback mid-execution:
 ```bash
-zealot-1 "initial task"
-# Opens provider CLI (Claude, Gemini, Codex)
-# Agent can ask clarifying questions, you respond interactively
-# When done, agent exits and spawn completes
+spawn register tyson --role human
 ```
 
-**Ephemeral** — Agent executes headless, reports results back to bridge:
+Agents with no model are treated as human identities. The web frontend and API use this to identify the human coordinator.
+
+## Execution
+
+Agents spawn via @mention in bridge channels:
+
 ```bash
-bridge send channel "@zealot-1 implement auth" --as you
-# System spawns zealot-1 without terminal
-# Agent reads channel history + memory, executes, posts result to channel
-# Agent exits, spawn records session to database
+bridge send research "@zealot-1 analyze this proposal" --as tyson
 ```
 
-Use interactive for exploratory work. Use ephemeral for coordination (workers in parallel, batch processing, etc.).
+System builds prompt from channel context + constitution, spawns agent headless, posts result to channel.
 
-## Execution Patterns
+## Spawn Tracking
 
-**Direct interactive** — Run agent and interact:
 ```bash
-zealot-1 "task or question"
-```
-
-**@mention spawning (ephemeral)** — Message triggers agent in bridge:
-```bash
-bridge send research "@zealot-1 analyze this proposal" --as you
-# System spawns zealot-1 ephemerally with channel context
-# Zealot reads bridge history, executes, posts result
-```
-
-**Task tracking** — Monitor spawn execution:
-```bash
-spawn tasks              # list all spawns
-spawn logs <task-id>     # view output + stderr
-spawn kill <task-id>     # stop running task
-```
-
-**Parallel spawning** — Agent spawns sub-agents (ephemeral workers):
-```bash
-# In agent code:
-spawn_ephemeral("worker-1", instruction="auth module", channel_id=channel)
-spawn_ephemeral("worker-2", instruction="db module", channel_id=channel)
-# Both execute in parallel, report back to same channel
+spawn list                      # pending and running spawns
+spawn list --all                # include completed/failed/timeout
+spawn list --identity zealot    # filter by agent
+spawn logs <spawn-id>           # spawn details + session output
+spawn logs <spawn-id> --tail 50 # last 50 lines
+spawn logs <spawn-id> --follow  # tail active session
+spawn abort <spawn-id>          # terminate running spawn
 ```
 
 ## Tracing
 
-Unified execution introspection: see what agents are doing, when they spawned, how long they ran.
+Unified execution introspection. Query by agent, session, or channel:
 
 ```bash
-spawn trace zealot-1                # trace agent: recent spawns, status, last active
-spawn trace <spawn-id>              # trace spawn: full execution details
-spawn trace #research               # trace channel: all agents active in channel
+spawn trace agent:zealot        # agent's recent spawns
+spawn trace session:7a6a07de    # session context and messages
+spawn trace channel:research    # all agents active in channel
 ```
 
-Use `spawn logs <spawn-id>` for detailed output. Use `spawn trace` for overview.
+Implicit syntax supported (auto-infers type): `spawn trace zealot`
 
 ## Storage
 
 **Agents:**
-- `agents` table — identity, model, constitution, provider, created_at, last_active_at, archived_at
+- `agents` table — agent_id, identity, model, constitution, role, created_at, last_active_at, archived_at
 
-**Spawns (execution instances):**
-- `spawns` table — spawn_id, agent_id, session_id (nullable), channel_id, constitution_hash, is_task, status, pid, created_at, ended_at
+**Spawns:**
+- `spawns` table — spawn_id, agent_id, session_id, channel_id, constitution_hash, status, pid, created_at, ended_at
 - Status: pending, running, paused, completed, failed, timeout
-- `is_task`: True for bridge mentions / headless, False for interactive terminal spawns
-- `session_id`: Links to provider session (Claude/Gemini/Codex) — optional for interactive spawns, required for task spawns
+- `session_id`: Links to provider session (Claude/Gemini/Codex)
 
-**Sessions (provider-native):**
-- `sessions` table — session_id, provider, model, message_count, input_tokens, output_tokens, tool_count, source_path, source_mtime, first_message_at, last_message_at
-- Provider: claude, gemini, or codex
-- One session per agent execution (spawns link to sessions)
-
-See [sessions.md](sessions.md) for details.
+**Constitutions:**
+- Stored in `canon/constitutions/{constitution}.md`
+- Loaded and injected at spawn time

@@ -1,64 +1,34 @@
-# Task — Shared Planning Surface
+# Task — Shared Work Ledger
 
-Coordination primitive for explicit work assignment and agent self-organization. Complementary to bridge's conversational coordination.
-
-Humans post work → agents read and claim → humans see status. Prevents duplication, enables 1:100 swarm operations.
+Project-scoped task coordination. Humans post work, agents claim and complete. Prevents duplication at scale.
 
 ## What
 
 - **Project-scoped** — Organize by epic or domain
-- **Agent-optional** — Create unassigned (backlog) or pre-assigned
+- **Agent-claimable** — Create unassigned, agents claim with `start`
 - **Status-tracked** — open, in_progress, done
-- **Timestamped** — created_at, started_at, completed_at
 
 ## CLI
 
 ```bash
-# Create task (unassigned backlog)
-task add "Research activation transfer" --project space-os
-task add "Implement spawn.register UUID validation" --project space-os
-
-# Create task (pre-assigned)
-task add "Review PR #47" --as sentinel --project claude-6
-
-# List tasks
-task list                           # all open tasks, all projects
-task list --project space-os        # open in space-os
-task list --as zealot               # zealot's open tasks
-task list --as zealot --project space-os  # zealot's in space-os
-task list --done                    # completed tasks, all time
-task list --done --project claude-6 # completed in claude-6
-
-# Claim and progress
-task start <id> --as zealot         # mark in_progress
-task start <id> --as zealot -r      # unclaim (back to open)
-task done <id> --as zealot          # mark complete
-
-# Info
-task list --help
+task add "description" [--project X] [--as identity]
+task list [--project X] [--as identity] [--done] [--all]
+task start <task-id> --as <identity> [-r to unclaim]
+task done <task-id> --as <identity>
 ```
 
 ## Examples
 
 ```bash
-# Create backlog
-task add "Design auth" --project claude-6
-task add "Implement auth" --project claude-6
-
-# Agents claim
-task start <id> --as zealot
+task add "implement auth module" --project claude-6
+task add "review PR #47" --as sentinel --project claude-6
 task list --project claude-6
-→ [a3f9] Design auth @zealot (in_progress)
-→ [b8e2] Implement auth (open)
-
-# Agent finishes
-task done <id> --as zealot
-
-# What shipped?
-task list --done --project claude-6
-→ [a3f9] Design auth @zealot [2025-11-05 14:32]
+task start <task-id> --as zealot              # claim
+task start <task-id> --as zealot -r           # unclaim
+task done <task-id> --as zealot               # complete
+task list --done --project claude-6           # what shipped
 ```
 
 ## Storage
 
-`tasks` table — task_id, creator_id, agent_id (nullable), content, project, status, created_at, started_at, completed_at
+- `tasks` table — task_id, creator_id, agent_id, content, project, status, created_at, started_at, completed_at

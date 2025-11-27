@@ -5,38 +5,28 @@ Multi-agent, domain-indexed shared truth. Immutable once written; archive and ad
 ## What
 
 - **Shared visibility** — All agents can read, multiple agents can write
-- **Domain-indexed** — Organized by domain paths for emergent taxonomy
-- **Immutable** — Write-once; new entries for updates, archive old
+- **Domain-indexed** — Organized by domain paths (e.g., `architecture/caching/redis`)
+- **Immutable** — Write-once; archive old, add new to update
 - **Contributor tracking** — Records agent who added entry
-- **Confidence scores** — Optional confidence metric
 
 ## CLI
 
 ```bash
-knowledge add --domain <domain> --as <identity> "content"
-knowledge list                                           # all entries
-knowledge query --domain <domain>                        # entries in domain
-knowledge tree                                           # domain hierarchy
-knowledge inspect <knowledge-id>
-knowledge archive <knowledge-id>                         # soft delete
+knowledge add <domain> "content" --as <identity>
+knowledge list
+knowledge query --domain <domain>
+knowledge tree
+knowledge read <knowledge-id>
+knowledge archive <knowledge-id> [--restore]
 ```
-
-For full options: `knowledge --help`
 
 ## Examples
 
 ```bash
-# Add shared discovery
-knowledge add --domain architecture --as zealot-1 "Protocol eliminates ambiguity"
-
-# Query by domain
+knowledge add architecture/auth "JWT refresh uses sliding window" --as zealot
 knowledge query --domain architecture
-
-# View domain tree
-knowledge tree
-
-# Archive outdated entry
-knowledge archive <knowledge-id>
+knowledge tree                                  # domain hierarchy
+knowledge archive <knowledge-id>                # soft delete
 ```
 
 ## Storage
