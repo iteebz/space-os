@@ -74,6 +74,7 @@ def spawn_ephemeral(
     instruction: str,
     channel_id: str,
     resume: str | None = None,
+    max_retries: int = 1,
 ):
     from space.os.bridge.api import channels
 
@@ -126,16 +127,24 @@ def spawn_ephemeral(
     if session_id:
         _copy_bookmarks_from_session(session_id, spawn.id)
 
-    try:
-        _run_ephemeral(agent, instruction, spawn, channel_name, session_id, is_continue, env)
-        spawns.update_status(spawn.id, "completed")
-        return spawn
-    except Exception as e:
-        logger.error(f"Headless spawn failed for {identity}: {e}", exc_info=True)
-        spawns.update_status(spawn.id, "failed")
-        raise
-    finally:
-        spawns.end_spawn(spawn.id)
+    last_error = None
+    for attempt in range(max_retries + 1):
+        try:
+            _run_ephemeral(agent, instruction, spawn, channel_name, session_id, is_continue, env)
+            spawns.update_status(spawn.id, "completed")
+            return spawn
+        except Exception as e:
+            last_error = e
+            if attempt < max_retries:
+                logger.warning(f"Spawn {identity} failed (attempt {attempt + 1}), retrying: {e}")
+                continue
+            logger.error(f"Spawn {identity} failed after {max_retries + 1} attempts: {e}")
+            spawns.update_status(spawn.id, "failed")
+            raise
+        finally:
+            if attempt == max_retries or last_error is None:
+                spawns.end_spawn(spawn.id)
+    return None
 
 
 def _run_ephemeral(

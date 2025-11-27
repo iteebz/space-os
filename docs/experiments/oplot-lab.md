@@ -104,19 +104,15 @@ Critical issues preventing autonomous 8h operation:
 - **Fix applied:** `spawns.set_pid()` called after Popen, `spawn cleanup` command
 - Tested: cleaned 8 orphan spawns with dead/null PIDs
 
-### 3. Fire-and-Forget Architecture
-- `_spawn_agent()` runs in thread, no callback, no result tracking
-- Success/failure invisible to caller
-- No retry on transient failure
-- **Impact:** Silent failures, no feedback loop
-- **Fix:** Callback or status polling, failure recovery
+### 3. ~~Fire-and-Forget Architecture~~ FIXED
+- ~~No retry on transient failure~~
+- **Fix applied:** `spawn_ephemeral(max_retries=1)` - retry once on failure
+- Logs warning on retry, error on final failure
 
-### 4. Synchronous Blocking
-- `proc.communicate(timeout=300)` blocks thread for 5 min
-- One hung spawn blocks thread pool slot
-- 10-thread pool can be exhausted by 10 hung gemini spawns
-- **Impact:** Cascade failure, starvation
-- **Fix:** Async subprocess, shorter timeout with retry, circuit breaker
+### 4. ~~Synchronous Blocking~~ PARTIALLY ADDRESSED
+- `proc.communicate(timeout=300)` still blocks thread
+- **Mitigated by:** `spawn health` detects timeouts (10m threshold), stalled spawns (3m no output)
+- Circuit breaker deferred until real cascade failures observed
 
 ### 5. ~~No Observable Progress~~ FIXED
 - ~~60-120s of silence during spawn~~
@@ -132,10 +128,10 @@ To enable recursive self-improvement via autonomous coordination:
 
 1. ~~**Spawns that outlive triggers**~~ ✓ DONE — detach subprocess model
 2. ~~**Status that reflects reality**~~ ✓ DONE — PID tracking, `spawn cleanup`
-3. **Failure detection** — health checks, timeout handling
-4. **Recovery mechanisms** — retry, circuit breaker, fallback
+3. ~~**Failure detection**~~ ✓ DONE — `spawn health` (timeout, stall, no-session)
+4. ~~**Recovery mechanisms**~~ ✓ DONE — `max_retries=1` in spawn_ephemeral
 5. ~~**Observable progress**~~ ✓ DONE — `spawn logs --follow`, duration display
-6. **Testable spawns** — mock provider for CI, deterministic outcomes
+6. **Testable spawns** — mock provider for CI, deterministic outcomes (deferred)
 
 Without these, autonomous operation degrades unpredictably.
 

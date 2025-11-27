@@ -144,14 +144,13 @@ def detect_failures() -> dict[str, list[str]]:
             "SELECT id, pid, session_id, created_at FROM spawns WHERE status = 'running'"
         ).fetchall()
 
-    for spawn_id, pid, session_id, created_at in rows:
+    for spawn_id, _pid, session_id, created_at in rows:
         if created_at < timeout_cutoff:
             issues["timeout"].append(spawn_id)
         elif session_id is None and created_at < stall_cutoff:
             issues["no_session"].append(spawn_id)
-        elif session_id:
-            if _session_stalled(session_id, stall_cutoff):
-                issues["stalled"].append(spawn_id)
+        elif session_id and _session_stalled(session_id, stall_cutoff):
+            issues["stalled"].append(spawn_id)
 
     return issues
 
