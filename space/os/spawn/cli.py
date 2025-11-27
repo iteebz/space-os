@@ -153,6 +153,7 @@ def main_callback(
             "logs",
             "abort",
             "trace",
+            "chain",
         }
         if (
             len(sys.argv) > 1
@@ -605,6 +606,96 @@ def health():
 
 @app.command()
 @error_feedback
+def chain(
+    root_id: str = typer.Argument(
+        None, help="Root spawn ID (shows subtree) or agent identity (shows all)"
+    ),
+):
+    """Visualize spawn parent/child relationships as tree.
+
+    If SPAWN_ID is a partial/full spawn ID: show tree rooted at that spawn.
+    If SPAWN_ID is an agent identity: show all spawn chains for that agent.
+    Omit SPAWN_ID: show top-level spawns (those without parents).
+    """
+    from datetime import datetime
+
+    agent_cache: dict[str, str] = {}
+
+    def _agent_display(agent_id: str | None) -> str:
+        if not agent_id:
+            return "-"
+        if agent_id in agent_cache:
+            return agent_cache[agent_id]
+
+        agent_obj = api.get_agent(agent_id)
+        display = agent_obj.identity if agent_obj and agent_obj.identity else agent_id[:8]
+        agent_cache[agent_id] = display
+        return display
+
+    def _format_row(spawn, prefix="", connector="") -> str:
+        status_symbol = {
+            "pending": "⧗",
+            "running": "⚡",
+            "completed": "✓",
+            "failed": "✗",
+            "timeout": "⏱",
+            "paused": "⏸",
+            "killed": "⚠",
+        }.get(spawn.status, "?")
+
+        try:
+            created = datetime.fromisoformat(spawn.created_at).strftime("%H:%M:%S")
+        except (ValueError, TypeError, AttributeError):
+            created = "-"
+
+        return (
+            f"{prefix}{connector}{status_symbol} "
+            f"{spawn.id[:8]:<8} | {_agent_display(spawn.agent_id):<12} | {spawn.status:<10} | {created}"
+        )
+
+    def _render_tree(spawn_obj, prefix="", is_last=True, visited: set[str] | None = None):
+        if visited is None:
+            visited = set()
+        if spawn_obj.id in visited:
+            typer.echo(prefix + ("└── " if is_last else "├── ") + "↻ cycle detected")
+            return
+        visited.add(spawn_obj.id)
+
+        connector = "└── " if is_last else "├── "
+        typer.echo(_format_row(spawn_obj, prefix, connector))
+
+        children = spawns.get_spawn_children(spawn_obj.id)
+        for idx, child in enumerate(children):
+            child_prefix = prefix + ("    " if is_last else "│   ")
+            _render_tree(child, child_prefix, idx == len(children) - 1, visited)
+
+    if root_id is None:
+        roots = spawns.get_all_root_spawns(limit=200)
+    else:
+        agent = api.get_agent(root_id)
+        if agent:
+            candidate_roots = spawns.get_all_root_spawns(limit=500)
+            roots = [root for root in candidate_roots if root.agent_id == agent.agent_id]
+        else:
+            spawn_obj = spawns.get_spawn(root_id)
+            if not spawn_obj:
+                typer.echo(f"❌ Spawn or agent not found: {root_id}", err=True)
+                raise typer.Exit(1)
+            roots = [spawn_obj]
+
+    if not roots:
+        typer.echo("No spawns found.")
+        return
+
+    typer.echo(f"{'STATE':<5} {'ID':<10} | {'AGENT':<12} | {'STATUS':<12} | {'CREATED':<10}")
+    typer.echo("-" * 70)
+
+    for idx, root in enumerate(roots):
+        _render_tree(root, "", idx == len(roots) - 1)
+
+
+@app.command()
+@error_feedback
 def trace(query: str = typer.Argument(None)):
     """Trace execution: agent spawns, session context, or channel activity.
 
@@ -674,6 +765,7 @@ def main() -> None:
                 "logs",
                 "abort",
                 "trace",
+                "chain",
             }
             if potential_identity not in known_commands:
                 typer.echo(

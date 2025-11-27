@@ -98,3 +98,52 @@ def test_bridge_recv_requires_identity():
     """Recv command requires --as identity."""
     result = runner.invoke(bridge.app, ["recv", "test-channel"])
     assert result.exit_code != 0
+
+
+def test_spawn_chain_no_args(test_space, default_agents):
+    """Chain command with no args shows root spawns."""
+    agent = spawn.get_agent(default_agents["zealot"])
+    root1 = spawn.api.spawns.create_spawn(agent.agent_id)
+    root2 = spawn.api.spawns.create_spawn(agent.agent_id)
+    spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=root1.id)
+
+    result = runner.invoke(spawn.app, ["chain"])
+    assert result.exit_code == 0
+    assert root1.id[:8] in result.stdout
+    assert root2.id[:8] in result.stdout
+
+
+def test_spawn_chain_by_spawn_id(test_space, default_agents):
+    """Chain command with spawn ID shows tree rooted at that spawn."""
+    agent = spawn.get_agent(default_agents["zealot"])
+    root = spawn.api.spawns.create_spawn(agent.agent_id)
+    child1 = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=root.id)
+    child2 = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=root.id)
+    grandchild = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=child1.id)
+
+    result = runner.invoke(spawn.app, ["chain", root.id[:8]])
+    assert result.exit_code == 0
+    assert root.id[:8] in result.stdout
+    assert child1.id[:8] in result.stdout
+    assert child2.id[:8] in result.stdout
+    assert grandchild.id[:8] in result.stdout
+
+
+def test_spawn_chain_by_agent_identity(test_space, default_agents):
+    """Chain command with agent identity shows all spawn chains for agent."""
+    zealot_id = default_agents["zealot"]
+    agent = spawn.get_agent(zealot_id)
+    root1 = spawn.api.spawns.create_spawn(agent.agent_id)
+    child1 = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=root1.id)
+
+    result = runner.invoke(spawn.app, ["chain", zealot_id])
+    assert result.exit_code == 0
+    assert root1.id[:8] in result.stdout
+    assert child1.id[:8] in result.stdout
+
+
+def test_spawn_chain_nonexistent_spawn(test_space):
+    """Chain command with nonexistent spawn ID fails gracefully."""
+    result = runner.invoke(spawn.app, ["chain", "nonexistent-id"])
+    assert result.exit_code != 0
+    assert "not found" in result.stdout or "not found" in result.stderr

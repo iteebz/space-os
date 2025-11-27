@@ -286,3 +286,23 @@ def get_spawn_lineage(spawn_id: str) -> list[str]:
                 raise RuntimeError(f"Spawn lineage loop detected for {spawn_id}")
 
     return lineage
+
+
+def get_spawn_children(spawn_id: str) -> list[Spawn]:
+    """Get direct children of a spawn."""
+    with store.ensure() as conn:
+        rows = conn.execute(
+            "SELECT * FROM spawns WHERE parent_spawn_id = ? ORDER BY created_at ASC",
+            (spawn_id,),
+        ).fetchall()
+        return [from_row(row, Spawn) for row in rows]
+
+
+def get_all_root_spawns(limit: int = 100) -> list[Spawn]:
+    """Get spawns with no parent (root spawns)."""
+    with store.ensure() as conn:
+        rows = conn.execute(
+            "SELECT * FROM spawns WHERE parent_spawn_id IS NULL ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [from_row(row, Spawn) for row in rows]
