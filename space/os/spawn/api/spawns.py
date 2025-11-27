@@ -205,11 +205,11 @@ def get_spawns_for_agent(
 
 
 def get_spawn(spawn_id: str) -> Spawn | None:
-    """Get spawn by full or partial ID."""
+    """Get spawn by full or partial ID. Prefers exact matches, then longest prefix."""
     with store.ensure() as conn:
         row = conn.execute(
-            "SELECT * FROM spawns WHERE id = ? OR id LIKE ? LIMIT 1",
-            (spawn_id, f"{spawn_id}%"),
+            "SELECT * FROM spawns WHERE id = ? OR id LIKE ? ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END, LENGTH(id) DESC LIMIT 1",
+            (spawn_id, f"{spawn_id}%", spawn_id),
         ).fetchone()
         return from_row(row, Spawn) if row else None
 
@@ -304,5 +304,15 @@ def get_all_root_spawns(limit: int = 100) -> list[Spawn]:
         rows = conn.execute(
             "SELECT * FROM spawns WHERE parent_spawn_id IS NULL ORDER BY created_at DESC LIMIT ?",
             (limit,),
+        ).fetchall()
+        return [from_row(row, Spawn) for row in rows]
+
+
+def get_root_spawns_for_agent(agent_id: str, limit: int = 100) -> list[Spawn]:
+    """Get root spawns (no parent) for a specific agent. Efficient WHERE clause filtering."""
+    with store.ensure() as conn:
+        rows = conn.execute(
+            "SELECT * FROM spawns WHERE parent_spawn_id IS NULL AND agent_id = ? ORDER BY created_at DESC LIMIT ?",
+            (agent_id, limit),
         ).fetchall()
         return [from_row(row, Spawn) for row in rows]

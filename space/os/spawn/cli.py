@@ -633,6 +633,8 @@ def chain(
         return display
 
     def _format_row(spawn, prefix="", connector="") -> str:
+        import logging
+
         status_symbol = {
             "pending": "⧗",
             "running": "⚡",
@@ -646,6 +648,9 @@ def chain(
         try:
             created = datetime.fromisoformat(spawn.created_at).strftime("%H:%M:%S")
         except (ValueError, TypeError, AttributeError):
+            logging.getLogger(__name__).warning(
+                f"Malformed timestamp for spawn {spawn.id}: {spawn.created_at}"
+            )
             created = "-"
 
         return (
@@ -671,11 +676,18 @@ def chain(
 
     if root_id is None:
         roots = spawns.get_all_root_spawns(limit=200)
+        if len(roots) >= 200:
+            typer.echo(
+                "⚠️  Truncated: showing first 200 roots (use spawn chain <spawn_id> for specific tree)"
+            )
+        typer.echo("")
     else:
         agent = api.get_agent(root_id)
         if agent:
-            candidate_roots = spawns.get_all_root_spawns(limit=500)
-            roots = [root for root in candidate_roots if root.agent_id == agent.agent_id]
+            roots = spawns.get_root_spawns_for_agent(agent.agent_id, limit=500)
+            if len(roots) >= 500:
+                typer.echo("⚠️  Truncated: showing first 500 roots for this agent")
+                typer.echo("")
         else:
             spawn_obj = spawns.get_spawn(root_id)
             if not spawn_obj:

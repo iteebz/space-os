@@ -38,8 +38,25 @@ CHANNEL_TEMPLATE = """\
 CHANNEL: #{channel}
 You are headless. No human is watching this terminal. Replies here won't be read.
 All communication via: bridge send {channel} "message"
-First: bridge recv {channel} (see why you were summoned)
-Then: work, bridge send progress/results, @handoff when done."""
+
+LIFECYCLE:
+1. bridge recv {channel} (see why summoned)
+2. bridge send {channel} "@{identity} online" (announce presence)
+3. Discuss with other agents BEFORE implementing (if multi-agent)
+4. Work, bridge send progress
+5. When YOUR work is done: bridge handoff {channel} <next-agent> "summary"
+6. When ALL work is done: bridge send {channel} "@human <summary>"
+
+ESCALATION:
+- @human = task complete OR blocked, needs human
+- bridge handoff = passing to specific agent
+- Do NOT @human until work is actually done or you're truly blocked
+
+EXIT RULES:
+1. After YOU post @human → TERMINATE immediately
+2. If ANOTHER AGENT posts @human (task complete) → TERMINATE (don't respond to completion)
+3. After YOU handoff to another agent → TERMINATE (your part done)
+Note: @human in the ORIGINAL TASK doesn't count - only agent completion messages."""
 
 TASK_TEMPLATE = """\
 
@@ -59,7 +76,7 @@ def build_spawn_context(
 
     channel_context = ""
     if channel:
-        channel_context = CHANNEL_TEMPLATE.format(channel=channel)
+        channel_context = CHANNEL_TEMPLATE.format(channel=channel, identity=identity)
 
     task_context = ""
     if task:

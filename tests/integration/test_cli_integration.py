@@ -147,3 +147,93 @@ def test_spawn_chain_nonexistent_spawn(test_space):
     result = runner.invoke(spawn.app, ["chain", "nonexistent-id"])
     assert result.exit_code != 0
     assert "not found" in result.stdout or "not found" in result.stderr
+
+
+def test_spawn_chain_status_symbols(test_space, default_agents):
+    """Chain displays correct status symbols for all states."""
+    agent = spawn.get_agent(default_agents["zealot"])
+
+    pending_spawn = spawn.api.spawns.create_spawn(agent.agent_id)
+    spawn.api.spawns.update_status(pending_spawn.id, "running")
+    spawn.api.spawns.create_spawn(agent.agent_id)
+
+    completed = spawn.api.spawns.create_spawn(agent.agent_id)
+    spawn.api.spawns.update_status(completed.id, "completed")
+
+    failed = spawn.api.spawns.create_spawn(agent.agent_id)
+    spawn.api.spawns.update_status(failed.id, "failed")
+
+    timeout = spawn.api.spawns.create_spawn(agent.agent_id)
+    spawn.api.spawns.update_status(timeout.id, "timeout")
+
+    paused = spawn.api.spawns.create_spawn(agent.agent_id)
+    spawn.api.spawns.update_status(paused.id, "paused")
+
+    killed = spawn.api.spawns.create_spawn(agent.agent_id)
+    spawn.api.spawns.update_status(killed.id, "killed")
+
+    result = runner.invoke(spawn.app, ["chain"])
+    assert result.exit_code == 0
+    assert "⚡" in result.stdout
+    assert "✓" in result.stdout
+    assert "✗" in result.stdout
+    assert "⏱" in result.stdout
+    assert "⏸" in result.stdout
+    assert "⚠" in result.stdout
+
+
+def test_spawn_chain_deep_tree(test_space, default_agents):
+    """Chain renders deep trees (3+ levels) with correct indentation."""
+    agent = spawn.get_agent(default_agents["zealot"])
+
+    root = spawn.api.spawns.create_spawn(agent.agent_id)
+    child = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=root.id)
+    grandchild = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=child.id)
+    great_grandchild = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=grandchild.id)
+
+    result = runner.invoke(spawn.app, ["chain", root.id[:8]])
+    assert result.exit_code == 0
+
+    lines = result.stdout.split("\n")
+    root_line = next((line for line in lines if root.id[:8] in line), None)
+    child_line = next((line for line in lines if child.id[:8] in line), None)
+    grandchild_line = next((line for line in lines if grandchild.id[:8] in line), None)
+    great_line = next((line for line in lines if great_grandchild.id[:8] in line), None)
+
+    assert root_line is not None
+    assert child_line is not None
+    assert grandchild_line is not None
+    assert great_line is not None
+
+
+def test_spawn_chain_mixed_agents(test_space, default_agents):
+    """Chain shows spawns from multiple agents in same tree."""
+    agent1 = spawn.get_agent(default_agents["zealot"])
+    spawn.register_agent("agent-other", "claude-haiku-4-5", None)
+    agent2 = spawn.get_agent("agent-other")
+
+    root = spawn.api.spawns.create_spawn(agent1.agent_id)
+    child1 = spawn.api.spawns.create_spawn(agent2.agent_id, parent_spawn_id=root.id)
+
+    result = runner.invoke(spawn.app, ["chain", root.id[:8]])
+    assert result.exit_code == 0
+    assert root.id[:8] in result.stdout
+    assert child1.id[:8] in result.stdout
+
+
+def test_spawn_chain_nonexistent_agent_identity(test_space):
+    """Chain with nonexistent agent identity fails."""
+    result = runner.invoke(spawn.app, ["chain", "nonexistent-agent"])
+    assert result.exit_code != 0
+    assert "not found" in result.stdout or "not found" in result.stderr
+
+
+def test_spawn_chain_partial_spawn_id(test_space, default_agents):
+    """Chain with partial spawn ID matches correctly."""
+    agent = spawn.get_agent(default_agents["zealot"])
+    root = spawn.api.spawns.create_spawn(agent.agent_id)
+    child = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=root.id)
+
+    result = runner.invoke(spawn.app, ["chain", root.id[:8]])
+    assert result.exit_code == 0
+    assert child.id[:8] in result.stdout
