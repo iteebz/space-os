@@ -9,9 +9,9 @@ def test_get_spawn_tree(test_space):
     agents.register_agent("test-agent", "claude-haiku-4-5", None)
     agent = agents.get_agent("test-agent")
 
-    root = spawns.create_spawn(agent.agent_id, is_ephemeral=True)
-    child1 = spawns.create_spawn(agent.agent_id, is_ephemeral=True, parent_spawn_id=root.id)
-    child2 = spawns.create_spawn(agent.agent_id, is_ephemeral=True, parent_spawn_id=child1.id)
+    root = spawns.create_spawn(agent.agent_id)
+    child1 = spawns.create_spawn(agent.agent_id, parent_spawn_id=root.id)
+    child2 = spawns.create_spawn(agent.agent_id, parent_spawn_id=child1.id)
 
     result = get_spawn_tree(root.id)
 

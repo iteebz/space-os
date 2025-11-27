@@ -130,10 +130,10 @@ def test_spawn_ephemeral_timeout_raises(test_agent, test_channel):
 
 def test_spawn_depth_limit_enforced(test_agent, test_channel, monkeypatch):
     """Contract: Spawn rejected when parent depth >= MAX_SPAWN_DEPTH."""
-    root = spawns.create_spawn(test_agent.agent_id, is_ephemeral=True)
-    child1 = spawns.create_spawn(test_agent.agent_id, is_ephemeral=True, parent_spawn_id=root.id)
-    child2 = spawns.create_spawn(test_agent.agent_id, is_ephemeral=True, parent_spawn_id=child1.id)
-    child3 = spawns.create_spawn(test_agent.agent_id, is_ephemeral=True, parent_spawn_id=child2.id)
+    root = spawns.create_spawn(test_agent.agent_id)
+    child1 = spawns.create_spawn(test_agent.agent_id, parent_spawn_id=root.id)
+    child2 = spawns.create_spawn(test_agent.agent_id, parent_spawn_id=child1.id)
+    child3 = spawns.create_spawn(test_agent.agent_id, parent_spawn_id=child2.id)
 
     monkeypatch.setenv("SPACE_SPAWN_ID", child3.id)
 

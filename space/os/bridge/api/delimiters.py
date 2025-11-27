@@ -6,7 +6,6 @@ import re
 
 from space.os.spawn.api import agents as spawn_agents
 from space.os.spawn.api import spawns
-from space.os.spawn.api.launch import spawn_ephemeral
 
 log = logging.getLogger(__name__)
 
@@ -121,7 +120,7 @@ def _kill_spawn(spawn_id: str) -> None:
 
 
 def _process_mentions(channel_id: str, content: str, sender_agent_id: str | None = None) -> None:
-    import threading
+    from space.lib.detach import detach
 
     mentions = _extract_mentions(content)
     if not mentions:
@@ -137,11 +136,7 @@ def _process_mentions(channel_id: str, content: str, sender_agent_id: str | None
         if _try_resume_paused_spawn(agent.agent_id, channel_id):
             continue
 
-        # Spawn in background thread to prevent blocking subsequent mentions
-        thread = threading.Thread(
-            target=_spawn_agent, args=(identity, content, channel_id), daemon=True
-        )
-        thread.start()
+        detach(["spawn", "run", identity, content, "--channel", channel_id])
 
 
 def _attempt_relink_for_agent(agent_id: str) -> None:
@@ -199,13 +194,3 @@ def _try_resume_paused_spawn(agent_id: str, channel_id: str | None = None) -> bo
             return True
 
     return _resume(paused)
-
-
-def _spawn_agent(identity: str, instruction: str, channel_id: str) -> None:
-    try:
-        agent = spawn_agents.get_agent(identity)
-        if agent:
-            _attempt_relink_for_agent(agent.agent_id)
-        spawn_ephemeral(identity, instruction=instruction, channel_id=channel_id)
-    except Exception as e:
-        log.error(f"Failed to spawn {identity}: {e}")

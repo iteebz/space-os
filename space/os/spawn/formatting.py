@@ -60,9 +60,6 @@ def display_session_trace(result: dict) -> None:
     if result.get("channel_id"):
         typer.echo(f"Channel: #{result['channel_id'][:8]}")
 
-    if result.get("is_ephemeral"):
-        typer.echo("Type: Ephemeral")
-
     typer.echo()
 
     if result.get("channel_context"):

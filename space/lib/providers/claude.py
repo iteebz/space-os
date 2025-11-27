@@ -32,11 +32,8 @@ class Claude(Provider):
         ]
 
     @staticmethod
-    def launch_args(is_ephemeral: bool = False) -> list[str]:
-        args = ["--disallowedTools", ",".join(Claude.DISALLOWED_TOOLS)]
-        if is_ephemeral:
-            args.insert(0, "--dangerously-skip-permissions")
-        return args
+    def launch_args() -> list[str]:
+        return ["--disallowedTools", ",".join(Claude.DISALLOWED_TOOLS)]
 
     @staticmethod
     def task_launch_args() -> list[str]:

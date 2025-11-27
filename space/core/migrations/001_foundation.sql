@@ -59,7 +59,6 @@ CREATE TABLE IF NOT EXISTS spawns (
     session_id TEXT,
     channel_id TEXT,
     constitution_hash TEXT,
-    is_ephemeral BOOLEAN NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'pending',
     pid INTEGER,
     created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%f', 'now')),

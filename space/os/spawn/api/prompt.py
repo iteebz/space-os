@@ -31,7 +31,7 @@ BEFORE EXIT:
 2. bridge send with completion status and @handoff
    → @{human_identity} if uncertain who's next
 
-{task}{channel}{task_mode}"""
+{task}{channel}"""
 
 CHANNEL_TEMPLATE = """\
 
@@ -47,16 +47,11 @@ TASK:
 {task}
 """
 
-TASK_MODE_TEMPLATE = """\
-
-MODE: Ephemeral (non-interactive). Complete task and exit."""
-
 
 def build_spawn_context(
     identity: str,
     task: str | None = None,
     channel: str | None = None,
-    is_ephemeral: bool = False,
 ) -> str:
     """Assemble spawn context for agent execution."""
     agent = agents.get_agent(identity)
@@ -70,8 +65,6 @@ def build_spawn_context(
     if task:
         task_context = TASK_TEMPLATE.format(task=task)
 
-    task_mode_context = TASK_MODE_TEMPLATE if is_ephemeral else ""
-
     human_identity = _get_human_identity()
 
     return SPAWN_CONTEXT_TEMPLATE.format(
@@ -80,5 +73,4 @@ def build_spawn_context(
         human_identity=human_identity,
         task=task_context,
         channel=channel_context,
-        task_mode=task_mode_context,
     )

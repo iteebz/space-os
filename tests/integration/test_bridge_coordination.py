@@ -64,7 +64,9 @@ async def test_full_spawn_ephemeral_events_flow(test_space, default_agents):
     assert agent is not None
     agent_id = agent.agent_id
 
-    ephemeral = spawns.create_spawn(agent_id=agent_id, is_ephemeral=True)
+    ephemeral = spawns.create_spawn(
+        agent_id=agent_id,
+    )
     assert ephemeral is not None
     assert ephemeral.id is not None
 
@@ -87,7 +89,9 @@ async def test_pause_via_bridge_command(test_space, default_agents):
     sentinel_id = default_agents["sentinel"]
     agent = spawn.get_agent(zealot_id)
 
-    ephemeral = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
+    ephemeral = spawns.create_spawn(
+        agent_id=agent.agent_id,
+    )
     spawns.update_status(ephemeral.id, SpawnStatus.RUNNING)
 
     assert spawns.get_spawn(ephemeral.id).status == SpawnStatus.RUNNING
@@ -111,7 +115,9 @@ async def test_resume_via_bridge_mention_no_session(test_space, default_agents):
     sentinel_id = default_agents["sentinel"]
     agent = spawn.get_agent(zealot_id)
 
-    ephemeral = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
+    ephemeral = spawns.create_spawn(
+        agent_id=agent.agent_id,
+    )
     spawns.update_status(ephemeral.id, SpawnStatus.PAUSED)
 
     assert spawns.get_spawn(ephemeral.id).status == SpawnStatus.PAUSED
@@ -131,7 +137,9 @@ async def test_bridge_pause_resume_round_trip(test_space, default_agents):
     sentinel_id = default_agents["sentinel"]
     agent = spawn.get_agent(zealot_id)
 
-    ephemeral1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
+    ephemeral1 = spawns.create_spawn(
+        agent_id=agent.agent_id,
+    )
     spawns.update_status(ephemeral1.id, SpawnStatus.RUNNING)
 
     original = spawns.get_spawn(ephemeral1.id)

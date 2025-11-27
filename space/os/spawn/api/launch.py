@@ -99,7 +99,6 @@ def spawn_ephemeral(
 
     spawn = spawns.create_spawn(
         agent_id=agent.agent_id,
-        is_ephemeral=True,
         channel_id=channel_id,
         constitution_hash=constitution_hash,
         parent_spawn_id=parent_spawn_id,
@@ -153,7 +152,6 @@ def _run_ephemeral(
         agent.identity,
         task=instruction_text,
         channel=channel_name,
-        is_ephemeral=True,
     )
     cmd = _build_spawn_command(agent, session_id, is_continue, image_paths=image_paths)
     _execute_spawn(cmd, context, agent, env)
@@ -185,7 +183,7 @@ def _build_launch_args(
     if agent.provider == "gemini":
         return provider_class.launch_args(has_prompt=False)
     if agent.provider == "claude":
-        return provider_class.launch_args(is_ephemeral=False)
+        return provider_class.launch_args()
     if agent.provider == "codex":
         return provider_class.launch_args(reasoning_effort=reasoning_effort)
     return provider_class.launch_args()

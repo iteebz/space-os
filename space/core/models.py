@@ -77,7 +77,6 @@ class Spawn:
     id: str
     agent_id: str
     status: SpawnStatus | str = SpawnStatus.PENDING
-    is_ephemeral: bool = False
     constitution_hash: str | None = None
     channel_id: str | None = None
     pid: int | None = None

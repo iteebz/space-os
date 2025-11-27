@@ -146,7 +146,8 @@ def main_callback(
             "clone",
             "update",
             "merge",
-            "tasks",
+            "list",
+            "run",
             "logs",
             "abort",
             "trace",
@@ -397,8 +398,8 @@ def merge(id_from: str, id_to: str):
     typer.echo("✓ Merged")
 
 
-@app.command(name="tasks")
-def show_tasks(
+@app.command(name="list")
+def list_spawns(
     ctx: typer.Context,
     status: str | None = None,
     identity: str | None = None,
@@ -482,7 +483,6 @@ def logs(
     typer.echo(f"\n📋 Spawn: {spawn_obj.id}")
     typer.echo(f"Agent: {spawn_obj.agent_id}")
     typer.echo(f"Status: {spawn_obj.status}")
-    typer.echo(f"Is Ephemeral: {spawn_obj.is_ephemeral}")
 
     if spawn_obj.channel_id:
         typer.echo(f"Channel: {spawn_obj.channel_id}")
@@ -533,6 +533,23 @@ def abort(spawn_id: str):
 
     spawns.update_status(spawn_id, SpawnStatus.KILLED)
     typer.echo(f"✓ Spawn {spawn_id[:8]} aborted")
+
+
+@app.command()
+@error_feedback
+def run(
+    identity: str,
+    instruction: str,
+    channel: str | None = typer.Option(None, "--channel", "-c", help="Channel ID"),
+    resume: str | None = typer.Option(None, "--resume", "-r", help="Session to resume"),
+):
+    """Run spawn directly (used by detached processes)."""
+    try:
+        spawn = api.spawn_ephemeral(identity, instruction, channel_id=channel, resume=resume)
+        typer.echo(f"spawn:{spawn.id}")
+    except Exception as e:
+        typer.echo(f"error:{e}", err=True)
+        raise typer.Exit(1) from e
 
 
 @app.command()
@@ -599,7 +616,8 @@ def main() -> None:
                 "update",
                 "inspect",
                 "merge",
-                "tasks",
+                "list",
+                "run",
                 "logs",
                 "abort",
                 "trace",

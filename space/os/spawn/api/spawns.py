@@ -12,7 +12,6 @@ MAX_SPAWN_DEPTH = 3
 
 def create_spawn(
     agent_id: str,
-    is_ephemeral: bool = False,
     constitution_hash: str | None = None,
     channel_id: str | None = None,
     session_id: str | None = None,
@@ -33,13 +32,12 @@ def create_spawn(
         cursor.execute(
             """
             INSERT INTO spawns
-            (id, agent_id, is_ephemeral, constitution_hash, channel_id, session_id, parent_spawn_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (id, agent_id, constitution_hash, channel_id, session_id, parent_spawn_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 spawn_id,
                 agent_id,
-                is_ephemeral,
                 constitution_hash,
                 channel_id,
                 session_id,

@@ -4,9 +4,9 @@ DEFAULT_MODEL = "claude-haiku-4-5"
 
 DEFAULT_AGENT_MODELS: dict[str, str] = {
     "zealot": DEFAULT_MODEL,
-    "sentinel": "gemini-3-0-pro",
-    "crucible": "gemini-3-0-pro",
-    "auger": "gemini-3-0-pro",
+    "sentinel": "gemini-2.5-pro",
+    "crucible": "gemini-2.5-pro",
+    "auger": "gemini-2.5-pro",
 }
 
 

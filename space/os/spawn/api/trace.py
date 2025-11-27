@@ -118,7 +118,6 @@ def trace_spawn(spawn_id: str) -> dict:
         "ended_at": spawn_obj.ended_at,
         "duration_seconds": duration,
         "channel_id": spawn_obj.channel_id,
-        "is_ephemeral": spawn_obj.is_ephemeral,
     }
 
 

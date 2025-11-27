@@ -15,9 +15,7 @@ def test_create_spawn_with_channel(test_space, default_agents):
     zealot_agent_id = default_agents["zealot"]
     agent = spawn.get_agent(zealot_agent_id)
 
-    spawn1 = spawns.create_spawn(
-        agent_id=agent.agent_id, is_ephemeral=True, channel_id=channel.channel_id
-    )
+    spawn1 = spawns.create_spawn(agent_id=agent.agent_id, channel_id=channel.channel_id)
 
     assert spawn1.channel_id == channel.channel_id
     assert spawn1.agent_id is not None
@@ -30,15 +28,9 @@ def test_spawns_in_same_channel(test_space, default_agents):
     zealot_agent = spawn.get_agent(default_agents["zealot"])
     sentinel_agent = spawn.get_agent(default_agents["sentinel"])
 
-    spawn1 = spawns.create_spawn(
-        agent_id=zealot_agent.agent_id, is_ephemeral=True, channel_id=channel.channel_id
-    )
-    spawn2 = spawns.create_spawn(
-        agent_id=sentinel_agent.agent_id, is_ephemeral=True, channel_id=channel.channel_id
-    )
-    spawn3 = spawns.create_spawn(
-        agent_id=zealot_agent.agent_id, is_ephemeral=True, channel_id=channel.channel_id
-    )
+    spawn1 = spawns.create_spawn(agent_id=zealot_agent.agent_id, channel_id=channel.channel_id)
+    spawn2 = spawns.create_spawn(agent_id=sentinel_agent.agent_id, channel_id=channel.channel_id)
+    spawn3 = spawns.create_spawn(agent_id=zealot_agent.agent_id, channel_id=channel.channel_id)
 
     assert spawn1.channel_id == channel.channel_id
     assert spawn2.channel_id == channel.channel_id
@@ -56,12 +48,8 @@ def test_channel_isolation(test_space, default_agents):
     zealot_agent = spawn.get_agent(default_agents["zealot"])
     sentinel_agent = spawn.get_agent(default_agents["sentinel"])
 
-    spawn_a = spawns.create_spawn(
-        agent_id=zealot_agent.agent_id, is_ephemeral=True, channel_id=channel_a.channel_id
-    )
-    spawn_b = spawns.create_spawn(
-        agent_id=sentinel_agent.agent_id, is_ephemeral=True, channel_id=channel_b.channel_id
-    )
+    spawn_a = spawns.create_spawn(agent_id=zealot_agent.agent_id, channel_id=channel_a.channel_id)
+    spawn_b = spawns.create_spawn(agent_id=sentinel_agent.agent_id, channel_id=channel_b.channel_id)
 
     retrieved_a = spawns.get_spawn(spawn_a.id)
     retrieved_b = spawns.get_spawn(spawn_b.id)
@@ -74,7 +62,9 @@ def test_channel_isolation(test_space, default_agents):
 def test_spawn_status_transitions(test_space, default_agents):
     """Spawn status progresses: pending → running → completed."""
     agent = spawn.get_agent(default_agents["zealot"])
-    spawn1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
+    spawn1 = spawns.create_spawn(
+        agent_id=agent.agent_id,
+    )
 
     assert spawn1.status == SpawnStatus.PENDING
 
@@ -91,7 +81,9 @@ def test_spawn_status_transitions(test_space, default_agents):
 def test_spawn_failure(test_space, default_agents):
     """Spawn can transition from running to failed."""
     agent = spawn.get_agent(default_agents["zealot"])
-    spawn1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
+    spawn1 = spawns.create_spawn(
+        agent_id=agent.agent_id,
+    )
 
     spawns.update_status(spawn1.id, SpawnStatus.RUNNING)
     spawns.update_status(spawn1.id, SpawnStatus.FAILED)
@@ -104,7 +96,9 @@ def test_spawn_failure(test_space, default_agents):
 def test_spawn_with_pid(test_space, default_agents):
     """Spawn can store PID for lifecycle management."""
     agent = spawn.get_agent(default_agents["zealot"])
-    spawn1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
+    spawn1 = spawns.create_spawn(
+        agent_id=agent.agent_id,
+    )
 
     spawns.update_status(spawn1.id, SpawnStatus.RUNNING)
     # Update PID directly in spawns (no pid parameter in update_status)
@@ -114,14 +108,13 @@ def test_spawn_with_pid(test_space, default_agents):
 
 
 def test_list_spawns_all(test_space, default_agents):
-    """List all spawns with is_ephemeral=True returns all ephemeral sessions."""
+    """List all spawns returns all spawns for agent."""
     agent = spawn.get_agent(default_agents["zealot"])
-    spawn1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
-    spawn2 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
+    spawn1 = spawns.create_spawn(agent_id=agent.agent_id)
+    spawn2 = spawns.create_spawn(agent_id=agent.agent_id)
 
     all_spawns = spawns.get_spawns_for_agent(agent.agent_id)
-    ephemeral_spawns = [s for s in all_spawns if s.is_ephemeral]
-    spawn_ids = {s.id for s in ephemeral_spawns}
+    spawn_ids = {s.id for s in all_spawns}
     assert spawn1.id in spawn_ids
     assert spawn2.id in spawn_ids
 
@@ -129,15 +122,14 @@ def test_list_spawns_all(test_space, default_agents):
 def test_list_spawns_by_status(test_space, default_agents):
     """Spawns can be filtered by status."""
     agent = spawn.get_agent(default_agents["zealot"])
-    spawn1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
-    spawn2 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
+    spawn1 = spawns.create_spawn(agent_id=agent.agent_id)
+    spawn2 = spawns.create_spawn(agent_id=agent.agent_id)
 
     spawns.update_status(spawn1.id, SpawnStatus.COMPLETED)
 
-    # Filter by status manually
     all_spawns = spawns.get_spawns_for_agent(agent.agent_id)
-    pending = [s for s in all_spawns if s.is_ephemeral and s.status == SpawnStatus.PENDING]
-    completed = [s for s in all_spawns if s.is_ephemeral and s.status == SpawnStatus.COMPLETED]
+    pending = [s for s in all_spawns if s.status == SpawnStatus.PENDING]
+    completed = [s for s in all_spawns if s.status == SpawnStatus.COMPLETED]
 
     assert spawn1.id not in {s.id for s in pending}
     assert spawn2.id in {s.id for s in pending}
@@ -149,15 +141,15 @@ def test_list_spawns_by_identity(test_space, default_agents):
     zealot_agent = spawn.get_agent(default_agents["zealot"])
     sentinel_agent = spawn.get_agent(default_agents["sentinel"])
 
-    spawn_z = spawns.create_spawn(agent_id=zealot_agent.agent_id, is_ephemeral=True)
-    spawn_s = spawns.create_spawn(agent_id=sentinel_agent.agent_id, is_ephemeral=True)
+    spawn_z = spawns.create_spawn(
+        agent_id=zealot_agent.agent_id,
+    )
+    spawn_s = spawns.create_spawn(
+        agent_id=sentinel_agent.agent_id,
+    )
 
-    zealot_spawns = [
-        s for s in spawns.get_spawns_for_agent(zealot_agent.agent_id) if s.is_ephemeral
-    ]
-    sentinel_spawns = [
-        s for s in spawns.get_spawns_for_agent(sentinel_agent.agent_id) if s.is_ephemeral
-    ]
+    zealot_spawns = list(spawns.get_spawns_for_agent(zealot_agent.agent_id))
+    sentinel_spawns = list(spawns.get_spawns_for_agent(sentinel_agent.agent_id))
 
     zealot_ids = {s.id for s in zealot_spawns}
     sentinel_ids = {s.id for s in sentinel_spawns}
@@ -173,14 +165,11 @@ def test_list_spawns_by_channel(test_space, default_agents):
     channel = bridge.create_channel("test-channel")
     agent = spawn.get_agent(default_agents["zealot"])
 
-    spawn_in_channel = spawns.create_spawn(
-        agent_id=agent.agent_id, is_ephemeral=True, channel_id=channel.channel_id
-    )
-    spawn_no_channel = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
+    spawn_in_channel = spawns.create_spawn(agent_id=agent.agent_id, channel_id=channel.channel_id)
+    spawn_no_channel = spawns.create_spawn(agent_id=agent.agent_id)
 
-    # Filter by channel manually
     all_spawns = spawns.get_spawns_for_agent(agent.agent_id)
-    in_channel = [s for s in all_spawns if s.is_ephemeral and s.channel_id == channel.channel_id]
+    in_channel = [s for s in all_spawns if s.channel_id == channel.channel_id]
     spawn_ids = {s.id for s in in_channel}
 
     assert spawn_in_channel.id in spawn_ids
@@ -190,7 +179,9 @@ def test_list_spawns_by_channel(test_space, default_agents):
 def test_pause_spawn(test_space, default_agents):
     """Test pausing a running spawn."""
     agent = spawn.get_agent(default_agents["zealot"])
-    spawn1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
+    spawn1 = spawns.create_spawn(
+        agent_id=agent.agent_id,
+    )
     spawns.update_status(spawn1.id, SpawnStatus.RUNNING)
 
     paused = spawn.pause_spawn(spawn1.id)
@@ -201,7 +192,9 @@ def test_pause_spawn(test_space, default_agents):
 def test_pause_spawn_not_running(test_space, default_agents):
     """Test pausing a spawn that is not running."""
     agent = spawn.get_agent(default_agents["zealot"])
-    spawn1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
+    spawn1 = spawns.create_spawn(
+        agent_id=agent.agent_id,
+    )
 
     with pytest.raises(ValueError, match="not running"):
         spawn.pause_spawn(spawn1.id)
@@ -210,7 +203,9 @@ def test_pause_spawn_not_running(test_space, default_agents):
 def test_resume_spawn(test_space, default_agents):
     """Test resuming a paused spawn requires session_id."""
     agent = spawn.get_agent(default_agents["zealot"])
-    spawn1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
+    spawn1 = spawns.create_spawn(
+        agent_id=agent.agent_id,
+    )
     spawns.update_status(spawn1.id, SpawnStatus.RUNNING)
     spawn.pause_spawn(spawn1.id)
 
@@ -222,7 +217,9 @@ def test_resume_spawn(test_space, default_agents):
 def test_resume_spawn_not_paused(test_space, default_agents):
     """Test resuming a spawn that is not paused."""
     agent = spawn.get_agent(default_agents["zealot"])
-    spawn1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
+    spawn1 = spawns.create_spawn(
+        agent_id=agent.agent_id,
+    )
 
     with pytest.raises(ValueError, match="not paused"):
         spawn.resume_spawn(spawn1.id)
@@ -231,7 +228,9 @@ def test_resume_spawn_not_paused(test_space, default_agents):
 def test_resume_spawn_no_session_id(test_space, default_agents):
     """Test resuming a paused spawn without session_id."""
     agent = spawn.get_agent(default_agents["zealot"])
-    spawn1 = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
+    spawn1 = spawns.create_spawn(
+        agent_id=agent.agent_id,
+    )
     spawns.update_status(spawn1.id, SpawnStatus.RUNNING)
     spawn.pause_spawn(spawn1.id)
 
@@ -242,7 +241,9 @@ def test_resume_spawn_no_session_id(test_space, default_agents):
 def test_pause_resume_cycle_requires_session(test_space, default_agents):
     """Test pause/resume cycle requires valid session_id."""
     agent = spawn.get_agent(default_agents["zealot"])
-    ephemeral = spawns.create_spawn(agent_id=agent.agent_id, is_ephemeral=True)
+    ephemeral = spawns.create_spawn(
+        agent_id=agent.agent_id,
+    )
     spawns.update_status(ephemeral.id, SpawnStatus.RUNNING)
 
     paused = spawn.pause_spawn(ephemeral.id)

@@ -21,7 +21,7 @@ def agent():
 @pytest.fixture
 def spawn():
     """Ephemeral spawn."""
-    return Spawn(id="spawn-1", agent_id="agent-1", is_ephemeral=True, status=SpawnStatus.PENDING)
+    return Spawn(id="spawn-1", agent_id="agent-1", status=SpawnStatus.PENDING)
 
 
 def test_constitute_writes_to_identity_dir(tmp_path, spawn, agent):
