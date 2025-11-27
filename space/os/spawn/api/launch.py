@@ -262,12 +262,10 @@ def _execute_spawn(cmd: list[str], context: str, agent, spawn_id: str, env: dict
 
 
 def _link_session(spawn, session_id: str | None, provider: str) -> None:
-    """Link spawn to session, discovering from JSONL if not provided."""
+    """Link spawn to session (only if session_id explicitly provided)."""
     from space.os.sessions.api import linker
 
     try:
-        if not session_id:
-            session_id = _discover_recent_session(provider, spawn.created_at)
         if session_id:
             linker.link_spawn_to_session(spawn.id, session_id)
     except Exception as e:

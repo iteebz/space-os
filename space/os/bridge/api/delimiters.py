@@ -136,6 +136,9 @@ def _process_mentions(channel_id: str, content: str, sender_agent_id: str | None
         if _try_resume_paused_spawn(agent.agent_id, channel_id):
             continue
 
+        if _has_running_spawn_in_channel(agent.agent_id, channel_id):
+            continue
+
         detach(["spawn", "run", identity, content, "--channel", channel_id])
 
 
@@ -166,6 +169,20 @@ def _attempt_relink_for_agent(agent_id: str) -> None:
         if session_id:
             spawns.link_session_to_spawn(spawn_id, session_id)
             log.info(f"Relinked spawn {spawn_id[:12]} -> session {session_id[:12]}")
+
+
+def _has_running_spawn_in_channel(agent_id: str, channel_id: str) -> bool:
+    """Check if agent has running or pending spawn in channel."""
+    all_spawns = spawns.get_spawns_for_agent(agent_id)
+
+    for spawn in all_spawns:
+        if spawn.channel_id != channel_id:
+            continue
+
+        if spawn.status in ("running", "pending"):
+            return True
+
+    return False
 
 
 def _try_resume_paused_spawn(agent_id: str, channel_id: str | None = None) -> bool:

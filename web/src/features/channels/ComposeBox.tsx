@@ -37,7 +37,7 @@ export function ComposeBox({ channel }: Props) {
         setContent('')
         setUploadedImages([])
         setShowAutocomplete(false)
-      }
+      },
     })
   }
 

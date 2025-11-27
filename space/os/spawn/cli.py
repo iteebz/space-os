@@ -722,11 +722,15 @@ def chain(
                 typer.echo("⚠️  Truncated: showing first 500 roots for this agent")
                 typer.echo("")
         else:
-            spawn_obj = spawns.get_spawn(root_id)
-            if not spawn_obj:
-                typer.echo(f"❌ Spawn or agent not found: {root_id}", err=True)
-                raise typer.Exit(1)
-            roots = [spawn_obj]
+            try:
+                spawn_obj = spawns.get_spawn(root_id)
+                if not spawn_obj:
+                    typer.echo(f"❌ Spawn or agent not found: {root_id}", err=True)
+                    raise typer.Exit(1)
+                roots = [spawn_obj]
+            except ValueError as e:
+                typer.echo(f"❌ {e}", err=True)
+                raise typer.Exit(1) from e
 
     if not roots:
         typer.echo("No spawns found.")

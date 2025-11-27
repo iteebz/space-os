@@ -22,7 +22,7 @@ def test_channel(test_space):
 
 
 def test_spawn_ephemeral_claude_streams_ingest(test_agent, test_channel):
-    """Contract: session linked after spawn completes."""
+    """Contract: session autodiscovery disabled (no implicit linking)."""
     mock_proc = MagicMock()
     mock_proc.pid = 12345
     mock_proc.communicate.return_value = ("Response text", "")
@@ -30,19 +30,17 @@ def test_spawn_ephemeral_claude_streams_ingest(test_agent, test_channel):
 
     with patch("subprocess.Popen", return_value=mock_proc):
         with patch("space.os.sessions.api.linker.link_spawn_to_session") as mock_link:
-            with patch("space.os.spawn.api.launch._discover_recent_session") as mock_discover:
-                mock_discover.return_value = "sess-claude-123"
-                launch.spawn_ephemeral(
-                    identity="test-agent",
-                    instruction="test",
-                    channel_id=test_channel.channel_id,
-                )
+            launch.spawn_ephemeral(
+                identity="test-agent",
+                instruction="test",
+                channel_id=test_channel.channel_id,
+            )
 
-                mock_link.assert_called_once()
+            mock_link.assert_not_called()
 
 
 def test_spawn_ephemeral_claude_extracts_session_once(test_agent, test_channel):
-    """Contract: session linked from discovered JSONL file."""
+    """Contract: explicit resume links to provided session."""
     mock_proc = MagicMock()
     mock_proc.pid = 12345
     mock_proc.communicate.return_value = ("Response", "")
@@ -50,13 +48,14 @@ def test_spawn_ephemeral_claude_extracts_session_once(test_agent, test_channel):
 
     with patch("subprocess.Popen", return_value=mock_proc):
         with patch("space.os.sessions.api.linker.link_spawn_to_session") as mock_link:
-            with patch("space.os.spawn.api.launch._discover_recent_session") as mock_discover:
+            with patch("space.os.spawn.api.launch.resolve_session_id") as mock_resolve:
                 with patch("space.os.bridge.api.messaging.send_message"):
-                    mock_discover.return_value = "sess-claude-456"
+                    mock_resolve.return_value = "sess-claude-456"
                     launch.spawn_ephemeral(
                         identity="test-agent",
                         instruction="test",
                         channel_id=test_channel.channel_id,
+                        resume="sess-claude-456",
                     )
 
                     assert mock_link.call_count == 1

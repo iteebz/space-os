@@ -121,7 +121,7 @@ def test_spawn_chain_by_spawn_id(test_space, default_agents):
     child2 = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=root.id)
     grandchild = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=child1.id)
 
-    result = runner.invoke(spawn.app, ["chain", root.id[:8]])
+    result = runner.invoke(spawn.app, ["chain", root.id])
     assert result.exit_code == 0
     assert root.id[:8] in result.stdout
     assert child1.id[:8] in result.stdout
@@ -191,7 +191,7 @@ def test_spawn_chain_deep_tree(test_space, default_agents):
     grandchild = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=child.id)
     great_grandchild = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=grandchild.id)
 
-    result = runner.invoke(spawn.app, ["chain", root.id[:8]])
+    result = runner.invoke(spawn.app, ["chain", root.id])
     assert result.exit_code == 0
 
     lines = result.stdout.split("\n")
@@ -215,7 +215,7 @@ def test_spawn_chain_mixed_agents(test_space, default_agents):
     root = spawn.api.spawns.create_spawn(agent1.agent_id)
     child1 = spawn.api.spawns.create_spawn(agent2.agent_id, parent_spawn_id=root.id)
 
-    result = runner.invoke(spawn.app, ["chain", root.id[:8]])
+    result = runner.invoke(spawn.app, ["chain", root.id])
     assert result.exit_code == 0
     assert root.id[:8] in result.stdout
     assert child1.id[:8] in result.stdout
@@ -234,6 +234,6 @@ def test_spawn_chain_partial_spawn_id(test_space, default_agents):
     root = spawn.api.spawns.create_spawn(agent.agent_id)
     child = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=root.id)
 
-    result = runner.invoke(spawn.app, ["chain", root.id[:8]])
+    result = runner.invoke(spawn.app, ["chain", root.id])
     assert result.exit_code == 0
     assert child.id[:8] in result.stdout

@@ -205,13 +205,20 @@ def get_spawns_for_agent(
 
 
 def get_spawn(spawn_id: str) -> Spawn | None:
-    """Get spawn by full or partial ID. Prefers exact matches, then longest prefix."""
+    """Get spawn by full or partial ID. Prefers exact matches, then unique prefix."""
     with store.ensure() as conn:
-        row = conn.execute(
-            "SELECT * FROM spawns WHERE id = ? OR id LIKE ? ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END, LENGTH(id) DESC LIMIT 1",
-            (spawn_id, f"{spawn_id}%", spawn_id),
-        ).fetchone()
-        return from_row(row, Spawn) if row else None
+        row = conn.execute("SELECT * FROM spawns WHERE id = ?", (spawn_id,)).fetchone()
+        if row:
+            return from_row(row, Spawn)
+
+        matches = conn.execute("SELECT * FROM spawns WHERE id LIKE ?", (f"{spawn_id}%",)).fetchall()
+        if len(matches) > 1:
+            raise ValueError(
+                f"Ambiguous spawn ID '{spawn_id}': {len(matches)} matches. Provide more characters."
+            )
+        if len(matches) == 1:
+            return from_row(matches[0], Spawn)
+        return None
 
 
 def pause_spawn(spawn_id: str) -> Spawn:
