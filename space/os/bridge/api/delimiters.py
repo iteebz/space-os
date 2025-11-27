@@ -30,13 +30,16 @@ async def process_delimiters(channel_id: str, content: str, agent_id: str | None
         return
 
     try:
-        _process_control_commands(channel_id, content)
+        _process_control_commands(channel_id, content, agent_id)
         _process_mentions(channel_id, content, agent_id)
     except Exception as e:
         log.error(f"Failed to process delimiters: {e}", exc_info=True)
 
 
-def _process_control_commands(channel_id: str, content: str) -> None:
+def _process_control_commands(channel_id: str, content: str, agent_id: str | None = None) -> None:
+    if "!handoff" in content:
+        _process_handoff_command(channel_id, content, agent_id)
+
     if "!pause" in content:
         targets = _extract_control_targets(r"!pause(?:\s+([\w-]+))?", content)
         if not targets:
@@ -183,6 +186,48 @@ def _has_running_spawn_in_channel(agent_id: str, channel_id: str) -> bool:
             return True
 
     return False
+
+
+def _process_handoff_command(channel_id: str, content: str, sender_agent_id: str | None) -> None:
+    """Parse !handoff @target summary and create handoff + spawn target + kill sender."""
+    from space.lib.detach import detach
+
+    from . import handoffs
+
+    if not sender_agent_id:
+        return
+
+    # Pattern: !handoff @target rest-of-message
+    match = re.search(r"!handoff\s+@([\w-]+)\s+(.+)", content, re.DOTALL)
+    if not match:
+        return
+
+    target_identity = match.group(1)
+    summary = match.group(2).strip()
+
+    sender_agent = spawn_agents.get_agent(sender_agent_id)
+    if not sender_agent:
+        return
+
+    target_agent = spawn_agents.get_agent(target_identity)
+    if not target_agent or not target_agent.model:
+        return
+
+    # Create handoff record
+    try:
+        handoffs.create_handoff(channel_id, sender_agent.identity, target_identity, summary)
+    except ValueError as e:
+        log.error(f"Failed to create handoff: {e}")
+        return
+
+    # Spawn target agent if not already running
+    if not _has_running_spawn_in_channel(target_agent.agent_id, channel_id):
+        detach(["spawn", "run", target_identity, content, "--channel", channel_id])
+
+    # Kill sender's spawn in this channel
+    for spawn in spawns.get_spawns_for_agent(sender_agent_id):
+        if spawn.status == "running" and spawn.channel_id == channel_id:
+            _kill_spawn(spawn.id)
 
 
 def _try_resume_paused_spawn(agent_id: str, channel_id: str | None = None) -> bool:

@@ -41,23 +41,29 @@ CHANNEL: #{channel}
 You are headless. No human is watching this terminal. Replies here won't be read.
 All communication via: bridge send {channel} "message"
 
+CONTROL COMMANDS (in bridge messages):
+- !handoff @agent summary → Transfer task ownership, you terminate, they spawn
+- !pause [agent] → Pause spawns (all if no agent specified)
+- !resume [agent] → Resume paused spawns
+- !abort [agent] → Kill running spawns
+
 LIFECYCLE:
 1. bridge recv {channel} (see why summoned)
 2. bridge send {channel} "@{identity} online" (announce presence)
 3. Discuss with other agents BEFORE implementing (if multi-agent)
 4. Work, bridge send progress
-5. When YOUR work is done: bridge handoff {channel} <next-agent> "summary"
+5. When YOUR work is done: bridge send {channel} "!handoff @next-agent summary of what's done and what's next"
 6. When ALL work is done: bridge send {channel} "@{human_identity} <summary>"
 
 ESCALATION:
 - @{human_identity} = task complete OR blocked, needs human
-- bridge handoff = passing to specific agent
+- !handoff @agent = passing to specific agent (you terminate, they spawn)
 - Do NOT @{human_identity} until work is actually done or you're truly blocked
 
 EXIT RULES:
 1. After YOU post @{human_identity} → TERMINATE immediately
 2. If ANOTHER AGENT posts @{human_identity} (task complete) → TERMINATE (don't respond to completion)
-3. After YOU handoff to another agent → TERMINATE (your part done)
+3. After YOU post !handoff → TERMINATE (your part done, next agent takes over)
 Note: @{human_identity} in the ORIGINAL TASK doesn't count - only agent completion messages."""
 
 TASK_TEMPLATE = """\

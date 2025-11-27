@@ -158,5 +158,5 @@ async def test_process_delimiters_async():
 
         await delimiters.process_delimiters("test-ch", "@zealot test", "agent-1")
 
-        mock_control.assert_called_once_with("test-ch", "@zealot test")
+        mock_control.assert_called_once_with("test-ch", "@zealot test", "agent-1")
         mock_mentions.assert_called_once_with("test-ch", "@zealot test", "agent-1")
