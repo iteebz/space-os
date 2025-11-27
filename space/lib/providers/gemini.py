@@ -29,6 +29,31 @@ class Gemini(Provider):
     SESSION_FILE_PATTERN = "*/chats/session-*.json"
 
     @staticmethod
+    def discover_session(spawn, start_ts: float, end_ts: float) -> str | None:
+        """Discover Gemini session created during spawn window.
+
+        Strategy: Match by mtime within spawn time window.
+        Returns None if no unique match (avoids collision).
+        """
+        if not Gemini.SESSIONS_DIR.exists():
+            return None
+
+        candidates = []
+
+        for session_file in Gemini.SESSIONS_DIR.rglob("session-*.json"):
+            try:
+                mtime = session_file.stat().st_mtime
+                if start_ts <= mtime <= end_ts:
+                    # Extract session ID from filename
+                    session_id = session_file.stem.replace("session-", "")
+                    candidates.append(session_id)
+            except OSError:
+                continue
+
+        # Only link if unique match in time window
+        return candidates[0] if len(candidates) == 1 else None
+
+    @staticmethod
     def allowed_tools() -> list[str]:
         """Return allowed tools for Gemini."""
         return [

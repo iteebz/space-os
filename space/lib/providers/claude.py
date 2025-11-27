@@ -45,6 +45,30 @@ class Claude(Provider):
         ]
 
     @staticmethod
+    def discover_session(spawn, start_ts: float, end_ts: float) -> str | None:
+        """Discover Claude session created during spawn window.
+
+        Strategy: Match sessions by mtime within spawn time window.
+        Returns None if no unique match (avoids collision).
+        """
+        candidates = []
+
+        for project_dir in Claude.SESSIONS_DIR.iterdir():
+            if not project_dir.is_dir():
+                continue
+
+            for session_file in project_dir.glob("*.jsonl"):
+                try:
+                    mtime = session_file.stat().st_mtime
+                    if start_ts <= mtime <= end_ts:
+                        candidates.append(session_file.stem)
+                except OSError:
+                    continue
+
+        # Only link if unique match in time window
+        return candidates[0] if len(candidates) == 1 else None
+
+    @staticmethod
     def session_exists(session_id: str, expected_cwd: str | None = None) -> bool:
         """Check if Claude CLI can resume this session.
 

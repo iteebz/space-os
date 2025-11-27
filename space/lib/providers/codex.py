@@ -23,6 +23,51 @@ class Codex(Provider):
     SESSIONS_DIR = Path.home() / ".codex" / "sessions"
 
     @staticmethod
+    def discover_session(spawn, start_ts: float, end_ts: float) -> str | None:
+        """Discover Codex session created during spawn window.
+
+        Strategy: Match by filename timestamp.
+        Codex filenames: rollout-YYYY-MM-DDTHH-MM-SS-{uuid}.jsonl
+        Returns None if no unique match (avoids collision).
+        """
+        import re
+        from datetime import datetime
+
+        if not Codex.SESSIONS_DIR.exists():
+            return None
+
+        candidates = []
+
+        for session_file in Codex.SESSIONS_DIR.rglob("*.jsonl"):
+            # Extract timestamp and session_id from filename
+            # Format: rollout-YYYY-MM-DDTHH-MM-SS-{uuid}.jsonl
+            match = re.search(
+                r"rollout-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})-(.+)", session_file.stem
+            )
+            if not match:
+                continue
+
+            timestamp_str = match.group(1)
+            session_id = match.group(2)
+
+            # Convert YYYY-MM-DDTHH-MM-SS to YYYY-MM-DDTHH:MM:SS
+            date_part, time_part = timestamp_str.split("T")
+            time_part = time_part.replace("-", ":")
+            timestamp_str = f"{date_part}T{time_part}"
+
+            try:
+                file_dt = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S")
+                file_ts = file_dt.timestamp()
+
+                if start_ts <= file_ts <= end_ts and len(session_id) == 36:
+                    candidates.append(session_id)
+            except (ValueError, AttributeError):
+                continue
+
+        # Only link if unique match in time window
+        return candidates[0] if len(candidates) == 1 else None
+
+    @staticmethod
     def parse_model_id(model_id: str) -> tuple[str, str | None]:
         """Parse model ID into (base_model, reasoning_effort).
 

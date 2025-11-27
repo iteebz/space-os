@@ -258,14 +258,43 @@ def _execute_spawn(cmd: list[str], context: str, agent, spawn_id: str, env: dict
 
 
 def _link_session(spawn, session_id: str | None, provider: str) -> None:
-    """Link spawn to session (only if session_id explicitly provided)."""
+    """Link spawn to session via post-spawn discovery if not explicitly provided."""
     from space.os.sessions.api import linker
 
     try:
+        if not session_id:
+            session_id = _discover_spawn_session(spawn, provider)
         if session_id:
             linker.link_spawn_to_session(spawn.id, session_id)
     except Exception as e:
         logger.debug(f"Session linking failed (non-fatal): {e}")
+
+
+def _discover_spawn_session(spawn, provider: str) -> str | None:
+    """Discover session created during spawn window via provider-specific logic."""
+    from datetime import datetime, timedelta
+
+    provider_cls = PROVIDERS.get(provider)
+    if not provider_cls or not hasattr(provider_cls, "discover_session"):
+        return None
+
+    # Parse spawn start time window (narrow - only around spawn creation)
+    try:
+        start_dt = datetime.fromisoformat(spawn.created_at.replace("Z", "+00:00"))
+        if start_dt.tzinfo:
+            start_dt = start_dt.replace(tzinfo=None)
+
+        # Session file created within ±5s of spawn start (not entire spawn duration)
+        # This avoids matching other spawns/sessions that happen during execution
+        start_dt = start_dt - timedelta(seconds=5)
+        end_dt = start_dt + timedelta(seconds=10)
+    except (ValueError, AttributeError):
+        return None
+
+    start_ts = start_dt.timestamp()
+    end_ts = end_dt.timestamp()
+
+    return provider_cls.discover_session(spawn, start_ts, end_ts)
 
 
 def _build_resume_args(provider: str, session_id: str | None, is_continue: bool) -> list[str]:
