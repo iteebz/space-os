@@ -4,6 +4,8 @@ import contextlib
 import logging
 import os
 import subprocess
+import tempfile
+from datetime import datetime
 
 from space.lib import paths
 from space.lib.providers import Claude, Codex, Gemini
@@ -27,8 +29,6 @@ PROVIDERS = {
 
 def _discover_recent_session(provider: str, after_timestamp: str) -> str | None:
     """Find most recent session file created after timestamp."""
-    from datetime import datetime
-
     provider_cls = PROVIDERS.get(provider)
     if not provider_cls:
         return None
@@ -224,8 +224,6 @@ def _build_spawn_command(
 
 
 def _execute_spawn(cmd: list[str], context: str, agent, spawn_id: str, env: dict[str, str]) -> str:
-    import tempfile
-
     spawn_dir = paths.identity_dir(agent.identity)
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
@@ -255,8 +253,6 @@ def _execute_spawn(cmd: list[str], context: str, agent, spawn_id: str, env: dict
         proc.kill()
         raise RuntimeError(f"{agent.provider.title()} spawn timed out") from None
     finally:
-        import os
-
         with contextlib.suppress(Exception):
             os.unlink(context_file)
 
@@ -270,17 +266,6 @@ def _link_session(spawn, session_id: str | None, provider: str) -> None:
             linker.link_spawn_to_session(spawn.id, session_id)
     except Exception as e:
         logger.debug(f"Session linking failed (non-fatal): {e}")
-
-
-def _resolve_executable(executable: str, env: dict[str, str]) -> str:
-    if os.path.isabs(executable):
-        return executable
-
-    search_path = env.get("PATH") or None
-    resolved = shutil.which(executable, path=search_path)
-    if not resolved:
-        raise ValueError(f"Executable '{executable}' not found on PATH")
-    return resolved
 
 
 def _build_resume_args(provider: str, session_id: str | None, is_continue: bool) -> list[str]:

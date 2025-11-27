@@ -1,6 +1,7 @@
 """Knowledge operations: discovered patterns and insights across domains."""
 
 import re
+import sqlite3
 from datetime import datetime
 
 from space.core.models import Knowledge, SearchResult
@@ -13,6 +14,11 @@ from space.os import spawn
 
 def _row_to_knowledge(row: dict) -> Knowledge:
     return from_row(row, Knowledge)
+
+
+def _fts_terms(text: str) -> list[str]:
+    """Normalize user text for FTS queries."""
+    return re.findall(r"[a-z0-9]+", text.lower())
 
 
 def _validate_domain(domain: str) -> None:
@@ -95,26 +101,22 @@ def find_related_knowledge(
 
     archive = archive_filter(show_all, prefix="AND")
     with store.ensure() as conn:
+        fts_query = " OR ".join(keywords)
         try:
-            conn.execute("CREATE TEMPORARY TABLE keywords (keyword TEXT)")
-            conn.executemany("INSERT INTO keywords VALUES (?)", [(k,) for k in keywords])
-
             query = f"""
-                SELECT k_entry.knowledge_id, k_entry.domain, k_entry.agent_id, k_entry.content,
-                       k_entry.created_at, k_entry.archived_at, COUNT(kw.keyword) as score
-                FROM knowledge k_entry, keywords kw
-                WHERE k_entry.knowledge_id != ? AND
-                      (k_entry.content LIKE '%' || kw.keyword || '%' OR k_entry.domain LIKE '%' || kw.keyword || '%')
-                      {archive}
-                GROUP BY k_entry.knowledge_id
-                ORDER BY score DESC
+                SELECT k.knowledge_id, k.domain, k.agent_id, k.content,
+                       k.created_at, k.archived_at
+                FROM knowledge k
+                WHERE k.knowledge_id != ? AND k.rowid IN (
+                    SELECT rowid FROM knowledge_fts WHERE knowledge_fts MATCH ?
+                ) {archive}
+                ORDER BY k.created_at DESC
                 LIMIT ?
             """
-            rows = conn.execute(query, (entry.knowledge_id, limit)).fetchall()
-        finally:
-            conn.execute("DROP TABLE IF EXISTS keywords")
-
-    return [(_row_to_knowledge(row), row["score"]) for row in rows]
+            rows = conn.execute(query, (entry.knowledge_id, fts_query, limit)).fetchall()
+            return [(_row_to_knowledge(row), len(keywords)) for row in rows]
+        except Exception:
+            return []
 
 
 def archive_knowledge(entry_id: str, restore: bool = False) -> None:
@@ -179,6 +181,23 @@ def count_knowledge() -> tuple[int, int, int]:
     return total, active, archived
 
 
+def _fallback_search_rows(
+    conn: sqlite3.Connection, query: str, agent_id: str | None
+) -> list[store.Row]:
+    sql_query = (
+        "SELECT knowledge_id, domain, agent_id, content, created_at FROM knowledge "
+        "WHERE (content LIKE ? OR domain LIKE ?) AND archived_at IS NULL"
+    )
+    params: list[str] = [f"%{query}%", f"%{query}%"]
+
+    if agent_id:
+        sql_query += " AND agent_id = ?"
+        params.append(agent_id)
+
+    sql_query += " ORDER BY created_at ASC"
+    return conn.execute(sql_query, params).fetchall()
+
+
 def search(query: str, identity: str | None = None, all_agents: bool = False) -> list[SearchResult]:
     results = []
 
@@ -190,21 +209,31 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
         agent_id = agent.agent_id
 
     with store.ensure() as conn:
-        sql_query = (
-            "SELECT knowledge_id, domain, agent_id, content, created_at FROM knowledge "
-            "WHERE (content LIKE ? OR domain LIKE ?) AND archived_at IS NULL"
-        )
-        params = [f"%{query}%", f"%{query}%"]
+        rows: list[store.Row]
+        fts_terms = _fts_terms(query)
+        if fts_terms:
+            fts_query = " OR ".join(f"{term}*" for term in fts_terms)
+            try:
+                sql = (
+                    "SELECT k.knowledge_id, k.domain, k.agent_id, k.content, k.created_at "
+                    "FROM knowledge k "
+                    "WHERE k.archived_at IS NULL AND k.rowid IN ("
+                    "SELECT rowid FROM knowledge_fts WHERE knowledge_fts MATCH ?"
+                    ")"
+                )
+                params: list[str] = [fts_query]
+                if agent_id:
+                    sql += " AND k.agent_id = ?"
+                    params.append(agent_id)
+                sql += " ORDER BY k.created_at ASC"
+                rows = conn.execute(sql, params).fetchall()
+            except sqlite3.OperationalError:
+                rows = _fallback_search_rows(conn, query, agent_id)
+        else:
+            rows = _fallback_search_rows(conn, query, agent_id)
 
-        if agent_id:
-            sql_query += " AND agent_id = ?"
-            params.append(agent_id)
-
-        sql_query += " ORDER BY created_at ASC"
-        rows = conn.execute(sql_query, params).fetchall()
-
+        identities = spawn.api.agent_identities()
         for row in rows:
-            agent = spawn.get_agent(row["agent_id"])
             results.append(
                 SearchResult(
                     source="knowledge",
@@ -212,7 +241,7 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
                     content=row["content"],
                     timestamp=row["created_at"],
                     agent_id=row["agent_id"],
-                    identity=agent.identity if agent else row["agent_id"],
+                    identity=identities.get(row["agent_id"], row["agent_id"]),
                     metadata={"knowledge_id": row["knowledge_id"], "domain": row["domain"]},
                 )
             )

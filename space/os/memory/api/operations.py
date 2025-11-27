@@ -188,24 +188,24 @@ def find_related_memories(
 
     archive_filter = "" if show_all else "AND archived_at IS NULL"
     with store.ensure() as conn:
+        fts_query = " OR ".join(keywords)
         try:
-            conn.execute("CREATE TEMPORARY TABLE keywords (keyword TEXT)")
-            conn.executemany("INSERT INTO keywords VALUES (?)", [(k,) for k in keywords])
-
             query = f"""
                 SELECT m.memory_id, m.agent_id, m.message, m.topic, m.created_at,
-                       m.archived_at, m.core, m.source, COUNT(k.keyword) as score
-                FROM memories m, keywords k
-                WHERE m.agent_id = ? AND m.memory_id != ? AND (m.message LIKE '%' || k.keyword || '%' OR m.topic LIKE '%' || k.keyword || '%') {archive_filter}
-                GROUP BY m.memory_id
-                ORDER BY score DESC
+                       m.archived_at, m.core, m.source
+                FROM memories m
+                WHERE m.agent_id = ? AND m.memory_id != ? AND m.rowid IN (
+                    SELECT rowid FROM memory_fts WHERE memory_fts MATCH ?
+                ) {archive_filter}
+                ORDER BY m.created_at DESC
                 LIMIT ?
             """
-            rows = conn.execute(query, (entry.agent_id, entry.memory_id, limit)).fetchall()
-        finally:
-            conn.execute("DROP TABLE IF EXISTS keywords")
-
-    return [(_row_to_memory(row), row["score"]) for row in rows]
+            rows = conn.execute(
+                query, (entry.agent_id, entry.memory_id, fts_query, limit)
+            ).fetchall()
+            return [(_row_to_memory(row), len(keywords)) for row in rows]
+        except Exception:
+            return []
 
 
 def get_memory(memory_id: str) -> Memory | None:

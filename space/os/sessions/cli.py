@@ -103,7 +103,7 @@ def show_session(query: str):
     # Try as spawn_id first (partial match supported)
     with store.ensure() as conn:
         row = conn.execute(
-            "SELECT * FROM spawns WHERE id = ? OR id LIKE ? LIMIT 1",
+            "SELECT id, agent_id, parent_spawn_id, session_id, channel_id, constitution_hash, status, pid, created_at, ended_at FROM spawns WHERE id = ? OR id LIKE ? LIMIT 1",
             (query, f"{query}%"),
         ).fetchone()
         if row:

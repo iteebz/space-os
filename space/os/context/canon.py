@@ -97,20 +97,24 @@ def search(
     path_matches = []
     content_matches = []
 
-    for md_file in canon_root.rglob("*.md"):
-        try:
-            content = md_file.read_text()
-        except Exception:
-            continue
-
+    for md_file in sorted(canon_root.rglob("*.md")):
         relative_path = md_file.relative_to(canon_root)
         path_str = str(relative_path).lower()
-
         path_match = query_lower in path_str
-        content_match = query_lower in content.lower()
 
-        if not (path_match or content_match):
-            continue
+        if not path_match:
+            try:
+                content = md_file.read_text()
+                content_match = query_lower in content.lower()
+                if not content_match:
+                    continue
+            except Exception:
+                continue
+        else:
+            try:
+                content = md_file.read_text()
+            except Exception:
+                continue
 
         truncated_content = content[:max_content_length]
         if len(content) > max_content_length:

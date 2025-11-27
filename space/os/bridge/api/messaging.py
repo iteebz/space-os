@@ -231,10 +231,10 @@ def format_messages(messages: list[Message], title: str = "Messages", as_json: b
             indent=2,
         )
 
+    identities = spawn.api.agent_identities()
     lines = [f"# {title}\n"]
     for msg in messages:
-        sender = spawn.get_agent(msg.agent_id)
-        sender_name = sender.identity if sender else msg.agent_id[:8]
+        sender_name = identities.get(msg.agent_id, msg.agent_id[:8])
         ts = datetime.fromisoformat(msg.created_at).strftime("%H:%M:%S")
         lines.append(f"**{sender_name}** ({ts}):")
         lines.append(msg.content)

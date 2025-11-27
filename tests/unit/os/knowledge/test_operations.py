@@ -1,5 +1,6 @@
 """Knowledge operations API tests."""
 
+import sqlite3
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -136,3 +137,40 @@ def test_get_domain_tree_builds_hierarchy(mock_db):
 
     tree = knowledge.api.get_domain_tree()
     assert isinstance(tree, dict)
+
+
+def test_search_uses_fts_and_agent_map(mock_db):
+    mock_row = make_mock_row(
+        {
+            "knowledge_id": "k-1",
+            "domain": "architecture/caching",
+            "agent_id": "a-1",
+            "content": "cache tuning",
+            "created_at": "2024-01-01",
+        }
+    )
+    mock_db.execute.return_value.fetchall.return_value = [mock_row]
+
+    with patch("space.os.spawn.api.agent_identities", return_value={"a-1": "sentinel"}):
+        results = knowledge.api.search("cache optimizations")
+
+    assert len(results) == 1
+    assert results[0].identity == "sentinel"
+    sql = mock_db.execute.call_args[0][0]
+    assert "knowledge_fts" in sql
+    assert "MATCH" in sql
+
+
+def test_search_falls_back_to_like_when_fts_missing(mock_db):
+    fallback_cursor = MagicMock()
+    fallback_cursor.fetchall.return_value = []
+    mock_db.execute.side_effect = [
+        sqlite3.OperationalError("no such table"),
+        fallback_cursor,
+    ]
+
+    with patch("space.os.spawn.api.agent_identities", return_value={}):
+        knowledge.api.search("cache")
+
+    like_sql = mock_db.execute.call_args_list[-1][0][0]
+    assert "content LIKE" in like_sql

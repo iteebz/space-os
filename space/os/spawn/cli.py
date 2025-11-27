@@ -451,6 +451,10 @@ def list_spawns(
     if not all and status is None:
         status = "pending|running"
 
+    status_filter: str | list[str] | None = None
+    if status:
+        status_filter = status.split("|") if "|" in status else status
+
     agent = None
     if identity:
         agent = api.get_agent(identity)
@@ -459,15 +463,17 @@ def list_spawns(
             raise typer.Exit(1)
 
     if agent:
-        all_spawns = spawns.get_spawns_for_agent(agent.agent_id)
+        all_spawns = spawns.get_spawns_for_agent(agent.agent_id, status=status_filter)
     else:
         all_spawns = spawns.get_all_spawns()
 
-    if status and "|" in status:
-        statuses = status.split("|")
-        spawns_list = [s for s in all_spawns if s.status in statuses]
+    if agent or not status_filter:
+        spawns_list = all_spawns
     else:
-        spawns_list = [s for s in all_spawns if status is None or s.status == status]
+        if isinstance(status_filter, list):
+            spawns_list = [s for s in all_spawns if s.status in status_filter]
+        else:
+            spawns_list = [s for s in all_spawns if s.status == status_filter]
 
     if ctx.obj and ctx.obj.get("json_output"):
         data = [

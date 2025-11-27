@@ -198,6 +198,35 @@ def test_spawn_tree_independent_roots(test_space):
     assert root2_children[0].id == child2.id
 
 
+def test_get_channel_spawns_filters_by_agent_and_limit(test_space):
+    """Contract: channel spawns query honors agent filters and ordering."""
+    from space.os import bridge
+    from space.os.spawn.api import agents
+
+    channel = bridge.create_channel("channel-filter-test")
+
+    agents.register_agent("agent-a", "claude-haiku-4-5", None)
+    agents.register_agent("agent-b", "claude-haiku-4-5", None)
+    agent_a = agents.get_agent("agent-a")
+    agent_b = agents.get_agent("agent-b")
+
+    first = spawns.create_spawn(agent_a.agent_id, channel_id=channel.channel_id)
+    second = spawns.create_spawn(agent_a.agent_id, channel_id=channel.channel_id)
+    third = spawns.create_spawn(agent_a.agent_id, channel_id=channel.channel_id)
+    peer = spawns.create_spawn(agent_b.agent_id, channel_id=channel.channel_id)
+
+    filtered = spawns.get_channel_spawns(channel.channel_id, agent_id=agent_a.agent_id)
+    assert [s.id for s in filtered][:3] == [third.id, second.id, first.id]
+    assert all(spawn.agent_id == agent_a.agent_id for spawn in filtered)
+
+    limited = spawns.get_channel_spawns(channel.channel_id, agent_id=agent_a.agent_id, limit=2)
+    assert [s.id for s in limited] == [third.id, second.id]
+
+    peer_only = spawns.get_channel_spawns(channel.channel_id, agent_id=agent_b.agent_id)
+    assert len(peer_only) == 1
+    assert peer_only[0].id == peer.id
+
+
 def test_get_spawn_children_empty(test_space):
     """Contract: get_spawn_children returns empty list for spawn with no children."""
     from space.os.spawn.api import agents

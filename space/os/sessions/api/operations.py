@@ -170,12 +170,13 @@ def resolve_session_id(
 
     if not resume:
         if channel_id:
-            all_spawns = spawns.get_channel_spawns(channel_id)
-            for spawn in all_spawns:
-                if spawn.agent_id == agent_id and spawn.session_id:
-                    validated = validate_session(spawn.session_id)
-                    if validated:
-                        return validated
+            channel_spawns = spawns.get_channel_spawns(channel_id, agent_id=agent_id, limit=50)
+            for spawn in channel_spawns:
+                if not spawn.session_id:
+                    continue
+                validated = validate_session(spawn.session_id)
+                if validated:
+                    return validated
             return None
         last_spawns = spawns.get_spawns_for_agent(agent_id, limit=1)
         if last_spawns:

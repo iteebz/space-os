@@ -32,9 +32,10 @@ def _get_archived_agents() -> set[str]:
 def _get_resource_stats(api_count_fn: callable, table: str, topic_column: str) -> dict:
     total, active, archived = api_count_fn()
     with store.ensure() as conn:
-        topics = conn.execute(
+        cursor = conn.execute(
             f"SELECT COUNT(DISTINCT {topic_column}) FROM {table} WHERE archived_at IS NULL"
-        ).fetchone()[0]
+        )
+        topics = cursor.fetchone()[0]
     return {
         "total": total,
         "active": active,
@@ -167,6 +168,9 @@ def knowledge_stats() -> KnowledgeStats:
 
 def agent_stats(limit: int = None, show_all: bool = False) -> list[AgentStats] | None:
     try:
+        agent_identities = _get_agent_identities()
+        archived_set = _get_archived_agents()
+
         agent_map = {
             aid: {
                 "identity": name,
@@ -177,9 +181,8 @@ def agent_stats(limit: int = None, show_all: bool = False) -> list[AgentStats] |
                 "spawns": 0,
                 "last_active": None,
             }
-            for aid, name in _get_agent_identities().items()
+            for aid, name in agent_identities.items()
         }
-        archived_set = _get_archived_agents()
 
         bridge_data = _get_bridge_stats()
 

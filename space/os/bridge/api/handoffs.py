@@ -81,12 +81,16 @@ def close_handoff(handoff_id: str) -> Handoff | None:
 def get_handoff(handoff_id: str) -> Handoff | None:
     """Get handoff by ID (supports prefix match)."""
     with store.ensure() as conn:
-        row = conn.execute("SELECT * FROM handoffs WHERE handoff_id = ?", (handoff_id,)).fetchone()
+        row = conn.execute(
+            "SELECT handoff_id, channel_id, from_agent, to_agent, summary, message_id, status, created_at, closed_at FROM handoffs WHERE handoff_id = ?",
+            (handoff_id,),
+        ).fetchone()
         if row:
             return _row_to_handoff(row)
 
         row = conn.execute(
-            "SELECT * FROM handoffs WHERE handoff_id LIKE ?", (f"{handoff_id}%",)
+            "SELECT handoff_id, channel_id, from_agent, to_agent, summary, message_id, status, created_at, closed_at FROM handoffs WHERE handoff_id LIKE ?",
+            (f"{handoff_id}%",),
         ).fetchone()
         return _row_to_handoff(row) if row else None
 
@@ -95,7 +99,7 @@ def list_pending(to_identity: str | None = None, channel: str | None = None) -> 
     """List pending handoffs, optionally filtered by recipient and/or channel."""
     from space.os import spawn
 
-    query = "SELECT * FROM handoffs WHERE status = ?"
+    query = "SELECT handoff_id, channel_id, from_agent, to_agent, summary, message_id, status, created_at, closed_at FROM handoffs WHERE status = ?"
     params: list[str] = [HandoffStatus.PENDING.value]
 
     if to_identity:
@@ -129,7 +133,7 @@ def list_handoffs_for_channel(channel: str) -> list[Handoff]:
 
     with store.ensure() as conn:
         rows = conn.execute(
-            "SELECT * FROM handoffs WHERE channel_id = ? ORDER BY created_at",
+            "SELECT handoff_id, channel_id, from_agent, to_agent, summary, message_id, status, created_at, closed_at FROM handoffs WHERE channel_id = ? ORDER BY created_at",
             (channel_obj.channel_id,),
         ).fetchall()
         return [_row_to_handoff(row) for row in rows]

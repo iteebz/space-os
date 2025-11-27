@@ -227,23 +227,20 @@ def index(session_id: str) -> int:
 
 def ingest(session_id: str) -> bool:
     sessions_dir = paths.sessions_dir()
-    all_sessions = discover()
 
-    for session in all_sessions:
-        if session["session_id"] == session_id:
-            cli_name = session.get("cli")
-            if not cli_name:
-                return False
+    for provider_name in providers.PROVIDER_NAMES:
+        try:
+            provider_class = providers.get_provider(provider_name)
+            provider = provider_class()
+            sessions = provider.discover()
 
-            try:
-                provider_class = providers.get_provider(cli_name)
-                provider = provider_class()
-                dest_dir = sessions_dir / cli_name
-                dest_dir.mkdir(parents=True, exist_ok=True)
-                return provider.ingest(session, dest_dir)
-            except Exception as e:
-                logger.error(f"Error ingesting {cli_name} session {session_id}: {e}")
-                return False
+            for session in sessions:
+                if session["session_id"] == session_id:
+                    dest_dir = sessions_dir / provider_name
+                    dest_dir.mkdir(parents=True, exist_ok=True)
+                    return provider.ingest(session, dest_dir)
+        except Exception as e:
+            logger.error(f"Error ingesting session {session_id} from {provider_name}: {e}")
 
     return False
 

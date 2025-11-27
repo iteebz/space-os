@@ -1,11 +1,15 @@
 """Spawn tracking: agent invocation lifecycle management."""
 
+import logging
+from collections.abc import Sequence
 from datetime import datetime
 
 from space.core.models import Spawn, SpawnStatus
 from space.lib import store
 from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
+
+logger = logging.getLogger(__name__)
 
 MAX_SPAWN_DEPTH = 3
 
@@ -46,7 +50,10 @@ def create_spawn(
             ),
         )
 
-        cursor.execute("SELECT * FROM spawns WHERE id = ?", (spawn_id,))
+        cursor.execute(
+            "SELECT id, agent_id, parent_spawn_id, session_id, channel_id, constitution_hash, status, pid, created_at, ended_at FROM spawns WHERE id = ?",
+            (spawn_id,),
+        )
         row = cursor.fetchone()
         return from_row(row, Spawn)
 
@@ -83,11 +90,7 @@ def _finalize_session(spawn_id: str) -> None:
         sync.ingest(spawn.session_id)
         sync.index(spawn.session_id)
     except Exception as e:
-        import logging
-
-        logging.getLogger(__name__).warning(
-            f"Failed to finalize session {spawn.session_id} for spawn {spawn_id}: {e}"
-        )
+        logger.warning(f"Failed to finalize session {spawn.session_id} for spawn {spawn_id}: {e}")
 
 
 def end_spawn(spawn_id: str) -> None:
@@ -184,15 +187,27 @@ def get_spawn_count(agent_id: str) -> int:
 
 
 def get_spawns_for_agent(
-    agent_id: str, limit: int | None = None, status: str | None = None
+    agent_id: str,
+    limit: int | None = None,
+    status: str | Sequence[str] | None = None,
 ) -> list[Spawn]:
     with store.ensure() as conn:
-        query = "SELECT * FROM spawns WHERE agent_id = ?"
-        params = [agent_id]
+        query = (
+            "SELECT id, agent_id, parent_spawn_id, session_id, channel_id, constitution_hash, status, pid, created_at, ended_at "
+            "FROM spawns WHERE agent_id = ?"
+        )
+        params: list[object] = [agent_id]
 
         if status:
-            query += " AND status = ?"
-            params.append(status)
+            statuses: list[str]
+            if isinstance(status, str):
+                statuses = status.split("|") if "|" in status else [status]
+            else:
+                statuses = list(status)
+
+            placeholders = ", ".join(["?"] * len(statuses))
+            query += f" AND status IN ({placeholders})"
+            params.extend(statuses)
 
         query += " ORDER BY created_at DESC"
 
@@ -207,11 +222,17 @@ def get_spawns_for_agent(
 def get_spawn(spawn_id: str) -> Spawn | None:
     """Get spawn by full or partial ID. Prefers exact matches, then unique prefix."""
     with store.ensure() as conn:
-        row = conn.execute("SELECT * FROM spawns WHERE id = ?", (spawn_id,)).fetchone()
+        row = conn.execute(
+            "SELECT id, agent_id, parent_spawn_id, session_id, channel_id, constitution_hash, status, pid, created_at, ended_at FROM spawns WHERE id = ?",
+            (spawn_id,),
+        ).fetchone()
         if row:
             return from_row(row, Spawn)
 
-        matches = conn.execute("SELECT * FROM spawns WHERE id LIKE ?", (f"{spawn_id}%",)).fetchall()
+        matches = conn.execute(
+            "SELECT id, agent_id, parent_spawn_id, session_id, channel_id, constitution_hash, status, pid, created_at, ended_at FROM spawns WHERE id LIKE ?",
+            (f"{spawn_id}%",),
+        ).fetchall()
         if len(matches) > 1:
             raise ValueError(
                 f"Ambiguous spawn ID '{spawn_id}': {len(matches)} matches. Provide more characters."
@@ -247,25 +268,43 @@ def resume_spawn(spawn_id: str) -> Spawn:
     return get_spawn(spawn_id)
 
 
-def get_channel_spawns(channel_id: str, status: str | None = None) -> list[Spawn]:
-    """Get spawns in channel, optionally filtered by status."""
+def get_channel_spawns(
+    channel_id: str,
+    status: str | None = None,
+    agent_id: str | None = None,
+    limit: int | None = None,
+) -> list[Spawn]:
+    """Get spawns in channel, optionally filtered by status or agent."""
     with store.ensure() as conn:
+        query = (
+            "SELECT id, agent_id, parent_spawn_id, session_id, channel_id, constitution_hash, status, pid, created_at, ended_at "
+            "FROM spawns WHERE channel_id = ?"
+        )
+        params: list[object] = [channel_id]
+
         if status:
-            rows = conn.execute(
-                "SELECT * FROM spawns WHERE channel_id = ? AND status = ? ORDER BY created_at DESC",
-                (channel_id, status),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM spawns WHERE channel_id = ? ORDER BY created_at DESC", (channel_id,)
-            ).fetchall()
+            query += " AND status = ?"
+            params.append(status)
+
+        if agent_id:
+            query += " AND agent_id = ?"
+            params.append(agent_id)
+
+        query += " ORDER BY created_at DESC"
+
+        if limit:
+            query += " LIMIT ?"
+            params.append(limit)
+
+        rows = conn.execute(query, params).fetchall()
         return [from_row(row, Spawn) for row in rows]
 
 
 def get_all_spawns(limit: int = 100) -> list[Spawn]:
     with store.ensure() as conn:
         rows = conn.execute(
-            "SELECT * FROM spawns ORDER BY created_at DESC LIMIT ?", (limit,)
+            "SELECT id, agent_id, parent_spawn_id, session_id, channel_id, constitution_hash, status, pid, created_at, ended_at FROM spawns ORDER BY created_at DESC LIMIT ?",
+            (limit,),
         ).fetchall()
         return [from_row(row, Spawn) for row in rows]
 
@@ -299,7 +338,7 @@ def get_spawn_children(spawn_id: str) -> list[Spawn]:
     """Get direct children of a spawn."""
     with store.ensure() as conn:
         rows = conn.execute(
-            "SELECT * FROM spawns WHERE parent_spawn_id = ? ORDER BY created_at ASC",
+            "SELECT id, agent_id, parent_spawn_id, session_id, channel_id, constitution_hash, status, pid, created_at, ended_at FROM spawns WHERE parent_spawn_id = ? ORDER BY created_at ASC",
             (spawn_id,),
         ).fetchall()
         return [from_row(row, Spawn) for row in rows]
@@ -309,7 +348,7 @@ def get_all_root_spawns(limit: int = 100) -> list[Spawn]:
     """Get spawns with no parent (root spawns)."""
     with store.ensure() as conn:
         rows = conn.execute(
-            "SELECT * FROM spawns WHERE parent_spawn_id IS NULL ORDER BY created_at DESC LIMIT ?",
+            "SELECT id, agent_id, parent_spawn_id, session_id, channel_id, constitution_hash, status, pid, created_at, ended_at FROM spawns WHERE parent_spawn_id IS NULL ORDER BY created_at DESC LIMIT ?",
             (limit,),
         ).fetchall()
         return [from_row(row, Spawn) for row in rows]
@@ -319,7 +358,7 @@ def get_root_spawns_for_agent(agent_id: str, limit: int = 100) -> list[Spawn]:
     """Get root spawns (no parent) for a specific agent. Efficient WHERE clause filtering."""
     with store.ensure() as conn:
         rows = conn.execute(
-            "SELECT * FROM spawns WHERE parent_spawn_id IS NULL AND agent_id = ? ORDER BY created_at DESC LIMIT ?",
+            "SELECT id, agent_id, parent_spawn_id, session_id, channel_id, constitution_hash, status, pid, created_at, ended_at FROM spawns WHERE parent_spawn_id IS NULL AND agent_id = ? ORDER BY created_at DESC LIMIT ?",
             (agent_id, limit),
         ).fetchall()
         return [from_row(row, Spawn) for row in rows]

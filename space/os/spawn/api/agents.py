@@ -42,7 +42,7 @@ def touch_agent(agent_id: str) -> None:
 def get_agent(identifier: str) -> Agent | None:
     with store.ensure() as conn:
         row = conn.execute(
-            "SELECT agent_id, identity, constitution, model, role, spawn_count, archived_at, created_at FROM agents WHERE (identity = ? OR agent_id = ?) AND archived_at IS NULL LIMIT 1",
+            "SELECT agent_id, identity, model, constitution, role, spawn_count, created_at, last_active_at, archived_at FROM agents WHERE (identity = ? OR agent_id = ?) AND archived_at IS NULL LIMIT 1",
             (identifier, identifier),
         ).fetchone()
         return _row_to_agent(row) if row else None
@@ -84,16 +84,23 @@ def update_agent(
     if constitution is None and model is None and role is None:
         return True
 
-    with store.ensure() as conn:
-        if constitution is not None:
-            conn.execute(
-                "UPDATE agents SET constitution = ? WHERE agent_id = ?",
-                (constitution, agent.agent_id),
-            )
-        if model is not None:
-            conn.execute("UPDATE agents SET model = ? WHERE agent_id = ?", (model, agent.agent_id))
-        if role is not None:
-            conn.execute("UPDATE agents SET role = ? WHERE agent_id = ?", (role, agent.agent_id))
+    updates = []
+    params = []
+    if constitution is not None:
+        updates.append("constitution = ?")
+        params.append(constitution)
+    if model is not None:
+        updates.append("model = ?")
+        params.append(model)
+    if role is not None:
+        updates.append("role = ?")
+        params.append(role)
+
+    if updates:
+        query = "UPDATE agents SET " + ", ".join(updates) + " WHERE agent_id = ?"
+        params.append(agent.agent_id)
+        with store.ensure() as conn:
+            conn.execute(query, params)
     return True
 
 
