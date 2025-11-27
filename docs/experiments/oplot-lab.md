@@ -98,13 +98,11 @@ Critical issues preventing autonomous 8h operation:
 - Spawns now use `subprocess.Popen(start_new_session=True)` - process outlives parent
 - Tested: hailot @mention responded in 14s after CLI exit
 
-### 2. No Spawn Lifecycle Management
-- PID column exists but never populated
-- Status never updated on completion/failure
-- Orphan "running" spawns accumulate (019ac0d6 still "running" after process dead)
-- No way to distinguish hung vs active vs dead
-- **Impact:** Can't monitor, can't recover, can't abort reliably
-- **Fix:** Record PID, update status in finally block, health check
+### 2. ~~No Spawn Lifecycle Management~~ FIXED
+- ~~PID column exists but never populated~~
+- ~~Orphan "running" spawns accumulate~~
+- **Fix applied:** `spawns.set_pid()` called after Popen, `spawn cleanup` command
+- Tested: cleaned 8 orphan spawns with dead/null PIDs
 
 ### 3. Fire-and-Forget Architecture
 - `_spawn_agent()` runs in thread, no callback, no result tracking
@@ -120,12 +118,11 @@ Critical issues preventing autonomous 8h operation:
 - **Impact:** Cascade failure, starvation
 - **Fix:** Async subprocess, shorter timeout with retry, circuit breaker
 
-### 5. No Observable Progress
-- Agents only post final result to bridge
-- 60-120s of silence during spawn
-- Can't tell if working, stuck, or failed
-- **Impact:** Human can't intervene, can't debug
-- **Fix:** Progress heartbeat, or `spawn logs --follow` for live output
+### 5. ~~No Observable Progress~~ FIXED
+- ~~60-120s of silence during spawn~~
+- **Fix applied:** `spawn logs` shows PID, duration, session JSONL
+- `spawn logs --follow` streams live output
+- `spawn logs --tail N` shows last N messages
 
 ---
 
@@ -134,10 +131,10 @@ Critical issues preventing autonomous 8h operation:
 To enable recursive self-improvement via autonomous coordination:
 
 1. ~~**Spawns that outlive triggers**~~ ✓ DONE — detach subprocess model
-2. **Status that reflects reality** — PID tracking, completion callbacks
+2. ~~**Status that reflects reality**~~ ✓ DONE — PID tracking, `spawn cleanup`
 3. **Failure detection** — health checks, timeout handling
 4. **Recovery mechanisms** — retry, circuit breaker, fallback
-5. **Observable progress** — heartbeats or streamable logs
+5. ~~**Observable progress**~~ ✓ DONE — `spawn logs --follow`, duration display
 6. **Testable spawns** — mock provider for CI, deterministic outcomes
 
 Without these, autonomous operation degrades unpredictably.

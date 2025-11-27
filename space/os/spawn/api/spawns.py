@@ -98,6 +98,36 @@ def end_spawn(spawn_id: str) -> None:
         )
 
 
+def set_pid(spawn_id: str, pid: int) -> None:
+    with store.ensure() as conn:
+        conn.execute("UPDATE spawns SET pid = ? WHERE id = ?", (pid, spawn_id))
+
+
+def cleanup_orphans() -> int:
+    """Mark spawns with dead PIDs as failed. Returns count cleaned."""
+    import os
+    from datetime import datetime, timedelta
+
+    cleaned = 0
+    (datetime.now() - timedelta(hours=1)).isoformat()
+
+    with store.ensure() as conn:
+        rows = conn.execute("SELECT id, pid FROM spawns WHERE status = 'running'").fetchall()
+
+    for spawn_id, pid in rows:
+        if pid is None:
+            update_status(spawn_id, "failed")
+            cleaned += 1
+        else:
+            try:
+                os.kill(pid, 0)
+            except OSError:
+                update_status(spawn_id, "failed")
+                cleaned += 1
+
+    return cleaned
+
+
 def link_session_to_spawn(spawn_id: str, session_id: str) -> None:
     with store.ensure() as conn:
         conn.execute(

@@ -154,7 +154,7 @@ def _run_ephemeral(
         channel=channel_name,
     )
     cmd = _build_spawn_command(agent, session_id, is_continue, image_paths=image_paths)
-    _execute_spawn(cmd, context, agent, env)
+    _execute_spawn(cmd, context, agent, spawn.id, env)
     _link_session(spawn, session_id, agent.provider)
 
 
@@ -214,7 +214,7 @@ def _build_spawn_command(
     return [agent.provider] + launch_args + model_args + add_dir_args + resume_args
 
 
-def _execute_spawn(cmd: list[str], context: str, agent, env: dict[str, str]) -> str:
+def _execute_spawn(cmd: list[str], context: str, agent, spawn_id: str, env: dict[str, str]) -> str:
     import tempfile
 
     spawn_dir = paths.identity_dir(agent.identity)
@@ -234,6 +234,7 @@ def _execute_spawn(cmd: list[str], context: str, agent, env: dict[str, str]) -> 
                 cwd=str(spawn_dir),
                 env=env,
             )
+            spawns.set_pid(spawn_id, proc.pid)
             stdout, stderr = proc.communicate(timeout=SPAWN_TIMEOUT)
 
         if proc.returncode != 0:

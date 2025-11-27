@@ -148,6 +148,7 @@ def main_callback(
             "merge",
             "list",
             "run",
+            "cleanup",
             "logs",
             "abort",
             "trace",
@@ -490,9 +491,21 @@ def logs(
     if spawn_obj.session_id:
         typer.echo(f"Session: {spawn_obj.session_id}")
 
+    if spawn_obj.pid:
+        typer.echo(f"PID: {spawn_obj.pid}")
+
     typer.echo(f"Created: {spawn_obj.created_at}")
     if spawn_obj.ended_at:
         typer.echo(f"Ended: {spawn_obj.ended_at}")
+        try:
+            from datetime import datetime
+
+            start = datetime.fromisoformat(spawn_obj.created_at)
+            end = datetime.fromisoformat(spawn_obj.ended_at)
+            duration = (end - start).total_seconds()
+            typer.echo(f"Duration: {duration:.1f}s")
+        except (ValueError, TypeError):
+            pass
 
     # Find session file
     session_file = _find_session_file(spawn_obj)
@@ -550,6 +563,14 @@ def run(
     except Exception as e:
         typer.echo(f"error:{e}", err=True)
         raise typer.Exit(1) from e
+
+
+@app.command()
+@error_feedback
+def cleanup():
+    """Mark orphan spawns (dead PIDs) as failed."""
+    count = spawns.cleanup_orphans()
+    typer.echo(f"✓ Cleaned {count} orphan spawn(s)")
 
 
 @app.command()
@@ -618,6 +639,7 @@ def main() -> None:
                 "merge",
                 "list",
                 "run",
+                "cleanup",
                 "logs",
                 "abort",
                 "trace",

@@ -24,6 +24,7 @@ def test_channel(test_space):
 def test_spawn_ephemeral_claude_streams_ingest(test_agent, test_channel):
     """Contract: session linked after spawn completes."""
     mock_proc = MagicMock()
+    mock_proc.pid = 12345
     mock_proc.communicate.return_value = ("Response text", "")
     mock_proc.returncode = 0
 
@@ -43,6 +44,7 @@ def test_spawn_ephemeral_claude_streams_ingest(test_agent, test_channel):
 def test_spawn_ephemeral_claude_extracts_session_once(test_agent, test_channel):
     """Contract: session linked from discovered JSONL file."""
     mock_proc = MagicMock()
+    mock_proc.pid = 12345
     mock_proc.communicate.return_value = ("Response", "")
     mock_proc.returncode = 0
 
@@ -65,6 +67,7 @@ def test_spawn_ephemeral_claude_extracts_session_once(test_agent, test_channel):
 def test_spawn_ephemeral_no_session_id_raises(test_agent, test_channel):
     """Contract: Succeeds even if no session discovered (session linking is optional)."""
     mock_proc = MagicMock()
+    mock_proc.pid = 12345
     mock_proc.communicate.return_value = ("Response", "")
     mock_proc.returncode = 0
 
@@ -82,6 +85,7 @@ def test_spawn_ephemeral_no_session_id_raises(test_agent, test_channel):
 def test_spawn_ephemeral_process_failure_raises(test_agent, test_channel):
     """Contract: Raises RuntimeError when subprocess returns non-zero."""
     mock_proc = MagicMock()
+    mock_proc.pid = 12345
     mock_proc.communicate.return_value = ("", "Process error")
     mock_proc.returncode = 1
 
@@ -97,6 +101,7 @@ def test_spawn_ephemeral_process_failure_raises(test_agent, test_channel):
 def test_spawn_ephemeral_ingest_graceful_failure(test_agent, test_channel):
     """Contract: session discovery failures are graceful."""
     mock_proc = MagicMock()
+    mock_proc.pid = 12345
     mock_proc.communicate.return_value = ("Response", "")
     mock_proc.returncode = 0
 
@@ -116,6 +121,7 @@ def test_spawn_ephemeral_timeout_raises(test_agent, test_channel):
     import subprocess
 
     mock_proc = MagicMock()
+    mock_proc.pid = 12345
     mock_proc.communicate = MagicMock(side_effect=subprocess.TimeoutExpired("claude", 300))
     mock_proc.kill = MagicMock()
 
