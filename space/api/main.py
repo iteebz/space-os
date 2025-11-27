@@ -169,7 +169,9 @@ async def get_agents():
             rows = conn.execute(
                 """SELECT agent_id, identity, model, constitution, role, spawn_count,
                           created_at, last_active_at, archived_at
-                   FROM agents WHERE archived_at IS NULL ORDER BY identity"""
+                   FROM agents
+                   WHERE archived_at IS NULL
+                   ORDER BY constitution, identity"""
             ).fetchall()
         return [dict(row) for row in rows]
     except Exception as e:

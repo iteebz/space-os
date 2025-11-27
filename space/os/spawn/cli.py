@@ -229,10 +229,9 @@ def agents(
             typer.echo("No agents found.")
         return
 
-    sorted_stats = sorted(stats, key=lambda a: a.identity or "")
     agents_data = []
 
-    for s in sorted_stats:
+    for s in stats:
         agent_id = s.agent_id
         if not agent_id:
             continue
@@ -249,6 +248,14 @@ def agents(
                 "role": agent.role if agent and agent.role else "-",
             }
         )
+
+    agents_data.sort(
+        key=lambda d: (
+            d["constitution"] == "-",
+            d["constitution"] or "",
+            d["identity"] or "",
+        )
+    )
 
     if json_output:
         typer.echo(json.dumps(agents_data))
@@ -289,14 +296,36 @@ def register(
 @error_feedback
 def models():
     """Show available LLM models."""
+    first = True
     for prov in providers.PROVIDER_NAMES:
         provider_models = providers.MODELS.get(prov, [])
-        typer.echo(f"\n📦 {prov.capitalize()} Models:\n")
-        for model in provider_models:
-            typer.echo(f"  • {model['name']} ({model['id']})")
-            if model.get("description"):
-                typer.echo(f"    {model['description']}")
+        if not provider_models:
+            continue
+
+        if not first:
             typer.echo()
+        else:
+            typer.echo()
+        first = False
+
+        if prov == "claude":
+            header = "Claude Code"
+        elif prov == "codex":
+            header = "Codex CLI"
+        elif prov == "gemini":
+            header = "Gemini CLI"
+        else:
+            header = prov.capitalize()
+
+        typer.echo(f"{header}:")
+        for model in provider_models:
+            mid = model["id"]
+            desc = model.get("description") or ""
+            tags = model.get("tags") or []
+            tag_str = f" [{', '.join(tags)}]" if tags else ""
+            typer.echo(f"  - {mid:<26} {desc}{tag_str}")
+    if not first:
+        typer.echo()
 
 
 @app.command()
