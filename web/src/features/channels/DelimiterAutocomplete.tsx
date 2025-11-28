@@ -18,7 +18,11 @@ interface Props {
 }
 
 const SLASH_COMMANDS: Suggestion[] = [
-  { value: 'stop-all', label: 'stop-all', description: 'Emergency brake: kill all agents in channel' },
+  {
+    value: 'stop-all',
+    label: 'stop-all',
+    description: 'Emergency brake: kill all agents in channel',
+  },
   { value: 'stop', label: 'stop <agent>', description: 'Stop specific agent (make idle)' },
   { value: 'compact', label: 'compact <agent>', description: 'Force agent session refresh' },
 ]

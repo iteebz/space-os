@@ -47,3 +47,35 @@ export function formatDateDivider(isoTimestamp: string): string {
 export function isSameDay(date1: string, date2: string): boolean {
   return new Date(date1).toDateString() === new Date(date2).toDateString()
 }
+
+export function formatTimeRemaining(isoTimestamp: string | null): string {
+  if (!isoTimestamp) return ''
+
+  const expiresAt = new Date(isoTimestamp)
+  const now = new Date()
+  const diffMs = expiresAt.getTime() - now.getTime()
+
+  if (diffMs <= 0) return 'expired'
+
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffDays >= 1) {
+    const remainingHours = diffHours % 24
+    if (remainingHours > 0) {
+      return `${diffDays}d ${remainingHours}h`
+    }
+    return `${diffDays}d`
+  }
+
+  if (diffHours >= 1) {
+    const remainingMins = diffMins % 60
+    if (remainingMins > 0) {
+      return `${diffHours}h ${remainingMins}m`
+    }
+    return `${diffHours}h`
+  }
+
+  return `${diffMins}m`
+}

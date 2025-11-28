@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { patchApi } from '../../lib/api'
 import type { Channel } from './types'
 import { useRenameChannel } from './hooks'
+import { formatTimeRemaining } from '../../lib/time'
 
 interface Props {
   channel: Channel
@@ -29,6 +30,7 @@ export function ChannelHeader({
   const [name, setName] = useState(channel.name)
   const [showCopied, setShowCopied] = useState(false)
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [timerDisplay, setTimerDisplay] = useState('')
   const queryClient = useQueryClient()
   const { mutate: renameChannel } = useRenameChannel()
 
@@ -126,6 +128,21 @@ export function ChannelHeader({
     }
   }, [channel.name, channel.topic, isEditingName, isEditingTopic])
 
+  useEffect(() => {
+    if (!channel.timer_expires_at) {
+      setTimerDisplay('')
+      return
+    }
+
+    const updateTimer = () => {
+      setTimerDisplay(formatTimeRemaining(channel.timer_expires_at))
+    }
+
+    updateTimer()
+    const interval = window.setInterval(updateTimer, 30000)
+    return () => window.clearInterval(interval)
+  }, [channel.timer_expires_at])
+
   return (
     <div className="mb-4">
       <div className="flex items-center justify-between">
@@ -170,6 +187,11 @@ export function ChannelHeader({
           {validationError && <p className="text-sm text-red-400 mt-1">{validationError}</p>}
         </div>
         <div className="flex items-center gap-2">
+          {timerDisplay && (
+            <div className="text-sm text-amber-400" title="Auto-stop timer">
+              ⏱️ {timerDisplay}
+            </div>
+          )}
           {onExportClick && (
             <button
               onClick={handleExportClick}

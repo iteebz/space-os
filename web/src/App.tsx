@@ -201,6 +201,8 @@ export default function App() {
                   unread_count: 0,
                   archived_at: null,
                   pinned_at: null,
+                  timer_expires_at: null,
+                  timer_set_by_message_id: null,
                 }}
                 isCreating={true}
                 onCreate={(name, topic) => createChannel({ name, topic })}

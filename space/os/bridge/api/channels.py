@@ -171,6 +171,8 @@ def list_channels(archived: bool = False, reader_id: str | None = None) -> list[
                 c.created_at,
                 c.archived_at,
                 c.pinned_at,
+                c.timer_expires_at,
+                c.timer_set_by_message_id,
                 COUNT(m.message_id) as message_count,
                 MAX(m.created_at) as last_activity,
                 0 as unread_count
@@ -196,7 +198,8 @@ def get_channel(channel: str | Channel) -> Channel | None:
         row = conn.execute(
             """
             SELECT
-                c.channel_id, c.name, c.topic, c.created_at, c.archived_at,
+                c.channel_id, c.name, c.topic, c.created_at, c.archived_at, c.pinned_at,
+                c.timer_expires_at, c.timer_set_by_message_id,
                 COUNT(m.message_id) as message_count,
                 MAX(m.created_at) as last_activity
             FROM channels c
@@ -218,6 +221,24 @@ def get_channel(channel: str | Channel) -> Channel | None:
         ).fetchall()
         channel.members = [row["agent_id"] for row in member_rows]
         return channel
+
+
+def set_timer(channel_id: str, expires_at: str) -> None:
+    """Set timer for channel."""
+    with store.ensure() as conn:
+        conn.execute(
+            "UPDATE channels SET timer_expires_at = ? WHERE channel_id = ?",
+            (expires_at, channel_id),
+        )
+
+
+def clear_timer(channel_id: str) -> None:
+    """Clear timer for channel."""
+    with store.ensure() as conn:
+        conn.execute(
+            "UPDATE channels SET timer_expires_at = NULL, timer_set_by_message_id = NULL WHERE channel_id = ?",
+            (channel_id,),
+        )
 
 
 def count_channels() -> tuple[int, int, int]:

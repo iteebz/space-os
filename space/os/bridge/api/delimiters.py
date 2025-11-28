@@ -37,7 +37,11 @@ async def process_delimiters(channel_id: str, content: str, agent_id: str | None
 
 def _process_control_commands(channel_id: str, content: str, agent_id: str | None = None) -> None:
     # Human control surface: /slash commands
-    if "/stop-all" in content:
+    if "/timer-cancel" in content:
+        _cancel_timer(channel_id)
+    elif "/timer" in content:
+        _set_timer(channel_id, content)
+    elif "/stop-all" in content:
         _stop_all_agents_in_channel(channel_id)
     elif "/stop" in content:
         targets = _extract_control_targets(r"/stop\s+([\w-]+)", content)
@@ -57,6 +61,64 @@ def _process_control_commands(channel_id: str, content: str, agent_id: str | Non
 
     if "!handoff" in content:
         _process_handoff_command(channel_id, content, agent_id)
+
+
+def _set_timer(channel_id: str, content: str) -> None:
+    """Parse /timer 7d, /timer 8h, or /timer 30m and set channel timer."""
+    import re
+    from datetime import datetime, timedelta
+
+    from . import channels, messaging
+
+    match = re.search(r"/timer\s+(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?", content)
+    if not match:
+        return
+
+    days = int(match.group(1) or 0)
+    hours = int(match.group(2) or 0)
+    minutes = int(match.group(3) or 0)
+
+    if days == 0 and hours == 0 and minutes == 0:
+        return
+
+    duration = timedelta(days=days, hours=hours, minutes=minutes)
+    expires_at = datetime.utcnow() + duration
+
+    channels.set_timer(channel_id, expires_at.isoformat())
+
+    total_minutes = days * 1440 + hours * 60 + minutes
+    parts = []
+    if days > 0:
+        parts.append(f"{days}d")
+    if hours > 0:
+        parts.append(f"{hours}h")
+    if minutes > 0:
+        parts.append(f"{minutes}m")
+    duration_str = " ".join(parts)
+
+    messaging.create_message(
+        channel_id=channel_id,
+        agent_id="system",
+        content=f"⏱️ Timer set: {duration_str} ({total_minutes} minutes)\nChannel will auto-stop at deadline.\nUse /timer-cancel to abort.",
+    )
+    log.info(f"Timer set for channel {channel_id}: {duration_str}")
+
+
+def _cancel_timer(channel_id: str) -> None:
+    """Cancel active timer for channel."""
+    from . import channels, messaging
+
+    channel = channels.get_channel(channel_id)
+    if not channel or not channel.timer_expires_at:
+        return
+
+    channels.clear_timer(channel_id)
+    messaging.create_message(
+        channel_id=channel_id,
+        agent_id="system",
+        content="⏱️ Timer cancelled.",
+    )
+    log.info(f"Timer cancelled for channel {channel_id}")
 
 
 def _stop_all_agents_in_channel(channel_id: str) -> None:

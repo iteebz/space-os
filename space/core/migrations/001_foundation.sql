@@ -28,7 +28,9 @@ CREATE TABLE IF NOT EXISTS channels (
     parent_channel_id TEXT REFERENCES channels(channel_id),
     created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%f', 'now')),
     archived_at TEXT,
-    pinned_at TEXT
+    pinned_at TEXT,
+    timer_expires_at TEXT,
+    timer_set_by_message_id TEXT REFERENCES messages(message_id)
 );
 
 CREATE TABLE IF NOT EXISTS spawns (

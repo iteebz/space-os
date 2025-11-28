@@ -280,6 +280,17 @@ def count_messages() -> tuple[int, int, int]:
     return total, active, archived
 
 
+def create_message(channel_id: str, agent_id: str, content: str) -> str:
+    """Create message without agent validation (for system messages)."""
+    message_id = uuid7()
+    with store.ensure() as conn:
+        conn.execute(
+            "INSERT INTO messages (message_id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
+            (message_id, channel_id, agent_id, content),
+        )
+    return message_id
+
+
 def delete_message(message_id: str) -> bool:
     """Delete a message by ID. Returns True if deleted, False if not found."""
     with store.ensure() as conn:

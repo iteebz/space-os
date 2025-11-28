@@ -56,6 +56,8 @@ class Channel:
     created_at: str | None = None
     archived_at: str | None = None
     pinned_at: str | None = None
+    timer_expires_at: str | None = None
+    timer_set_by_message_id: str | None = None
     members: list[str] = field(default_factory=list)
     message_count: int = 0
     last_activity: str | None = None

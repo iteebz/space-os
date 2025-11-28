@@ -7,6 +7,8 @@ export interface Channel {
   unread_count: number
   archived_at: string | null
   pinned_at: string | null
+  timer_expires_at: string | null
+  timer_set_by_message_id: string | null
 }
 
 export interface Message {

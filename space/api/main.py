@@ -26,13 +26,23 @@ async def _background_sync():
         logger.warning(f"Background session sync failed (non-fatal): {e}")
 
 
+async def _timer_daemon():
+    """Run timer daemon in background."""
+    try:
+        from space.os.bridge import timer
+
+        logger.info("Starting timer daemon...")
+        await asyncio.to_thread(timer.run)
+    except Exception as e:
+        logger.error(f"Timer daemon failed: {e}", exc_info=True)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: startup and shutdown hooks."""
-    # Startup: kick off background sync
     asyncio.create_task(_background_sync())
+    asyncio.create_task(_timer_daemon())
     yield
-    # Shutdown: nothing needed
 
 
 app = FastAPI(title="Space API", lifespan=lifespan)
