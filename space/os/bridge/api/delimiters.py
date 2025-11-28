@@ -37,7 +37,9 @@ async def process_delimiters(channel_id: str, content: str, agent_id: str | None
 
 
 def _process_control_commands(channel_id: str, content: str, agent_id: str | None = None) -> None:
-    if "!compact" in content:
+    if "!compact-channel" in content:
+        _process_compact_channel_command(channel_id, content, agent_id)
+    elif "!compact" in content:
         _process_compact_command(channel_id, content, agent_id)
 
     if "!handoff" in content:
@@ -189,6 +191,105 @@ def _has_running_spawn_in_channel(agent_id: str, channel_id: str) -> bool:
             return True
 
     return False
+
+
+def _get_base_identity(identity: str) -> str:
+    """Normalize identity to base form (strip model/constitution suffix)."""
+    return identity.split("-")[0]
+
+
+def _process_compact_channel_command(
+    channel_id: str, content: str, sender_agent_id: str | None
+) -> None:
+    """Parse !compact-channel summary and create successor channel."""
+    from . import channels, messaging
+
+    if not sender_agent_id:
+        return
+
+    # COORDINATOR CHECK - only designated agent can compact
+    channel_compact_coordinator = "prime"
+
+    sender_agent = spawn_agents.get_agent(sender_agent_id)
+    if not sender_agent:
+        return
+
+    sender_base = _get_base_identity(sender_agent.identity)
+    coordinator_base = _get_base_identity(channel_compact_coordinator)
+
+    if sender_base != coordinator_base:
+        log.info(
+            f"{sender_agent.identity} attempted compact, only {channel_compact_coordinator} authorized"
+        )
+        return
+
+    # Pattern: !compact-channel rest-of-message
+    match = re.search(r"!compact-channel\s+(.+)", content, re.DOTALL)
+    if not match:
+        return
+
+    summary = match.group(1).strip()
+    if not summary:
+        return
+
+    # Get current channel
+    current_channel = channels.get_channel(channel_id)
+    if not current_channel:
+        return
+
+    # Generate new channel name with suffix
+    base_name = current_channel.name
+    # Find next available suffix (c2, c3, c4, etc.)
+    suffix = 2
+    new_name = f"{base_name}-c{suffix}"
+    while channels.get_channel(new_name):
+        suffix += 1
+        new_name = f"{base_name}-c{suffix}"
+
+    # Create successor channel with parent link
+    new_channel = channels.create_channel(
+        name=new_name,
+        topic=f"Continuation of {base_name}",
+        parent_channel_id=current_channel.channel_id,
+    )
+
+    # Post summary as first message in new channel
+    messaging.create_message(
+        channel_id=new_channel.channel_id,
+        agent_id=sender_agent_id,
+        content=f"[CHANNEL COMPACT] Parent: {base_name}\n\nSummary: {summary}",
+        metadata={"type": "CHANNEL_COMPACT", "parent_channel_id": current_channel.channel_id},
+    )
+
+    # Get all agents currently in old channel and @mention them in new channel
+    # This triggers automatic spawning via mention detection
+    agents_in_channel = _get_agents_in_channel(channel_id)
+    if agents_in_channel:
+        agent_mentions = " ".join([f"@{identity}" for identity in agents_in_channel])
+        messaging.create_message(
+            channel_id=new_channel.channel_id,
+            agent_id=sender_agent_id,
+            content=f"{agent_mentions} Channel rotated from {base_name}. Continue work here.",
+            metadata={"type": "CHANNEL_MIGRATION"},
+        )
+
+    # Archive old channel
+    channels.archive_channel(current_channel.name)
+
+    log.info(f"Channel compacted: {base_name} → {new_name}")
+
+
+def _get_agents_in_channel(channel_id: str) -> list[str]:
+    """Get list of agent identities currently active in channel."""
+    from space.os.spawn.api import agents as spawn_agents
+
+    active_agents = set()
+    for spawn in spawns.get_channel_spawns(channel_id, status=["running", "pending"]):
+        agent = spawn_agents.get_agent(spawn.agent_id)
+        if agent and agent.identity:
+            active_agents.add(agent.identity)
+
+    return list(active_agents)
 
 
 def _process_compact_command(channel_id: str, content: str, sender_agent_id: str | None) -> None:

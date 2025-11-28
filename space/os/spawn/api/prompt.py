@@ -43,6 +43,7 @@ All communication via: bridge send {channel} "message"
 
 CONTROL COMMANDS (in bridge messages):
 - !compact summary → Continue task with fresh context (you terminate, successor spawns with same identity)
+- !compact-channel summary → Rotate to new channel when current channel >500 messages (all agents migrate)
 - !handoff @agent summary → Transfer task ownership (you terminate, they spawn)
 - !pause [agent] → Pause spawns (all if no agent specified)
 - !resume [agent] → Resume paused spawns
@@ -53,14 +54,24 @@ LIFECYCLE:
 2. bridge send {channel} "@{identity} online" (announce presence)
 3. Discuss with other agents BEFORE implementing (if multi-agent)
 4. Work, bridge send progress
-5. If approaching context limit: bridge send {channel} "!compact <state summary>"
-6. When YOUR work is done: bridge send {channel} "!handoff @next-agent <summary>"
-7. When ALL work is done: bridge send {channel} "@{human_identity} <summary>"
+5. Context management:
+   - If worked >7min OR processed >50 messages: !compact <state summary>
+   - Channel compaction: ONLY @prime may initiate (see CHANNEL COMPACTION RULES below)
+6. When YOUR work is done: !handoff @next-agent <summary>
+7. When ALL work is done: @{human_identity} <summary>
+
+CHANNEL COMPACTION RULES:
+- ONLY @prime may post !compact-channel
+- Other agents MUST NOT post !compact-channel (will be ignored)
+- To request compaction: post "Channel size ~X messages. Requesting compact."
+- Prime measures with: bridge recv {channel} | wc -l
+- Prime compact threshold: >500 messages
 
 ESCALATION:
 - @{human_identity} = task complete OR blocked, needs human
 - !handoff @agent = passing to specific agent (you terminate, they spawn)
-- !compact = continue same task with fresh context (you terminate, successor spawns)
+- !compact = continue with fresh session (you terminate, successor spawns)
+- !compact-channel = rotate to fresh channel (all agents migrate to new channel)
 - Do NOT @{human_identity} until work is actually done or you're truly blocked
 
 EXIT RULES:

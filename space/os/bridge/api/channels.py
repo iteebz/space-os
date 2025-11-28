@@ -16,15 +16,17 @@ def _to_channel_id(channel: str | Channel) -> str:
     return channel.channel_id if isinstance(channel, Channel) else channel
 
 
-def create_channel(name: str, topic: str | None = None) -> Channel:
+def create_channel(
+    name: str, topic: str | None = None, parent_channel_id: str | None = None
+) -> Channel:
     if not name:
         raise ValueError("Channel name is required")
 
     channel_id = uuid7()
     with store.ensure() as conn:
         conn.execute(
-            "INSERT INTO channels (channel_id, name, topic) VALUES (?, ?, ?)",
-            (channel_id, name, topic),
+            "INSERT INTO channels (channel_id, name, topic, parent_channel_id) VALUES (?, ?, ?, ?)",
+            (channel_id, name, topic, parent_channel_id),
         )
     return Channel(channel_id=channel_id, name=name, topic=topic)
 
