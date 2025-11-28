@@ -1,6 +1,6 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
-import { BsArchive, BsArchiveFill } from 'react-icons/bs'
+import { BsArchive, BsArchiveFill, BsList, BsChevronLeft } from 'react-icons/bs'
 import {
   ChannelList,
   MessageList,
@@ -29,6 +29,8 @@ interface AgentTab {
 }
 
 export default function App() {
+  const [showChannelDrawer, setShowChannelDrawer] = useState(false)
+  const [showSessionModal, setShowSessionModal] = useState(false)
   const { params, setParam } = useUrlState()
   const selectedChannel = params.get('channel')
   const showArchived = params.get('archived') === 'true'
@@ -143,9 +145,49 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen w-screen">
+    <div className="h-screen w-screen overflow-hidden">
+      {showChannelDrawer && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => setShowChannelDrawer(false)}
+        />
+      )}
+      
+      <div className="md:hidden fixed top-0 left-0 right-0 bg-neutral-900 border-b border-neutral-800 px-4 py-3 flex items-center gap-3 z-30">
+        <button
+          onClick={() => setShowChannelDrawer(true)}
+          className="text-neutral-400 hover:text-white"
+        >
+          <BsList size={24} />
+        </button>
+        <div className="flex-1 text-white font-semibold truncate">
+          # {autoSelectedChannel || 'Select channel'}
+        </div>
+      </div>
+
+      {showSessionModal && selectedTab?.sessionId && (
+        <div className="md:hidden fixed inset-0 bg-neutral-900 z-50 flex flex-col">
+          <div className="border-b border-neutral-800 px-4 py-3 flex items-center gap-3">
+            <button
+              onClick={() => setShowSessionModal(false)}
+              className="text-neutral-400 hover:text-white"
+            >
+              <BsChevronLeft size={20} />
+            </button>
+            <span className="text-white font-semibold">
+              {selectedTab.identity ?? selectedTab.agentId.slice(0, 8)} Session
+            </span>
+          </div>
+          <div className="flex-1 overflow-y-auto scrollable p-4">
+            <ErrorBoundary fallback={<div className="text-red-400 text-sm">Failed to load session</div>}>
+              <SessionStream sessionId={selectedTab.sessionId} />
+            </ErrorBoundary>
+          </div>
+        </div>
+      )}
+
       <PanelGroup direction="horizontal">
-        <Panel defaultSize={15} minSize={10}>
+        <Panel defaultSize={15} minSize={10} className="hidden md:block">
           <div className="h-full border-r border-neutral-800 p-4 flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide">
@@ -186,50 +228,127 @@ export default function App() {
           </div>
         </Panel>
 
-        <PanelResizeHandle className="w-1 bg-neutral-800 hover:bg-neutral-700 transition-colors" />
+        <div className={`md:hidden fixed top-0 left-0 bottom-0 w-80 bg-neutral-900 border-r border-neutral-800 z-50 transform transition-transform ${showChannelDrawer ? 'translate-x-0' : '-translate-x-full'}`}>
+          <div className="h-full p-4 flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide">
+                Channels
+              </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setParam('archived', showArchived ? null : 'true')}
+                  className={`p-1.5 rounded transition-colors ${
+                    showArchived
+                      ? 'text-cyan-400 hover:text-cyan-300'
+                      : 'text-neutral-500 hover:text-neutral-400'
+                  }`}
+                  title={showArchived ? 'Show active channels' : 'Show archived channels'}
+                >
+                  {showArchived ? <BsArchiveFill size={16} /> : <BsArchive size={16} />}
+                </button>
+                <CreateChannel onClick={() => setParam('create', 'true')} />
+              </div>
+            </div>
+            <div className="flex-1 min-h-0">
+              <ErrorBoundary
+                fallback={<div className="text-red-400 text-sm p-2">Failed to load channels</div>}
+              >
+                <ChannelList
+                  selected={selectedChannel}
+                  onSelect={(name) => {
+                    setParam('create', null)
+                    setParam('channel', name)
+                    setShowChannelDrawer(false)
+                  }}
+                  showArchived={showArchived}
+                  isCreating={isCreating}
+                  onCreateChannel={(name) => {
+                    createChannel({ name, topic: null })
+                    setShowChannelDrawer(false)
+                  }}
+                  onCancelCreate={() => setParam('create', null)}
+                />
+              </ErrorBoundary>
+            </div>
+          </div>
+        </div>
+
+        <PanelResizeHandle className="hidden md:block w-1 bg-neutral-800 hover:bg-neutral-700 transition-colors" />
 
         <Panel defaultSize={42} minSize={25}>
-          <div className="h-full p-4 flex flex-col">
-            {isCreating ? (
-              <ChannelHeader
-                channel={{
-                  name: '',
-                  topic: null,
-                  channel_id: '',
-                  message_count: 0,
-                  last_activity: null,
-                  unread_count: 0,
-                  archived_at: null,
-                  pinned_at: null,
-                  timer_expires_at: null,
-                  timer_set_by_message_id: null,
-                }}
-                isCreating={true}
-                onCreate={(name, topic) => createChannel({ name, topic })}
-                onCancelCreate={() => setParam('create', null)}
-                createError={createError}
-              />
-            ) : currentChannel ? (
+          <div className="h-full flex flex-col md:p-4">
+            {isCreating && (
+              <div className="hidden md:block">
+                <ChannelHeader
+                  channel={{
+                    name: '',
+                    topic: null,
+                    channel_id: '',
+                    message_count: 0,
+                    last_activity: null,
+                    unread_count: 0,
+                    archived_at: null,
+                    pinned_at: null,
+                    timer_expires_at: null,
+                    timer_set_by_message_id: null,
+                  }}
+                  isCreating={true}
+                  onCreate={(name, topic) => createChannel({ name, topic })}
+                  onCancelCreate={() => setParam('create', null)}
+                  createError={createError}
+                />
+              </div>
+            )}
+            {currentChannel ? (
               <ErrorBoundary
                 fallback={<div className="text-red-400 text-sm">Failed to load channel</div>}
               >
-                <ChannelHeader channel={currentChannel} onExportClick={handleExportChannel} />
-                <div className="flex-1 overflow-y-auto scrollable">
+                <div className="hidden md:block">
+                  <ChannelHeader channel={currentChannel} onExportClick={handleExportChannel} />
+                </div>
+                <div className="flex-1 overflow-y-auto scrollable min-h-0 px-4 md:px-0">
                   <MessageList
                     channelName={currentChannel.name}
                     channelId={currentChannel.channel_id}
                   />
                 </div>
-                <AgentStatus channel={currentChannel.name} />
-                <ComposeBox channel={currentChannel.name} />
+                
+                <div className="shrink-0">
+                  {agentTabs.length > 0 && (
+                    <div className="border-t border-neutral-800 overflow-x-auto flex gap-2 px-4 py-2 md:hidden">
+                      {agentTabs.map((tab) => (
+                        <button
+                          key={tab.agentId}
+                          onClick={() => {
+                            setParam('agent', tab.agentId)
+                            setShowSessionModal(true)
+                          }}
+                          className="px-3 py-1.5 rounded-full text-xs flex items-center gap-2 whitespace-nowrap border transition-colors shrink-0 bg-neutral-800 border-neutral-700 text-neutral-300 hover:border-cyan-500 hover:text-white"
+                        >
+                          {tab.identity ?? tab.agentId.slice(0, 8)}
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              tab.isRunning ? 'bg-green-400' : 'bg-neutral-600'
+                            }`}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <AgentStatus channel={currentChannel.name} />
+                  <div className="px-4 md:px-0" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}>
+                    <ComposeBox channel={currentChannel.name} />
+                  </div>
+                </div>
               </ErrorBoundary>
             ) : null}
           </div>
         </Panel>
 
-        <PanelResizeHandle className="w-1 bg-neutral-800 hover:bg-neutral-700 transition-colors" />
+        <PanelResizeHandle className="hidden md:block w-1 bg-neutral-800 hover:bg-neutral-700 transition-colors" />
 
-        <Panel defaultSize={43} minSize={25}>
+        <Panel defaultSize={43} minSize={25} className="hidden md:block">
           <div className="h-full border-l border-neutral-800 flex flex-col">
             {agentTabs.length > 0 ? (
               <>

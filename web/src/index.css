@@ -4,6 +4,17 @@
 
 body {
   @apply bg-neutral-950 text-neutral-100;
+  overflow-x: hidden;
+}
+
+.overflow-wrap-anywhere {
+  overflow-wrap: anywhere;
+}
+
+.prose pre,
+.prose code {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 ::-webkit-scrollbar {

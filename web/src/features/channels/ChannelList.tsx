@@ -135,11 +135,24 @@ export function ChannelList({
                 <button
                   onClick={() => onSelect(channel.name)}
                   onContextMenu={(e) => handleContextMenu(e, channel)}
-                  className={`w-full text-left px-2 py-1 rounded text-sm flex items-center gap-1.5 ${
+                  onTouchStart={(e) => {
+                    const touch = e.touches[0]
+                    const timer = setTimeout(() => {
+                      handleContextMenu(
+                        { clientX: touch.clientX, clientY: touch.clientY, preventDefault: () => {} } as any,
+                        channel
+                      )
+                    }, 500)
+                    const cleanup = () => clearTimeout(timer)
+                    e.currentTarget.addEventListener('touchend', cleanup, { once: true })
+                    e.currentTarget.addEventListener('touchmove', cleanup, { once: true })
+                  }}
+                  className={`w-full text-left px-2 py-1 rounded text-sm flex items-center gap-1.5 select-none ${
                     selected === channel.name
                       ? 'bg-neutral-800 text-white'
                       : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
                   } ${channel.archived_at ? 'opacity-50' : ''}`}
+                  style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
                 >
                   {channel.pinned_at && (
                     <BsPinFill className="text-neutral-500 shrink-0" size={12} />

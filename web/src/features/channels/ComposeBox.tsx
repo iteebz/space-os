@@ -55,7 +55,7 @@ export function ComposeBox({ channel }: Props) {
       const formData = new globalThis.FormData()
       formData.append('file', file)
 
-      const response = await fetch('http://localhost:8000/api/upload/image', {
+      const response = await fetch('/api/upload/image', {
         method: 'POST',
         body: formData,
       })

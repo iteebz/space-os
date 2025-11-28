@@ -6,5 +6,6 @@ export function useSpawns() {
   return useQuery({
     queryKey: ['spawns'],
     queryFn: () => fetchApi<Spawn[]>('/spawns'),
+    refetchInterval: 2000,
   })
 }
