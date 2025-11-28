@@ -100,7 +100,7 @@ export function ChannelList({ selected, onSelect }: Props) {
   return (
     <QueryState {...query} empty={<div className="text-neutral-500">No channels</div>}>
       {(channels) => (
-        <>
+        <div className="flex flex-col h-full">
           <div className="mb-3">
             <label className="flex items-center gap-2 text-sm text-neutral-400 cursor-pointer hover:text-neutral-300">
               <input
@@ -112,7 +112,7 @@ export function ChannelList({ selected, onSelect }: Props) {
               Show archived
             </label>
           </div>
-          <ul className="space-y-1 overflow-y-auto scrollable h-full">
+          <ul className="space-y-1 overflow-y-auto scrollable flex-1 min-h-0">
             {channels.map((channel: Channel) => (
               <li key={channel.name}>
                 {renaming === channel.name ? (
@@ -195,7 +195,7 @@ export function ChannelList({ selected, onSelect }: Props) {
               </button>
             </div>
           )}
-        </>
+        </div>
       )}
     </QueryState>
   )

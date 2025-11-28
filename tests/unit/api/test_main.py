@@ -1,6 +1,6 @@
 """API endpoint tests."""
 
-from space.api.main import get_spawn_tree
+from space.api.spawns import get_spawn_tree
 from space.os.spawn.api import agents, spawns
 
 
