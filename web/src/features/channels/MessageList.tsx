@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Markdown from 'react-markdown'
-import { useMessages, useDeleteMessage, useChannels } from './hooks'
+import { useMessages, useDeleteMessage } from './hooks'
 import { useAgentMap, useAgentIdentities } from '../agents'
 import { useSpawns } from '../spawns'
 import { QueryState } from '../../lib/QueryState'
 import { formatLocalTime } from '../../lib/utils'
-import type { Message, Channel } from './types'
+import type { Message } from './types'
 
 interface Props {
   channelName: string
-  channelId: string
+  channelId: string | undefined
 }
 
 interface ElementWithProps {

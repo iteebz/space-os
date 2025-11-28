@@ -127,9 +127,9 @@ def delete_channel(name: str) -> None:
         conn.execute("DELETE FROM channels WHERE channel_id = ?", (channel_id,))
 
 
-def list_channels(show_all: bool = False, reader_id: str | None = None) -> list[Channel]:
+def list_channels(archived: bool = False, reader_id: str | None = None) -> list[Channel]:
     with store.ensure() as conn:
-        if show_all:
+        if archived:
             archived_filter = "WHERE c.archived_at IS NOT NULL"
         else:
             archived_filter = "WHERE c.archived_at IS NULL"

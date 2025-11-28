@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { BsArchive, BsArchiveFill } from 'react-icons/bs'
 import {
@@ -18,6 +18,8 @@ import { postApi } from './lib/api'
 import { SessionStream } from './features/sessions'
 import { useAgentMap } from './features/agents'
 import { useSpawns } from './features/spawns'
+import { useUrlState } from './lib/useUrlState'
+import { ErrorBoundary } from './lib/ErrorBoundary'
 
 interface AgentTab {
   agentId: string
@@ -27,14 +29,24 @@ interface AgentTab {
 }
 
 export default function App() {
-  const [selectedChannel, setSelectedChannel] = useState<string | null>(null)
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
-  const [showArchived, setShowArchived] = useState(false)
-  const [isCreating, setIsCreating] = useState(false)
-  const [previousChannel, setPreviousChannel] = useState<string | null>(null)
+  const { params, setParam } = useUrlState()
+  const selectedChannel = params.get('channel')
+  const showArchived = params.get('archived') === 'true'
+  const isCreating = params.get('create') === 'true'
+  const selectedAgentId = params.get('agent')
+
   const { data: identity } = useHumanIdentity()
   const { data: channels } = useChannels(showArchived, identity?.identity)
-  const { data: messages = [] } = useMessages(selectedChannel)
+  
+  const autoSelectedChannel = !selectedChannel && channels && channels.length > 0 && !isCreating
+    ? [...channels].sort((a, b) => {
+        if (!a.last_activity) return 1
+        if (!b.last_activity) return -1
+        return new Date(b.last_activity).getTime() - new Date(a.last_activity).getTime()
+      })[0].name
+    : selectedChannel
+  
+  const { data: messages = [] } = useMessages(autoSelectedChannel)
   const { mutate: markRead } = useMarkChannelRead()
   const { data: spawns } = useSpawns()
   const agentMap = useAgentMap()
@@ -45,32 +57,12 @@ export default function App() {
       postApi('/channels', { name, topic }),
     onSuccess: (_, { name }) => {
       queryClient.invalidateQueries({ queryKey: ['channels'] })
-      setIsCreating(false)
-      setSelectedChannel(name)
+      setParam('create', null)
+      setParam('channel', name)
     },
   })
 
-  const handleStartCreate = () => {
-    setPreviousChannel(selectedChannel)
-    setIsCreating(true)
-    setSelectedChannel(null)
-  }
-
-  const handleCreateChannel = (name: string, topic: string | null) => {
-    createChannel({ name, topic })
-  }
-
-  const handleCancelCreate = () => {
-    setIsCreating(false)
-    setSelectedChannel(previousChannel)
-  }
-
-  const handleSelectChannel = (name: string) => {
-    setIsCreating(false)
-    setSelectedChannel(name)
-  }
-
-  const currentChannel = channels?.find((c) => c.name === selectedChannel)
+  const currentChannel = channels?.find((c) => c.name === autoSelectedChannel)
 
   const agentTabs = useMemo(() => {
     if (!currentChannel?.channel_id || !spawns) return []
@@ -118,30 +110,21 @@ export default function App() {
   useEffect(() => {
     if (agentTabs.length > 0 && !agentTabs.find((t) => t.agentId === selectedAgentId)) {
       const running = agentTabs.find((t) => t.isRunning)
-      setSelectedAgentId(running?.agentId ?? agentTabs[0]?.agentId ?? null)
+      setParam('agent', running?.agentId ?? agentTabs[0]?.agentId ?? null)
     }
   }, [agentTabs, selectedAgentId])
 
   useEffect(() => {
-    setSelectedAgentId(null)
+    if (currentChannel?.channel_id) {
+      setParam('agent', null)
+    }
   }, [currentChannel?.channel_id])
 
   useEffect(() => {
-    if (!selectedChannel && channels && channels.length > 0) {
-      const sorted = [...channels].sort((a, b) => {
-        if (!a.last_activity) return 1
-        if (!b.last_activity) return -1
-        return new Date(b.last_activity).getTime() - new Date(a.last_activity).getTime()
-      })
-      setSelectedChannel(sorted[0].name)
+    if (autoSelectedChannel && identity?.identity && messages.length > 0) {
+      markRead({ channel: autoSelectedChannel, readerId: identity.identity })
     }
-  }, [selectedChannel, channels])
-
-  useEffect(() => {
-    if (selectedChannel && identity?.identity && messages.length > 0) {
-      markRead({ channel: selectedChannel, readerId: identity.identity })
-    }
-  }, [selectedChannel, messages.length, identity?.identity, markRead])
+  }, [autoSelectedChannel, messages.length, identity?.identity, markRead])
 
   const handleExportChannel = () => {
     if (!messages.length) return
@@ -169,7 +152,7 @@ export default function App() {
               </h2>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setShowArchived(!showArchived)}
+                  onClick={() => setParam('archived', showArchived ? null : 'true')}
                   className={`p-1.5 rounded transition-colors ${
                     showArchived
                       ? 'text-cyan-400 hover:text-cyan-300'
@@ -179,18 +162,23 @@ export default function App() {
                 >
                   {showArchived ? <BsArchiveFill size={16} /> : <BsArchive size={16} />}
                 </button>
-                <CreateChannel onClick={handleStartCreate} />
+                <CreateChannel onClick={() => setParam('create', 'true')} />
               </div>
             </div>
             <div className="flex-1 min-h-0">
-              <ChannelList
-                selected={selectedChannel}
-                onSelect={handleSelectChannel}
-                showArchived={showArchived}
-                isCreating={false}
-                onCreateChannel={() => {}}
-                onCancelCreate={() => {}}
-              />
+              <ErrorBoundary fallback={<div className="text-red-400 text-sm p-2">Failed to load channels</div>}>
+                <ChannelList
+                  selected={selectedChannel}
+                  onSelect={(name) => {
+                    setParam('create', null)
+                    setParam('channel', name)
+                  }}
+                  showArchived={showArchived}
+                  isCreating={false}
+                  onCreateChannel={() => {}}
+                  onCancelCreate={() => {}}
+                />
+              </ErrorBoundary>
             </div>
           </div>
         </Panel>
@@ -212,22 +200,20 @@ export default function App() {
                   pinned_at: null,
                 }}
                 isCreating={true}
-                onCreate={handleCreateChannel}
-                onCancelCreate={handleCancelCreate}
+                onCreate={(name, topic) => createChannel({ name, topic })}
+                onCancelCreate={() => setParam('create', null)}
                 createError={createError}
               />
-            ) : selectedChannel && currentChannel ? (
-              <>
+            ) : currentChannel ? (
+              <ErrorBoundary fallback={<div className="text-red-400 text-sm">Failed to load channel</div>}>
                 <ChannelHeader channel={currentChannel} onExportClick={handleExportChannel} />
                 <div className="flex-1 overflow-y-auto scrollable">
-                  <MessageList channelName={selectedChannel} channelId={currentChannel.channel_id} />
+                  <MessageList channelName={currentChannel.name} channelId={currentChannel.channel_id} />
                 </div>
-                <AgentStatus channel={selectedChannel} />
-                <ComposeBox channel={selectedChannel} />
-              </>
-            ) : (
-              <div className="text-neutral-500">Select a channel</div>
-            )}
+                <AgentStatus channel={currentChannel.name} />
+                <ComposeBox channel={currentChannel.name} />
+              </ErrorBoundary>
+            ) : null}
           </div>
         </Panel>
 
@@ -241,7 +227,7 @@ export default function App() {
                   {agentTabs.map((tab) => (
                     <button
                       key={tab.agentId}
-                      onClick={() => setSelectedAgentId(tab.agentId)}
+                      onClick={() => setParam('agent', tab.agentId)}
                       className={`px-4 py-2 text-sm flex items-center gap-2 whitespace-nowrap border-b-2 transition-colors ${
                         selectedTab?.agentId === tab.agentId
                           ? 'border-cyan-500 text-white'
@@ -259,11 +245,13 @@ export default function App() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto scrollable p-4">
-                  {selectedTab?.sessionId ? (
-                    <SessionStream sessionId={selectedTab.sessionId} />
-                  ) : (
-                    <div className="text-neutral-500 text-sm">Waiting for session...</div>
-                  )}
+                  <ErrorBoundary fallback={<div className="text-red-400 text-sm">Failed to load session</div>}>
+                    {selectedTab?.sessionId ? (
+                      <SessionStream sessionId={selectedTab.sessionId} />
+                    ) : (
+                      <div className="text-neutral-500 text-sm">Waiting for session...</div>
+                    )}
+                  </ErrorBoundary>
                 </div>
               </>
             ) : (

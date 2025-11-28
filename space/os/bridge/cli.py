@@ -128,7 +128,7 @@ def channels(
 ):
     """List active and archived channels."""
     try:
-        chans = api.list_channels(show_all=all)
+        chans = api.list_channels(archived=all)
 
         if not chans:
             output_json([], ctx) or echo_if_output("No channels found", ctx)

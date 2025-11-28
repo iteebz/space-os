@@ -20,13 +20,13 @@ class RenameChannel(BaseModel):
 
 
 @router.get("")
-async def get_channels(show_all: bool = False, reader_id: str | None = None):
+async def get_channels(archived: bool = False, reader_id: str | None = None):
     from dataclasses import asdict
 
     from space.os.bridge.api import channels
 
     try:
-        channels_list = channels.list_channels(show_all=show_all, reader_id=reader_id)
+        channels_list = channels.list_channels(archived=archived, reader_id=reader_id)
         return [asdict(ch) for ch in channels_list]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e

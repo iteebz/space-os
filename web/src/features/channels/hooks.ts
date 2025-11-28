@@ -2,15 +2,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchApi, postApi, deleteApi, postApiNoBody, patchApi } from '../../lib/api'
 import type { Channel, Message } from './types'
 
-export function useChannels(showAll: boolean = false, readerId?: string) {
+export function useChannels(archived: boolean = false, readerId?: string) {
   const params = new URLSearchParams()
-  params.set('show_all', showAll.toString())
+  params.set('archived', archived.toString())
   if (readerId) {
     params.set('reader_id', readerId)
   }
 
   return useQuery({
-    queryKey: ['channels', showAll, readerId],
+    queryKey: ['channels', archived, readerId],
     queryFn: () => fetchApi<Channel[]>(`/channels?${params.toString()}`),
   })
 }
