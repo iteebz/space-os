@@ -325,10 +325,11 @@ def models():
         for model in provider_models:
             mid = model["id"]
             desc = model.get("description") or ""
-            tags = model.get("tags") or []
-            tag_str = f" [{', '.join(tags)}]" if tags else ""
-            typer.echo(f"  - {mid:<26} {desc}{tag_str}")
+            typer.echo(f"  - {mid:<22} {desc}")
+
     if not first:
+        typer.echo()
+        typer.echo("Note: Codex reasoning effort configured in ~/.codex/config.toml")
         typer.echo()
 
 

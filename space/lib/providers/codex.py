@@ -88,42 +88,14 @@ class Codex(Provider):
         return candidates[0][0]
 
     @staticmethod
-    def parse_model_id(model_id: str) -> tuple[str, str | None]:
-        """Parse model ID into (base_model, reasoning_effort).
-
-        Examples:
-            'gpt-5.1-codex-low' -> ('gpt-5.1-codex', 'low')
-            'gpt-5.1-codex-mini-high' -> ('gpt-5.1-codex-mini', 'high')
-            'gpt-5.1-low' -> ('gpt-5.1-low', None)
-            'gpt-5.1' -> ('gpt-5.1', None)
-        """
-        for effort in ("low", "medium", "high"):
-            if model_id.endswith(f"-{effort}"):
-                base = model_id[: -(len(effort) + 1)]
-                if "codex" not in base:
-                    return (model_id, None)
-                return (base, effort)
-        return (model_id, None)
-
-    @staticmethod
-    def launch_args(reasoning_effort: str | None = None) -> list[str]:
+    def launch_args() -> list[str]:
         """Return launch arguments for Codex."""
-        args = ["--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check"]
-        if reasoning_effort:
-            args.extend(["-c", f"model_reasoning_effort={reasoning_effort}"])
-        return args
+        return ["--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check"]
 
     @staticmethod
-    def task_launch_args(
-        reasoning_effort: str | None = None, image_paths: list[str] | None = None
-    ) -> list[str]:
-        """Return launch arguments for task-based Codex execution.
-
-        Task mode uses --json flag, returns JSONL with thread_id in first event.
-        """
+    def task_launch_args(image_paths: list[str] | None = None) -> list[str]:
+        """Return launch arguments for task-based Codex execution."""
         args = ["--json", "--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check"]
-        if reasoning_effort:
-            args.extend(["-c", f"model_reasoning_effort={reasoning_effort}"])
         if image_paths:
             for path in image_paths:
                 args.extend(["-i", path])
