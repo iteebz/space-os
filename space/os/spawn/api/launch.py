@@ -160,16 +160,17 @@ def _run_ephemeral(
 ) -> None:
     instruction_text, image_paths = _extract_images_from_instruction(instruction)
 
-    # Only inject marker for new sessions (session linking)
-    inject_marker = session_id is None
-
-    context = build_spawn_context(
-        agent.identity,
-        task=instruction_text,
-        channel=channel_name,
-        spawn_id=spawn.id,
-        inject_marker=inject_marker,
-    )
+    # Resume: send only instruction. New session: full context + marker.
+    if session_id:
+        context = instruction_text
+    else:
+        context = build_spawn_context(
+            agent.identity,
+            task=instruction_text,
+            channel=channel_name,
+            spawn_id=spawn.id,
+            inject_marker=True,
+        )
     cmd = _build_spawn_command(agent, session_id, image_paths=image_paths)
     stdout = _execute_spawn(cmd, context, agent, spawn.id, env)
     _link_session(spawn, session_id, agent.provider, stdout)
