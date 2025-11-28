@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { BashCall, BashResult, EditCall, GenericTool } from './ToolRenderers'
+import { BashCall, BashResult, EditCall, GenericTool, MetadataResult } from './ToolRenderers'
 import { formatLocalDate } from '../../lib/utils'
 
 interface SessionEvent {
@@ -111,16 +111,78 @@ export function SessionStream({ sessionId }: Props) {
     return <div className="text-neutral-500 text-sm">Waiting for events...</div>
   }
 
+  const visibleEvents = events.filter((e) => e.type !== 'message')
+
+  const mergedEvents: Array<{
+    type: string
+    timestamp: string | null
+    toolCall?: SessionEvent
+    toolResult?: SessionEvent
+    textEvent?: SessionEvent
+  }> = []
+
+  for (let i = 0; i < visibleEvents.length; i++) {
+    const event = visibleEvents[i]
+    if (event.type === 'tool_call') {
+      const nextEvent = visibleEvents[i + 1]
+      const content = event.content as { tool_name: string }
+      if (nextEvent?.type === 'tool_result') {
+        mergedEvents.push({
+          type: content.tool_name,
+          timestamp: event.timestamp,
+          toolCall: event,
+          toolResult: nextEvent,
+        })
+        i++
+      } else {
+        mergedEvents.push({
+          type: content.tool_name,
+          timestamp: event.timestamp,
+          toolCall: event,
+        })
+      }
+    } else if (event.type === 'text') {
+      mergedEvents.push({
+        type: 'text',
+        timestamp: event.timestamp,
+        textEvent: event,
+      })
+    } else if (event.type === 'tool_result') {
+      mergedEvents.push({
+        type: 'tool_result',
+        timestamp: event.timestamp,
+        toolResult: event,
+      })
+    }
+  }
+
   return (
     <div className="space-y-3 text-sm overflow-y-auto font-mono">
-      {events.map((event, i) => (
+      {mergedEvents.map((merged, i) => (
         <div key={`${sessionId}-${i}`} className="space-y-1">
           <div className="flex justify-between items-center text-xs text-neutral-600">
-            <span>{event.type}</span>
-            <span>{formatRelativeTime(event.timestamp)}</span>
+            <span>{merged.type}</span>
+            <span>{formatRelativeTime(merged.timestamp)}</span>
           </div>
-          <div className={event.type === 'tool_result' ? 'pl-4 border-l-2 border-neutral-800' : ''}>
-            <EventContent event={event} />
+          <div className="space-y-2">
+            {merged.toolCall && (
+              <div className="font-semibold text-white">
+                <EventContent event={merged.toolCall} prevToolCall={undefined} />
+              </div>
+            )}
+            {merged.toolResult && (
+              <div className="pl-4 border-l-2 border-neutral-800">
+                <EventContent
+                  event={merged.toolResult}
+                  prevToolCall={
+                    merged.toolCall
+                      ? (merged.toolCall.content as { tool_name: string }).tool_name
+                      : undefined
+                  }
+                />
+              </div>
+            )}
+            {merged.textEvent && <EventContent event={merged.textEvent} prevToolCall={undefined} />}
           </div>
         </div>
       ))}
@@ -151,7 +213,7 @@ const TOOL_RENDERERS: Record<string, (input: Record<string, unknown>) => React.J
   ),
 }
 
-function EventContent({ event }: { event: SessionEvent }) {
+function EventContent({ event, prevToolCall }: { event: SessionEvent; prevToolCall?: string }) {
   if (event.type === 'text') {
     return <div className="text-neutral-300">{String(event.content)}</div>
   }
@@ -168,8 +230,12 @@ function EventContent({ event }: { event: SessionEvent }) {
 
   if (event.type === 'tool_result') {
     const content = event.content as { output: string; is_error: boolean }
+    const metadataTools = ['Read', 'Grep', 'Glob', 'LS']
+    if (prevToolCall && metadataTools.includes(prevToolCall)) {
+      return <MetadataResult output={String(content.output)} />
+    }
     return <BashResult output={String(content.output)} is_error={content.is_error} />
   }
 
-  return <pre className="text-xs text-neutral-500">{JSON.stringify(event.content, null, 2)}</pre>
+  return null
 }

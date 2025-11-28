@@ -127,7 +127,7 @@ def delete_channel(name: str) -> None:
         conn.execute("DELETE FROM channels WHERE channel_id = ?", (channel_id,))
 
 
-def list_channels(show_all: bool = False) -> list[Channel]:
+def list_channels(show_all: bool = False, reader_id: str | None = None) -> list[Channel]:
     with store.ensure() as conn:
         archived_filter = "" if show_all else "WHERE c.archived_at IS NULL"
         query = f"""
@@ -137,6 +137,7 @@ def list_channels(show_all: bool = False) -> list[Channel]:
                 c.topic,
                 c.created_at,
                 c.archived_at,
+                c.pinned_at,
                 COUNT(m.message_id) as message_count,
                 MAX(m.created_at) as last_activity,
                 0 as unread_count
@@ -144,9 +145,37 @@ def list_channels(show_all: bool = False) -> list[Channel]:
             LEFT JOIN messages m ON c.channel_id = m.channel_id
             {archived_filter}
             GROUP BY c.channel_id
-            ORDER BY COALESCE(MAX(m.created_at), c.created_at) DESC
+            ORDER BY c.pinned_at DESC NULLS LAST, COALESCE(MAX(m.created_at), c.created_at) DESC
         """
-        return [_row_to_channel(row) for row in conn.execute(query).fetchall()]
+        channels = [_row_to_channel(row) for row in conn.execute(query).fetchall()]
+
+        if reader_id:
+            for channel in channels:
+                bookmark_row = conn.execute(
+                    "SELECT last_read_id FROM bookmarks WHERE reader_id = ? AND channel_id = ?",
+                    (reader_id, channel.channel_id),
+                ).fetchone()
+                last_read_id = bookmark_row[0] if bookmark_row else None
+
+                if last_read_id:
+                    unread_messages = conn.execute(
+                        """
+                        SELECT content FROM messages
+                        WHERE channel_id = ? AND created_at > (
+                            SELECT created_at FROM messages WHERE message_id = ?
+                        )
+                        """,
+                        (channel.channel_id, last_read_id),
+                    ).fetchall()
+                else:
+                    unread_messages = conn.execute(
+                        "SELECT content FROM messages WHERE channel_id = ?",
+                        (channel.channel_id,),
+                    ).fetchall()
+
+                channel.unread_count = len(unread_messages)
+
+        return channels
 
 
 def get_channel(channel: str | Channel) -> Channel | None:

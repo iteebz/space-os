@@ -64,6 +64,10 @@ def update_status(spawn_id: str, status: str) -> None:
     terminal_states = {"completed", "failed", "timeout", "killed"}
 
     with store.ensure() as conn:
+        current = conn.execute("SELECT status FROM spawns WHERE id = ?", (spawn_id,)).fetchone()
+        if current and current[0] == "killed":
+            return
+
         if status in terminal_states:
             conn.execute(
                 "UPDATE spawns SET status = ?, ended_at = ? WHERE id = ?",

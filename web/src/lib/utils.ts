@@ -11,7 +11,7 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function formatLocalTime(utcTimestamp: string): string {
   const isoString = utcTimestamp.endsWith('Z') ? utcTimestamp : `${utcTimestamp}Z`
-  return new Date(isoString).toLocaleTimeString()
+  return new Date(isoString).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
 }
 
 export function formatLocalDate(utcTimestamp: string): string {

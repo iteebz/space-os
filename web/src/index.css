@@ -6,20 +6,40 @@ body {
   @apply bg-neutral-950 text-neutral-100;
 }
 
-/* Dark theme scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-neutral-900;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
   @apply bg-neutral-700 rounded;
+  opacity: 0;
+  transition: opacity 0.3s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-neutral-600;
+}
+
+.scrollable {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s;
+}
+
+.scrollable:hover {
+  scrollbar-color: rgb(64 64 64) transparent;
+}
+
+.scrollable::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  transition: background-color 0.3s;
+}
+
+.scrollable:hover::-webkit-scrollbar-thumb {
+  @apply bg-neutral-700;
 }

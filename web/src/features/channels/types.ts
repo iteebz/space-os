@@ -6,6 +6,7 @@ export interface Channel {
   last_activity: string | null
   unread_count: number
   archived_at: string | null
+  pinned_at: string | null
 }
 
 export interface Message {

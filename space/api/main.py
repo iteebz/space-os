@@ -57,13 +57,13 @@ class SessionFileHandler(FileSystemEventHandler):
 
 
 @app.get("/api/channels")
-async def get_channels():
+async def get_channels(show_all: bool = False, reader_id: str | None = None):
     from dataclasses import asdict
 
     from space.os.bridge.api import channels
 
     try:
-        channels_list = channels.list_channels(show_all=False)
+        channels_list = channels.list_channels(show_all=show_all, reader_id=reader_id)
         return [asdict(ch) for ch in channels_list]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -143,6 +143,48 @@ async def archive_channel(channel: str):
     try:
         channels.archive_channel(channel)
         return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/channels/{channel}/restore")
+async def restore_channel(channel: str):
+    from space.os.bridge.api import channels
+
+    try:
+        channels.restore_channel(channel)
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/channels/{channel}/pin")
+async def toggle_pin_channel(channel: str):
+    from space.os.bridge.api import channels
+
+    try:
+        is_pinned = channels.toggle_pin_channel(channel)
+        return {"ok": True, "pinned": is_pinned}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/channels/{channel}/read")
+async def mark_channel_read(channel: str, reader_id: str):
+    from space.os.bridge.api import channels, messaging
+
+    try:
+        channel_obj = channels.get_channel(channel)
+        if not channel_obj:
+            raise HTTPException(status_code=404, detail=f"Channel {channel} not found")
+
+        messages = messaging.get_messages(channel_obj.channel_id)
+        if messages:
+            messaging.update_bookmark(reader_id, channel_obj.channel_id, messages[-1].message_id)
+
+        return {"ok": True}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 

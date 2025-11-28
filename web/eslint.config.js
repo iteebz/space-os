@@ -22,6 +22,7 @@ export default [
         fetch: 'readonly',
         HTMLDivElement: 'readonly',
         navigator: 'readonly',
+        URLSearchParams: 'readonly',
       },
     },
     plugins: {

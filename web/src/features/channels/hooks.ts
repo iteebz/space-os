@@ -2,10 +2,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchApi, postApi, deleteApi, postApiNoBody, patchApi } from '../../lib/api'
 import type { Channel, Message } from './types'
 
-export function useChannels() {
+export function useChannels(showAll: boolean = false, readerId?: string) {
+  const params = new URLSearchParams()
+  params.set('show_all', showAll.toString())
+  if (readerId) {
+    params.set('reader_id', readerId)
+  }
+
   return useQuery({
-    queryKey: ['channels'],
-    queryFn: () => fetchApi<Channel[]>('/channels'),
+    queryKey: ['channels', showAll, readerId],
+    queryFn: () => fetchApi<Channel[]>(`/channels?${params.toString()}`),
   })
 }
 
@@ -71,6 +77,37 @@ export function useDeleteMessage(channel: string) {
     mutationFn: (messageId: string) => deleteApi(`/messages/${messageId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['messages', channel] })
+    },
+  })
+}
+
+export function useRestoreChannel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (channel: string) => postApiNoBody(`/channels/${channel}/restore`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] })
+    },
+  })
+}
+
+export function useTogglePinChannel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (channel: string) => postApiNoBody(`/channels/${channel}/pin`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] })
+    },
+  })
+}
+
+export function useMarkChannelRead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ channel, readerId }: { channel: string; readerId: string }) =>
+      postApi(`/channels/${channel}/read`, { reader_id: readerId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] })
     },
   })
 }

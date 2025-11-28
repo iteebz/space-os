@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Markdown from 'react-markdown'
-import { useMessages, useDeleteMessage } from './hooks'
+import { useMessages, useDeleteMessage, useChannels } from './hooks'
 import { useAgentMap, useAgentIdentities } from '../agents'
+import { useSpawns } from '../spawns'
 import { QueryState } from '../../lib/QueryState'
 import { formatLocalTime } from '../../lib/utils'
 import type { Message } from './types'
@@ -97,9 +98,23 @@ export function MessageList({ channel }: Props) {
   const query = useMessages(channel)
   const agentMap = useAgentMap()
   const agentIdentities = useAgentIdentities()
+  const { data: spawns } = useSpawns()
+  const { data: channels } = useChannels()
   const deleteMessage = useDeleteMessage(channel)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const currentChannel = channels?.find((c) => c.name === channel)
+  const activeAgentIds = new Set(
+    spawns
+      ?.filter(
+        (s) =>
+          s.status === 'running' &&
+          s.channel_id === currentChannel?.channel_id &&
+          s.agent_id !== '019aadf4-acb1-7623-8f08-cac86d68d39a'
+      )
+      .map((s) => s.agent_id) ?? []
+  )
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
@@ -117,11 +132,22 @@ export function MessageList({ channel }: Props) {
               onMouseLeave={() => setHoveredId(null)}
             >
               <div className="flex items-center gap-2 mb-2">
-                <span
-                  className={`font-semibold ${getIdentityColor(agentMap.get(msg.agent_id) ?? msg.agent_id)}`}
-                >
-                  {agentMap.get(msg.agent_id) ?? msg.agent_id.slice(0, 7)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`font-semibold ${getIdentityColor(
+                      agentMap.get(msg.agent_id) ?? msg.agent_id
+                    )}`}
+                  >
+                    {agentMap.get(msg.agent_id) ?? msg.agent_id.slice(0, 7)}
+                  </span>
+                  {msg.agent_id !== '019aadf4-acb1-7623-8f08-cac86d68d39a' && (
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        activeAgentIds.has(msg.agent_id) ? 'bg-green-400' : 'bg-neutral-600'
+                      }`}
+                    />
+                  )}
+                </div>
                 <span className="text-xs text-neutral-500">{formatLocalTime(msg.created_at)}</span>
                 {hoveredId === msg.message_id && (
                   <button

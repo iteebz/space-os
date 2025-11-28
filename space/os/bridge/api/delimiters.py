@@ -119,11 +119,15 @@ def _abort_agent_in_channel(channel_id: str, identity: str) -> None:
 def _kill_spawn(spawn_id: str) -> None:
     import os
     import signal
+    import time
 
     spawn = spawns.get_spawn(spawn_id)
     if spawn and spawn.pid:
         with contextlib.suppress(OSError, ProcessLookupError):
             os.kill(spawn.pid, signal.SIGTERM)
+        time.sleep(0.5)
+        with contextlib.suppress(OSError, ProcessLookupError):
+            os.kill(spawn.pid, signal.SIGKILL)
     spawns.update_status(spawn_id, "killed")
 
 

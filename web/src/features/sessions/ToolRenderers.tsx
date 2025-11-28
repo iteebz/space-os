@@ -24,12 +24,22 @@ interface BashResultProps {
 
 export function BashResult({ output, is_error }: BashResultProps) {
   const clean = stripAnsi(output)
+  const lines = clean.split('\n')
+  const maxLines = is_error ? 50 : 10
+  const truncated = lines.length > maxLines
+  const displayed = lines.slice(0, maxLines).join('\n')
+
   return (
-    <pre
-      className={`font-mono text-xs overflow-auto max-h-96 ${is_error ? 'text-red-400' : 'text-neutral-400'}`}
-    >
-      {clean}
-    </pre>
+    <div className="space-y-1">
+      <pre
+        className={`font-mono text-xs overflow-auto max-h-96 ${is_error ? 'text-red-400' : 'text-neutral-400'}`}
+      >
+        {displayed}
+      </pre>
+      {truncated && (
+        <div className="text-xs text-neutral-600">+{lines.length - maxLines} more lines</div>
+      )}
+    </div>
   )
 }
 
@@ -83,13 +93,39 @@ interface GenericToolProps {
   input: unknown
 }
 
+interface MetadataResultProps {
+  output: string
+}
+
 export function GenericTool({ name, input }: GenericToolProps) {
+  const params = input as Record<string, unknown>
+  let display = name
+
+  if (name === 'Read' && params.file_path) {
+    display = `Read ${String(params.file_path).split('/').pop()}`
+  } else if (name === 'Write' && params.file_path) {
+    display = `Write ${String(params.file_path).split('/').pop()}`
+  } else if (name === 'Grep' && params.pattern) {
+    display = `Grep "${params.pattern}"`
+  } else if (name === 'Glob' && params.pattern) {
+    display = `Glob "${params.pattern}"`
+  } else if (name === 'LS' && params.path) {
+    display = `LS ${String(params.path).split('/').pop()}`
+  } else if (params.file_path) {
+    display = `${name} ${String(params.file_path).split('/').pop()}`
+  }
+
+  return <div className="text-cyan-400 text-sm">{display}</div>
+}
+
+export function MetadataResult({ output }: MetadataResultProps) {
+  const lines = output.split('\n').filter((l) => l.trim())
+  const chars = output.length
+  const kb = (chars / 1024).toFixed(1)
+
   return (
-    <div className="space-y-1">
-      <div className="text-cyan-400 text-sm">{name}</div>
-      <pre className="text-xs text-neutral-500 overflow-auto max-h-96">
-        {JSON.stringify(input, null, 2)}
-      </pre>
+    <div className="text-xs text-neutral-600">
+      {lines.length} lines · {kb} KB
     </div>
   )
 }
