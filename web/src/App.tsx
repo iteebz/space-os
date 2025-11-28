@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
+import { BsArchive, BsArchiveFill } from 'react-icons/bs'
 import {
   ChannelList,
   MessageList,
@@ -12,6 +13,8 @@ import {
   useMarkChannelRead,
   useHumanIdentity,
 } from './features/channels'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { postApi } from './lib/api'
 import { SessionStream } from './features/sessions'
 import { useAgentMap } from './features/agents'
 import { useSpawns } from './features/spawns'
@@ -26,12 +29,46 @@ interface AgentTab {
 export default function App() {
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null)
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
-  const { data: channels } = useChannels()
-  const { data: messages = [] } = useMessages(selectedChannel)
+  const [showArchived, setShowArchived] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
+  const [previousChannel, setPreviousChannel] = useState<string | null>(null)
   const { data: identity } = useHumanIdentity()
+  const { data: channels } = useChannels(showArchived, identity?.identity)
+  const { data: messages = [] } = useMessages(selectedChannel)
   const { mutate: markRead } = useMarkChannelRead()
   const { data: spawns } = useSpawns()
   const agentMap = useAgentMap()
+  const queryClient = useQueryClient()
+
+  const { mutate: createChannel, error: createError } = useMutation({
+    mutationFn: ({ name, topic }: { name: string; topic: string | null }) =>
+      postApi('/channels', { name, topic }),
+    onSuccess: (_, { name }) => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] })
+      setIsCreating(false)
+      setSelectedChannel(name)
+    },
+  })
+
+  const handleStartCreate = () => {
+    setPreviousChannel(selectedChannel)
+    setIsCreating(true)
+    setSelectedChannel(null)
+  }
+
+  const handleCreateChannel = (name: string, topic: string | null) => {
+    createChannel({ name, topic })
+  }
+
+  const handleCancelCreate = () => {
+    setIsCreating(false)
+    setSelectedChannel(previousChannel)
+  }
+
+  const handleSelectChannel = (name: string) => {
+    setIsCreating(false)
+    setSelectedChannel(name)
+  }
 
   const currentChannel = channels?.find((c) => c.name === selectedChannel)
 
@@ -126,12 +163,34 @@ export default function App() {
       <PanelGroup direction="horizontal">
         <Panel defaultSize={15} minSize={10}>
           <div className="h-full border-r border-neutral-800 p-4 flex flex-col">
-            <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide mb-4">
-              Channels
-            </h2>
-            <CreateChannel onChannelCreated={setSelectedChannel} />
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide">
+                Channels
+              </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowArchived(!showArchived)}
+                  className={`p-1.5 rounded transition-colors ${
+                    showArchived
+                      ? 'text-cyan-400 hover:text-cyan-300'
+                      : 'text-neutral-500 hover:text-neutral-400'
+                  }`}
+                  title={showArchived ? 'Show active channels' : 'Show archived channels'}
+                >
+                  {showArchived ? <BsArchiveFill size={16} /> : <BsArchive size={16} />}
+                </button>
+                <CreateChannel onClick={handleStartCreate} />
+              </div>
+            </div>
             <div className="flex-1 min-h-0">
-              <ChannelList selected={selectedChannel} onSelect={setSelectedChannel} />
+              <ChannelList
+                selected={selectedChannel}
+                onSelect={handleSelectChannel}
+                showArchived={showArchived}
+                isCreating={false}
+                onCreateChannel={() => {}}
+                onCancelCreate={() => {}}
+              />
             </div>
           </div>
         </Panel>
@@ -140,11 +199,28 @@ export default function App() {
 
         <Panel defaultSize={42} minSize={25}>
           <div className="h-full p-4 flex flex-col">
-            {selectedChannel && currentChannel ? (
+            {isCreating ? (
+              <ChannelHeader
+                channel={{
+                  name: '',
+                  topic: null,
+                  channel_id: '',
+                  message_count: 0,
+                  last_activity: null,
+                  unread_count: 0,
+                  archived_at: null,
+                  pinned_at: null,
+                }}
+                isCreating={true}
+                onCreate={handleCreateChannel}
+                onCancelCreate={handleCancelCreate}
+                createError={createError}
+              />
+            ) : selectedChannel && currentChannel ? (
               <>
                 <ChannelHeader channel={currentChannel} onExportClick={handleExportChannel} />
                 <div className="flex-1 overflow-y-auto scrollable">
-                  <MessageList channel={selectedChannel} />
+                  <MessageList channelName={selectedChannel} channelId={currentChannel.channel_id} />
                 </div>
                 <AgentStatus channel={selectedChannel} />
                 <ComposeBox channel={selectedChannel} />

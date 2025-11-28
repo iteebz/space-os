@@ -5,10 +5,11 @@ import { useAgentMap, useAgentIdentities } from '../agents'
 import { useSpawns } from '../spawns'
 import { QueryState } from '../../lib/QueryState'
 import { formatLocalTime } from '../../lib/utils'
-import type { Message } from './types'
+import type { Message, Channel } from './types'
 
 interface Props {
-  channel: string
+  channelName: string
+  channelId: string
 }
 
 interface ElementWithProps {
@@ -94,23 +95,21 @@ function DelimiterHighlighter({
   return <>{highlightDelimiters(content, validIdentities)}</>
 }
 
-export function MessageList({ channel }: Props) {
-  const query = useMessages(channel)
+export function MessageList({ channelName, channelId }: Props) {
+  const query = useMessages(channelName)
   const agentMap = useAgentMap()
   const agentIdentities = useAgentIdentities()
   const { data: spawns } = useSpawns()
-  const { data: channels } = useChannels()
-  const deleteMessage = useDeleteMessage(channel)
+  const deleteMessage = useDeleteMessage(channelName)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const currentChannel = channels?.find((c) => c.name === channel)
   const activeAgentIds = new Set(
     spawns
       ?.filter(
         (s) =>
           s.status === 'running' &&
-          s.channel_id === currentChannel?.channel_id &&
+          s.channel_id === channelId &&
           s.agent_id !== '019aadf4-acb1-7623-8f08-cac86d68d39a'
       )
       .map((s) => s.agent_id) ?? []

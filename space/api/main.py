@@ -5,6 +5,8 @@ import time
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from space.api import agents, channels, sessions, spawns, upload
+
 app = FastAPI(title="Space API")
 START_TIME = time.time()
 
@@ -14,9 +16,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-from space.api import agents, channels, sessions, spawns, upload
 
 app.include_router(agents.router)
 app.include_router(channels.router)

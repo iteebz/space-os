@@ -129,7 +129,10 @@ def delete_channel(name: str) -> None:
 
 def list_channels(show_all: bool = False, reader_id: str | None = None) -> list[Channel]:
     with store.ensure() as conn:
-        archived_filter = "" if show_all else "WHERE c.archived_at IS NULL"
+        if show_all:
+            archived_filter = "WHERE c.archived_at IS NOT NULL"
+        else:
+            archived_filter = "WHERE c.archived_at IS NULL"
         query = f"""
             SELECT
                 c.channel_id,
