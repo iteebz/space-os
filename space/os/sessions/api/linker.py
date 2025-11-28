@@ -11,8 +11,15 @@ logger = logging.getLogger(__name__)
 
 
 def find_session_for_spawn(spawn_id: str, provider: str, created_at: str) -> str | None:
-    """Find session_id via marker or closest mtime match."""
-    marker = _truncate_spawn_id(spawn_id)
+    """Find session_id via marker-based matching (mtime fallback).
+
+    Strategy:
+    1. Marker match: Parse spawn_marker from session content (deterministic)
+    2. Mtime fallback: Closest file modification time (heuristic)
+    """
+    from space.lib.uuid7 import short_id
+
+    marker = short_id(spawn_id)
     session_dir = paths.sessions_dir()
     provider_dir = session_dir / provider
 
@@ -25,8 +32,12 @@ def find_session_for_spawn(spawn_id: str, provider: str, created_at: str) -> str
     closest_distance = float("inf")
 
     for session_file in provider_dir.glob("*.jsonl"):
-        if _parse_spawn_marker(session_file) == marker:
-            return _extract_session_id(session_file)
+        found_marker = _parse_spawn_marker(session_file)
+        if found_marker == marker:
+            session_id = _extract_session_id(session_file)
+            if session_id:
+                logger.info(f"Matched spawn {spawn_id[:8]} to session {session_id} via marker")
+                return session_id
 
         file_mtime = session_file.stat().st_mtime
         distance = abs(file_mtime - created_ts)
@@ -37,6 +48,9 @@ def find_session_for_spawn(spawn_id: str, provider: str, created_at: str) -> str
     if closest_file:
         session_id = _extract_session_id(closest_file)
         if session_id:
+            logger.warning(
+                f"Matched spawn {spawn_id[:8]} to session {session_id} via mtime (marker not found)"
+            )
             return session_id
 
     return None
@@ -71,6 +85,7 @@ def link_spawn_to_session(spawn_id: str, session_id: str | None) -> None:
 
 
 def _truncate_spawn_id(spawn_id: str) -> str:
+    """DEPRECATED: Use uuid7.short_id() instead (uses last 8 chars for entropy)."""
     return spawn_id[:8]
 
 
@@ -86,24 +101,79 @@ def _extract_session_id(session_file: Path) -> str | None:
 
 
 def _parse_spawn_marker(session_file: Path) -> str | None:
+    """Extract spawn_marker from session JSONL (all provider formats).
+
+    Early exit: Marker always appears in first user message.
+
+    Handles:
+    - Claude: {"message": {"content": "spawn_marker: abc12345..."}}
+    - Codex: {"role": "user", "content": "spawn_marker: abc12345..."}
+    - Gemini: {"role": "user", "content": "spawn_marker: abc12345...", "timestamp": "..."}
+    """
     try:
-        content = session_file.read_text()
-        for line in content.split("\n"):
-            if not line:
-                continue
-            try:
-                data = json.loads(line)
-                msg_content = data.get("content", "")
-                if isinstance(msg_content, str) and "spawn_marker:" in msg_content:
-                    marker_part = msg_content.split("spawn_marker:")[-1].strip()
-                    marker = marker_part.split()[0]
-                    if len(marker) == 8:
+        with open(session_file) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+
+                    # Check if this is a user message
+                    is_user = (
+                        data.get("type") == "user"
+                        or data.get("role") == "user"
+                        or (
+                            "message" in data
+                            and isinstance(data["message"], dict)
+                            and data["message"].get("role") == "user"
+                        )
+                    )
+
+                    marker = _extract_marker_from_line(data)
+                    if marker:
                         return marker
-            except json.JSONDecodeError:
-                continue
+
+                    # Early exit after first user message (marker would be there)
+                    if is_user:
+                        return None
+
+                except json.JSONDecodeError:
+                    continue
         return None
     except OSError:
         return None
+
+
+def _extract_marker_from_line(data: dict) -> str | None:
+    """Extract 8-char spawn_marker from single JSONL line (provider-agnostic)."""
+    # Claude format: {"message": {"content": "..."}}
+    if "message" in data:
+        msg = data["message"]
+        if isinstance(msg, dict):
+            content = msg.get("content", "")
+            if isinstance(content, str):
+                marker = _parse_marker_from_text(content)
+                if marker:
+                    return marker
+
+    # Codex/Gemini format: {"content": "..."} or {"role": "user", "content": "..."}
+    content = data.get("content", "")
+    if isinstance(content, str):
+        return _parse_marker_from_text(content)
+
+    return None
+
+
+def _parse_marker_from_text(text: str) -> str | None:
+    """Extract 8-char marker from text containing 'spawn_marker: <marker>'."""
+    if "spawn_marker:" not in text:
+        return None
+
+    marker_part = text.split("spawn_marker:")[-1].strip()
+    marker = marker_part.split()[0] if marker_part else ""
+
+    return marker if len(marker) == 8 else None
 
 
 def _parse_iso_timestamp(iso_str: str) -> float:

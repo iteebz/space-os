@@ -159,26 +159,23 @@ def _run_ephemeral(
     env: dict[str, str],
 ) -> None:
     instruction_text, image_paths = _extract_images_from_instruction(instruction)
+
+    # Only inject marker for new sessions (session linking)
+    inject_marker = session_id is None
+
     context = build_spawn_context(
         agent.identity,
         task=instruction_text,
         channel=channel_name,
+        spawn_id=spawn.id,
+        inject_marker=inject_marker,
     )
     cmd = _build_spawn_command(agent, session_id, image_paths=image_paths)
     stdout = _execute_spawn(cmd, context, agent, spawn.id, env)
     _link_session(spawn, session_id, agent.provider, stdout)
 
 
-def _parse_model_and_effort(agent) -> tuple[str, str | None]:
-    """Extract model ID and reasoning effort (codex only)."""
-    if agent.provider == "codex":
-        return Codex.parse_model_id(agent.model)
-    return agent.model, None
-
-
-def _build_launch_args(
-    agent, is_task: bool, reasoning_effort: str | None, image_paths: list[str] | None = None
-) -> list[str]:
+def _build_launch_args(agent, is_task: bool, image_paths: list[str] | None = None) -> list[str]:
     """Build provider-specific launch arguments."""
     provider_class = PROVIDERS.get(agent.provider)
     if not provider_class:
@@ -186,17 +183,11 @@ def _build_launch_args(
 
     if is_task:
         if agent.provider == "codex":
-            return provider_class.task_launch_args(
-                reasoning_effort=reasoning_effort, image_paths=image_paths
-            )
+            return provider_class.task_launch_args(image_paths=image_paths)
         return provider_class.task_launch_args()
 
     if agent.provider == "gemini":
         return provider_class.launch_args(has_prompt=False)
-    if agent.provider == "claude":
-        return provider_class.launch_args()
-    if agent.provider == "codex":
-        return provider_class.launch_args(reasoning_effort=reasoning_effort)
     return provider_class.launch_args()
 
 
@@ -207,13 +198,11 @@ def _build_spawn_command(
     image_paths: list[str] | None = None,
 ) -> list[str]:
     """Assemble provider command for spawn execution."""
-    model_id, reasoning_effort = _parse_model_and_effort(agent)
-    launch_args = _build_launch_args(agent, is_task, reasoning_effort, image_paths)
-    model_args = ["--model", model_id]
+    launch_args = _build_launch_args(agent, is_task, image_paths)
+    model_args = ["--model", agent.model]
     if agent.provider == "codex":
         add_dir_args: list[str] = []
     elif agent.provider == "gemini":
-        # Gemini CLI uses --include-directories instead of --add-dir.
         add_dir_args = ["--include-directories", str(paths.space_root())]
     else:
         add_dir_args = ["--add-dir", str(paths.space_root())]
@@ -259,16 +248,20 @@ def _execute_spawn(cmd: list[str], context: str, agent, spawn_id: str, env: dict
 
 
 def _link_session(spawn, session_id: str | None, provider: str, stdout: str = "") -> None:
-    """Link spawn to session via stdout extraction or file discovery."""
+    """Link spawn to session via marker → stdout → file discovery."""
     from space.os.sessions.api import linker
 
     try:
         if not session_id:
-            # Try extracting from stdout first (Claude/Codex)
+            # 1. Try marker-based matching (most reliable)
+            session_id = linker.find_session_for_spawn(spawn.id, provider, spawn.created_at)
+
+        if not session_id:
+            # 2. Try extracting from stdout (Codex only)
             session_id = _extract_session_from_output(provider, stdout)
 
         if not session_id:
-            # Fall back to file discovery (Gemini, or if extraction failed)
+            # 3. Fall back to file discovery by mtime
             session_id = _discover_spawn_session(spawn, provider)
 
         if session_id:

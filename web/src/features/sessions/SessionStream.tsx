@@ -27,8 +27,8 @@ function formatRelativeTime(timestamp: string | null): string {
   return formatLocalDate(timestamp)
 }
 
-const MAX_RETRIES = 3
-const BASE_DELAY = 1000
+const MAX_RETRIES = 10
+const BASE_DELAY = 2000
 
 export function SessionStream({ sessionId }: Props) {
   const [events, setEvents] = useState<SessionEvent[]>([])
@@ -66,7 +66,7 @@ export function SessionStream({ sessionId }: Props) {
           globalThis.setTimeout(connect, delay)
           return next
         }
-        setError('Connection lost')
+        setError('Failed to load session')
         return next
       })
     }

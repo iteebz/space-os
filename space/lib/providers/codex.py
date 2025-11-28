@@ -94,11 +94,14 @@ class Codex(Provider):
         Examples:
             'gpt-5.1-codex-low' -> ('gpt-5.1-codex', 'low')
             'gpt-5.1-codex-mini-high' -> ('gpt-5.1-codex-mini', 'high')
+            'gpt-5.1-low' -> ('gpt-5.1-low', None)
             'gpt-5.1' -> ('gpt-5.1', None)
         """
         for effort in ("low", "medium", "high"):
             if model_id.endswith(f"-{effort}"):
                 base = model_id[: -(len(effort) + 1)]
+                if "codex" not in base:
+                    return (model_id, None)
                 return (base, effort)
         return (model_id, None)
 

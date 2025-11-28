@@ -53,14 +53,25 @@ class ProgressEvent:
     total_indexed: int = 0
 
 
-def _extract_tokens(provider: str, content: str) -> tuple[int, int, str]:
-    """Extract tokens and model from JSONL content without re-reading file."""
+@dataclass
+class SessionMetadata:
+    input_tokens: int
+    output_tokens: int
+    model: str
+    first_timestamp: str | None
+    last_timestamp: str | None
+
+
+def _parse_session_metadata(provider: str, content: str) -> SessionMetadata:
+    """Single-pass extraction of tokens, model, and timestamps from JSONL."""
     import io
     import json
 
     input_total = 0
     output_total = 0
     model = None
+    first_ts = None
+    last_ts = None
 
     if provider == "claude":
         for line in io.StringIO(content):
@@ -68,6 +79,12 @@ def _extract_tokens(provider: str, content: str) -> tuple[int, int, str]:
                 continue
             try:
                 obj = json.loads(line)
+                ts = obj.get("timestamp")
+                if ts:
+                    if not first_ts:
+                        first_ts = ts
+                    last_ts = ts
+
                 if isinstance(obj, dict) and "message" in obj:
                     msg = obj["message"]
                     if isinstance(msg, dict):
@@ -84,12 +101,19 @@ def _extract_tokens(provider: str, content: str) -> tuple[int, int, str]:
                             output_total += usage.get("output_tokens", 0)
             except json.JSONDecodeError:
                 continue
+
     elif provider == "codex":
         for line in io.StringIO(content):
             if not line.strip():
                 continue
             try:
                 obj = json.loads(line)
+                ts = obj.get("timestamp")
+                if ts:
+                    if not first_ts:
+                        first_ts = ts
+                    last_ts = ts
+
                 payload = obj.get("payload", {})
                 if payload.get("type") == "turn_context" and not model:
                     model = payload.get("model")
@@ -102,7 +126,28 @@ def _extract_tokens(provider: str, content: str) -> tuple[int, int, str]:
             except json.JSONDecodeError:
                 continue
 
-    return (input_total or 0, output_total or 0, model or f"{provider}-unknown")
+    else:
+        # Generic timestamp extraction for other providers
+        for line in io.StringIO(content):
+            if not line.strip():
+                continue
+            try:
+                obj = json.loads(line)
+                ts = obj.get("timestamp")
+                if ts:
+                    if not first_ts:
+                        first_ts = ts
+                    last_ts = ts
+            except json.JSONDecodeError:
+                continue
+
+    return SessionMetadata(
+        input_tokens=input_total or 0,
+        output_tokens=output_total or 0,
+        model=model or f"{provider}-unknown",
+        first_timestamp=first_ts,
+        last_timestamp=last_ts,
+    )
 
 
 def _index_transcripts(session_id: str, provider: str, content: str, conn) -> int:
@@ -189,21 +234,32 @@ def discover() -> list[dict]:
 def _index_session_file(
     session_id: str, provider_name: str, content: str, conn, mtime: float | None = None
 ) -> int:
-    """Index single session: extract tokens, upsert session, link agent, index transcripts."""
-    input_tokens, output_tokens, model = _extract_tokens(provider_name, content)
+    """Index single session: extract metadata, upsert session, link agent, index transcripts."""
+    metadata = _parse_session_metadata(provider_name, content)
 
     conn.execute(
         """
         INSERT INTO sessions
-        (session_id, provider, model, input_tokens, output_tokens, source_mtime)
-        VALUES (?, ?, ?, ?, ?, ?)
+        (session_id, provider, model, input_tokens, output_tokens, source_mtime, first_message_at, last_message_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(session_id) DO UPDATE SET
             model = excluded.model,
             input_tokens = excluded.input_tokens,
             output_tokens = excluded.output_tokens,
-            source_mtime = excluded.source_mtime
+            source_mtime = excluded.source_mtime,
+            first_message_at = excluded.first_message_at,
+            last_message_at = excluded.last_message_at
         """,
-        (session_id, provider_name, model, input_tokens or 0, output_tokens or 0, mtime),
+        (
+            session_id,
+            provider_name,
+            metadata.model,
+            metadata.input_tokens,
+            metadata.output_tokens,
+            mtime,
+            metadata.first_timestamp,
+            metadata.last_timestamp,
+        ),
     )
     _link_session_to_agent(session_id, conn)
     return _index_transcripts(session_id, provider_name, content, conn)

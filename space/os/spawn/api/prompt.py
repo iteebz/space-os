@@ -78,8 +78,18 @@ def build_spawn_context(
     identity: str,
     task: str | None = None,
     channel: str | None = None,
+    spawn_id: str | None = None,
+    inject_marker: bool = False,
 ) -> str:
-    """Assemble spawn context for agent execution."""
+    """Assemble spawn context for agent execution.
+
+    Args:
+        identity: Agent identity
+        task: Optional task instruction
+        channel: Optional channel name
+        spawn_id: Spawn UUID (required if inject_marker=True)
+        inject_marker: If True, inject spawn_marker for session linking (new sessions only)
+    """
     agent = agents.get_agent(identity)
     model = agent.model if agent else "unknown"
 
@@ -95,10 +105,18 @@ def build_spawn_context(
     if task:
         task_context = TASK_TEMPLATE.format(task=task)
 
-    return SPAWN_CONTEXT_TEMPLATE.format(
+    context = SPAWN_CONTEXT_TEMPLATE.format(
         identity=identity,
         model=model,
         human_identity=human_identity,
         task=task_context,
         channel=channel_context,
     )
+
+    if inject_marker and spawn_id:
+        from space.lib.uuid7 import short_id
+
+        marker = short_id(spawn_id)
+        context = f"spawn_marker: {marker}\n\n{context}"
+
+    return context
