@@ -84,11 +84,13 @@ def _pause_all_in_channel(channel_id: str) -> None:
 
 
 def _pause_agent_in_channel(channel_id: str, identity: str) -> None:
+    from space.core.models import SpawnStatus
+
     agent = spawn_agents.get_agent(identity)
     if not agent:
         return
     for spawn in spawns.get_spawns_for_agent(agent.agent_id):
-        if spawn.status == "running" and spawn.channel_id == channel_id:
+        if spawn.status == SpawnStatus.RUNNING and spawn.channel_id == channel_id:
             with contextlib.suppress(ValueError):
                 spawns.pause_spawn(spawn.id)
 
@@ -100,41 +102,86 @@ def _resume_all_in_channel(channel_id: str) -> None:
 
 
 def _resume_agent_in_channel(channel_id: str, identity: str) -> None:
+    from space.core.models import SpawnStatus
+
     agent = spawn_agents.get_agent(identity)
     if not agent:
         return
     for spawn in spawns.get_spawns_for_agent(agent.agent_id):
-        if spawn.status == "paused" and spawn.channel_id == channel_id:
+        if spawn.status == SpawnStatus.PAUSED and spawn.channel_id == channel_id:
             with contextlib.suppress(ValueError):
                 spawns.resume_spawn(spawn.id)
 
 
 def _abort_all_in_channel(channel_id: str) -> None:
-    for spawn in spawns.get_channel_spawns(channel_id, status="running"):
-        _kill_spawn(spawn.id)
+    from space.core.models import SpawnStatus
+
+    active_statuses = [SpawnStatus.RUNNING, SpawnStatus.PENDING, SpawnStatus.PAUSED]
+    for status in active_statuses:
+        for spawn in spawns.get_channel_spawns(channel_id, status=status):
+            _kill_spawn(spawn.id)
 
 
 def _abort_agent_in_channel(channel_id: str, identity: str) -> None:
+    from space.core.models import SpawnStatus
+
     agent = spawn_agents.get_agent(identity)
     if not agent:
         return
+
+    active_statuses = {SpawnStatus.RUNNING, SpawnStatus.PENDING, SpawnStatus.PAUSED}
     for spawn in spawns.get_spawns_for_agent(agent.agent_id):
-        if spawn.status == "running" and spawn.channel_id == channel_id:
+        if spawn.status in active_statuses and spawn.channel_id == channel_id:
             _kill_spawn(spawn.id)
 
 
 def _kill_spawn(spawn_id: str) -> None:
+    """Kill spawn process with SIGTERM → SIGKILL escalation."""
     import os
     import signal
     import time
 
     spawn = spawns.get_spawn(spawn_id)
-    if spawn and spawn.pid:
-        with contextlib.suppress(OSError, ProcessLookupError):
-            os.kill(spawn.pid, signal.SIGTERM)
+    if not spawn:
+        log.warning(f"Cannot kill spawn {spawn_id}: not found")
+        return
+
+    if not spawn.pid:
+        log.warning(f"Cannot kill spawn {spawn_id}: no PID (process never started)")
+        spawns.update_status(spawn_id, "killed")
+        return
+
+    # Try graceful shutdown first
+    try:
+        os.kill(spawn.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        log.debug(f"Spawn {spawn_id} already dead (SIGTERM)")
+        spawns.update_status(spawn_id, "killed")
+        return
+    except OSError as e:
+        log.error(f"Failed to send SIGTERM to spawn {spawn_id} PID {spawn.pid}: {e}")
+        spawns.update_status(spawn_id, "killed")
+        return
+
+    # Poll for up to 5s to see if process exits cleanly
+    for _ in range(10):
         time.sleep(0.5)
-        with contextlib.suppress(OSError, ProcessLookupError):
-            os.kill(spawn.pid, signal.SIGKILL)
+        try:
+            os.kill(spawn.pid, 0)  # Check if alive
+        except ProcessLookupError:
+            log.debug(f"Spawn {spawn_id} exited cleanly after SIGTERM")
+            spawns.update_status(spawn_id, "killed")
+            return
+
+    # Still alive, force kill
+    try:
+        os.kill(spawn.pid, signal.SIGKILL)
+        log.info(f"Spawn {spawn_id} required SIGKILL")
+    except ProcessLookupError:
+        log.debug(f"Spawn {spawn_id} died during SIGKILL window")
+    except OSError as e:
+        log.error(f"Failed to send SIGKILL to spawn {spawn_id} PID {spawn.pid}: {e}")
+
     spawns.update_status(spawn_id, "killed")
 
 
@@ -192,13 +239,15 @@ def _attempt_relink_for_agent(agent_id: str) -> None:
 
 def _has_running_spawn_in_channel(agent_id: str, channel_id: str) -> bool:
     """Check if agent has running or pending spawn in channel."""
+    from space.core.models import SpawnStatus
+
     all_spawns = spawns.get_spawns_for_agent(agent_id)
 
     for spawn in all_spawns:
         if spawn.channel_id != channel_id:
             continue
 
-        if spawn.status in ("running", "pending"):
+        if spawn.status in (SpawnStatus.RUNNING, SpawnStatus.PENDING):
             return True
 
     return False
@@ -313,6 +362,7 @@ def _get_agents_in_channel(channel_id: str) -> list[str]:
 
 def _compact_agent_in_channel(channel_id: str, identity: str) -> None:
     """Human-initiated agent compaction: force fresh session."""
+    from space.core.models import SpawnStatus
     from space.lib.detach import detach
 
     agent = spawn_agents.get_agent(identity)
@@ -322,7 +372,7 @@ def _compact_agent_in_channel(channel_id: str, identity: str) -> None:
     # Find running spawn in channel
     current_spawn = None
     for spawn in spawns.get_spawns_for_agent(agent.agent_id):
-        if spawn.status == "running" and spawn.channel_id == channel_id:
+        if spawn.status == SpawnStatus.RUNNING and spawn.channel_id == channel_id:
             current_spawn = spawn
             break
 
@@ -349,6 +399,7 @@ def _compact_agent_in_channel(channel_id: str, identity: str) -> None:
 
 def _process_compact_command(channel_id: str, content: str, sender_agent_id: str | None) -> None:
     """Parse !compact summary and spawn successor with parent link."""
+    from space.core.models import SpawnStatus
     from space.lib.detach import detach
 
     if not sender_agent_id:
@@ -370,7 +421,7 @@ def _process_compact_command(channel_id: str, content: str, sender_agent_id: str
     # Get current spawn in this channel
     current_spawn = None
     for spawn in spawns.get_spawns_for_agent(sender_agent_id):
-        if spawn.status == "running" and spawn.channel_id == channel_id:
+        if spawn.status == SpawnStatus.RUNNING and spawn.channel_id == channel_id:
             current_spawn = spawn
             break
 
@@ -397,6 +448,7 @@ def _process_compact_command(channel_id: str, content: str, sender_agent_id: str
 
 def _process_handoff_command(channel_id: str, content: str, sender_agent_id: str | None) -> None:
     """Parse !handoff @target summary and create handoff + spawn target + kill sender."""
+    from space.core.models import SpawnStatus
     from space.lib.detach import detach
 
     from . import handoffs
@@ -433,7 +485,7 @@ def _process_handoff_command(channel_id: str, content: str, sender_agent_id: str
 
     # Kill sender's spawn in this channel
     for spawn in spawns.get_spawns_for_agent(sender_agent_id):
-        if spawn.status == "running" and spawn.channel_id == channel_id:
+        if spawn.status == SpawnStatus.RUNNING and spawn.channel_id == channel_id:
             _kill_spawn(spawn.id)
 
 

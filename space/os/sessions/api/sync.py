@@ -186,21 +186,24 @@ def discover() -> list[dict]:
     return all_sessions
 
 
-def _index_session_file(session_id: str, provider_name: str, content: str, conn) -> int:
+def _index_session_file(
+    session_id: str, provider_name: str, content: str, conn, mtime: float | None = None
+) -> int:
     """Index single session: extract tokens, upsert session, link agent, index transcripts."""
     input_tokens, output_tokens, model = _extract_tokens(provider_name, content)
 
     conn.execute(
         """
         INSERT INTO sessions
-        (session_id, provider, model, input_tokens, output_tokens)
-        VALUES (?, ?, ?, ?, ?)
+        (session_id, provider, model, input_tokens, output_tokens, source_mtime)
+        VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(session_id) DO UPDATE SET
             model = excluded.model,
             input_tokens = excluded.input_tokens,
-            output_tokens = excluded.output_tokens
+            output_tokens = excluded.output_tokens,
+            source_mtime = excluded.source_mtime
         """,
-        (session_id, provider_name, model, input_tokens or 0, output_tokens or 0),
+        (session_id, provider_name, model, input_tokens or 0, output_tokens or 0, mtime),
     )
     _link_session_to_agent(session_id, conn)
     return _index_transcripts(session_id, provider_name, content, conn)
@@ -215,8 +218,11 @@ def index(session_id: str) -> int:
             try:
                 content = jsonl_file.read_text()
                 if content.strip():
+                    mtime = jsonl_file.stat().st_mtime
                     with store.ensure() as conn:
-                        count = _index_session_file(session_id, provider_name, content, conn)
+                        count = _index_session_file(
+                            session_id, provider_name, content, conn, mtime=mtime
+                        )
                         conn.commit()
                         return count
             except Exception as e:
@@ -284,14 +290,30 @@ def _sync_sessions(sessions_dir, on_progress=None) -> dict[str, dict]:
     return provider_counts
 
 
+def _needs_reindex(session_id: str, current_mtime: float, conn) -> bool:
+    """Check if session file changed since last index."""
+    try:
+        row = conn.execute(
+            "SELECT source_mtime FROM sessions WHERE session_id = ?", (session_id,)
+        ).fetchone()
+
+        if not row or row[0] is None:
+            return True
+
+        last_mtime = row[0]
+        return current_mtime > last_mtime
+    except Exception:
+        return True
+
+
 def _batch_index_sessions(sessions_dir, on_progress=None) -> int:
-    """Index all JSONL files across providers with optimized pragmas."""
+    """Index changed JSONL files across providers (diff-based indexing)."""
     indexed_count = 0
+    skipped_count = 0
 
     try:
         with store.ensure() as conn:
             conn.execute("PRAGMA busy_timeout = 30000")
-            conn.execute("DELETE FROM transcripts")
             conn.execute("PRAGMA synchronous = OFF")
             conn.execute("PRAGMA journal_mode = MEMORY")
 
@@ -305,9 +327,22 @@ def _batch_index_sessions(sessions_dir, on_progress=None) -> int:
                 for jsonl_file in files:
                     try:
                         session_id = jsonl_file.stem
+                        current_mtime = jsonl_file.stat().st_mtime
+
+                        # Skip unchanged sessions
+                        if not _needs_reindex(session_id, current_mtime, conn):
+                            skipped_count += 1
+                            continue
+
+                        # Delete only this session's transcripts
+                        conn.execute("DELETE FROM transcripts WHERE session_id = ?", (session_id,))
+
+                        # Re-index changed session
                         content = jsonl_file.read_text()
                         if content.strip():
-                            _index_session_file(session_id, provider_name, content, conn)
+                            _index_session_file(
+                                session_id, provider_name, content, conn, mtime=current_mtime
+                            )
                         indexed_count += 1
 
                         if on_progress and indexed_count % 50 == 0:
@@ -325,6 +360,7 @@ def _batch_index_sessions(sessions_dir, on_progress=None) -> int:
 
             conn.execute("PRAGMA synchronous = NORMAL")
             conn.commit()
+            logger.info(f"Indexed {indexed_count} sessions, skipped {skipped_count} unchanged")
     except Exception as e:
         logger.warning(f"Failed to batch index sessions: {e}")
 

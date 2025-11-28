@@ -1,14 +1,41 @@
 """FastAPI wrapper for Space-OS APIs."""
 
+import asyncio
+import logging
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from space.api import agents, channels, sessions, spawns, upload
 
-app = FastAPI(title="Space API")
+logger = logging.getLogger(__name__)
 START_TIME = time.time()
+
+
+async def _background_sync():
+    """Sync sessions in background on API startup."""
+    try:
+        from space.os.sessions.api import sync
+
+        logger.info("Starting background session sync...")
+        await asyncio.to_thread(sync.sync_all)
+        logger.info("Background session sync complete")
+    except Exception as e:
+        logger.warning(f"Background session sync failed (non-fatal): {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: startup and shutdown hooks."""
+    # Startup: kick off background sync
+    asyncio.create_task(_background_sync())
+    yield
+    # Shutdown: nothing needed
+
+
+app = FastAPI(title="Space API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
