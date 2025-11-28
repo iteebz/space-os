@@ -244,6 +244,27 @@ def pin(
 
 @app.command()
 @error_feedback
+def export(
+    ctx: typer.Context,
+    channel: str = typer.Argument(..., help="Channel to export"),
+    json_output: bool = typer.Option(
+        False, "--json", "-j", help="Output as JSON instead of markdown"
+    ),
+):
+    """Export full channel history (no bookmark tracking)."""
+    try:
+        output = api.export_messages(channel, as_json=json_output)
+        typer.echo(output)
+    except ValueError as e:
+        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
+        raise typer.Exit(code=1) from e
+    except Exception as e:
+        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
+        raise typer.Exit(code=1) from e
+
+
+@app.command()
+@error_feedback
 def recv(
     ctx: typer.Context,
     channel: str = typer.Argument(..., help="Channel to read from"),

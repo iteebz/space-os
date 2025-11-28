@@ -28,6 +28,7 @@ from .handoffs import (
 from .messaging import (
     count_messages,
     delete_message,
+    export_messages,
     format_messages,
     get_messages,
     get_messages_before,
@@ -47,6 +48,7 @@ __all__ = [
     "create_handoff",
     "delete_channel",
     "delete_message",
+    "export_messages",
     "format_messages",
     "get_channel",
     "get_handoff",

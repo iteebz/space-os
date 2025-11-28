@@ -66,19 +66,21 @@ async def send_message(
     return agent.agent_id
 
 
-def get_messages(channel: str | Channel) -> list[Message]:
+def get_messages(channel: str | Channel, include_archived: bool = False) -> list[Message]:
     channel_id = _to_channel_id(channel)
     channel_obj = channels.get_channel(channel_id)
     if not channel_obj:
         raise ValueError(f"Channel {channel_id} not found")
 
+    archive_filter = "" if include_archived else "AND c.archived_at IS NULL"
+
     with store.ensure() as conn:
         rows = conn.execute(
-            """
+            f"""
             SELECT m.message_id, m.channel_id, m.agent_id, m.content, m.created_at
             FROM messages m
             JOIN channels c ON m.channel_id = c.channel_id
-            WHERE m.channel_id = ? AND c.archived_at IS NULL
+            WHERE m.channel_id = ? {archive_filter}
             ORDER BY m.created_at
             """,
             (channel_obj.channel_id,),
@@ -210,6 +212,13 @@ def copy_bookmarks(from_reader_id: str, to_reader_id: str) -> None:
             """,
             (to_reader_id, now, from_reader_id),
         )
+
+
+def export_messages(channel: str | Channel, as_json: bool = False) -> str:
+    msgs = get_messages(channel, include_archived=True)
+    channel_obj = channels.get_channel(_to_channel_id(channel))
+    title = f"Export: {channel_obj.name}" if channel_obj else "Messages"
+    return format_messages(msgs, title=title, as_json=as_json)
 
 
 def format_messages(messages: list[Message], title: str = "Messages", as_json: bool = False) -> str:

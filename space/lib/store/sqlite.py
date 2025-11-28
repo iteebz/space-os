@@ -13,12 +13,28 @@ def connect(db_path: Path) -> sqlite3.Connection:
     SQLite write ceiling: ~1000 writes/sec on SSD.
     """
     start = time.perf_counter()
-    conn = sqlite3.connect(db_path, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.isolation_level = None
-    conn.execute("PRAGMA foreign_keys = ON")
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA busy_timeout = 5000")  # 5s timeout for lock contention
+    last_error: sqlite3.OperationalError | None = None
+
+    for attempt in range(5):
+        conn = sqlite3.connect(db_path, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        conn.isolation_level = None
+
+        try:
+            conn.execute("PRAGMA foreign_keys = ON")
+            conn.execute("PRAGMA busy_timeout = 5000")  # 5s timeout for lock contention
+            conn.execute("PRAGMA journal_mode = WAL")
+            break
+        except sqlite3.OperationalError as err:
+            last_error = err
+            conn.close()
+            if "locked" in str(err).lower() and attempt < 4:
+                time.sleep(0.05 * (attempt + 1))
+                continue
+            raise
+    else:
+        # Defensive: should never hit because loop either breaks or raises
+        raise last_error or sqlite3.OperationalError("Failed to initialize SQLite connection")
 
     elapsed = time.perf_counter() - start
     if elapsed > 0.1:
