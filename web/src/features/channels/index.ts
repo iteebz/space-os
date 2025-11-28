@@ -3,6 +3,7 @@ export { MessageList } from './MessageList'
 export { ComposeBox } from './ComposeBox'
 export { CreateChannel } from './CreateChannel'
 export { ChannelHeader } from './ChannelHeader'
+export { AgentStatus } from './AgentStatus'
 export {
   useChannels,
   useMessages,

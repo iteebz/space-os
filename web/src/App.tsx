@@ -6,6 +6,7 @@ import {
   ComposeBox,
   CreateChannel,
   ChannelHeader,
+  AgentStatus,
   useChannels,
   useMessages,
   useMarkChannelRead,
@@ -145,6 +146,7 @@ export default function App() {
                 <div className="flex-1 overflow-y-auto scrollable">
                   <MessageList channel={selectedChannel} />
                 </div>
+                <AgentStatus channel={selectedChannel} />
                 <ComposeBox channel={selectedChannel} />
               </>
             ) : (
@@ -170,12 +172,12 @@ export default function App() {
                           : 'border-transparent text-neutral-400 hover:text-neutral-200'
                       }`}
                     >
+                      {tab.identity ?? tab.agentId.slice(0, 8)}
                       <span
                         className={`w-2 h-2 rounded-full ${
                           tab.isRunning ? 'bg-green-400' : 'bg-neutral-600'
                         }`}
                       />
-                      {tab.identity ?? tab.agentId.slice(0, 8)}
                     </button>
                   ))}
                 </div>

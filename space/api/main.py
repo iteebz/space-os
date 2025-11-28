@@ -446,6 +446,41 @@ async def delete_message(message_id: str):
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@app.get("/api/sessions/{session_id}/last-tool")
+async def get_last_tool(session_id: str) -> dict:
+    from space.lib import providers
+
+    sessions_dir = paths.sessions_dir()
+    session_path = None
+    provider_name = None
+
+    for provider in providers.PROVIDER_NAMES:
+        candidate = sessions_dir / provider / f"{session_id}.jsonl"
+        if candidate.exists():
+            session_path = candidate
+            provider_name = provider
+            break
+
+    if not session_path or not provider_name:
+        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+
+    provider_class = providers.get_provider(provider_name)
+    messages = provider_class.parse(session_path)
+
+    for msg in reversed(messages):
+        if msg.type == "tool_call":
+            content = msg.content
+            if isinstance(content, dict) and "input" in content:
+                tool_input = content["input"]
+                if isinstance(tool_input, dict) and "description" in tool_input:
+                    return {
+                        "description": tool_input["description"],
+                        "timestamp": msg.timestamp,
+                    }
+
+    return {"description": None, "timestamp": None}
+
+
 @app.get("/api/sessions/{session_id}/stream")
 async def stream_session(session_id: str) -> StreamingResponse:
     from space.lib import providers
