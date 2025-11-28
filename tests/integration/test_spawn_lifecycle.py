@@ -2,8 +2,6 @@
 
 from unittest.mock import patch
 
-import pytest
-
 from space.core.models import Agent, SpawnStatus
 from space.os import bridge, spawn
 from space.os.spawn.api import spawns
@@ -174,84 +172,6 @@ def test_list_spawns_by_channel(test_space, default_agents):
 
     assert spawn_in_channel.id in spawn_ids
     assert spawn_no_channel.id not in spawn_ids
-
-
-def test_pause_spawn(test_space, default_agents):
-    """Test pausing a running spawn."""
-    agent = spawn.get_agent(default_agents["zealot"])
-    spawn1 = spawns.create_spawn(
-        agent_id=agent.agent_id,
-    )
-    spawns.update_status(spawn1.id, SpawnStatus.RUNNING)
-
-    paused = spawn.pause_spawn(spawn1.id)
-
-    assert paused.status == SpawnStatus.PAUSED
-
-
-def test_pause_spawn_not_running(test_space, default_agents):
-    """Test pausing a spawn that is not running."""
-    agent = spawn.get_agent(default_agents["zealot"])
-    spawn1 = spawns.create_spawn(
-        agent_id=agent.agent_id,
-    )
-
-    with pytest.raises(ValueError, match="not running"):
-        spawn.pause_spawn(spawn1.id)
-
-
-def test_resume_spawn(test_space, default_agents):
-    """Test resuming a paused spawn requires session_id."""
-    agent = spawn.get_agent(default_agents["zealot"])
-    spawn1 = spawns.create_spawn(
-        agent_id=agent.agent_id,
-    )
-    spawns.update_status(spawn1.id, SpawnStatus.RUNNING)
-    spawn.pause_spawn(spawn1.id)
-
-    # Cannot resume without session_id
-    with pytest.raises(ValueError, match="no session_id"):
-        spawn.resume_spawn(spawn1.id)
-
-
-def test_resume_spawn_not_paused(test_space, default_agents):
-    """Test resuming a spawn that is not paused."""
-    agent = spawn.get_agent(default_agents["zealot"])
-    spawn1 = spawns.create_spawn(
-        agent_id=agent.agent_id,
-    )
-
-    with pytest.raises(ValueError, match="not paused"):
-        spawn.resume_spawn(spawn1.id)
-
-
-def test_resume_spawn_no_session_id(test_space, default_agents):
-    """Test resuming a paused spawn without session_id."""
-    agent = spawn.get_agent(default_agents["zealot"])
-    spawn1 = spawns.create_spawn(
-        agent_id=agent.agent_id,
-    )
-    spawns.update_status(spawn1.id, SpawnStatus.RUNNING)
-    spawn.pause_spawn(spawn1.id)
-
-    with pytest.raises(ValueError, match="no session_id"):
-        spawn.resume_spawn(spawn1.id)
-
-
-def test_pause_resume_cycle_requires_session(test_space, default_agents):
-    """Test pause/resume cycle requires valid session_id."""
-    agent = spawn.get_agent(default_agents["zealot"])
-    ephemeral = spawns.create_spawn(
-        agent_id=agent.agent_id,
-    )
-    spawns.update_status(ephemeral.id, SpawnStatus.RUNNING)
-
-    paused = spawn.pause_spawn(ephemeral.id)
-    assert paused.status == SpawnStatus.PAUSED
-
-    # Resume fails without session_id
-    with pytest.raises(ValueError, match="no session_id"):
-        spawn.resume_spawn(ephemeral.id)
 
 
 def test_mention_spawns_worker():

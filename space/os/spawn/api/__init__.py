@@ -23,8 +23,6 @@ from .spawns import (
     get_spawn_count,
     get_spawns_for_agent,
     link_session_to_spawn,
-    pause_spawn,
-    resume_spawn,
 )
 from .trace import trace as trace_query
 
@@ -48,8 +46,6 @@ __all__ = [
     "get_channel_spawns",
     "link_session_to_spawn",
     "get_spawn_count",
-    "pause_spawn",
-    "resume_spawn",
     "agent_identities",
     "archived_agents",
     "stats",

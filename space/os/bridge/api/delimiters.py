@@ -1,6 +1,5 @@
 """Bridge delimiter parsing: @spawn, !agent-signals, /human-control, #channels."""
 
-import contextlib
 import logging
 import re
 
@@ -38,32 +37,13 @@ async def process_delimiters(channel_id: str, content: str, agent_id: str | None
 
 def _process_control_commands(channel_id: str, content: str, agent_id: str | None = None) -> None:
     # Human control surface: /slash commands
-    if "/pause" in content:
-        targets = _extract_control_targets(r"/pause(?:\s+([\w-]+))?", content)
-        if not targets:
-            _pause_all_in_channel(channel_id)
-        else:
-            for identity in targets:
-                _pause_agent_in_channel(channel_id, identity)
-
-    if "/resume" in content:
-        targets = _extract_control_targets(r"/resume(?:\s+([\w-]+))?", content)
-        if not targets:
-            _resume_all_in_channel(channel_id)
-        else:
-            for identity in targets:
-                _resume_agent_in_channel(channel_id, identity)
-
-    if "/abort" in content:
-        targets = _extract_control_targets(r"/abort(?:\s+([\w-]+))?", content)
-        if not targets:
-            _abort_all_in_channel(channel_id)
-        else:
-            for identity in targets:
-                _abort_agent_in_channel(channel_id, identity)
+    if "/stop" in content:
+        targets = _extract_control_targets(r"/stop\s+([\w-]+)", content)
+        for identity in targets:
+            _stop_agent_in_channel(channel_id, identity)
 
     if "/compact" in content:
-        targets = _extract_control_targets(r"/compact(?:\s+([\w-]+))?", content)
+        targets = _extract_control_targets(r"/compact\s+([\w-]+)", content)
         for identity in targets:
             _compact_agent_in_channel(channel_id, identity)
 
@@ -77,59 +57,15 @@ def _process_control_commands(channel_id: str, content: str, agent_id: str | Non
         _process_handoff_command(channel_id, content, agent_id)
 
 
-def _pause_all_in_channel(channel_id: str) -> None:
-    for spawn in spawns.get_channel_spawns(channel_id, status="running"):
-        with contextlib.suppress(ValueError):
-            spawns.pause_spawn(spawn.id)
-
-
-def _pause_agent_in_channel(channel_id: str, identity: str) -> None:
-    from space.core.models import SpawnStatus
-
-    agent = spawn_agents.get_agent(identity)
-    if not agent:
-        return
-    for spawn in spawns.get_spawns_for_agent(agent.agent_id):
-        if spawn.status == SpawnStatus.RUNNING and spawn.channel_id == channel_id:
-            with contextlib.suppress(ValueError):
-                spawns.pause_spawn(spawn.id)
-
-
-def _resume_all_in_channel(channel_id: str) -> None:
-    for spawn in spawns.get_channel_spawns(channel_id, status="paused"):
-        with contextlib.suppress(ValueError):
-            spawns.resume_spawn(spawn.id)
-
-
-def _resume_agent_in_channel(channel_id: str, identity: str) -> None:
-    from space.core.models import SpawnStatus
-
-    agent = spawn_agents.get_agent(identity)
-    if not agent:
-        return
-    for spawn in spawns.get_spawns_for_agent(agent.agent_id):
-        if spawn.status == SpawnStatus.PAUSED and spawn.channel_id == channel_id:
-            with contextlib.suppress(ValueError):
-                spawns.resume_spawn(spawn.id)
-
-
-def _abort_all_in_channel(channel_id: str) -> None:
-    from space.core.models import SpawnStatus
-
-    active_statuses = [SpawnStatus.RUNNING, SpawnStatus.PENDING, SpawnStatus.PAUSED]
-    for status in active_statuses:
-        for spawn in spawns.get_channel_spawns(channel_id, status=status):
-            _kill_spawn(spawn.id)
-
-
-def _abort_agent_in_channel(channel_id: str, identity: str) -> None:
+def _stop_agent_in_channel(channel_id: str, identity: str) -> None:
+    """Stop agent in channel (kill all active spawns)."""
     from space.core.models import SpawnStatus
 
     agent = spawn_agents.get_agent(identity)
     if not agent:
         return
 
-    active_statuses = {SpawnStatus.RUNNING, SpawnStatus.PENDING, SpawnStatus.PAUSED}
+    active_statuses = {SpawnStatus.RUNNING, SpawnStatus.PENDING}
     for spawn in spawns.get_spawns_for_agent(agent.agent_id):
         if spawn.status in active_statuses and spawn.channel_id == channel_id:
             _kill_spawn(spawn.id)
@@ -186,6 +122,7 @@ def _kill_spawn(spawn_id: str) -> None:
 
 
 def _process_mentions(channel_id: str, content: str, sender_agent_id: str | None = None) -> None:
+    """Process @mentions: spawn agent if not already running in channel."""
     from space.lib.detach import detach
 
     mentions = _extract_mentions(content)
@@ -197,9 +134,6 @@ def _process_mentions(channel_id: str, content: str, sender_agent_id: str | None
         if not agent or agent.agent_id == sender_agent_id:
             continue
         if not agent.model:
-            continue
-
-        if _try_resume_paused_spawn(agent.agent_id, channel_id):
             continue
 
         if _has_running_spawn_in_channel(agent.agent_id, channel_id):
@@ -487,31 +421,3 @@ def _process_handoff_command(channel_id: str, content: str, sender_agent_id: str
     for spawn in spawns.get_spawns_for_agent(sender_agent_id):
         if spawn.status == SpawnStatus.RUNNING and spawn.channel_id == channel_id:
             _kill_spawn(spawn.id)
-
-
-def _try_resume_paused_spawn(agent_id: str, channel_id: str | None = None) -> bool:
-    """Resume the most relevant paused spawn for agent (prefer same channel)."""
-    paused = spawns.get_spawns_for_agent(agent_id, status="paused")
-    if not paused:
-        return False
-
-    attempted_ids: set[str] = set()
-
-    def _resume(candidates: list) -> bool:
-        for spawn in candidates:
-            if spawn.id in attempted_ids:
-                continue
-            attempted_ids.add(spawn.id)
-            try:
-                spawns.resume_spawn(spawn.id)
-                return True
-            except ValueError:
-                continue
-        return False
-
-    if channel_id:
-        channel_matches = [spawn for spawn in paused if spawn.channel_id == channel_id]
-        if _resume(channel_matches):
-            return True
-
-    return _resume(paused)

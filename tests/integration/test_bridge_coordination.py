@@ -1,8 +1,6 @@
-import time
 
 import pytest
 
-from space.core.models import SpawnStatus
 from space.os import bridge, spawn
 from space.os.spawn.api import spawns
 
@@ -79,77 +77,3 @@ async def test_full_spawn_ephemeral_events_flow(test_space, default_agents):
     updated_ephemeral = spawns.get_spawn(ephemeral.id)
     assert updated_ephemeral.status == "completed"
     assert updated_ephemeral.agent_id == agent_id
-
-
-@pytest.mark.asyncio
-async def test_pause_via_bridge_command(test_space, default_agents):
-    """!identity pause command sends message (async processing tested separately)."""
-    dev_channel_id = bridge.create_channel("pause-test", "Testing pause")
-    zealot_id = default_agents["zealot"]
-    sentinel_id = default_agents["sentinel"]
-    agent = spawn.get_agent(zealot_id)
-
-    ephemeral = spawns.create_spawn(
-        agent_id=agent.agent_id,
-    )
-    spawns.update_status(ephemeral.id, SpawnStatus.RUNNING)
-
-    assert spawns.get_spawn(ephemeral.id).status == SpawnStatus.RUNNING
-
-    # Send pause command
-    await bridge.send_message(dev_channel_id, sentinel_id, f"!{zealot_id}")
-
-    # Verify message was sent (bridge is message bus, not RPC)
-    messages = bridge.get_messages(dev_channel_id)
-    assert any(f"!{zealot_id}" in m.content for m in messages)
-
-    # Note: Actual pause happens asynchronously via subprocess
-    # Delimiter processing logic is tested separately in unit tests
-
-
-@pytest.mark.asyncio
-async def test_resume_via_bridge_mention_no_session(test_space, default_agents):
-    """@identity mention without session_id cannot resume (requires session context)."""
-    dev_channel_id = bridge.create_channel("resume-no-session", "Testing resume without session")
-    zealot_id = default_agents["zealot"]
-    sentinel_id = default_agents["sentinel"]
-    agent = spawn.get_agent(zealot_id)
-
-    ephemeral = spawns.create_spawn(
-        agent_id=agent.agent_id,
-    )
-    spawns.update_status(ephemeral.id, SpawnStatus.PAUSED)
-
-    assert spawns.get_spawn(ephemeral.id).status == SpawnStatus.PAUSED
-
-    await bridge.send_message(dev_channel_id, sentinel_id, f"@{zealot_id} resume the ephemeral")
-    time.sleep(0.2)
-
-    paused_ephemeral = spawns.get_spawn(ephemeral.id)
-    assert paused_ephemeral.status == SpawnStatus.PAUSED
-
-
-@pytest.mark.asyncio
-async def test_bridge_pause_resume_round_trip(test_space, default_agents):
-    """Pause and resume commands send messages to bridge."""
-    dev_channel_id = bridge.create_channel("pause-resume-rt", "Testing pause/resume")
-    zealot_id = default_agents["zealot"]
-    sentinel_id = default_agents["sentinel"]
-    agent = spawn.get_agent(zealot_id)
-
-    ephemeral1 = spawns.create_spawn(
-        agent_id=agent.agent_id,
-    )
-    spawns.update_status(ephemeral1.id, SpawnStatus.RUNNING)
-
-    original = spawns.get_spawn(ephemeral1.id)
-    assert original.status == SpawnStatus.RUNNING
-
-    # Send pause command
-    await bridge.send_message(dev_channel_id, sentinel_id, f"!{zealot_id}")
-
-    # Verify pause message sent
-    messages = bridge.get_messages(dev_channel_id)
-    assert any(f"!{zealot_id}" in m.content for m in messages)
-
-    # Note: Async processing tested in unit tests

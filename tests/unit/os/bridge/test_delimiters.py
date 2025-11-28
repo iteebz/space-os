@@ -98,14 +98,14 @@ def test_build_spawn_context_with_channel():
         assert "respond here" in result
 
 
-def test_process_control_commands_pause():
-    """Slash command processor pauses running spawns."""
+def test_process_control_commands_stop():
+    """Slash command processor stops running spawns."""
     from unittest.mock import MagicMock, patch
 
     with (
         patch("space.os.bridge.api.delimiters.spawn_agents.get_agent") as mock_get_agent,
         patch("space.os.bridge.api.delimiters.spawns.get_spawns_for_agent") as mock_get_spawns,
-        patch("space.os.bridge.api.delimiters.spawns.pause_spawn") as mock_pause,
+        patch("space.os.bridge.api.delimiters._kill_spawn") as mock_kill,
     ):
         mock_agent = MagicMock()
         mock_agent.agent_id = "agent-123"
@@ -117,31 +117,9 @@ def test_process_control_commands_pause():
         mock_spawn.channel_id = "channel-1"
         mock_get_spawns.return_value = [mock_spawn]
 
-        delimiters._process_control_commands("channel-1", "/pause zealot")
+        delimiters._process_control_commands("channel-1", "/stop zealot")
 
-        mock_pause.assert_called_once_with("spawn-456")
-
-
-def test_process_control_commands_resume():
-    """Slash command processor resumes paused spawns."""
-    with (
-        patch("space.os.bridge.api.delimiters.spawn_agents.get_agent") as mock_get_agent,
-        patch("space.os.bridge.api.delimiters.spawns.get_spawns_for_agent") as mock_get_spawns,
-        patch("space.os.bridge.api.delimiters.spawns.resume_spawn") as mock_resume,
-    ):
-        mock_agent = MagicMock()
-        mock_agent.agent_id = "agent-123"
-        mock_get_agent.return_value = mock_agent
-
-        mock_spawn = MagicMock()
-        mock_spawn.id = "spawn-456"
-        mock_spawn.status = "paused"
-        mock_spawn.channel_id = "channel-1"
-        mock_get_spawns.return_value = [mock_spawn]
-
-        delimiters._process_control_commands("channel-1", "/resume zealot")
-
-        mock_resume.assert_called_once_with("spawn-456")
+        mock_kill.assert_called_once_with("spawn-456")
 
 
 @pytest.mark.asyncio

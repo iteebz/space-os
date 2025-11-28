@@ -4,7 +4,7 @@ import logging
 from collections.abc import Sequence
 from datetime import datetime
 
-from space.core.models import Spawn, SpawnStatus
+from space.core.models import Spawn
 from space.lib import store
 from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
@@ -244,32 +244,6 @@ def get_spawn(spawn_id: str) -> Spawn | None:
         if len(matches) == 1:
             return from_row(matches[0], Spawn)
         return None
-
-
-def pause_spawn(spawn_id: str) -> Spawn:
-    """Pause running spawn. Raises ValueError if not found or not running."""
-    spawn = get_spawn(spawn_id)
-    if not spawn:
-        raise ValueError(f"Spawn {spawn_id} not found")
-    if spawn.status != SpawnStatus.RUNNING:
-        raise ValueError(f"Cannot pause: spawn status is {spawn.status}, not running")
-
-    update_status(spawn_id, SpawnStatus.PAUSED)
-    return get_spawn(spawn_id)
-
-
-def resume_spawn(spawn_id: str) -> Spawn:
-    """Resume paused spawn. Raises ValueError if not found, not paused, or no session_id."""
-    spawn = get_spawn(spawn_id)
-    if not spawn:
-        raise ValueError(f"Spawn {spawn_id} not found")
-    if spawn.status != SpawnStatus.PAUSED:
-        raise ValueError(f"Cannot resume: spawn status is {spawn.status}, not paused")
-    if not spawn.session_id:
-        raise ValueError("Cannot resume: spawn has no session_id")
-
-    update_status(spawn_id, SpawnStatus.RUNNING)
-    return get_spawn(spawn_id)
 
 
 def get_channel_spawns(

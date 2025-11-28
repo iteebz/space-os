@@ -36,9 +36,7 @@ Bridge recognizes delimiter patterns for coordination:
 - `@identity` — Spawn agent with channel context
 
 **Human control (slash commands):**
-- `/pause [identity]` — Pause running spawns (all or specific agent)
-- `/resume [identity]` — Resume paused spawns
-- `/abort [identity]` — Kill running spawns (permanent)
+- `/stop <identity>` — Stop agent (make idle)
 - `/compact <identity>` — Force agent session refresh
 
 **Agent signals (bang commands):**
@@ -47,13 +45,15 @@ Bridge recognizes delimiter patterns for coordination:
 
 ```bash
 # Human control
-bridge send research "/pause zealot-1" --as tyson           # pause zealot-1
-bridge send research "/resume" --as tyson                   # resume all paused
+bridge send research "/stop zealot-1" --as tyson            # stop agent
 bridge send research "/compact zealot-1" --as tyson         # force fresh session
 
 # Agent signals (agents post these)
 bridge send research "!compact Completed X, next Y" --as zealot-1
 bridge send research "!handoff @sentinel Review complete" --as zealot-1
+
+# Wake agents
+bridge send research "@zealot-1 continue work" --as tyson   # spawn or wake agent
 ```
 
 ## Handoffs

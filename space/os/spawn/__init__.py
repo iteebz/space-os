@@ -6,10 +6,8 @@ from .api import (
     get_agent,
     list_agents,
     merge_agents,
-    pause_spawn,
     register_agent,
     rename_agent,
-    resume_spawn,
     spawn_ephemeral,
     unarchive_agent,
     update_agent,
@@ -30,6 +28,4 @@ __all__ = [
     "merge_agents",
     "build_spawn_context",
     "spawn_ephemeral",
-    "pause_spawn",
-    "resume_spawn",
 ]

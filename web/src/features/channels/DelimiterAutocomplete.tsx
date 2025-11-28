@@ -18,9 +18,7 @@ interface Props {
 }
 
 const SLASH_COMMANDS: Suggestion[] = [
-  { value: 'pause', label: 'pause', description: 'Pause running spawns (reversible)' },
-  { value: 'resume', label: 'resume', description: 'Resume paused spawns' },
-  { value: 'abort', label: 'abort', description: 'Kill running spawns (permanent)' },
+  { value: 'stop', label: 'stop <agent>', description: 'Stop agent (make idle)' },
   { value: 'compact', label: 'compact <agent>', description: 'Force agent session refresh' },
 ]
 
