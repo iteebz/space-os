@@ -167,8 +167,8 @@ def _run_ephemeral(
         channel=channel_name,
     )
     cmd = _build_spawn_command(agent, session_id, is_continue, image_paths=image_paths)
-    _execute_spawn(cmd, context, agent, spawn.id, env)
-    _link_session(spawn, session_id, agent.provider)
+    stdout = _execute_spawn(cmd, context, agent, spawn.id, env)
+    _link_session(spawn, session_id, agent.provider, stdout)
 
 
 def _parse_model_and_effort(agent) -> tuple[str, str | None]:
@@ -261,37 +261,75 @@ def _execute_spawn(cmd: list[str], context: str, agent, spawn_id: str, env: dict
             os.unlink(context_file)
 
 
-def _link_session(spawn, session_id: str | None, provider: str) -> None:
-    """Link spawn to session via post-spawn discovery if not explicitly provided."""
+def _link_session(spawn, session_id: str | None, provider: str, stdout: str = "") -> None:
+    """Link spawn to session via stdout extraction or file discovery."""
     from space.os.sessions.api import linker
 
     try:
         if not session_id:
+            # Try extracting from stdout first (Claude/Codex)
+            session_id = _extract_session_from_output(provider, stdout)
+
+        if not session_id:
+            # Fall back to file discovery (Gemini, or if extraction failed)
             session_id = _discover_spawn_session(spawn, provider)
+
         if session_id:
             linker.link_spawn_to_session(spawn.id, session_id)
     except Exception as e:
         logger.debug(f"Session linking failed (non-fatal): {e}")
 
 
+def _extract_session_from_output(provider: str, stdout: str) -> str | None:
+    """Extract session ID from Codex CLI JSONL output.
+
+    Only Codex outputs session metadata to stdout.
+    Claude/Gemini write to files only.
+    """
+    if provider != "codex" or not stdout:
+        return None
+
+    provider_cls = PROVIDERS.get(provider)
+    if not provider_cls or not hasattr(provider_cls, "extract_session_id"):
+        return None
+
+    return provider_cls.extract_session_id(stdout)
+
+
 def _discover_spawn_session(spawn, provider: str) -> str | None:
-    """Discover session created during spawn window via provider-specific logic."""
+    """Discover session by finding newest file in spawn's project directory.
+
+    After spawn completes, session file exists in provider's session dir.
+    For Claude: ~/.claude/projects/{escaped-cwd}/
+    For Codex: ~/.codex/sessions/YYYY/MM/DD/
+    For Gemini: ~/.gemini/tmp/{hash}/chats/
+
+    Strategy: Find newest session file created during/after spawn.
+    """
     from datetime import datetime, timedelta
 
     provider_cls = PROVIDERS.get(provider)
     if not provider_cls or not hasattr(provider_cls, "discover_session"):
         return None
 
-    # Parse spawn start time window (narrow - only around spawn creation)
+    # Use spawn creation time as start, spawn end time as finish
+    # This catches files created during spawn execution
     try:
         start_dt = datetime.fromisoformat(spawn.created_at.replace("Z", "+00:00"))
         if start_dt.tzinfo:
             start_dt = start_dt.replace(tzinfo=None)
 
-        # Session file created within ±5s of spawn start (not entire spawn duration)
-        # This avoids matching other spawns/sessions that happen during execution
-        start_dt = start_dt - timedelta(seconds=5)
-        end_dt = start_dt + timedelta(seconds=10)
+        # If spawn has ended, use end time; otherwise use now
+        if spawn.ended_at:
+            end_dt = datetime.fromisoformat(spawn.ended_at.replace("Z", "+00:00"))
+            if end_dt.tzinfo:
+                end_dt = end_dt.replace(tzinfo=None)
+        else:
+            end_dt = datetime.now()
+
+        # Expand window: -1s (filename second precision) to +2s (file write delay)
+        start_dt = start_dt - timedelta(seconds=1)
+        end_dt = end_dt + timedelta(seconds=2)
     except (ValueError, AttributeError):
         return None
 

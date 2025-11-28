@@ -17,6 +17,22 @@ class Claude(Provider):
     DISALLOWED_TOOLS = ["NotebookRead", "NotebookEdit", "Task", "TodoWrite"]
 
     @staticmethod
+    def extract_session_id(output: str) -> str | None:
+        """Extract session ID from Claude CLI JSONL output.
+
+        Format: Line 2 contains "sessionId":"<uuid>"
+        """
+        lines = output.strip().split("\n")
+        if len(lines) < 2:
+            return None
+
+        try:
+            data = json.loads(lines[1])
+            return data.get("sessionId")
+        except (json.JSONDecodeError, KeyError, IndexError):
+            return None
+
+    @staticmethod
     def allowed_tools() -> list[str]:
         return [
             "Bash",
@@ -61,12 +77,15 @@ class Claude(Provider):
                 try:
                     mtime = session_file.stat().st_mtime
                     if start_ts <= mtime <= end_ts:
-                        candidates.append(session_file.stem)
+                        candidates.append((session_file.stem, abs(mtime - start_ts)))
                 except OSError:
                     continue
 
-        # Only link if unique match in time window
-        return candidates[0] if len(candidates) == 1 else None
+        # Return closest match to spawn start time
+        if not candidates:
+            return None
+        candidates.sort(key=lambda x: x[1])
+        return candidates[0][0]
 
     @staticmethod
     def session_exists(session_id: str, expected_cwd: str | None = None) -> bool:

@@ -25,6 +25,25 @@ from space.workspace.stats import agent_stats
 
 app = typer.Typer(invoke_without_command=True, add_completion=False, no_args_is_help=False)
 
+_SPAWN_COMMANDS = {
+    "register",
+    "agents",
+    "models",
+    "inspect",
+    "rename",
+    "clone",
+    "update",
+    "merge",
+    "list",
+    "run",
+    "cleanup",
+    "health",
+    "logs",
+    "abort",
+    "trace",
+    "chain",
+}
+
 
 def _find_session_file(spawn):
     """Find session file for spawn - check archive first, then discover from provider."""
@@ -136,29 +155,10 @@ def main_callback(
     if ctx.resilient_parsing:
         return
     if ctx.invoked_subcommand is None:
-        # Check if first arg is a known command name
-        known_commands = {
-            "register",
-            "agents",
-            "models",
-            "inspect",
-            "rename",
-            "clone",
-            "update",
-            "merge",
-            "list",
-            "run",
-            "cleanup",
-            "health",
-            "logs",
-            "abort",
-            "trace",
-            "chain",
-        }
         if (
             len(sys.argv) > 1
             and not sys.argv[1].startswith("-")
-            and sys.argv[1] not in known_commands
+            and sys.argv[1] not in _SPAWN_COMMANDS
         ):
             identity = sys.argv[1]
             agent = api.get_agent(identity)
@@ -808,26 +808,7 @@ def main() -> None:
             if agent:
                 _dispatch_spawn(potential_identity, sys.argv[2:], verbose=True)
                 return
-            # Check if it looks like an identity (not a subcommand)
-            known_commands = {
-                "agents",
-                "register",
-                "models",
-                "clone",
-                "rename",
-                "update",
-                "inspect",
-                "merge",
-                "list",
-                "run",
-                "cleanup",
-                "health",
-                "logs",
-                "abort",
-                "trace",
-                "chain",
-            }
-            if potential_identity not in known_commands:
+            if potential_identity not in _SPAWN_COMMANDS:
                 typer.echo(
                     f"Agent '{potential_identity}' not found. Register with: spawn register {potential_identity} --model <model>",
                     err=True,

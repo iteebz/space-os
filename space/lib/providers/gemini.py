@@ -29,11 +29,19 @@ class Gemini(Provider):
     SESSION_FILE_PATTERN = "*/chats/session-*.json"
 
     @staticmethod
+    def extract_session_id(output: str) -> str | None:
+        """Extract session ID from Gemini CLI output.
+
+        Gemini doesn't expose session IDs in stdout like Claude/Codex.
+        Returns None - must rely on file discovery.
+        """
+        return None
+
+    @staticmethod
     def discover_session(spawn, start_ts: float, end_ts: float) -> str | None:
         """Discover Gemini session created during spawn window.
 
-        Strategy: Match by mtime within spawn time window.
-        Returns None if no unique match (avoids collision).
+        Strategy: Match by mtime within spawn time window, return closest to start.
         """
         if not Gemini.SESSIONS_DIR.exists():
             return None
@@ -44,14 +52,15 @@ class Gemini(Provider):
             try:
                 mtime = session_file.stat().st_mtime
                 if start_ts <= mtime <= end_ts:
-                    # Extract session ID from filename
                     session_id = session_file.stem.replace("session-", "")
-                    candidates.append(session_id)
+                    candidates.append((session_id, abs(mtime - start_ts)))
             except OSError:
                 continue
 
-        # Only link if unique match in time window
-        return candidates[0] if len(candidates) == 1 else None
+        if not candidates:
+            return None
+        candidates.sort(key=lambda x: x[1])
+        return candidates[0][0]
 
     @staticmethod
     def allowed_tools() -> list[str]:

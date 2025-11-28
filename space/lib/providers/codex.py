@@ -23,6 +23,23 @@ class Codex(Provider):
     SESSIONS_DIR = Path.home() / ".codex" / "sessions"
 
     @staticmethod
+    def extract_session_id(output: str) -> str | None:
+        """Extract session ID from Codex CLI JSONL output.
+
+        Format: Line 1 contains "payload":{"id":"<uuid>"}
+        """
+        lines = output.strip().split("\n")
+        if not lines:
+            return None
+
+        try:
+            data = json.loads(lines[0])
+            payload = data.get("payload", {})
+            return payload.get("id")
+        except (json.JSONDecodeError, KeyError, IndexError):
+            return None
+
+    @staticmethod
     def discover_session(spawn, start_ts: float, end_ts: float) -> str | None:
         """Discover Codex session created during spawn window.
 
@@ -60,12 +77,15 @@ class Codex(Provider):
                 file_ts = file_dt.timestamp()
 
                 if start_ts <= file_ts <= end_ts and len(session_id) == 36:
-                    candidates.append(session_id)
+                    candidates.append((session_id, abs(file_ts - start_ts)))
             except (ValueError, AttributeError):
                 continue
 
-        # Only link if unique match in time window
-        return candidates[0] if len(candidates) == 1 else None
+        # Return closest match to spawn start time
+        if not candidates:
+            return None
+        candidates.sort(key=lambda x: x[1])
+        return candidates[0][0]
 
     @staticmethod
     def parse_model_id(model_id: str) -> tuple[str, str | None]:

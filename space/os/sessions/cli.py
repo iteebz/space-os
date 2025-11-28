@@ -26,8 +26,7 @@ def query_cmd(
     query: Annotated[str, typer.Argument(help="Agent identity, spawn_id, or session_id")],
 ):
     """Query session details by spawn_id or list spawns by agent identity."""
-    ctx = typer.get_current_context()
-    ctx.invoke(show_session, query=query)
+    show_session(query)
 
 
 @sessions_app.command(name="sync")
@@ -131,7 +130,7 @@ def _show_spawn_session(spawn):
 
     # Find session file
 
-    sessions_dir = paths.space_root() / ".space" / "sessions"
+    sessions_dir = paths.sessions_dir()
     session_path = None
 
     # Search provider subdirs for session file

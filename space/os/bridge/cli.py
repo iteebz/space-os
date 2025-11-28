@@ -336,9 +336,7 @@ def send(
         if not agent:
             raise ValueError(f"Identity '{identity}' not registered.")
         asyncio.run(api.send_message(channel, identity, content, decode_base64=decode_base64))
-        output_json(
-            {"status": "success", "channel": channel, "identity": identity}, ctx
-        ) or echo_if_output(
+        echo_if_output(
             f"Sent to {channel}" if identity == "human" else f"Sent to {channel} as {identity}",
             ctx,
         )
