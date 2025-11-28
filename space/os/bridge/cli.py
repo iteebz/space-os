@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import asdict
 from datetime import datetime
 from typing import Annotated
@@ -45,16 +44,6 @@ def format_local_time(timestamp: str) -> str:
         return dt.strftime("%Y-%m-%d %H:%M:%S")
     except (ValueError, TypeError):
         return timestamp
-
-
-output_json = output.echo_json
-
-
-def should_output(ctx):
-    return not output.is_quiet_mode(ctx)
-
-
-echo_if_output = output.echo_text
 
 
 def _resolve_identity(ctx) -> str | None:
@@ -103,20 +92,13 @@ def archive(
                     api.archive_channel(name)
                     status = "archived"
                 results.append({"channel": name, "status": status})
-                echo_if_output(f"{status.capitalize()} channel: {name}", ctx)
+                output.echo_text(f"{status.capitalize()} channel: {name}", ctx)
             except ValueError as e:
-                results.append(
-                    {
-                        "channel": name,
-                        "status": "error",
-                        "message": str(e),
-                    }
-                )
-                echo_if_output(f"❌ {e}", ctx)
-        if ctx.obj.get("json_output"):
-            typer.echo(json.dumps(results))
+                results.append({"channel": name, "status": "error", "message": str(e)})
+                output.echo_text(f"❌ {e}", ctx)
+        output.echo_json(results, ctx)
     except Exception as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
+        output.respond(ctx, {"status": "error", "message": str(e)}, f"❌ {e}")
         raise typer.Exit(code=1) from e
 
 
@@ -131,10 +113,10 @@ def channels(
         chans = api.list_channels(archived=all)
 
         if not chans:
-            output_json([], ctx) or echo_if_output("No channels found", ctx)
+            output.respond(ctx, [], "No channels found")
             return
 
-        if output_json(
+        if output.echo_json(
             [
                 {
                     "name": c.name,
@@ -155,22 +137,19 @@ def channels(
         active.sort(key=lambda t: t.name)
         archived.sort(key=lambda t: t.name)
 
-        if not should_output(ctx):
-            return
-
         if active:
-            echo_if_output(f"ACTIVE CHANNELS ({len(active)}):", ctx)
+            output.echo_text(f"ACTIVE CHANNELS ({len(active)}):", ctx)
             for channel in active:
                 last_activity, description = format_channel_row(channel)
-                echo_if_output(f"  {last_activity}: {description}", ctx)
+                output.echo_text(f"  {last_activity}: {description}", ctx)
 
         if all and archived:
-            echo_if_output(f"\nARCHIVED ({len(archived)}):", ctx)
+            output.echo_text(f"\nARCHIVED ({len(archived)}):", ctx)
             for channel in archived:
                 last_activity, description = format_channel_row(channel)
-                echo_if_output(f"  {last_activity}: {description}", ctx)
+                output.echo_text(f"  {last_activity}: {description}", ctx)
     except Exception as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
+        output.respond(ctx, {"status": "error", "message": str(e)}, f"❌ {e}")
         raise typer.Exit(code=1) from e
 
 
@@ -185,12 +164,14 @@ def create(
     try:
         channel_obj = api.create_channel(channel_name, topic)
         channel_id = channel_obj.channel_id
-        output_json(
-            {"status": "success", "channel_name": channel_name, "channel_id": channel_id}, ctx
-        ) or echo_if_output(f"Created channel: {channel_name} (ID: {channel_id})", ctx)
+        output.respond(
+            ctx,
+            {"status": "success", "channel_name": channel_name, "channel_id": channel_id},
+            f"Created channel: {channel_name} (ID: {channel_id})",
+        )
     except ValueError as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(
-            f"❌ Error creating channel: {e}", ctx
+        output.respond(
+            ctx, {"status": "error", "message": str(e)}, f"❌ Error creating channel: {e}"
         )
         raise typer.Exit(code=1) from e
 
@@ -204,16 +185,18 @@ def delete(
     """Remove channel permanently."""
     try:
         api.delete_channel(channel)
-        output_json({"status": "deleted", "channel": channel}, ctx) or echo_if_output(
-            f"Deleted channel: {channel}", ctx
+        output.respond(
+            ctx, {"status": "deleted", "channel": channel}, f"Deleted channel: {channel}"
         )
     except ValueError as e:
-        output_json(
-            {"status": "error", "message": f"Channel '{channel}' not found."}, ctx
-        ) or echo_if_output(f"❌ Channel '{channel}' not found.", ctx)
+        output.respond(
+            ctx,
+            {"status": "error", "message": f"Channel '{channel}' not found."},
+            f"❌ Channel '{channel}' not found.",
+        )
         raise typer.Exit(code=1) from e
     except Exception as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
+        output.respond(ctx, {"status": "error", "message": str(e)}, f"❌ {e}")
         raise typer.Exit(code=1) from e
 
 
@@ -231,14 +214,13 @@ def pin(
                 is_pinned = api.toggle_pin_channel(channel)
                 status = "pinned" if is_pinned else "unpinned"
                 results.append({"channel": channel, "status": status})
-                echo_if_output(f"{status.capitalize()} channel: {channel}", ctx)
+                output.echo_text(f"{status.capitalize()} channel: {channel}", ctx)
             except (ValueError, TypeError) as e:
                 results.append({"channel": channel, "status": "error", "message": str(e)})
-                echo_if_output(f"❌ Channel '{channel}' not found.", ctx)
-        if ctx.obj.get("json_output"):
-            typer.echo(json.dumps(results))
+                output.echo_text(f"❌ Channel '{channel}' not found.", ctx)
+        output.echo_json(results, ctx)
     except Exception as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
+        output.respond(ctx, {"status": "error", "message": str(e)}, f"❌ {e}")
         raise typer.Exit(code=1) from e
 
 
@@ -253,13 +235,10 @@ def export(
 ):
     """Export full channel history (no bookmark tracking)."""
     try:
-        output = api.export_messages(channel, as_json=json_output)
-        typer.echo(output)
-    except ValueError as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
-        raise typer.Exit(code=1) from e
-    except Exception as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
+        result = api.export_messages(channel, as_json=json_output)
+        typer.echo(result)
+    except (ValueError, Exception) as e:
+        output.respond(ctx, {"status": "error", "message": str(e)}, f"❌ {e}")
         raise typer.Exit(code=1) from e
 
 
@@ -300,14 +279,10 @@ def recv(
                         )
 
         msgs, count, context, participants = api.recv_messages(channel, ago, reader_id)
-        if should_output(ctx):
-            output = api.format_messages(msgs, context or "Messages", as_json=json_output)
-            typer.echo(output)
-    except ValueError as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
-        raise typer.Exit(code=1) from e
-    except Exception as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
+        result = api.format_messages(msgs, context or "Messages", as_json=json_output)
+        output.echo_text(result, ctx)
+    except (ValueError, Exception) as e:
+        output.respond(ctx, {"status": "error", "message": str(e)}, f"❌ {e}")
         raise typer.Exit(code=1) from e
 
 
@@ -336,15 +311,10 @@ def send(
         if not agent:
             raise ValueError(f"Identity '{identity}' not registered.")
         asyncio.run(api.send_message(channel, identity, content, decode_base64=decode_base64))
-        echo_if_output(
-            f"Sent to {channel}" if identity == "human" else f"Sent to {channel} as {identity}",
-            ctx,
-        )
-    except ValueError as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
-        raise typer.Exit(code=1) from e
-    except Exception as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
+        msg = f"Sent to {channel}" if identity == "human" else f"Sent to {channel} as {identity}"
+        output.echo_text(msg, ctx)
+    except (ValueError, Exception) as e:
+        output.respond(ctx, {"status": "error", "message": str(e)}, f"❌ {e}")
         raise typer.Exit(code=1) from e
 
 
@@ -358,23 +328,20 @@ def rename(
     """Change channel name."""
     try:
         result = api.rename_channel(old_channel, new_channel)
-        output_json(
-            {
-                "status": "success" if result else "failed",
-                "old_channel": old_channel,
-                "new_channel": new_channel,
-            },
-            ctx,
-        ) or (
-            echo_if_output(f"Renamed channel: {old_channel} -> {new_channel}", ctx)
-            if result
-            else echo_if_output(
-                f"❌ Rename failed: {old_channel} not found or {new_channel} already exists",
+        if result:
+            output.respond(
                 ctx,
+                {"status": "success", "old_channel": old_channel, "new_channel": new_channel},
+                f"Renamed channel: {old_channel} -> {new_channel}",
             )
-        )
+        else:
+            output.respond(
+                ctx,
+                {"status": "failed", "old_channel": old_channel, "new_channel": new_channel},
+                f"❌ Rename failed: {old_channel} not found or {new_channel} already exists",
+            )
     except Exception as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
+        output.respond(ctx, {"status": "error", "message": str(e)}, f"❌ {e}")
         raise typer.Exit(code=1) from e
 
 
@@ -388,20 +355,20 @@ def topic(
     """Update channel topic."""
     try:
         result = api.update_topic(channel, new_topic if new_topic else None)
-        output_json(
-            {
-                "status": "success" if result else "failed",
-                "channel": channel,
-                "topic": new_topic,
-            },
-            ctx,
-        ) or (
-            echo_if_output(f"Updated topic for #{channel}", ctx)
-            if result
-            else echo_if_output(f"❌ Channel '{channel}' not found", ctx)
-        )
+        if result:
+            output.respond(
+                ctx,
+                {"status": "success", "channel": channel, "topic": new_topic},
+                f"Updated topic for #{channel}",
+            )
+        else:
+            output.respond(
+                ctx,
+                {"status": "failed", "channel": channel},
+                f"❌ Channel '{channel}' not found",
+            )
     except Exception as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
+        output.respond(ctx, {"status": "error", "message": str(e)}, f"❌ {e}")
         raise typer.Exit(code=1) from e
 
 
@@ -423,29 +390,31 @@ def wait(
         other_messages, count, context, participants = api.wait_for_message(
             channel, identity, poll_interval
         )
-        output_json(
-            {
-                "messages": [asdict(msg) for msg in other_messages],
-                "count": count,
-                "context": context,
-                "participants": participants,
-            },
-            ctx,
-        ) or None
-        if should_output(ctx):
+
+        if output.is_json_mode(ctx):
+            output.echo_json(
+                {
+                    "messages": [asdict(msg) for msg in other_messages],
+                    "count": count,
+                    "context": context,
+                    "participants": participants,
+                },
+                ctx,
+            )
+        else:
             for msg in other_messages:
                 sender = spawn.get_agent(msg.agent_id)
                 sender_name = sender.identity if sender else msg.agent_id[:8]
-                echo_if_output(f"[{sender_name}] {msg.content}", ctx)
-                echo_if_output("", ctx)
+                output.echo_text(f"[{sender_name}] {msg.content}", ctx)
+                output.echo_text("", ctx)
     except ValueError as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
+        output.respond(ctx, {"status": "error", "message": str(e)}, f"❌ {e}")
         raise typer.Exit(code=1) from e
     except KeyboardInterrupt:
-        echo_if_output("\n", ctx)
+        output.echo_text("\n", ctx)
         raise typer.Exit(code=0) from None
     except Exception as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
+        output.respond(ctx, {"status": "error", "message": str(e)}, f"❌ {e}")
         raise typer.Exit(code=1) from e
 
 
@@ -468,17 +437,18 @@ def handoff(
         to_identity = target.lstrip("@")
 
         h = handoffs.create_handoff(channel, identity, to_identity, summary)
-        output_json(
+        output.respond(
+            ctx,
             {
                 "status": "success",
                 "handoff_id": h.handoff_id,
                 "channel": channel,
                 "to": to_identity,
             },
-            ctx,
-        ) or echo_if_output(f"Handoff created: {h.handoff_id[:8]} → @{to_identity}", ctx)
+            f"Handoff created: {h.handoff_id[:8]} → @{to_identity}",
+        )
     except ValueError as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
+        output.respond(ctx, {"status": "error", "message": str(e)}, f"❌ {e}")
         raise typer.Exit(code=1) from e
 
 
@@ -498,7 +468,7 @@ def inbox(
 
         pending = handoffs.list_pending(to_identity=identity, channel=channel)
 
-        if output_json(
+        if output.echo_json(
             [
                 {
                     "handoff_id": h.handoff_id,
@@ -514,19 +484,19 @@ def inbox(
             return
 
         if not pending:
-            echo_if_output("No pending handoffs.", ctx)
+            output.echo_text("No pending handoffs.", ctx)
             return
 
-        echo_if_output(f"PENDING HANDOFFS ({len(pending)}):", ctx)
+        output.echo_text(f"PENDING HANDOFFS ({len(pending)}):", ctx)
         for h in pending:
             from_agent = spawn.get_agent(h.from_agent)
             from_name = from_agent.identity if from_agent else h.from_agent[:8]
             channel_obj = api.get_channel(h.channel_id)
             channel_name = channel_obj.name if channel_obj else h.channel_id[:8]
-            echo_if_output(f"  {h.handoff_id[:8]}: from @{from_name} in #{channel_name}", ctx)
-            echo_if_output(f"    {h.summary}", ctx)
+            output.echo_text(f"  {h.handoff_id[:8]}: from @{from_name} in #{channel_name}", ctx)
+            output.echo_text(f"    {h.summary}", ctx)
     except ValueError as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
+        output.respond(ctx, {"status": "error", "message": str(e)}, f"❌ {e}")
         raise typer.Exit(code=1) from e
 
 
@@ -544,11 +514,13 @@ def close(
         if not h:
             raise ValueError(f"Handoff '{handoff_id}' not found.")
 
-        output_json({"status": "success", "handoff_id": h.handoff_id}, ctx) or echo_if_output(
-            f"Closed handoff: {h.handoff_id[:8]}", ctx
+        output.respond(
+            ctx,
+            {"status": "success", "handoff_id": h.handoff_id},
+            f"Closed handoff: {h.handoff_id[:8]}",
         )
     except ValueError as e:
-        output_json({"status": "error", "message": str(e)}, ctx) or echo_if_output(f"❌ {e}", ctx)
+        output.respond(ctx, {"status": "error", "message": str(e)}, f"❌ {e}")
         raise typer.Exit(code=1) from e
 
 

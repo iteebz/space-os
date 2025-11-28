@@ -48,12 +48,10 @@ async def update_channel_topic(channel: str, body: UpdateTopic):
     from space.os.bridge.api import channels
 
     try:
-        success = channels.update_topic(channel, body.topic)
-        if not success:
-            raise HTTPException(status_code=404, detail=f"Channel {channel} not found")
+        channels.update_topic(channel, body.topic)
         return {"ok": True}
-    except HTTPException:
-        raise
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -63,14 +61,10 @@ async def rename_channel(channel: str, body: RenameChannel):
     from space.os.bridge.api import channels
 
     try:
-        success = channels.rename_channel(channel, body.new_name)
-        if not success:
-            raise HTTPException(
-                status_code=404, detail=f"Channel {channel} not found or new name already exists"
-            )
+        channels.rename_channel(channel, body.new_name)
         return {"ok": True}
-    except HTTPException:
-        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 

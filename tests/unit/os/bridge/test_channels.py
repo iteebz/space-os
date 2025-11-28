@@ -19,12 +19,14 @@ def test_create_channel_requires_name(mock_db):
 
 def test_rename_channel(mock_db):
     mock_db.execute.return_value.fetchone.return_value = make_mock_row({"channel_id": "ch-1"})
-    assert bridge.rename_channel("old", "new") is True
+    bridge.rename_channel("old", "new")
+    assert mock_db.execute.called
 
 
 def test_rename_channel_missing(mock_db):
     mock_db.execute.return_value.fetchone.return_value = None
-    assert bridge.rename_channel("old", "new") is False
+    with pytest.raises(ValueError, match="not found"):
+        bridge.rename_channel("old", "new")
 
 
 def test_archive_channel(mock_db):

@@ -7,7 +7,6 @@ import typer
 
 from space.cli import argv, output
 from space.cli.errors import error_feedback
-from space.cli.identity import resolve_identity
 from space.os import spawn
 from space.os.knowledge import api
 
@@ -47,26 +46,20 @@ def add(
     Example:
       knowledge add architecture/caching/redis "Redis uses single thread for consistency" --as sentinel
     """
+    from space.cli.identity import resolve_agent
     from space.lib.paths import validate_domain_path
-
-    contributor = resolve_identity(ctx.obj.get("identity"))
-    if not contributor:
-        raise typer.BadParameter("--as required or set SPACE_IDENTITY")
 
     valid, error = validate_domain_path(domain)
     if not valid:
         raise typer.BadParameter(f"Invalid domain: {error}")
 
-    agent = spawn.get_agent(contributor)
-    agent_id = agent.agent_id if agent else None
-    if not agent_id:
-        output.out_text(f"Agent not found: {contributor}", ctx.obj)
-        return
-    knowledge_id = api.add_knowledge(domain, agent_id, content)
-    if output.is_json_mode(ctx):
-        typer.echo(output.out_json({"knowledge_id": knowledge_id}))
-    else:
-        output.out_text(f"Added to {domain}: {knowledge_id[-8:]} by {contributor}", ctx.obj)
+    agent = resolve_agent(ctx)
+    knowledge_id = api.add_knowledge(domain, agent.agent_id, content)
+    output.respond(
+        ctx,
+        {"knowledge_id": knowledge_id},
+        f"Added to {domain}: {knowledge_id[-8:]} by {agent.identity}",
+    )
 
 
 @app.command("tree")
@@ -92,22 +85,22 @@ def tree(
 
             if isinstance(value, dict) and "__ids" in value:
                 ids_str = " ".join(f"[{id}]" for id in value["__ids"])
-                output.out_text(f"{prefix}{current_prefix}{key} {ids_str}", ctx.obj)
+                output.echo_text(f"{prefix}{current_prefix}{key} {ids_str}", ctx)
                 subtree = {k: v for k, v in value.items() if k != "__ids"}
                 if subtree:
                     next_prefix = prefix + ("    " if is_last_item else "│   ")
                     print_tree(subtree, next_prefix, is_last_item)
             else:
-                output.out_text(f"{prefix}{current_prefix}{key}", ctx.obj)
+                output.echo_text(f"{prefix}{current_prefix}{key}", ctx)
                 next_prefix = prefix + ("    " if is_last_item else "│   ")
                 if isinstance(value, dict) and value:
                     print_tree(value, next_prefix, is_last_item)
 
     if not tree_data:
-        output.out_text("No domains found.", ctx.obj)
+        output.echo_text("No domains found.", ctx)
         return
 
-    output.out_text("Domain hierarchy:", ctx.obj)
+    output.echo_text("Domain hierarchy:", ctx)
     print_tree(tree_data)
 
 
@@ -120,24 +113,20 @@ def list_knowledge(
     entries = api.list_knowledge(show_all=show_all)
     if not entries:
         if output.is_json_mode(ctx):
-            typer.echo(output.out_json([]))
+            output.echo_json([], ctx)
         else:
-            output.out_text("No knowledge entries found.", ctx.obj)
+            output.echo_text("No knowledge entries found.", ctx)
         return
 
-    if output.is_json_mode(ctx):
-        typer.echo(output.out_json([asdict(e) for e in entries]))
+    if output.echo_json([asdict(e) for e in entries], ctx):
         return
 
-    output.out_text("Knowledge entries:", ctx.obj)
+    output.echo_text("Knowledge entries:", ctx)
     for e in entries:
         mark = " [ARCHIVED]" if e.archived_at else ""
         agent = spawn.get_agent(e.agent_id)
         contributor = agent.identity if agent else e.agent_id[:8]
-        output.out_text(
-            f"[{e.knowledge_id[-8:]}] {e.domain} ({contributor}){mark}",
-            ctx.obj,
-        )
+        output.echo_text(f"[{e.knowledge_id[-8:]}] {e.domain} ({contributor}){mark}", ctx)
 
 
 @app.command("query")
@@ -154,19 +143,18 @@ def query_domain(
     """
     entries = api.query_knowledge(domain, show_all=show_all)
     if not entries:
-        output.out_text(f"No entries for domain '{domain}'", ctx.obj)
+        output.echo_text(f"No entries for domain '{domain}'", ctx)
         return
 
-    if output.is_json_mode(ctx):
-        typer.echo(output.out_json([asdict(e) for e in entries]))
+    if output.echo_json([asdict(e) for e in entries], ctx):
         return
 
-    output.out_text(f"Domain: {domain} ({len(entries)} entries)", ctx.obj)
+    output.echo_text(f"Domain: {domain} ({len(entries)} entries)", ctx)
     for e in entries:
         mark = " [ARCHIVED]" if e.archived_at else ""
         agent = spawn.get_agent(e.agent_id)
         contributor = agent.identity if agent else e.agent_id[:8]
-        output.out_text(f"[{e.knowledge_id[-8:]}] {e.content} ({contributor}){mark}", ctx.obj)
+        output.echo_text(f"[{e.knowledge_id[-8:]}] {e.content} ({contributor}){mark}", ctx)
 
 
 @app.command("read")
@@ -182,27 +170,26 @@ def read(
             "knowledge", "knowledge_id", knowledge_id, error_context="knowledge read"
         )
     except ValueError as e:
-        output.out_text(f"Error: {e}", ctx.obj)
+        output.echo_text(f"Error: {e}", ctx)
         return
 
     entry = api.get_knowledge(full_id)
     if not entry:
-        output.out_text(f"Not found: {knowledge_id}", ctx.obj)
+        output.echo_text(f"Not found: {knowledge_id}", ctx)
         return
 
-    if output.is_json_mode(ctx):
-        typer.echo(output.out_json(asdict(entry)))
+    if output.echo_json(asdict(entry), ctx):
         return
 
     agent = spawn.get_agent(entry.agent_id)
     contributor = agent.identity if agent else entry.agent_id
-    output.out_text(f"ID: {entry.knowledge_id}", ctx.obj)
-    output.out_text(f"Domain: {entry.domain}", ctx.obj)
-    output.out_text(f"Contributor: {contributor}", ctx.obj)
-    output.out_text(f"Created: {entry.created_at}", ctx.obj)
+    output.echo_text(f"ID: {entry.knowledge_id}", ctx)
+    output.echo_text(f"Domain: {entry.domain}", ctx)
+    output.echo_text(f"Contributor: {contributor}", ctx)
+    output.echo_text(f"Created: {entry.created_at}", ctx)
     if entry.archived_at:
-        output.out_text(f"Archived: {entry.archived_at}", ctx.obj)
-    output.out_text(f"\n{entry.content}", ctx.obj)
+        output.echo_text(f"Archived: {entry.archived_at}", ctx)
+    output.echo_text(f"\n{entry.content}", ctx)
 
 
 @app.command("archive")
@@ -220,20 +207,17 @@ def archive(
             "knowledge", "knowledge_id", knowledge_id, error_context="knowledge archive"
         )
     except ValueError as e:
-        output.out_text(f"Error: {e}", ctx.obj)
+        output.echo_text(f"Error: {e}", ctx)
         return
 
     entry = api.get_knowledge(full_id)
     if not entry:
-        output.out_text(f"Not found: {knowledge_id}", ctx.obj)
+        output.echo_text(f"Not found: {knowledge_id}", ctx)
         return
 
-    try:
-        api.archive_knowledge(full_id, restore=restore)
-        action = "restored" if restore else "archived"
-        output.out_text(f"{action} {knowledge_id[-8:]}", ctx.obj)
-    except ValueError as e:
-        raise typer.BadParameter(str(e)) from e
+    api.archive_knowledge(full_id, restore=restore)
+    action = "restored" if restore else "archived"
+    output.echo_text(f"{action} {knowledge_id[-8:]}", ctx)
 
 
 def main() -> None:

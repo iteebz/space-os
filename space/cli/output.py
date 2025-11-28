@@ -1,4 +1,6 @@
 import json as json_lib
+from collections.abc import Callable
+from typing import Any
 
 import typer
 
@@ -53,3 +55,39 @@ def echo_text(msg: str, ctx: typer.Context) -> None:
     """Echo message only if not in quiet mode."""
     if not is_quiet_mode(ctx):
         typer.echo(msg)
+
+
+def respond(ctx: typer.Context, json_data: dict | list | None = None, text_msg: str = "") -> None:
+    """Unified output: JSON if --json, text if not --quiet."""
+    if is_json_mode(ctx):
+        typer.echo(json_lib.dumps(json_data, indent=2))
+    elif text_msg and not is_quiet_mode(ctx):
+        typer.echo(text_msg)
+
+
+def cli_response(json_fn: Callable[[Any], dict | list], text_fn: Callable[[Any], str]):
+    """Decorator: unified CLI output handling.
+
+    Usage:
+        @cli_response(
+            json_fn=lambda r: {"id": r.id},
+            text_fn=lambda r: f"Created: {r.id}"
+        )
+        def create(ctx, ...):
+            result = api.create(...)
+            return result
+    """
+
+    def decorator(func):
+        def wrapper(ctx: typer.Context, *args, **kwargs):
+            result = func(ctx, *args, **kwargs)
+            if result is None:
+                return None
+            respond(ctx, json_data=json_fn(result), text_msg=text_fn(result))
+            return result
+
+        wrapper.__name__ = func.__name__
+        wrapper.__doc__ = func.__doc__
+        return wrapper
+
+    return decorator

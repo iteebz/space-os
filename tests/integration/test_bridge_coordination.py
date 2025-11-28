@@ -1,4 +1,3 @@
-
 import pytest
 
 from space.os import bridge, spawn

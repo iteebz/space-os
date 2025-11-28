@@ -121,8 +121,22 @@ def _kill_spawn(spawn_id: str) -> None:
     spawns.update_status(spawn_id, "killed")
 
 
+def _get_last_session_in_channel(agent_id: str, channel_id: str) -> str | None:
+    """Get most recent session for agent in channel.
+
+    Returns None if no previous spawns or if last spawn has no session_id.
+    """
+    channel_spawns = spawns.get_channel_spawns(channel_id, agent_id=agent_id, limit=1)
+    if channel_spawns and channel_spawns[0].session_id:
+        return channel_spawns[0].session_id
+    return None
+
+
 def _process_mentions(channel_id: str, content: str, sender_agent_id: str | None = None) -> None:
-    """Process @mentions: spawn agent if not already running in channel."""
+    """Process @mentions: spawn agent if not already running in channel.
+
+    Session continuity: @mention resumes last session in channel if one exists.
+    """
     from space.lib.detach import detach
 
     mentions = _extract_mentions(content)
@@ -139,7 +153,13 @@ def _process_mentions(channel_id: str, content: str, sender_agent_id: str | None
         if _has_running_spawn_in_channel(agent.agent_id, channel_id):
             continue
 
-        detach(["spawn", "run", identity, content, "--channel", channel_id])
+        cmd = ["spawn", "run", identity, content, "--channel", channel_id]
+
+        last_session = _get_last_session_in_channel(agent.agent_id, channel_id)
+        if last_session:
+            cmd.extend(["--resume", last_session])
+
+        detach(cmd)
 
 
 def _attempt_relink_for_agent(agent_id: str) -> None:

@@ -122,11 +122,9 @@ def spawn_ephemeral(
     session_id = resolve_session_id(
         agent.agent_id,
         resume,
-        channel_id=channel_id,
         provider=agent.provider,
         identity=agent.identity,
     )
-    is_continue = resume is None and session_id
 
     if session_id:
         _copy_bookmarks_from_session(session_id, spawn.id)
@@ -134,7 +132,7 @@ def spawn_ephemeral(
     last_error = None
     for attempt in range(max_retries + 1):
         try:
-            _run_ephemeral(agent, instruction, spawn, channel_name, session_id, is_continue, env)
+            _run_ephemeral(agent, instruction, spawn, channel_name, session_id, env)
             spawns.update_status(spawn.id, "completed")
             _auto_sync_session(spawn)
             return spawn
@@ -158,7 +156,6 @@ def _run_ephemeral(
     spawn,
     channel_name: str | None,
     session_id: str | None,
-    is_continue: bool,
     env: dict[str, str],
 ) -> None:
     instruction_text, image_paths = _extract_images_from_instruction(instruction)
@@ -167,7 +164,7 @@ def _run_ephemeral(
         task=instruction_text,
         channel=channel_name,
     )
-    cmd = _build_spawn_command(agent, session_id, is_continue, image_paths=image_paths)
+    cmd = _build_spawn_command(agent, session_id, image_paths=image_paths)
     stdout = _execute_spawn(cmd, context, agent, spawn.id, env)
     _link_session(spawn, session_id, agent.provider, stdout)
 
@@ -206,7 +203,6 @@ def _build_launch_args(
 def _build_spawn_command(
     agent,
     session_id: str | None,
-    is_continue: bool,
     is_task: bool = True,
     image_paths: list[str] | None = None,
 ) -> list[str]:
@@ -221,7 +217,7 @@ def _build_spawn_command(
         add_dir_args = ["--include-directories", str(paths.space_root())]
     else:
         add_dir_args = ["--add-dir", str(paths.space_root())]
-    resume_args = _build_resume_args(agent.provider, session_id, is_continue)
+    resume_args = _build_resume_args(agent.provider, session_id)
 
     if agent.provider == "codex":
         return ["codex"] + resume_args + ["exec"] + launch_args + model_args
@@ -340,7 +336,7 @@ def _discover_spawn_session(spawn, provider: str) -> str | None:
     return provider_cls.discover_session(spawn, start_ts, end_ts)
 
 
-def _build_resume_args(provider: str, session_id: str | None, is_continue: bool) -> list[str]:
+def _build_resume_args(provider: str, session_id: str | None) -> list[str]:
     if not session_id:
         return []
 

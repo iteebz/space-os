@@ -128,24 +128,28 @@ def stats() -> SessionStats:
 def resolve_session_id(
     agent_id: str,
     resume: str | None,
-    channel_id: str | None = None,
     provider: str = "claude",
     identity: str | None = None,
 ) -> str | None:
-    """Resolve session ID from resume arg (spawn_id or session_id, full or short).
-
-    Tries spawn lookup first (for recent spawns), then session lookup.
-    Validates session actually exists in provider before returning.
+    """Resolve resume argument to validated session ID.
 
     Args:
-        agent_id: Agent ID to look up spawns for
-        resume: Spawn ID, session ID, or short form of either. None to continue last.
-        channel_id: Scope session resolution to specific channel (for channel continuity)
-        provider: Provider name (default: claude)
+        agent_id: Agent ID (for spawn lookup if resume is spawn_id)
+        resume: Spawn ID, session ID, or short form. Returns None if None.
+        provider: Provider name for validation (default: claude)
         identity: Agent identity for CWD validation (optional)
 
     Returns:
-        Full session ID or None if no session found
+        Validated session ID, or None if:
+        - resume is None
+        - spawn has no session_id
+        - session file doesn't exist
+        - no match found
+
+    Raises:
+        ValueError: If resume doesn't match any spawn or session
+
+    Note: Session auto-discovery for @mentions is in delimiters.py:_get_last_session_in_channel()
     """
     from space.lib import paths
     from space.lib.providers.claude import Claude
@@ -155,12 +159,8 @@ def resolve_session_id(
         if not session_id:
             return None
 
-        # For Claude, validate CWD matches spawn directory
-        expected_cwd = None
-        if provider == "claude" and identity:
-            expected_cwd = str(paths.identity_dir(identity))
-
         if provider == "claude":
+            expected_cwd = str(paths.identity_dir(identity)) if identity else None
             if Claude.session_exists(session_id, expected_cwd):
                 return session_id
             logger.debug(f"Session {session_id} not accessible (wrong CWD or deleted)")
@@ -169,30 +169,18 @@ def resolve_session_id(
         return session_id
 
     if not resume:
-        if channel_id:
-            channel_spawns = spawns.get_channel_spawns(channel_id, agent_id=agent_id, limit=50)
-            for spawn in channel_spawns:
-                if not spawn.session_id:
-                    continue
-                validated = validate_session(spawn.session_id)
-                if validated:
-                    return validated
-            return None
-        last_spawns = spawns.get_spawns_for_agent(agent_id, limit=1)
-        if last_spawns:
-            return validate_session(last_spawns[0].session_id)
         return None
 
+    # Try full UUID
     if len(resume) == 36 and resume.count("-") == 4:
         return validate_session(resume)
 
-    try:
-        spawn = spawns.get_spawn(resume)
-        if spawn and spawn.session_id:
-            return validate_session(spawn.session_id)
-    except (ValueError, AttributeError):
-        pass
+    # Try spawn lookup (spawn_id → session_id)
+    spawn = spawns.get_spawn(resume)
+    if spawn and spawn.session_id:
+        return validate_session(spawn.session_id)
 
+    # Try short session ID lookup
     try:
         resolved = uuid7.resolve_id("sessions", "id", resume, error_context="resume session")
         return validate_session(resolved)

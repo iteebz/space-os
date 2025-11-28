@@ -13,6 +13,7 @@ def _row_to_channel(row: store.Row) -> Channel:
 
 
 def _to_channel_id(channel: str | Channel) -> str:
+    """Extract channel_id from Channel object or return string as-is."""
     return channel.channel_id if isinstance(channel, Channel) else channel
 
 
@@ -21,6 +22,8 @@ def create_channel(
 ) -> Channel:
     if not name:
         raise ValueError("Channel name is required")
+    if " " in name:
+        raise ValueError("Channel name cannot contain spaces")
 
     channel_id = uuid7()
     with store.ensure() as conn:
@@ -31,41 +34,43 @@ def create_channel(
     return Channel(channel_id=channel_id, name=name, topic=topic)
 
 
-def rename_channel(old_name: str, new_name: str) -> bool:
-    """Rename channel. Returns True if successful.
+def rename_channel(old_name: str, new_name: str) -> None:
+    """Rename channel.
 
     Args:
         old_name: Current channel name (automatically stripped of # prefix).
         new_name: New channel name (automatically stripped of # prefix).
 
-    Returns:
-        True if successful, False if old_channel not found or new_channel exists.
+    Raises:
+        ValueError: If old_name not found or new_name exists or contains spaces.
     """
     old_name = old_name.lstrip("#")
     new_name = new_name.lstrip("#")
+    if " " in new_name:
+        raise ValueError("Channel name cannot contain spaces")
     with store.ensure() as conn:
         row = conn.execute(
             "SELECT channel_id FROM channels WHERE name = ?",
             (old_name,),
         ).fetchone()
         if not row:
-            return False
+            raise ValueError(f"Channel '{old_name}' not found")
 
         try:
             conn.execute(
                 "UPDATE channels SET name = ? WHERE channel_id = ?",
                 (new_name, row["channel_id"]),
             )
-            return True
-        except sqlite3.IntegrityError:
-            return False
+        except sqlite3.IntegrityError as e:
+            raise ValueError(f"Channel '{new_name}' already exists") from e
 
 
-def update_topic(name: str, topic: str | None) -> bool:
+def update_topic(name: str, topic: str | None) -> None:
     name = name.lstrip("#")
     with store.ensure() as conn:
         result = conn.execute("UPDATE channels SET topic = ? WHERE name = ?", (topic, name))
-        return result.rowcount > 0
+        if result.rowcount == 0:
+            raise ValueError(f"Channel '{name}' not found")
 
 
 def archive_channel(name: str) -> None:
@@ -127,12 +132,37 @@ def delete_channel(name: str) -> None:
         conn.execute("DELETE FROM channels WHERE channel_id = ?", (channel_id,))
 
 
+def _compute_unread_count(conn: sqlite3.Connection, channel_id: str, reader_id: str) -> int:
+    bookmark_row = conn.execute(
+        "SELECT last_read_id FROM bookmarks WHERE reader_id = ? AND channel_id = ?",
+        (reader_id, channel_id),
+    ).fetchone()
+    last_read_id = bookmark_row[0] if bookmark_row else None
+
+    if last_read_id:
+        unread_messages = conn.execute(
+            """
+            SELECT content FROM messages
+            WHERE channel_id = ? AND created_at > (
+                SELECT created_at FROM messages WHERE message_id = ?
+            )
+            """,
+            (channel_id, last_read_id),
+        ).fetchall()
+    else:
+        unread_messages = conn.execute(
+            "SELECT content FROM messages WHERE channel_id = ?",
+            (channel_id,),
+        ).fetchall()
+
+    return len(unread_messages)
+
+
 def list_channels(archived: bool = False, reader_id: str | None = None) -> list[Channel]:
     with store.ensure() as conn:
-        if archived:
-            archived_filter = "WHERE c.archived_at IS NOT NULL"
-        else:
-            archived_filter = "WHERE c.archived_at IS NULL"
+        archived_filter = (
+            "WHERE c.archived_at IS NOT NULL" if archived else "WHERE c.archived_at IS NULL"
+        )
         query = f"""
             SELECT
                 c.channel_id,
@@ -154,29 +184,7 @@ def list_channels(archived: bool = False, reader_id: str | None = None) -> list[
 
         if reader_id:
             for channel in channels:
-                bookmark_row = conn.execute(
-                    "SELECT last_read_id FROM bookmarks WHERE reader_id = ? AND channel_id = ?",
-                    (reader_id, channel.channel_id),
-                ).fetchone()
-                last_read_id = bookmark_row[0] if bookmark_row else None
-
-                if last_read_id:
-                    unread_messages = conn.execute(
-                        """
-                        SELECT content FROM messages
-                        WHERE channel_id = ? AND created_at > (
-                            SELECT created_at FROM messages WHERE message_id = ?
-                        )
-                        """,
-                        (channel.channel_id, last_read_id),
-                    ).fetchall()
-                else:
-                    unread_messages = conn.execute(
-                        "SELECT content FROM messages WHERE channel_id = ?",
-                        (channel.channel_id,),
-                    ).fetchall()
-
-                channel.unread_count = len(unread_messages)
+                channel.unread_count = _compute_unread_count(conn, channel.channel_id, reader_id)
 
         return channels
 

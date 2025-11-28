@@ -113,13 +113,13 @@ export default function App() {
       const running = agentTabs.find((t) => t.isRunning)
       setParam('agent', running?.agentId ?? agentTabs[0]?.agentId ?? null)
     }
-  }, [agentTabs, selectedAgentId])
+  }, [agentTabs, selectedAgentId, setParam])
 
   useEffect(() => {
     if (currentChannel?.channel_id) {
       setParam('agent', null)
     }
-  }, [currentChannel?.channel_id])
+  }, [currentChannel?.channel_id, setParam])
 
   useEffect(() => {
     if (autoSelectedChannel && identity?.identity && messages.length > 0) {

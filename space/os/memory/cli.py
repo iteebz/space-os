@@ -7,8 +7,6 @@ import typer
 
 from space.cli import argv, output
 from space.cli.errors import error_feedback
-from space.cli.identity import resolve_identity
-from space.os import spawn
 from space.os.context import display
 from space.os.memory import api
 from space.os.memory.format import format_memory_entries
@@ -55,20 +53,12 @@ def add(
     Example:
       memory add "Fix bug in caching layer" --topic observations --as sentinel
     """
-    ident = resolve_identity(ctx.obj.get("identity"))
-    if not ident:
-        raise typer.BadParameter("--as required or set SPACE_IDENTITY")
-    agent = spawn.get_agent(ident)
-    if not agent:
-        raise typer.BadParameter(f"Identity '{ident}' not registered.")
-    agent_id = agent.agent_id
+    from space.cli.identity import resolve_agent
 
-    memory_id = api.add_memory(agent_id, message, topic=topic)
-    if output.is_json_mode(ctx):
-        typer.echo(output.out_json({"memory_id": memory_id}))
-    else:
-        topic_str = f" [{topic}]" if topic else ""
-        output.out_text(f"Added{topic_str}: {memory_id[-8:]}", ctx.obj)
+    agent = resolve_agent(ctx)
+    memory_id = api.add_memory(agent.agent_id, message, topic=topic)
+    topic_str = f" [{topic}]" if topic else ""
+    output.respond(ctx, {"memory_id": memory_id}, f"Added{topic_str}: {memory_id[-8:]}")
 
 
 @main_app.command("edit")
@@ -82,11 +72,9 @@ def edit(
     entry = api.get_memory(uuid)
     if not entry:
         raise typer.BadParameter(f"Memory not found: {uuid}")
-    try:
-        api.edit_memory(uuid, message)
-        output.out_text(f"Edited {uuid[-8:]}", ctx.obj)
-    except ValueError as e:
-        raise typer.BadParameter(str(e)) from e
+
+    api.edit_memory(uuid, message)
+    output.echo_text(f"Edited {uuid[-8:]}", ctx)
 
 
 @main_app.command("list")
@@ -100,25 +88,22 @@ def list_cmd(
     ),
 ):
     """List memories for agent (--topic to filter)."""
-    identity = resolve_identity(ctx.obj.get("identity"))
-    if not identity:
-        raise typer.BadParameter("--as required or set SPACE_IDENTITY")
-    try:
-        entries = api.list_memories(identity, topic=topic, show_all=show_all)
-    except ValueError as e:
-        raise typer.BadParameter(str(e)) from e
+    from space.cli.identity import resolve_agent
 
+    agent = resolve_agent(ctx)
+    entries = api.list_memories(agent.identity, topic=topic, show_all=show_all)
     entries = sorted(entries, key=lambda e: (not e.core, e.created_at), reverse=True)
+
     if not entries:
-        output.out_text("No memories", ctx.obj)
+        output.echo_text("No memories", ctx)
         return
 
     if output.is_json_mode(ctx):
-        typer.echo(output.out_json([asdict(e) for e in entries]))
+        output.echo_json([asdict(e) for e in entries], ctx)
     else:
-        output.out_text(format_memory_entries(entries, raw_output=raw_output), ctx.obj)
+        output.echo_text(format_memory_entries(entries, raw_output=raw_output), ctx)
         if not output.is_quiet_mode(ctx):
-            display.show_context(identity)
+            display.show_context(agent.identity)
 
 
 @main_app.command("search")
@@ -136,28 +121,21 @@ def search(
     Example:
       memory search "caching" --as sentinel
     """
-    ident = resolve_identity(ctx.obj.get("identity"))
-    if not ident:
-        raise typer.BadParameter("--as required or set SPACE_IDENTITY")
-    try:
-        agent = spawn.get_agent(ident)
-        if not agent:
-            raise ValueError(f"Agent '{ident}' not found")
+    from space.cli.identity import resolve_agent
 
-        entries = api.list_memories(ident, show_all=show_all)
-        results = [e for e in entries if query.lower() in e.message.lower()]
-    except ValueError as e:
-        raise typer.BadParameter(str(e)) from e
+    agent = resolve_agent(ctx)
+    entries = api.list_memories(agent.identity, show_all=show_all)
+    results = [e for e in entries if query.lower() in e.message.lower()]
 
     if not results:
-        output.out_text(f"No results for '{query}'", ctx.obj)
+        output.echo_text(f"No results for '{query}'", ctx)
         return
 
     if output.is_json_mode(ctx):
-        typer.echo(output.out_json([asdict(e) for e in results]))
+        output.echo_json([asdict(e) for e in results], ctx)
     else:
-        output.out_text(f"Found {len(results)} matches:", ctx.obj)
-        output.out_text(format_memory_entries(results, raw_output=raw_output), ctx.obj)
+        output.echo_text(f"Found {len(results)} matches:", ctx)
+        output.echo_text(format_memory_entries(results, raw_output=raw_output), ctx)
 
 
 @main_app.command("archive")
@@ -171,12 +149,10 @@ def archive(
     entry = api.get_memory(uuid)
     if not entry:
         raise typer.BadParameter(f"Memory not found: {uuid}")
-    try:
-        api.archive_memory(uuid, restore=restore)
-        action = "restored" if restore else "archived"
-        output.out_text(f"{action} {uuid[-8:]}", ctx.obj)
-    except ValueError as e:
-        raise typer.BadParameter(str(e)) from e
+
+    api.archive_memory(uuid, restore=restore)
+    action = "restored" if restore else "archived"
+    output.echo_text(f"{action} {uuid[-8:]}", ctx)
 
 
 @main_app.command("core")

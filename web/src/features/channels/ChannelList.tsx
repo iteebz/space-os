@@ -39,6 +39,7 @@ export function ChannelList({
     y: number
     channel: Channel
   } | null>(null)
+  const menuRef = React.useRef<HTMLDivElement>(null)
   const [createName, setCreateName] = useState('')
 
   const handleContextMenu = (e: React.MouseEvent, channel: Channel) => {
@@ -80,6 +81,16 @@ export function ChannelList({
     return () => document.removeEventListener('click', handleClick)
   }, [])
 
+  React.useEffect(() => {
+    if (contextMenu && menuRef.current) {
+      const rect = menuRef.current.getBoundingClientRect()
+      const overflow = rect.bottom - window.innerHeight
+      if (overflow > 0) {
+        menuRef.current.style.top = `${contextMenu.y - rect.height}px`
+      }
+    }
+  }, [contextMenu])
+
   return (
     <QueryState {...query} empty={<div className="text-neutral-500">No channels</div>}>
       {(channels) => (
@@ -90,8 +101,9 @@ export function ChannelList({
                 <form
                   onSubmit={(e) => {
                     e.preventDefault()
-                    if (createName.trim()) {
-                      onCreateChannel(createName.trim())
+                    const name = createName.trim()
+                    if (name && !/\s/.test(name)) {
+                      onCreateChannel(name)
                       setCreateName('')
                     }
                   }}
@@ -142,6 +154,7 @@ export function ChannelList({
           </ul>
           {contextMenu && (
             <div
+              ref={menuRef}
               className="fixed bg-neutral-800 border border-neutral-700 rounded shadow-lg py-1 z-50"
               style={{ top: contextMenu.y, left: contextMenu.x }}
             >
