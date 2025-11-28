@@ -37,7 +37,9 @@ async def process_delimiters(channel_id: str, content: str, agent_id: str | None
 
 def _process_control_commands(channel_id: str, content: str, agent_id: str | None = None) -> None:
     # Human control surface: /slash commands
-    if "/stop" in content:
+    if "/stop-all" in content:
+        _stop_all_agents_in_channel(channel_id)
+    elif "/stop" in content:
         targets = _extract_control_targets(r"/stop\s+([\w-]+)", content)
         for identity in targets:
             _stop_agent_in_channel(channel_id, identity)
@@ -55,6 +57,17 @@ def _process_control_commands(channel_id: str, content: str, agent_id: str | Non
 
     if "!handoff" in content:
         _process_handoff_command(channel_id, content, agent_id)
+
+
+def _stop_all_agents_in_channel(channel_id: str) -> None:
+    """Emergency brake: kill all active spawns in channel."""
+    from space.core.models import SpawnStatus
+
+    active_statuses = {SpawnStatus.RUNNING, SpawnStatus.PENDING}
+    for spawn in spawns.get_channel_spawns(channel_id):
+        if spawn.status in active_statuses:
+            _kill_spawn(spawn.id)
+    log.info(f"Killed all agents in channel {channel_id}")
 
 
 def _stop_agent_in_channel(channel_id: str, identity: str) -> None:

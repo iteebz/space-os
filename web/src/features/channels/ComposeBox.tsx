@@ -104,7 +104,7 @@ export function ComposeBox({ channel }: Props) {
     setCursorPosition(newCursor)
 
     const beforeCursor = newValue.slice(0, newCursor)
-    const hasDelimiter = /[@!#][\w-]*$/.test(beforeCursor)
+    const hasDelimiter = /[@!#/][\w-]*$/.test(beforeCursor)
     setShowAutocomplete(hasDelimiter)
   }
 
@@ -113,7 +113,7 @@ export function ComposeBox({ channel }: Props) {
 
     const beforeCursor = content.slice(0, cursorPosition)
     const afterCursor = content.slice(cursorPosition)
-    const match = beforeCursor.match(/[@!#][\w-]*$/)
+    const match = beforeCursor.match(/[@!#/][\w-]*$/)
 
     if (!match) return
 
