@@ -75,6 +75,7 @@ def spawn_ephemeral(
     channel_id: str,
     resume: str | None = None,
     max_retries: int = 1,
+    parent_spawn_id: str | None = None,
 ):
     from space.os.bridge.api import channels
 
@@ -84,7 +85,10 @@ def spawn_ephemeral(
     if not agent.model:
         raise ValueError(f"Agent '{identity}' has no model (human identity, cannot spawn)")
 
-    parent_spawn_id = os.environ.get("SPACE_SPAWN_ID")
+    # Use explicit parent_spawn_id if provided (compaction), else check env (nested spawn)
+    if not parent_spawn_id:
+        parent_spawn_id = os.environ.get("SPACE_SPAWN_ID")
+
     if parent_spawn_id:
         parent_spawn = spawns.get_spawn(parent_spawn_id)
         if parent_spawn:

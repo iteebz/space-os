@@ -596,10 +596,15 @@ def run(
     instruction: str,
     channel: str | None = typer.Option(None, "--channel", "-c", help="Channel ID"),
     resume: str | None = typer.Option(None, "--resume", "-r", help="Session to resume"),
+    parent_spawn: str | None = typer.Option(
+        None, "--parent-spawn", help="Parent spawn ID for compaction chain"
+    ),
 ):
     """Run spawn directly (used by detached processes)."""
     try:
-        spawn = api.spawn_ephemeral(identity, instruction, channel_id=channel, resume=resume)
+        spawn = api.spawn_ephemeral(
+            identity, instruction, channel_id=channel, resume=resume, parent_spawn_id=parent_spawn
+        )
         typer.echo(f"spawn:{spawn.id}")
     except Exception as e:
         typer.echo(f"error:{e}", err=True)

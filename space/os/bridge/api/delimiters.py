@@ -37,6 +37,9 @@ async def process_delimiters(channel_id: str, content: str, agent_id: str | None
 
 
 def _process_control_commands(channel_id: str, content: str, agent_id: str | None = None) -> None:
+    if "!compact" in content:
+        _process_compact_command(channel_id, content, agent_id)
+
     if "!handoff" in content:
         _process_handoff_command(channel_id, content, agent_id)
 
@@ -186,6 +189,54 @@ def _has_running_spawn_in_channel(agent_id: str, channel_id: str) -> bool:
             return True
 
     return False
+
+
+def _process_compact_command(channel_id: str, content: str, sender_agent_id: str | None) -> None:
+    """Parse !compact summary and spawn successor with parent link."""
+    from space.lib.detach import detach
+
+    if not sender_agent_id:
+        return
+
+    # Pattern: !compact rest-of-message
+    match = re.search(r"!compact\s+(.+)", content, re.DOTALL)
+    if not match:
+        return
+
+    summary = match.group(1).strip()
+    if not summary:
+        return
+
+    sender_agent = spawn_agents.get_agent(sender_agent_id)
+    if not sender_agent:
+        return
+
+    # Get current spawn in this channel
+    current_spawn = None
+    for spawn in spawns.get_spawns_for_agent(sender_agent_id):
+        if spawn.status == "running" and spawn.channel_id == channel_id:
+            current_spawn = spawn
+            break
+
+    if not current_spawn:
+        return
+
+    # Spawn successor with parent link (compact message already in channel transcript)
+    detach(
+        [
+            "spawn",
+            "run",
+            sender_agent.identity,
+            "Continue from compact",
+            "--channel",
+            channel_id,
+            "--parent-spawn",
+            current_spawn.id,
+        ]
+    )
+
+    # Kill current spawn
+    _kill_spawn(current_spawn.id)
 
 
 def _process_handoff_command(channel_id: str, content: str, sender_agent_id: str | None) -> None:
