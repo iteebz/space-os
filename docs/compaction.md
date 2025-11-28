@@ -203,15 +203,19 @@ Every long-lived distributed system converges to layered compaction. We're no di
 ## Implementation Status
 
 **Session compaction (`!compact`):**
-- ✅ Implemented (`space/os/bridge/api/delimiters.py:194-239`)
+- ✅ Implemented (`space/os/bridge/api/delimiters.py:272-310`)
 - ✅ Tested (compact-test channel, 2min validation)
 - ✅ Documented in agent prompts
 - ✅ Spawn chain visualization working
+- ✅ Production ready for Raid #2
 
-**Channel compaction (`!rotate`):**
-- ❌ Not yet implemented
-- ⏳ Required for 8h+ raids
-- 📋 Design complete (this doc)
+**Channel compaction (`!compact-channel`):**
+- ✅ Implemented (`space/os/bridge/api/delimiters.py:201-270`)
+- ✅ Migration added (`006_channel_lineage.sql`)
+- ❌ NOT exposed in agent prompts (hidden for Raid #2)
+- ⏳ Pending empirical validation
+- 📋 Math: 8h raid ≈ 260 messages, threshold 500 (may not be needed)
+- 🧪 Test manually during lunch, decide post-raid based on data
 
 ---
 

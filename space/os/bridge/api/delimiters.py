@@ -201,13 +201,21 @@ def _get_base_identity(identity: str) -> str:
 def _process_compact_channel_command(
     channel_id: str, content: str, sender_agent_id: str | None
 ) -> None:
-    """Parse !compact-channel summary and create successor channel."""
+    """Parse !compact-channel summary and create successor channel.
+
+    TODO: Channel compaction hidden from agents (not in prompt) pending raid data.
+    - Math: 8h raid ≈ 260 messages, threshold is 500
+    - May not need channel compaction for current raid scope
+    - Test manually during lunch, evaluate post-raid
+    - If needed: add coordinator designation, migration protocol
+    """
     from . import channels, messaging
 
     if not sender_agent_id:
         return
 
     # COORDINATOR CHECK - only designated agent can compact
+    # TODO: Make configurable per channel (human designates at creation)
     channel_compact_coordinator = "prime"
 
     sender_agent = spawn_agents.get_agent(sender_agent_id)
