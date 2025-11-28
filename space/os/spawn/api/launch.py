@@ -136,6 +136,7 @@ def spawn_ephemeral(
         try:
             _run_ephemeral(agent, instruction, spawn, channel_name, session_id, is_continue, env)
             spawns.update_status(spawn.id, "completed")
+            _auto_sync_session(spawn)
             return spawn
         except Exception as e:
             last_error = e
@@ -381,6 +382,20 @@ def _extract_images_from_instruction(instruction: str) -> tuple[str, list[str]]:
 
     clean_instruction = "\n".join(content_lines).strip()
     return clean_instruction, image_paths
+
+
+def _auto_sync_session(spawn) -> None:
+    """Auto-sync ephemeral spawn session to permanent archive."""
+    if not spawn.session_id:
+        return
+
+    try:
+        from space.os.sessions.api import sync
+
+        sync.ingest(session_id=spawn.session_id)
+        logger.debug(f"Auto-synced session {spawn.session_id} for spawn {spawn.id}")
+    except Exception as e:
+        logger.warning(f"Auto-sync failed for session {spawn.session_id}: {e}")
 
 
 def _copy_bookmarks_from_session(session_id: str, new_spawn_id: str) -> None:

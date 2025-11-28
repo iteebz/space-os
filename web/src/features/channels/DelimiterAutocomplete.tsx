@@ -17,10 +17,16 @@ interface Props {
   onDismiss: () => void
 }
 
-const CONTROL_COMMANDS: Suggestion[] = [
+const SLASH_COMMANDS: Suggestion[] = [
   { value: 'pause', label: 'pause', description: 'Pause running spawns (reversible)' },
   { value: 'resume', label: 'resume', description: 'Resume paused spawns' },
   { value: 'abort', label: 'abort', description: 'Kill running spawns (permanent)' },
+  { value: 'compact', label: 'compact <agent>', description: 'Force agent session refresh' },
+]
+
+const AGENT_SIGNALS: Suggestion[] = [
+  { value: 'compact', label: 'compact <summary>', description: 'Agent self-compaction' },
+  { value: 'handoff', label: 'handoff @agent <summary>', description: 'Transfer ownership' },
 ]
 
 export function DelimiterAutocomplete({
@@ -37,7 +43,7 @@ export function DelimiterAutocomplete({
 
   useEffect(() => {
     const beforeCursor = value.slice(0, cursorPosition)
-    const match = beforeCursor.match(/[@!#]([\w-]*)$/)
+    const match = beforeCursor.match(/[@!#/]([\w-]*)$/)
 
     if (!match) {
       setSuggestions([])
@@ -59,8 +65,12 @@ export function DelimiterAutocomplete({
           label: a.identity,
           description: a.role || undefined,
         }))
+    } else if (trigger === '/') {
+      filtered = SLASH_COMMANDS.filter((cmd) =>
+        cmd.value.toLowerCase().includes(query.toLowerCase())
+      )
     } else if (trigger === '!') {
-      filtered = CONTROL_COMMANDS.filter((cmd) =>
+      filtered = AGENT_SIGNALS.filter((cmd) =>
         cmd.value.toLowerCase().includes(query.toLowerCase())
       )
     } else if (trigger === '#') {

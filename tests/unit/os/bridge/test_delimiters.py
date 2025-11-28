@@ -99,7 +99,7 @@ def test_build_spawn_context_with_channel():
 
 
 def test_process_control_commands_pause():
-    """Control command processor pauses running spawns."""
+    """Slash command processor pauses running spawns."""
     from unittest.mock import MagicMock, patch
 
     with (
@@ -117,13 +117,13 @@ def test_process_control_commands_pause():
         mock_spawn.channel_id = "channel-1"
         mock_get_spawns.return_value = [mock_spawn]
 
-        delimiters._process_control_commands("channel-1", "!pause zealot")
+        delimiters._process_control_commands("channel-1", "/pause zealot")
 
         mock_pause.assert_called_once_with("spawn-456")
 
 
 def test_process_control_commands_resume():
-    """Control command processor resumes paused spawns."""
+    """Slash command processor resumes paused spawns."""
     with (
         patch("space.os.bridge.api.delimiters.spawn_agents.get_agent") as mock_get_agent,
         patch("space.os.bridge.api.delimiters.spawns.get_spawns_for_agent") as mock_get_spawns,
@@ -139,7 +139,7 @@ def test_process_control_commands_resume():
         mock_spawn.channel_id = "channel-1"
         mock_get_spawns.return_value = [mock_spawn]
 
-        delimiters._process_control_commands("channel-1", "!resume zealot")
+        delimiters._process_control_commands("channel-1", "/resume zealot")
 
         mock_resume.assert_called_once_with("spawn-456")
 

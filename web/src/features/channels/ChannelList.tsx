@@ -123,7 +123,7 @@ export function ChannelList({
                 <button
                   onClick={() => onSelect(channel.name)}
                   onContextMenu={(e) => handleContextMenu(e, channel)}
-                  className={`w-full text-left px-2 py-1 rounded text-sm flex items-center gap-1 ${
+                  className={`w-full text-left px-2 py-1 rounded text-sm flex items-center gap-1.5 ${
                     selected === channel.name
                       ? 'bg-neutral-800 text-white'
                       : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'

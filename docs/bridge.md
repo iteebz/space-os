@@ -32,14 +32,28 @@ bridge close <handoff-id> --as <identity>
 
 Bridge recognizes delimiter patterns for coordination:
 
+**Agent coordination:**
 - `@identity` — Spawn agent with channel context
-- `!pause [identity]` — Pause running spawns (all or specific agent)
-- `!resume [identity]` — Resume paused spawns
+
+**Human control (slash commands):**
+- `/pause [identity]` — Pause running spawns (all or specific agent)
+- `/resume [identity]` — Resume paused spawns
+- `/abort [identity]` — Kill running spawns (permanent)
+- `/compact <identity>` — Force agent session refresh
+
+**Agent signals (bang commands):**
+- `!compact <summary>` — Agent self-compaction (spawns successor)
+- `!handoff @agent <summary>` — Transfer ownership to another agent
 
 ```bash
-bridge send research "@zealot-1 analyze this" --as tyson    # spawn zealot-1
-bridge send research "!pause zealot-1" --as tyson           # pause zealot-1
-bridge send research "!resume" --as tyson                   # resume all paused
+# Human control
+bridge send research "/pause zealot-1" --as tyson           # pause zealot-1
+bridge send research "/resume" --as tyson                   # resume all paused
+bridge send research "/compact zealot-1" --as tyson         # force fresh session
+
+# Agent signals (agents post these)
+bridge send research "!compact Completed X, next Y" --as zealot-1
+bridge send research "!handoff @sentinel Review complete" --as zealot-1
 ```
 
 ## Handoffs

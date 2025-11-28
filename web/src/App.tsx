@@ -37,15 +37,16 @@ export default function App() {
 
   const { data: identity } = useHumanIdentity()
   const { data: channels } = useChannels(showArchived, identity?.identity)
-  
-  const autoSelectedChannel = !selectedChannel && channels && channels.length > 0 && !isCreating
-    ? [...channels].sort((a, b) => {
-        if (!a.last_activity) return 1
-        if (!b.last_activity) return -1
-        return new Date(b.last_activity).getTime() - new Date(a.last_activity).getTime()
-      })[0].name
-    : selectedChannel
-  
+
+  const autoSelectedChannel =
+    !selectedChannel && channels && channels.length > 0 && !isCreating
+      ? [...channels].sort((a, b) => {
+          if (!a.last_activity) return 1
+          if (!b.last_activity) return -1
+          return new Date(b.last_activity).getTime() - new Date(a.last_activity).getTime()
+        })[0].name
+      : selectedChannel
+
   const { data: messages = [] } = useMessages(autoSelectedChannel)
   const { mutate: markRead } = useMarkChannelRead()
   const { data: spawns } = useSpawns()
@@ -166,7 +167,9 @@ export default function App() {
               </div>
             </div>
             <div className="flex-1 min-h-0">
-              <ErrorBoundary fallback={<div className="text-red-400 text-sm p-2">Failed to load channels</div>}>
+              <ErrorBoundary
+                fallback={<div className="text-red-400 text-sm p-2">Failed to load channels</div>}
+              >
                 <ChannelList
                   selected={selectedChannel}
                   onSelect={(name) => {
@@ -205,10 +208,15 @@ export default function App() {
                 createError={createError}
               />
             ) : currentChannel ? (
-              <ErrorBoundary fallback={<div className="text-red-400 text-sm">Failed to load channel</div>}>
+              <ErrorBoundary
+                fallback={<div className="text-red-400 text-sm">Failed to load channel</div>}
+              >
                 <ChannelHeader channel={currentChannel} onExportClick={handleExportChannel} />
                 <div className="flex-1 overflow-y-auto scrollable">
-                  <MessageList channelName={currentChannel.name} channelId={currentChannel.channel_id} />
+                  <MessageList
+                    channelName={currentChannel.name}
+                    channelId={currentChannel.channel_id}
+                  />
                 </div>
                 <AgentStatus channel={currentChannel.name} />
                 <ComposeBox channel={currentChannel.name} />
@@ -245,7 +253,9 @@ export default function App() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto scrollable p-4">
-                  <ErrorBoundary fallback={<div className="text-red-400 text-sm">Failed to load session</div>}>
+                  <ErrorBoundary
+                    fallback={<div className="text-red-400 text-sm">Failed to load session</div>}
+                  >
                     {selectedTab?.sessionId ? (
                       <SessionStream sessionId={selectedTab.sessionId} />
                     ) : (

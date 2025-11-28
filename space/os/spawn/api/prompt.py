@@ -41,12 +41,9 @@ CHANNEL: #{channel}
 You are headless. No human is watching this terminal. Replies here won't be read.
 All communication via: bridge send {channel} "message"
 
-CONTROL COMMANDS (in bridge messages):
+AGENT SIGNALS (you post these in bridge messages):
 - !compact summary → Continue task with fresh context (you terminate, successor spawns with same identity)
 - !handoff @agent summary → Transfer task ownership (you terminate, they spawn)
-- !pause [agent] → Pause spawns (all if no agent specified)
-- !resume [agent] → Resume paused spawns
-- !abort [agent] → Kill running spawns
 
 LIFECYCLE:
 1. bridge recv {channel} (see why summoned)

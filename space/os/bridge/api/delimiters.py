@@ -1,4 +1,4 @@
-"""Bridge delimiter parsing: @spawn, !control, #channels, /docs."""
+"""Bridge delimiter parsing: @spawn, !agent-signals, /human-control, #channels."""
 
 import contextlib
 import logging
@@ -37,6 +37,37 @@ async def process_delimiters(channel_id: str, content: str, agent_id: str | None
 
 
 def _process_control_commands(channel_id: str, content: str, agent_id: str | None = None) -> None:
+    # Human control surface: /slash commands
+    if "/pause" in content:
+        targets = _extract_control_targets(r"/pause(?:\s+([\w-]+))?", content)
+        if not targets:
+            _pause_all_in_channel(channel_id)
+        else:
+            for identity in targets:
+                _pause_agent_in_channel(channel_id, identity)
+
+    if "/resume" in content:
+        targets = _extract_control_targets(r"/resume(?:\s+([\w-]+))?", content)
+        if not targets:
+            _resume_all_in_channel(channel_id)
+        else:
+            for identity in targets:
+                _resume_agent_in_channel(channel_id, identity)
+
+    if "/abort" in content:
+        targets = _extract_control_targets(r"/abort(?:\s+([\w-]+))?", content)
+        if not targets:
+            _abort_all_in_channel(channel_id)
+        else:
+            for identity in targets:
+                _abort_agent_in_channel(channel_id, identity)
+
+    if "/compact" in content:
+        targets = _extract_control_targets(r"/compact(?:\s+([\w-]+))?", content)
+        for identity in targets:
+            _compact_agent_in_channel(channel_id, identity)
+
+    # Agent signal surface: !bang commands
     if "!compact-channel" in content:
         _process_compact_channel_command(channel_id, content, agent_id)
     elif "!compact" in content:
@@ -44,30 +75,6 @@ def _process_control_commands(channel_id: str, content: str, agent_id: str | Non
 
     if "!handoff" in content:
         _process_handoff_command(channel_id, content, agent_id)
-
-    if "!pause" in content:
-        targets = _extract_control_targets(r"!pause(?:\s+([\w-]+))?", content)
-        if not targets:
-            _pause_all_in_channel(channel_id)
-        else:
-            for identity in targets:
-                _pause_agent_in_channel(channel_id, identity)
-
-    if "!resume" in content:
-        targets = _extract_control_targets(r"!resume(?:\s+([\w-]+))?", content)
-        if not targets:
-            _resume_all_in_channel(channel_id)
-        else:
-            for identity in targets:
-                _resume_agent_in_channel(channel_id, identity)
-
-    if "!abort" in content:
-        targets = _extract_control_targets(r"!abort(?:\s+([\w-]+))?", content)
-        if not targets:
-            _abort_all_in_channel(channel_id)
-        else:
-            for identity in targets:
-                _abort_agent_in_channel(channel_id, identity)
 
 
 def _pause_all_in_channel(channel_id: str) -> None:
@@ -302,6 +309,42 @@ def _get_agents_in_channel(channel_id: str) -> list[str]:
             active_agents.add(agent.identity)
 
     return list(active_agents)
+
+
+def _compact_agent_in_channel(channel_id: str, identity: str) -> None:
+    """Human-initiated agent compaction: force fresh session."""
+    from space.lib.detach import detach
+
+    agent = spawn_agents.get_agent(identity)
+    if not agent:
+        return
+
+    # Find running spawn in channel
+    current_spawn = None
+    for spawn in spawns.get_spawns_for_agent(agent.agent_id):
+        if spawn.status == "running" and spawn.channel_id == channel_id:
+            current_spawn = spawn
+            break
+
+    if not current_spawn:
+        return
+
+    # Spawn successor with parent link
+    detach(
+        [
+            "spawn",
+            "run",
+            agent.identity,
+            "Human-initiated compact, continue work",
+            "--channel",
+            channel_id,
+            "--parent-spawn",
+            current_spawn.id,
+        ]
+    )
+
+    # Kill current spawn
+    _kill_spawn(current_spawn.id)
 
 
 def _process_compact_command(channel_id: str, content: str, sender_agent_id: str | None) -> None:
