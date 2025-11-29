@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchApi, postApi, deleteApi, postApiNoBody, patchApi } from '../../lib/api'
 import type { Channel, Message } from './types'
@@ -22,12 +23,75 @@ export function useHumanIdentity() {
   })
 }
 
+export function useMessagesSSE(channel: string | null) {
+  const [messages, setMessages] = useState<Message[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const eventSourceRef = useRef<EventSource | null>(null)
+  const retryCountRef = useRef(0)
+  const maxRetries = 5
+
+  const connect = useCallback(() => {
+    if (!channel) return
+
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close()
+    }
+
+    setIsLoading(true)
+    const eventSource = new EventSource(`/api/channels/${channel}/messages/stream`)
+    eventSourceRef.current = eventSource
+
+    eventSource.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data) as Message
+        setMessages((prev) => {
+          if (prev.some((m) => m.message_id === msg.message_id)) return prev
+          return [...prev, msg]
+        })
+        setIsLoading(false)
+        setError(null)
+        retryCountRef.current = 0
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
+    eventSource.onerror = () => {
+      eventSource.close()
+      if (retryCountRef.current < maxRetries) {
+        const delay = 1000 * Math.pow(2, retryCountRef.current)
+        retryCountRef.current++
+        setTimeout(connect, delay)
+      } else {
+        setError('Connection lost')
+        setIsLoading(false)
+      }
+    }
+
+    eventSource.onopen = () => {
+      setIsLoading(false)
+      setError(null)
+    }
+  }, [channel])
+
+  useEffect(() => {
+    setMessages([])
+    setError(null)
+    setIsLoading(true)
+    retryCountRef.current = 0
+    connect()
+
+    return () => {
+      eventSourceRef.current?.close()
+    }
+  }, [channel, connect])
+
+  return { data: messages, isLoading, error, isError: !!error }
+}
+
 export function useMessages(channel: string | null) {
-  return useQuery({
-    queryKey: ['messages', channel],
-    queryFn: () => fetchApi<Message[]>(`/channels/${channel}/messages`),
-    enabled: !!channel,
-  })
+  return useMessagesSSE(channel)
 }
 
 export function useSendMessage(channel: string, sender?: string) {

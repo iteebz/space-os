@@ -23,6 +23,8 @@ export default [
         HTMLDivElement: 'readonly',
         navigator: 'readonly',
         URLSearchParams: 'readonly',
+        EventSource: 'readonly',
+        setTimeout: 'readonly',
       },
     },
     plugins: {

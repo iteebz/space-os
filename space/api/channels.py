@@ -1,6 +1,11 @@
 """Channel API endpoints."""
 
+import asyncio
+import json
+from collections.abc import AsyncGenerator
+
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/channels", tags=["channels"])
@@ -144,6 +149,46 @@ async def get_messages_endpoint(channel: str):
         return [asdict(msg) for msg in messages]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/{channel}/messages/stream")
+async def stream_messages(channel: str) -> StreamingResponse:
+    from space.os.bridge import channels
+
+    channel_obj = channels.get_channel(channel)
+    if not channel_obj:
+        raise HTTPException(status_code=404, detail=f"Channel {channel} not found")
+
+    return StreamingResponse(
+        stream_channel_messages(channel_obj.channel_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+async def stream_channel_messages(channel_id: str) -> AsyncGenerator[str, None]:
+    from dataclasses import asdict
+
+    from space.os.bridge import messaging
+
+    sent_count = 0
+    try:
+        while True:
+            messages = messaging.get_messages(channel_id)
+            new_messages = messages[sent_count:]
+            if new_messages:
+                for msg in new_messages:
+                    event_data = asdict(msg)
+                    yield f"data: {json.dumps(event_data)}\n\n"
+                sent_count = len(messages)
+
+            await asyncio.sleep(0.5)
+    except asyncio.CancelledError:
+        pass
 
 
 class SendMessage(BaseModel):
