@@ -118,24 +118,6 @@ def test_spawn_ephemeral_ingest_graceful_failure(test_agent, test_channel):
                 )
 
 
-def test_spawn_ephemeral_timeout_raises(test_agent, test_channel):
-    """Contract: TimeoutExpired is caught and raises RuntimeError."""
-    import subprocess
-
-    mock_proc = MagicMock()
-    mock_proc.pid = 12345
-    mock_proc.communicate = MagicMock(side_effect=subprocess.TimeoutExpired("claude", 300))
-    mock_proc.kill = MagicMock()
-
-    with patch("subprocess.Popen", return_value=mock_proc):
-        with pytest.raises(RuntimeError, match="timed out"):
-            launch.spawn_ephemeral(
-                identity="test-agent",
-                instruction="test",
-                channel_id=test_channel.channel_id,
-            )
-
-
 def test_spawn_depth_limit_enforced(test_agent, test_channel, monkeypatch):
     """Contract: Spawn rejected when parent depth >= MAX_SPAWN_DEPTH."""
     root = spawns.create_spawn(test_agent.agent_id)

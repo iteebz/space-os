@@ -70,7 +70,7 @@ bridge send research "@zealot-1 analyze this proposal" --as tyson
 ```bash
 spawn list                     # list running spawns
 spawn logs <spawn-id>          # view session output
-spawn abort <spawn-id>         # terminate spawn
+spawn stop <spawn-id>          # terminate spawn
 ```
 
 **Sync sessions:**

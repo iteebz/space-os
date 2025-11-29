@@ -172,11 +172,11 @@ def core(
         raise typer.BadParameter(str(e)) from e
 
 
-@main_app.command("inspect")
+@main_app.command("info")
 @error_feedback
-def inspect(
+def info(
     ctx: typer.Context,
-    uuid: str = typer.Argument(..., help="UUID of the memory to inspect"),
+    uuid: str = typer.Argument(..., help="UUID of the memory to view"),
     limit: int = typer.Option(5, help="Number of related memories to show"),
     show_all: bool = typer.Option(False, "--all", help="Include archived"),
 ):

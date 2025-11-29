@@ -39,7 +39,7 @@ _SPAWN_COMMANDS = {
     "cleanup",
     "health",
     "logs",
-    "abort",
+    "stop",
     "trace",
     "chain",
 }
@@ -381,7 +381,7 @@ def update(
 
 @app.command()
 @error_feedback
-def inspect(identity: str):
+def info(identity: str):
     """View agent details and constitution."""
     from space.lib import paths
 
@@ -566,8 +566,8 @@ def logs(
 
 @app.command()
 @error_feedback
-def abort(spawn_id: str):
-    """Abort running spawn - terminates task execution, agent identity preserved."""
+def stop(spawn_id: str):
+    """Stop running spawn - terminates process, agent identity preserved."""
     spawn_obj = spawns.get_spawn(spawn_id)
     if not spawn_obj:
         typer.echo(f"❌ Spawn not found: {spawn_id}", err=True)
@@ -579,7 +579,7 @@ def abort(spawn_id: str):
         SpawnStatus.TIMEOUT,
         SpawnStatus.KILLED,
     ):
-        typer.echo(f"⚠️ Spawn already {spawn_obj.status}, nothing to abort")
+        typer.echo(f"⚠️ Spawn already {spawn_obj.status}, nothing to stop")
         return
 
     if spawn_obj.pid:
@@ -587,7 +587,7 @@ def abort(spawn_id: str):
             os.kill(spawn_obj.pid, signal.SIGTERM)
 
     spawns.update_status(spawn_id, SpawnStatus.KILLED)
-    typer.echo(f"✓ Spawn {spawn_id[:8]} aborted")
+    typer.echo(f"✓ Spawn {spawn_id[:8]} stopped")
 
 
 @app.command()

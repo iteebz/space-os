@@ -6,7 +6,7 @@ Agent identity, constitutional provenance, and spawn lifecycle.
 
 - **Registry** — Persistent agent identity with model, constitution, role
 - **Constitutional injection** — Identity-specific instructions loaded at spawn time from `canon/constitutions/`
-- **Spawn tracking** — Monitor running agents, view logs, abort execution
+- **Spawn tracking** — Monitor running agents, view logs, stop execution
 - **Tracing** — Unified execution introspection across agents, sessions, channels
 
 ## CLI
@@ -22,7 +22,7 @@ spawn update <identity> [--constitution X] [--model Y] [--role Z]
 spawn merge <source> <target>
 spawn list [--status X] [--identity Y] [--all]
 spawn logs <spawn-id> [--tail N] [--follow]
-spawn abort <spawn-id>
+spawn stop <spawn-id>
 spawn trace <query>             # agent:X, session:X, or channel:X
 ```
 
@@ -55,7 +55,7 @@ spawn list --identity zealot    # filter by agent
 spawn logs <spawn-id>           # spawn details + session output
 spawn logs <spawn-id> --tail 50 # last 50 lines
 spawn logs <spawn-id> --follow  # tail active session
-spawn abort <spawn-id>          # terminate running spawn
+spawn stop <spawn-id>           # terminate running spawn
 ```
 
 ## Tracing

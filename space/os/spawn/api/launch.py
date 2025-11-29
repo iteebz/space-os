@@ -18,7 +18,6 @@ from .prompt import build_resume_context, build_spawn_context
 
 logger = logging.getLogger(__name__)
 
-SPAWN_TIMEOUT = 300
 
 PROVIDERS = {
     "claude": Claude,
@@ -237,16 +236,13 @@ def _execute_spawn(cmd: list[str], context: str, agent, spawn_id: str, env: dict
                 env=env,
             )
             spawns.set_pid(spawn_id, proc.pid)
-            stdout, stderr = proc.communicate(timeout=SPAWN_TIMEOUT)
+            stdout, stderr = proc.communicate()
 
         if proc.returncode != 0:
             raise RuntimeError(f"{agent.provider.title()} spawn failed: {stderr}")
 
         return stdout
 
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        raise RuntimeError(f"{agent.provider.title()} spawn timed out") from None
     finally:
         with contextlib.suppress(Exception):
             os.unlink(context_file)
