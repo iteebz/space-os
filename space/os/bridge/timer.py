@@ -5,8 +5,8 @@ import time
 from datetime import datetime
 
 from space.lib import store
-from space.os.bridge.api import channels, messaging
-from space.os.bridge.api.control import _stop_all_agents_in_channel
+from space.os.bridge import channels, messaging
+from space.os.bridge.control import _stop_all_agents_in_channel
 
 log = logging.getLogger(__name__)
 

@@ -9,7 +9,7 @@ router = APIRouter(prefix="/api/spawns", tags=["spawns"])
 async def get_spawns():
     from dataclasses import asdict
 
-    from space.os.spawn.api import spawns
+    from space.os.spawn import spawns
 
     try:
         spawns_list = spawns.get_all_spawns(limit=100)
@@ -21,7 +21,7 @@ async def get_spawns():
 @router.get("/{spawn_id}/tree")
 def get_spawn_tree(spawn_id: str):
     from space.lib import store
-    from space.os.spawn.api.spawns import get_spawn
+    from space.os.spawn.spawns import get_spawn
 
     spawn = get_spawn(spawn_id)
     if not spawn:

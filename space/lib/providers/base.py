@@ -20,7 +20,7 @@ def index_session(session_id: str, provider: str) -> int:
     Returns:
         Number of transcripts indexed
     """
-    from space.os.sessions.api.sync import _index_transcripts
+    from space.os.sessions.sync import _index_transcripts
 
     sessions_dir = Path.home() / ".space" / "sessions" / provider
     jsonl_file = sessions_dir / f"{session_id}.jsonl"

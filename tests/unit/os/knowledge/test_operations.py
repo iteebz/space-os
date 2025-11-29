@@ -25,7 +25,7 @@ def mock_db():
 
 
 def test_add_knowledge_inserts_record(mock_db):
-    knowledge.api.add_knowledge("architecture/caching", "agent-1", "content")
+    knowledge.add_knowledge("architecture/caching", "agent-1", "content")
     assert mock_db.execute.call_count == 2
 
     insert_args = mock_db.execute.call_args_list[0][0]
@@ -40,7 +40,7 @@ def test_add_knowledge_inserts_record(mock_db):
 
 
 def test_add_knowledge_returns_id(mock_db):
-    result = knowledge.api.add_knowledge("architecture/caching", "agent-1", "content")
+    result = knowledge.add_knowledge("architecture/caching", "agent-1", "content")
     assert result is not None
 
 
@@ -56,41 +56,41 @@ def test_list_knowledge_returns_list(mock_db):
         }
     )
     mock_db.execute.return_value.fetchall.return_value = [mock_row]
-    result = knowledge.api.list_knowledge()
+    result = knowledge.list_knowledge()
     assert len(result) == 1
 
 
 def test_list_knowledge_excludes_archived(mock_db):
     mock_db.execute.return_value.fetchall.return_value = []
-    knowledge.api.list_knowledge()
+    knowledge.list_knowledge()
     args = mock_db.execute.call_args[0][0]
     assert "archived_at IS NULL" in args
 
 
 def test_list_knowledge_show_all_includes_archived(mock_db):
     mock_db.execute.return_value.fetchall.return_value = []
-    knowledge.api.list_knowledge(show_all=True)
+    knowledge.list_knowledge(show_all=True)
     args = mock_db.execute.call_args[0][0]
     assert "archived_at IS NULL" not in args
 
 
 def test_query_knowledge_filters_by_domain(mock_db):
     mock_db.execute.return_value.fetchall.return_value = []
-    knowledge.api.query_knowledge("architecture/caching")
+    knowledge.query_knowledge("architecture/caching")
     args = mock_db.execute.call_args[0]
     assert args[1][0] == "architecture/caching"
 
 
 def test_query_knowledge_wildcard_support(mock_db):
     mock_db.execute.return_value.fetchall.return_value = []
-    knowledge.api.query_knowledge("architecture/*")
+    knowledge.query_knowledge("architecture/*")
     args = mock_db.execute.call_args[0]
     assert "architecture" in args[1][0]
 
 
 def test_query_knowledge_by_agent_filters(mock_db):
     mock_db.execute.return_value.fetchall.return_value = []
-    knowledge.api.query_knowledge_by_agent("a-1")
+    knowledge.query_knowledge_by_agent("a-1")
     args = mock_db.execute.call_args[0]
     assert args[1][0] == "a-1"
 
@@ -107,23 +107,23 @@ def test_get_knowledge_returns_entry(mock_db):
         }
     )
     mock_db.execute.return_value.fetchone.return_value = mock_row
-    result = knowledge.api.get_knowledge("k-1")
+    result = knowledge.get_knowledge("k-1")
     assert result.knowledge_id == "k-1"
 
 
 def test_get_knowledge_missing_returns_none(mock_db):
     mock_db.execute.return_value.fetchone.return_value = None
-    result = knowledge.api.get_knowledge("missing")
+    result = knowledge.get_knowledge("missing")
     assert result is None
 
 
 def test_archive_knowledge_updates(mock_db):
-    knowledge.api.archive_knowledge("k-1")
+    knowledge.archive_knowledge("k-1")
     assert mock_db.execute.called
 
 
 def test_restore_knowledge_clears_timestamp(mock_db):
-    knowledge.api.archive_knowledge("k-1", restore=True)
+    knowledge.archive_knowledge("k-1", restore=True)
     assert mock_db.execute.called
 
 
@@ -135,7 +135,7 @@ def test_get_domain_tree_builds_hierarchy(mock_db):
     ]
     mock_db.execute.return_value.fetchall.return_value = mock_rows
 
-    tree = knowledge.api.get_domain_tree()
+    tree = knowledge.get_domain_tree()
     assert isinstance(tree, dict)
 
 
@@ -151,8 +151,8 @@ def test_search_uses_fts_and_agent_map(mock_db):
     )
     mock_db.execute.return_value.fetchall.return_value = [mock_row]
 
-    with patch("space.os.spawn.api.agent_identities", return_value={"a-1": "sentinel"}):
-        results = knowledge.api.search("cache optimizations")
+    with patch("space.os.spawn.agent_identities", return_value={"a-1": "sentinel"}):
+        results = knowledge.search("cache optimizations")
 
     assert len(results) == 1
     assert results[0].identity == "sentinel"
@@ -169,8 +169,8 @@ def test_search_falls_back_to_like_when_fts_missing(mock_db):
         fallback_cursor,
     ]
 
-    with patch("space.os.spawn.api.agent_identities", return_value={}):
-        knowledge.api.search("cache")
+    with patch("space.os.spawn.agent_identities", return_value={}):
+        knowledge.search("cache")
 
     like_sql = mock_db.execute.call_args_list[-1][0][0]
     assert "content LIKE" in like_sql

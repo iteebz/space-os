@@ -8,7 +8,6 @@ import typer
 from space.cli import argv, output
 from space.cli.errors import error_feedback
 from space.os import spawn
-from space.os.knowledge import api
 
 argv.flex_args("as")
 

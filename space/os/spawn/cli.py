@@ -14,8 +14,9 @@ from space.cli.errors import error_feedback
 from space.core.models import SpawnStatus
 from space.lib import paths, providers
 from space.os.sessions.parsing import parse_jsonl_message
-from space.os.spawn import api
-from space.os.spawn.api import spawns
+from space.os.spawn import agents as agents_mod
+from space.os.spawn import launch, spawns
+from space.os.spawn import trace as trace_mod
 from space.os.spawn.formatting import (
     display_agent_trace,
     display_channel_trace,
@@ -49,7 +50,7 @@ def _find_session_file(spawn):
     """Find session file for spawn - check archive first, then discover from provider."""
     from datetime import datetime
 
-    agent = api.get_agent(spawn.agent_id)
+    agent = agents_mod.get_agent(spawn.agent_id)
     if not agent:
         return None
 
@@ -161,7 +162,7 @@ def main_callback(
             and sys.argv[1] not in _SPAWN_COMMANDS
         ):
             identity = sys.argv[1]
-            agent = api.get_agent(identity)
+            agent = agents_mod.get_agent(identity)
             if agent:
                 _dispatch_spawn(identity, sys.argv[2:], verbose=True)
                 raise typer.Exit(0)
@@ -172,7 +173,7 @@ def _resolve_identity(stat_identity: str) -> str:
     """Resolve agent identity from stat record (may be UUID)."""
     name = stat_identity or ""
     if len(name) == 36 and name.count("-") == 4:
-        agent = api.get_agent(name)
+        agent = agents_mod.get_agent(name)
         if agent:
             return agent.identity
     return name
@@ -206,7 +207,7 @@ def _dispatch_spawn(identity: str, args: list[str], verbose: bool = False):
         )
     if verbose:
         typer.echo(f"Spawning {identity}...\n")
-    spawn = api.spawn_ephemeral(identity, " ".join(extra_args), channel_id=None, resume=resume)
+    spawn = launch.spawn_ephemeral(identity, " ".join(extra_args), channel_id=None, resume=resume)
     if verbose:
         typer.echo(f"\nSpawn ID: {spawn.id[:8]}")
         typer.echo(f"Track: spawn trace {spawn.id[:8]}")
@@ -237,7 +238,7 @@ def agents(
             continue
 
         name = _resolve_identity(s.identity)
-        agent = api.get_agent(agent_id)
+        agent = agents_mod.get_agent(agent_id)
 
         agents_data.append(
             {
@@ -289,7 +290,7 @@ def register(
 ):
     """Register a new agent."""
     try:
-        agent_id = api.register_agent(identity, model, constitution, role)
+        agent_id = agents_mod.register_agent(identity, model, constitution, role)
         typer.echo(f"✓ Registered {identity} ({agent_id[:8]})")
     except ValueError as e:
         typer.echo(f"❌ {e}", err=True)
@@ -338,7 +339,7 @@ def models():
 def clone(src: str, dst: str):
     """Copy agent with new identity."""
     try:
-        agent_id = api.clone_agent(src, dst)
+        agent_id = agents_mod.clone_agent(src, dst)
         typer.echo(f"✓ Cloned {src} → {dst} ({agent_id[:8]})")
     except ValueError as e:
         typer.echo(f"❌ {e}", err=True)
@@ -350,7 +351,7 @@ def clone(src: str, dst: str):
 def rename(old_name: str, new_name: str):
     """Change agent identity."""
     try:
-        if api.rename_agent(old_name, new_name):
+        if agents_mod.rename_agent(old_name, new_name):
             typer.echo(f"✓ Renamed {old_name} → {new_name}")
         else:
             typer.echo(f"❌ Agent not found: {old_name}. Run `spawn` to list agents.", err=True)
@@ -372,7 +373,7 @@ def update(
 ):
     """Modify agent fields (constitution, model, role)."""
     try:
-        api.update_agent(identity, constitution, model, role)
+        agents_mod.update_agent(identity, constitution, model, role)
         typer.echo(f"✓ Updated {identity}")
     except ValueError as e:
         typer.echo(f"❌ {e}", err=True)
@@ -385,7 +386,7 @@ def info(identity: str):
     """View agent details and constitution."""
     from space.lib import paths
 
-    agent = api.get_agent(identity)
+    agent = agents_mod.get_agent(identity)
     if not agent:
         typer.echo(f"❌ Agent not found: {identity}", err=True)
         raise typer.Exit(1)
@@ -413,8 +414,8 @@ def info(identity: str):
 @error_feedback
 def merge(id_from: str, id_to: str):
     """Consolidate data from one agent to another."""
-    agent_from = api.get_agent(id_from)
-    agent_to = api.get_agent(id_to)
+    agent_from = agents_mod.get_agent(id_from)
+    agent_to = agents_mod.get_agent(id_to)
 
     if not agent_from:
         typer.echo(f"Error: Agent '{id_from}' not found")
@@ -423,7 +424,7 @@ def merge(id_from: str, id_to: str):
         typer.echo(f"Error: Agent '{id_to}' not found")
         raise typer.Exit(1)
 
-    result = api.merge_agents(id_from, id_to)
+    result = agents_mod.merge_agents(id_from, id_to)
 
     if not result:
         typer.echo("Error: Could not merge agents")
@@ -458,7 +459,7 @@ def list_spawns(
 
     agent = None
     if identity:
-        agent = api.get_agent(identity)
+        agent = agents_mod.get_agent(identity)
         if not agent:
             typer.echo(f"❌ Agent not found: {identity}", err=True)
             raise typer.Exit(1)
@@ -606,7 +607,7 @@ def run(
 ):
     """Run spawn directly (used by detached processes)."""
     try:
-        spawn = api.spawn_ephemeral(
+        spawn = launch.spawn_ephemeral(
             identity,
             instruction,
             channel_id=channel,
@@ -680,7 +681,7 @@ def chain(
         if agent_id in agent_cache:
             return agent_cache[agent_id]
 
-        agent_obj = api.get_agent(agent_id)
+        agent_obj = agents_mod.get_agent(agent_id)
         display = agent_obj.identity if agent_obj and agent_obj.identity else agent_id[:8]
         agent_cache[agent_id] = display
         return display
@@ -735,7 +736,7 @@ def chain(
             )
         typer.echo("")
     else:
-        agent = api.get_agent(root_id)
+        agent = agents_mod.get_agent(root_id)
         if agent:
             roots = spawns.get_root_spawns_for_agent(agent.agent_id, limit=500)
             if len(roots) >= 500:
@@ -780,7 +781,7 @@ def trace(query: str = typer.Argument(None)):
         raise typer.Exit(0)
 
     try:
-        result = api.trace_query(query)
+        result = trace_mod.trace_query(query)
     except ValueError as e:
         typer.echo(f"✗ {e}", err=True)
         raise typer.Exit(1) from e
@@ -797,7 +798,7 @@ def dispatch_agent_from_name() -> NoReturn:
     """Entry point: route command name (argv[0]) to agent if registered."""
     prog_name = sys.argv[0].split("/")[-1]
 
-    agent = api.get_agent(prog_name)
+    agent = agents_mod.get_agent(prog_name)
     if not agent:
         typer.echo(f"Error: '{prog_name}' is not a registered agent identity.", err=True)
         typer.echo("Run 'spawn agents' to list available agents.", err=True)
@@ -813,7 +814,7 @@ def main() -> None:
     try:
         if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
             potential_identity = sys.argv[1]
-            agent = api.get_agent(potential_identity)
+            agent = agents_mod.get_agent(potential_identity)
             if agent:
                 _dispatch_spawn(potential_identity, sys.argv[2:], verbose=True)
                 return

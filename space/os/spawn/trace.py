@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from space.os import bridge, spawn
+from space.os.spawn import spawns
 
 
 def trace_agent(identity: str, limit: int = 10) -> dict:
@@ -46,7 +47,7 @@ def trace_channel(channel_id: str) -> dict:
     messages = bridge.get_messages(channel.channel_id)
 
     # Build agent_id -> identity lookup
-    from space.os.spawn.api import agents as spawn_agents
+    from space.os.spawn import agents as spawn_agents
 
     agent_id_to_identity = {}
     for msg in messages:
@@ -87,13 +88,20 @@ def trace_channel(channel_id: str) -> dict:
 
 def trace_spawn(spawn_id: str) -> dict:
     """Get spawn execution context with synced session data."""
-    spawn_obj = spawn.api.get_spawn(spawn_id)
+    from space.lib.uuid7 import resolve_id
+
+    try:
+        full_id = resolve_id("spawns", "id", spawn_id)
+    except ValueError as e:
+        raise ValueError(f"Spawn '{spawn_id}' not found") from e
+
+    spawn_obj = spawns.get_spawn(full_id)
     if not spawn_obj:
         raise ValueError(f"Spawn '{spawn_id}' not found")
 
     if spawn_obj.session_id:
         try:
-            from space.os.sessions.api import sync
+            from space.os.sessions import sync
 
             sync.ingest(spawn_obj.session_id)
         except Exception:
@@ -153,7 +161,7 @@ def _identify_implicit_query(query: str) -> tuple[str, str]:
     if agent:
         return ("identity", agent.identity)
 
-    spawn_obj = spawn.api.get_spawn(query)
+    spawn_obj = spawn.get_spawn(query)
     if spawn_obj:
         return ("spawn_id", spawn_obj.id)
 
@@ -209,7 +217,7 @@ def identify_query_type(query: str) -> tuple[str, str]:
     return (query_type, normalized)
 
 
-def trace(query: str) -> dict:
+def trace_query(query: str) -> dict:
     """Unified trace interface: parse query and route to handler.
 
     Args:
@@ -235,7 +243,7 @@ def trace(query: str) -> dict:
 
 
 __all__ = [
-    "trace",
+    "trace_query",
     "trace_agent",
     "trace_channel",
     "trace_spawn",

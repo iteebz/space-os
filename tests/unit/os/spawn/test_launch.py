@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from space.os.bridge.api import channels
-from space.os.spawn.api import agents, launch, spawns
+from space.os.bridge import channels
+from space.os.spawn import agents, launch, spawns
 
 
 @pytest.fixture
@@ -29,7 +29,7 @@ def test_spawn_ephemeral_claude_streams_ingest(test_agent, test_channel):
     mock_proc.returncode = 0
 
     with patch("subprocess.Popen", return_value=mock_proc):
-        with patch("space.os.sessions.api.linker.link_spawn_to_session") as mock_link:
+        with patch("space.os.sessions.linker.link_spawn_to_session") as mock_link:
             with patch(
                 "space.lib.providers.Claude.discover_session", return_value="test-session-id"
             ):
@@ -50,9 +50,9 @@ def test_spawn_ephemeral_claude_extracts_session_once(test_agent, test_channel):
     mock_proc.returncode = 0
 
     with patch("subprocess.Popen", return_value=mock_proc):
-        with patch("space.os.sessions.api.linker.link_spawn_to_session") as mock_link:
-            with patch("space.os.spawn.api.launch.resolve_session_id") as mock_resolve:
-                with patch("space.os.bridge.api.messaging.send_message"):
+        with patch("space.os.sessions.linker.link_spawn_to_session") as mock_link:
+            with patch("space.os.spawn.launch.resolve_session_id") as mock_resolve:
+                with patch("space.os.bridge.messaging.send_message"):
                     mock_resolve.return_value = "sess-claude-456"
                     launch.spawn_ephemeral(
                         identity="test-agent",
@@ -74,8 +74,8 @@ def test_spawn_ephemeral_no_session_id_raises(test_agent, test_channel):
     mock_proc.returncode = 0
 
     with patch("subprocess.Popen", return_value=mock_proc):
-        with patch("space.os.spawn.api.launch._discover_recent_session") as mock_discover:
-            with patch("space.os.bridge.api.messaging.send_message"):
+        with patch("space.os.spawn.launch._discover_recent_session") as mock_discover:
+            with patch("space.os.bridge.messaging.send_message"):
                 mock_discover.return_value = None
                 launch.spawn_ephemeral(
                     identity="test-agent",
@@ -109,10 +109,10 @@ def test_spawn_ephemeral_ingest_graceful_failure(test_agent, test_channel):
 
     with patch("subprocess.Popen", return_value=mock_proc):
         with patch(
-            "space.os.spawn.api.launch._discover_recent_session",
+            "space.os.spawn.launch._discover_recent_session",
             side_effect=Exception("discovery failed"),
         ):
-            with patch("space.os.bridge.api.messaging.send_message"):
+            with patch("space.os.bridge.messaging.send_message"):
                 launch.spawn_ephemeral(
                     identity="test-agent", instruction="test", channel_id=test_channel.channel_id
                 )

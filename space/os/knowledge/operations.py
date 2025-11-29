@@ -38,7 +38,7 @@ def add_knowledge(domain: str, agent_id: str, content: str) -> str:
             "INSERT INTO knowledge (knowledge_id, domain, agent_id, content) VALUES (?, ?, ?, ?)",
             (knowledge_id, domain, agent_id, content),
         )
-    spawn.api.touch_agent(agent_id)
+    spawn.touch_agent(agent_id)
     return knowledge_id
 
 
@@ -232,7 +232,7 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
         else:
             rows = _fallback_search_rows(conn, query, agent_id)
 
-        identities = spawn.api.agent_identities()
+        identities = spawn.agent_identities()
         for row in rows:
             results.append(
                 SearchResult(

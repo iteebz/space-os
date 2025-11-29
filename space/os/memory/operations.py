@@ -31,7 +31,7 @@ def add_memory(
             "INSERT INTO memories (memory_id, agent_id, message, topic, created_at, core, source) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (memory_id, agent_id, message, topic, now, 1 if core else 0, source),
         )
-    spawn.api.touch_agent(agent_id)
+    spawn.touch_agent(agent_id)
     return memory_id
 
 
@@ -118,7 +118,7 @@ def edit_memory(memory_id: str, new_message: str) -> None:
         row = cursor.fetchone()
         if not row:
             raise ValueError(f"Memory '{memory_id}' not found")
-        spawn.api.touch_agent(row[0])
+        spawn.touch_agent(row[0])
 
 
 def delete_memory(memory_id: str) -> None:

@@ -7,8 +7,7 @@ import typer
 from space.cli import output
 from space.cli.errors import error_feedback
 from space.cli.identity import resolve_identity
-from space.os.context import display
-from space.os.context.api import collect_current_state, collect_timeline
+from space.os.context import collect_current_state, collect_timeline, display
 
 app = typer.Typer(add_completion=False, context_settings={"help_option_names": ["-h", "--help"]})
 

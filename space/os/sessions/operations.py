@@ -153,7 +153,7 @@ def resolve_session_id(
     """
     from space.lib import paths
     from space.lib.providers.claude import Claude
-    from space.os.spawn.api import spawns
+    from space.os.spawn import spawns
 
     def validate_session(session_id: str | None) -> str | None:
         if not session_id:

@@ -1,31 +1,37 @@
-from . import api
-from .api import (
+from .agents import (
+    agent_identities,
     archive_agent,
-    build_spawn_context,
+    archived_agents,
     clone_agent,
     get_agent,
     list_agents,
     merge_agents,
     register_agent,
     rename_agent,
-    spawn_ephemeral,
+    touch_agent,
     unarchive_agent,
     update_agent,
 )
 from .cli import app
+from .launch import spawn_ephemeral
+from .prompt import build_spawn_context
+from .spawns import get_spawn
 
 __all__ = [
-    "api",
+    "agent_identities",
     "app",
-    "get_agent",
-    "register_agent",
-    "update_agent",
-    "clone_agent",
-    "rename_agent",
     "archive_agent",
-    "unarchive_agent",
+    "archived_agents",
+    "build_spawn_context",
+    "clone_agent",
+    "get_agent",
+    "get_spawn",
     "list_agents",
     "merge_agents",
-    "build_spawn_context",
+    "register_agent",
+    "rename_agent",
     "spawn_ephemeral",
+    "touch_agent",
+    "unarchive_agent",
+    "update_agent",
 ]

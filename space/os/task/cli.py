@@ -7,8 +7,7 @@ import typer
 from space.cli import argv, output
 from space.cli.errors import error_feedback
 from space.cli.identity import resolve_identity
-from space.os import spawn
-from space.os.task import api
+from space.os import spawn, task
 from space.os.task.format import format_task_list
 
 argv.flex_args("as")
@@ -54,7 +53,7 @@ def add(
     if not agent:
         raise typer.BadParameter(f"Identity '{identity}' not registered")
 
-    task_id = api.add_task(content, creator_id=agent.agent_id, project=project)
+    task_id = task.add_task(content, creator_id=agent.agent_id, project=project)
     output.out_text(f"Added: {task_id[-8:]}", ctx.obj)
 
 
@@ -76,7 +75,7 @@ def list_cmd(
 
     if show_all:
         # Override: fetch all statuses
-        tasks = api.list_tasks(status=None, project=project, agent_id=None)
+        tasks = task.list_tasks(status=None, project=project, agent_id=None)
         # Filter by agent if specified
         if by_agent:
             agent = spawn.get_agent(by_agent)
@@ -92,7 +91,7 @@ def list_cmd(
                 raise typer.BadParameter(f"Identity '{by_agent}' not registered")
             agent_id = agent.agent_id
 
-        tasks = api.list_tasks(status=status, project=project, agent_id=agent_id)
+        tasks = task.list_tasks(status=status, project=project, agent_id=agent_id)
 
     if not tasks:
         output.out_text("No tasks", ctx.obj)
@@ -119,10 +118,10 @@ def start(
 
     try:
         if remove:
-            api.remove_claim(task_id, agent.agent_id)
+            task.remove_claim(task_id, agent.agent_id)
             output.out_text(f"Unclaimed: {task_id[-8:]}", ctx.obj)
         else:
-            api.start_task(task_id, agent.agent_id)
+            task.start_task(task_id, agent.agent_id)
             output.out_text(f"Claimed: {task_id[-8:]}", ctx.obj)
     except ValueError as e:
         raise typer.BadParameter(str(e)) from e
@@ -144,7 +143,7 @@ def done(
         raise typer.BadParameter(f"Identity '{identity}' not registered")
 
     try:
-        api.done_task(task_id, agent.agent_id)
+        task.done_task(task_id, agent.agent_id)
         output.out_text(f"Completed: {task_id[-8:]}", ctx.obj)
     except ValueError as e:
         raise typer.BadParameter(str(e)) from e

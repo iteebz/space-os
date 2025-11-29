@@ -11,8 +11,7 @@ import typer
 from space.cli import argv, output
 from space.cli.errors import error_feedback
 from space.cli.identity import resolve_identity
-from space.os import spawn
-from space.os.bridge import api
+from space.os import bridge, spawn
 
 argv.flex_args("as")
 
@@ -86,10 +85,10 @@ def archive(
         for name in names:
             try:
                 if restore:
-                    api.restore_channel(name)
+                    bridge.restore_channel(name)
                     status = "restored"
                 else:
-                    api.archive_channel(name)
+                    bridge.archive_channel(name)
                     status = "archived"
                 results.append({"channel": name, "status": status})
                 output.echo_text(f"{status.capitalize()} channel: {name}", ctx)
@@ -110,7 +109,7 @@ def channels(
 ):
     """List active and archived channels."""
     try:
-        chans = api.list_channels(archived=all)
+        chans = bridge.list_channels(archived=all)
 
         if not chans:
             output.respond(ctx, [], "No channels found")
@@ -162,7 +161,7 @@ def create(
 ):
     """Create new channel."""
     try:
-        channel_obj = api.create_channel(channel_name, topic)
+        channel_obj = bridge.create_channel(channel_name, topic)
         channel_id = channel_obj.channel_id
         output.respond(
             ctx,
@@ -184,7 +183,7 @@ def delete(
 ):
     """Remove channel permanently."""
     try:
-        api.delete_channel(channel)
+        bridge.delete_channel(channel)
         output.respond(
             ctx, {"status": "deleted", "channel": channel}, f"Deleted channel: {channel}"
         )
@@ -211,7 +210,7 @@ def pin(
         results = []
         for channel in channels_arg:
             try:
-                is_pinned = api.toggle_pin_channel(channel)
+                is_pinned = bridge.toggle_pin_channel(channel)
                 status = "pinned" if is_pinned else "unpinned"
                 results.append({"channel": channel, "status": status})
                 output.echo_text(f"{status.capitalize()} channel: {channel}", ctx)
@@ -235,7 +234,7 @@ def export(
 ):
     """Export full channel history (no bookmark tracking)."""
     try:
-        result = api.export_messages(channel, as_json=json_output)
+        result = bridge.export_messages(channel, as_json=json_output)
         typer.echo(result)
     except (ValueError, Exception) as e:
         output.respond(ctx, {"status": "error", "message": str(e)}, f"❌ {e}")
@@ -278,8 +277,8 @@ def recv(
                             err=True,
                         )
 
-        msgs, count, context, participants = api.recv_messages(channel, ago, reader_id)
-        result = api.format_messages(msgs, context or "Messages", as_json=json_output)
+        msgs, count, context, participants = bridge.recv_messages(channel, ago, reader_id)
+        result = bridge.format_messages(msgs, context or "Messages", as_json=json_output)
         output.echo_text(result, ctx)
     except (ValueError, Exception) as e:
         output.respond(ctx, {"status": "error", "message": str(e)}, f"❌ {e}")
@@ -310,7 +309,7 @@ def send(
         agent = spawn.get_agent(identity)
         if not agent:
             raise ValueError(f"Identity '{identity}' not registered.")
-        asyncio.run(api.send_message(channel, identity, content, decode_base64=decode_base64))
+        asyncio.run(bridge.send_message(channel, identity, content, decode_base64=decode_base64))
         msg = f"Sent to {channel}" if identity == "human" else f"Sent to {channel} as {identity}"
         output.echo_text(msg, ctx)
     except (ValueError, Exception) as e:
@@ -327,7 +326,7 @@ def rename(
 ):
     """Change channel name."""
     try:
-        result = api.rename_channel(old_channel, new_channel)
+        result = bridge.rename_channel(old_channel, new_channel)
         if result:
             output.respond(
                 ctx,
@@ -354,7 +353,7 @@ def topic(
 ):
     """Update channel topic."""
     try:
-        result = api.update_topic(channel, new_topic if new_topic else None)
+        result = bridge.update_topic(channel, new_topic if new_topic else None)
         if result:
             output.respond(
                 ctx,
@@ -387,7 +386,7 @@ def wait(
         agent = spawn.get_agent(identity)
         if not agent:
             raise ValueError(f"Identity '{identity}' not registered.")
-        other_messages, count, context, participants = api.wait_for_message(
+        other_messages, count, context, participants = bridge.wait_for_message(
             channel, identity, poll_interval
         )
 
@@ -427,7 +426,7 @@ def handoff(
     summary: str = typer.Argument(..., help="Handoff summary"),
 ):
     """Create handoff to transfer responsibility to another agent."""
-    from space.os.bridge.api import handoffs
+    from space.os.bridge import handoffs
 
     try:
         identity = _resolve_identity(ctx)
@@ -459,7 +458,7 @@ def inbox(
     channel: str = typer.Argument(None, help="Optional channel filter"),
 ):
     """View pending handoffs for your identity."""
-    from space.os.bridge.api import handoffs
+    from space.os.bridge import handoffs
 
     try:
         identity = _resolve_identity(ctx)
@@ -491,7 +490,7 @@ def inbox(
         for h in pending:
             from_agent = spawn.get_agent(h.from_agent)
             from_name = from_agent.identity if from_agent else h.from_agent[:8]
-            channel_obj = api.get_channel(h.channel_id)
+            channel_obj = bridge.get_channel(h.channel_id)
             channel_name = channel_obj.name if channel_obj else h.channel_id[:8]
             output.echo_text(f"  {h.handoff_id[:8]}: from @{from_name} in #{channel_name}", ctx)
             output.echo_text(f"    {h.summary}", ctx)
@@ -507,7 +506,7 @@ def close(
     handoff_id: str = typer.Argument(..., help="Handoff ID to close"),
 ):
     """Close a pending handoff (acknowledge receipt)."""
-    from space.os.bridge.api import handoffs
+    from space.os.bridge import handoffs
 
     try:
         h = handoffs.close_handoff(handoff_id)

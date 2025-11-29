@@ -1,7 +1,7 @@
 import pytest
 
 from space.os import bridge, spawn
-from space.os.spawn.api import spawns
+from space.os.spawn import spawns
 
 
 @pytest.mark.asyncio

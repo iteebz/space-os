@@ -9,7 +9,7 @@ from datetime import datetime
 
 from space.lib import paths
 from space.lib.providers import Claude, Codex, Gemini
-from space.os.sessions.api import resolve_session_id
+from space.os.sessions import resolve_session_id
 
 from . import agents, spawns
 from .constitute import constitute
@@ -87,7 +87,7 @@ def spawn_ephemeral(
     Args:
         existing_spawn_id: Reuse this spawn instead of creating new (for @mention continuity)
     """
-    from space.os.bridge.api import channels
+    from space.os.bridge import channels
 
     agent = agents.get_agent(identity)
     if not agent:
@@ -265,7 +265,7 @@ def _link_session(spawn, resumed_session_id: str | None, provider: str, stdout: 
     Claude CLI creates NEW session files even when resuming. We must discover
     the actual session created by this spawn, not link to the resumed-from session.
     """
-    from space.os.sessions.api import linker
+    from space.os.sessions import linker
 
     cwd = None
     if provider == "claude":
@@ -405,7 +405,7 @@ def _auto_sync_session(spawn) -> None:
         return
 
     try:
-        from space.os.sessions.api import sync
+        from space.os.sessions import sync
 
         sync.ingest(session_id=spawn.session_id)
         logger.debug(f"Auto-synced session {spawn.session_id} for spawn {spawn.id}")
@@ -424,6 +424,6 @@ def _copy_bookmarks_from_session(session_id: str, new_spawn_id: str) -> None:
 
         if row:
             previous_spawn_id = row[0]
-            from space.os.bridge.api.messaging import copy_bookmarks
+            from space.os.bridge.messaging import copy_bookmarks
 
             copy_bookmarks(previous_spawn_id, new_spawn_id)

@@ -4,8 +4,8 @@ import logging
 import re
 
 from space.core.models import SPAWN_LIVE_STATUSES
-from space.os.spawn.api import agents as spawn_agents
-from space.os.spawn.api import spawns
+from space.os.spawn import agents as spawn_agents
+from space.os.spawn import spawns
 
 log = logging.getLogger(__name__)
 

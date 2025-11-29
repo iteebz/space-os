@@ -2,7 +2,7 @@
 
 import pytest
 
-from space.os.bridge.api import handoffs
+from space.os.bridge import handoffs
 from tests.conftest import make_mock_row
 
 

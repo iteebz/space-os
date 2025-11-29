@@ -148,7 +148,7 @@ identity_app = typer.Typer()
 @identity_app.command(name="set")
 def identity_set_cmd(name: str):
     """Set your human identity (default: human)."""
-    from space.os.spawn.api import agents
+    from space.os.spawn import agents
 
     if " " in name:
         typer.echo("Identity cannot contain spaces. Use hyphens instead.", err=True)

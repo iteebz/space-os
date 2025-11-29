@@ -1,7 +1,7 @@
 """Contract tests for spawn continuity: same spawn_id across @mentions."""
 
 from space.core.models import SpawnStatus
-from space.os.spawn.api import spawns
+from space.os.spawn import spawns
 
 
 def test_get_active_spawn_in_channel_finds_active(test_space, default_agents):
@@ -79,8 +79,8 @@ def test_active_status_syncs_session(test_space, default_agents, mocker):
     spawn = spawns.create_spawn(agent_id=zealot)
     spawns.link_session_to_spawn(spawn.id, "test-session")
 
-    mock_ingest = mocker.patch("space.os.sessions.api.sync.ingest")
-    mock_index = mocker.patch("space.os.sessions.api.sync.index")
+    mock_ingest = mocker.patch("space.os.sessions.sync.ingest")
+    mock_index = mocker.patch("space.os.sessions.sync.index")
 
     spawns.update_status(spawn.id, "active")
 
@@ -95,8 +95,8 @@ def test_completed_status_finalizes_session(test_space, default_agents, mocker):
     spawn = spawns.create_spawn(agent_id=zealot)
     spawns.link_session_to_spawn(spawn.id, "test-session")
 
-    mock_ingest = mocker.patch("space.os.sessions.api.sync.ingest")
-    mock_index = mocker.patch("space.os.sessions.api.sync.index")
+    mock_ingest = mocker.patch("space.os.sessions.sync.ingest")
+    mock_index = mocker.patch("space.os.sessions.sync.index")
 
     spawns.update_status(spawn.id, "completed")
 
@@ -154,8 +154,8 @@ def test_terminate_spawn_active_sets_status(test_space, default_agents, mocker):
     spawn = spawns.create_spawn(agent_id=zealot)
     spawns.update_status(spawn.id, "active")
 
-    mocker.patch("space.os.sessions.api.sync.ingest")
-    mocker.patch("space.os.sessions.api.sync.index")
+    mocker.patch("space.os.sessions.sync.ingest")
+    mocker.patch("space.os.sessions.sync.index")
 
     spawns.terminate_spawn(spawn.id, "completed")
 

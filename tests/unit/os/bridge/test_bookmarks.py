@@ -3,8 +3,8 @@
 import pytest
 
 from space.lib.uuid7 import uuid7
-from space.os.bridge.api import channels, messaging
-from space.os.spawn.api import agents
+from space.os.bridge import channels, messaging
+from space.os.spawn import agents
 
 
 @pytest.fixture

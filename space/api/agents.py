@@ -27,7 +27,7 @@ async def get_agents():
 def get_agent_memories(identity: str, topic: str | None = None, limit: int = 50):
     from dataclasses import asdict
 
-    from space.os.memory.api import operations as memory
+    from space.os.memory import operations as memory
 
     try:
         memories = memory.list_memories(identity, topic=topic, limit=limit)

@@ -56,8 +56,8 @@ def populated_space(test_space):
         )
 
     # Register default channels for tests
-    bridge.api.channels.create_channel("ch-1")
-    bridge.api.channels.create_channel("ch-spawn-test-123")
+    bridge.channels.create_channel("ch-1")
+    bridge.channels.create_channel("ch-spawn-test-123")
     return test_space
 
 

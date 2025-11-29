@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from space.os.sessions.api import linker
+from space.os.sessions import linker
 
 
 def test_short_id_uses_high_entropy_suffix():
@@ -94,8 +94,8 @@ def test_parse_spawn_marker_returns_none():
 
 def test_link_spawn_to_session_updates_db():
     """Verify session_id update to spawns table after sync."""
-    with patch("space.os.sessions.api.sync.ingest") as mock_sync:
-        with patch("space.os.sessions.api.linker.store.ensure") as mock_store:
+    with patch("space.os.sessions.sync.ingest") as mock_sync:
+        with patch("space.os.sessions.linker.store.ensure") as mock_store:
             mock_conn = MagicMock()
             mock_store.return_value.__enter__.return_value = mock_conn
 

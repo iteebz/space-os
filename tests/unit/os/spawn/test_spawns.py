@@ -2,14 +2,14 @@
 
 from unittest.mock import MagicMock, patch
 
-from space.os.spawn.api import spawns
+from space.os.spawn import spawns
 
 
 def test_update_status_syncs_session_on_terminal():
     """Update spawn status to terminal should trigger session index."""
-    with patch("space.os.spawn.api.spawns.store.ensure") as mock_store:
-        with patch("space.os.spawn.api.spawns.get_spawn") as mock_get_spawn:
-            with patch("space.os.sessions.api.sync.index") as mock_index:
+    with patch("space.os.spawn.spawns.store.ensure") as mock_store:
+        with patch("space.os.spawn.spawns.get_spawn") as mock_get_spawn:
+            with patch("space.os.sessions.sync.index") as mock_index:
                 mock_conn = MagicMock()
                 mock_store.return_value.__enter__.return_value = mock_conn
 
@@ -25,8 +25,8 @@ def test_update_status_syncs_session_on_terminal():
 
 def test_update_status_does_not_index_non_terminal():
     """Update spawn status to non-terminal should NOT index."""
-    with patch("space.os.spawn.api.spawns.store.ensure") as mock_store:
-        with patch("space.os.sessions.api.sync.index") as mock_index:
+    with patch("space.os.spawn.spawns.store.ensure") as mock_store:
+        with patch("space.os.sessions.sync.index") as mock_index:
             mock_conn = MagicMock()
             mock_store.return_value.__enter__.return_value = mock_conn
 
@@ -37,9 +37,9 @@ def test_update_status_does_not_index_non_terminal():
 
 def test_update_status_syncs_on_failed():
     """Update spawn status to failed should trigger session index."""
-    with patch("space.os.spawn.api.spawns.store.ensure") as mock_store:
-        with patch("space.os.spawn.api.spawns.get_spawn") as mock_get_spawn:
-            with patch("space.os.sessions.api.sync.index") as mock_index:
+    with patch("space.os.spawn.spawns.store.ensure") as mock_store:
+        with patch("space.os.spawn.spawns.get_spawn") as mock_get_spawn:
+            with patch("space.os.sessions.sync.index") as mock_index:
                 mock_conn = MagicMock()
                 mock_store.return_value.__enter__.return_value = mock_conn
 
@@ -55,9 +55,9 @@ def test_update_status_syncs_on_failed():
 
 def test_update_status_syncs_on_timeout():
     """Update spawn status to timeout should trigger session index."""
-    with patch("space.os.spawn.api.spawns.store.ensure") as mock_store:
-        with patch("space.os.spawn.api.spawns.get_spawn") as mock_get_spawn:
-            with patch("space.os.sessions.api.sync.index") as mock_index:
+    with patch("space.os.spawn.spawns.store.ensure") as mock_store:
+        with patch("space.os.spawn.spawns.get_spawn") as mock_get_spawn:
+            with patch("space.os.sessions.sync.index") as mock_index:
                 mock_conn = MagicMock()
                 mock_store.return_value.__enter__.return_value = mock_conn
 
@@ -73,7 +73,7 @@ def test_update_status_syncs_on_timeout():
 
 def test_get_spawn_depth(test_space):
     """Contract: get_spawn_depth returns correct ancestor count."""
-    from space.os.spawn.api import agents
+    from space.os.spawn import agents
 
     agents.register_agent("test-agent", "claude-haiku-4-5", None)
     agent = agents.get_agent("test-agent")
@@ -89,7 +89,7 @@ def test_get_spawn_depth(test_space):
 
 def test_get_spawn_lineage(test_space):
     """Contract: get_spawn_lineage returns [spawn, parent, grandparent, ...]."""
-    from space.os.spawn.api import agents
+    from space.os.spawn import agents
 
     agents.register_agent("test-agent", "claude-haiku-4-5", None)
     agent = agents.get_agent("test-agent")
@@ -105,7 +105,7 @@ def test_get_spawn_lineage(test_space):
 
 def test_get_spawn_children(test_space):
     """Contract: get_spawn_children returns direct children in creation order."""
-    from space.os.spawn.api import agents
+    from space.os.spawn import agents
 
     agents.register_agent("test-agent", "claude-haiku-4-5", None)
     agent = agents.get_agent("test-agent")
@@ -123,7 +123,7 @@ def test_get_spawn_children(test_space):
 
 def test_get_all_root_spawns(test_space):
     """Contract: get_all_root_spawns returns only spawns with no parent."""
-    from space.os.spawn.api import agents
+    from space.os.spawn import agents
 
     agents.register_agent("test-agent", "claude-haiku-4-5", None)
     agent = agents.get_agent("test-agent")
@@ -142,7 +142,7 @@ def test_get_all_root_spawns(test_space):
 
 def test_spawn_tree_hierarchy(test_space):
     """Contract: spawn tree hierarchies are correctly built."""
-    from space.os.spawn.api import agents
+    from space.os.spawn import agents
 
     agents.register_agent("agent-a", "claude-haiku-4-5", None)
     agents.register_agent("agent-b", "claude-haiku-4-5", None)
@@ -173,7 +173,7 @@ def test_spawn_tree_hierarchy(test_space):
 
 def test_spawn_tree_independent_roots(test_space):
     """Contract: multiple independent spawn trees remain separate."""
-    from space.os.spawn.api import agents
+    from space.os.spawn import agents
 
     agents.register_agent("test-agent", "claude-haiku-4-5", None)
     agent = agents.get_agent("test-agent")
@@ -201,7 +201,7 @@ def test_spawn_tree_independent_roots(test_space):
 def test_get_channel_spawns_filters_by_agent_and_limit(test_space):
     """Contract: channel spawns query honors agent filters and ordering."""
     from space.os import bridge
-    from space.os.spawn.api import agents
+    from space.os.spawn import agents
 
     channel = bridge.create_channel("channel-filter-test")
 
@@ -229,7 +229,7 @@ def test_get_channel_spawns_filters_by_agent_and_limit(test_space):
 
 def test_get_spawn_children_empty(test_space):
     """Contract: get_spawn_children returns empty list for spawn with no children."""
-    from space.os.spawn.api import agents
+    from space.os.spawn import agents
 
     agents.register_agent("test-agent", "claude-haiku-4-5", None)
     agent = agents.get_agent("test-agent")
@@ -242,7 +242,7 @@ def test_get_spawn_children_empty(test_space):
 
 def test_get_spawn_lineage_root_only(test_space):
     """Contract: get_spawn_lineage returns [spawn_id] for root spawn."""
-    from space.os.spawn.api import agents
+    from space.os.spawn import agents
 
     agents.register_agent("test-agent", "claude-haiku-4-5", None)
     agent = agents.get_agent("test-agent")
@@ -261,7 +261,7 @@ def test_get_all_root_spawns_empty(test_space):
 
 def test_get_spawn_by_partial_id(test_space):
     """Contract: get_spawn matches by partial ID (LIKE pattern)."""
-    from space.os.spawn.api import agents
+    from space.os.spawn import agents
 
     agents.register_agent("test-agent", "claude-haiku-4-5", None)
     agent = agents.get_agent("test-agent")
@@ -276,7 +276,7 @@ def test_get_spawn_by_partial_id(test_space):
 
 def test_get_spawn_by_full_id(test_space):
     """Contract: get_spawn matches by full ID."""
-    from space.os.spawn.api import agents
+    from space.os.spawn import agents
 
     agents.register_agent("test-agent", "claude-haiku-4-5", None)
     agent = agents.get_agent("test-agent")
@@ -296,7 +296,7 @@ def test_get_spawn_nonexistent_returns_none(test_space):
 
 def test_spawn_depth_exceeds_max(test_space):
     """Contract: get_spawn_lineage raises on circular reference (depth loop)."""
-    from space.os.spawn.api import agents
+    from space.os.spawn import agents
 
     agents.register_agent("test-agent", "claude-haiku-4-5", None)
     agent = agents.get_agent("test-agent")

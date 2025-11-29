@@ -55,7 +55,7 @@ def test_get_agent_missing_returns_none(mock_db):
 
 def test_register_agent_success(mock_db):
     mock_db.execute.return_value.fetchone.return_value = None  # Agent not found
-    with patch("space.os.spawn.api.agents.uuid7") as mock_uuid7:
+    with patch("space.os.spawn.agents.uuid7") as mock_uuid7:
         mock_uuid7.return_value = "new-uuid"
         agent_id = spawn.register_agent("newagent", "claude-haiku-4-5", "c.md")
 
@@ -105,7 +105,7 @@ def test_rename_agent_updates(mock_db):
         spawn_count=0,
         created_at="2024-01-01",
     )
-    with patch("space.os.spawn.api.agents.get_agent") as mock_get_agent:
+    with patch("space.os.spawn.agents.get_agent") as mock_get_agent:
         mock_get_agent.side_effect = [mock_old_agent, None]  # old exists, new doesn't
         result = spawn.rename_agent("old", "new")
     assert result is True
@@ -115,7 +115,7 @@ def test_rename_agent_updates(mock_db):
 
 
 def test_rename_agent_missing_returns_false(mock_db):
-    with patch("space.os.spawn.api.agents.get_agent", return_value=None):
+    with patch("space.os.spawn.agents.get_agent", return_value=None):
         result = spawn.rename_agent("old", "new")
         assert result is False
 
@@ -137,7 +137,7 @@ def test_rename_agent_new_exists_returns_false(mock_db):
         spawn_count=0,
         created_at="2024-01-01",
     )
-    with patch("space.os.spawn.api.agents.get_agent") as mock_get_agent:
+    with patch("space.os.spawn.agents.get_agent") as mock_get_agent:
         mock_get_agent.side_effect = [mock_old_agent, mock_new_agent]
         result = spawn.rename_agent("old", "new")
         assert result is False
@@ -152,7 +152,7 @@ def test_archive_agent_updates(mock_db):
         spawn_count=0,
         created_at="2024-01-01",
     )
-    with patch("space.os.spawn.api.agents.get_agent", return_value=mock_agent):
+    with patch("space.os.spawn.agents.get_agent", return_value=mock_agent):
         result = spawn.archive_agent("agent1")
         assert result is True
         mock_db.execute.assert_called_with(
@@ -162,7 +162,7 @@ def test_archive_agent_updates(mock_db):
 
 
 def test_archive_agent_missing_returns_false(mock_db):
-    with patch("space.os.spawn.api.agents.get_agent", return_value=None):
+    with patch("space.os.spawn.agents.get_agent", return_value=None):
         result = spawn.archive_agent("missing")
         assert result is False
 
@@ -209,7 +209,7 @@ def test_merge_agents_updates_all_dbs(mock_db):
         spawn_count=0,
         created_at="2024-01-01",
     )
-    with patch("space.os.spawn.api.agents.get_agent") as mock_get_agent:
+    with patch("space.os.spawn.agents.get_agent") as mock_get_agent:
         mock_get_agent.side_effect = [mock_from, mock_to]
         result = spawn.merge_agents("from", "to")
 
@@ -235,7 +235,7 @@ def test_rename_agent_rejects_spaces(mock_db):
         spawn_count=0,
         created_at="2024-01-01",
     )
-    with patch("space.os.spawn.api.agents.get_agent", return_value=mock_agent):
+    with patch("space.os.spawn.agents.get_agent", return_value=mock_agent):
         with pytest.raises(ValueError, match="Identity cannot contain spaces"):
             spawn.rename_agent("old", "new name")
 
@@ -249,6 +249,6 @@ def test_clone_agent_rejects_spaces(mock_db):
         spawn_count=0,
         created_at="2024-01-01",
     )
-    with patch("space.os.spawn.api.agents.get_agent", return_value=mock_agent):
+    with patch("space.os.spawn.agents.get_agent", return_value=mock_agent):
         with pytest.raises(ValueError, match="Identity cannot contain spaces"):
             spawn.clone_agent("original", "new agent")

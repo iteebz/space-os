@@ -57,7 +57,7 @@ async def send_message(
             "INSERT INTO messages (message_id, channel_id, agent_id, content) VALUES (?, ?, ?, ?)",
             (message_id, channel_obj.channel_id, agent.agent_id, content),
         )
-    spawn.api.touch_agent(agent.agent_id)
+    spawn.touch_agent(agent.agent_id)
 
     _delimiter_executor.submit(
         _run_delimiter_processing, channel_obj.channel_id, content, agent.agent_id
@@ -237,7 +237,7 @@ def format_messages(messages: list[Message], title: str = "Messages", as_json: b
             indent=2,
         )
 
-    identities = spawn.api.agent_identities()
+    identities = spawn.agent_identities()
     lines = [f"# {title}\n"]
     for msg in messages:
         sender_name = identities.get(msg.agent_id, msg.agent_id[:8])

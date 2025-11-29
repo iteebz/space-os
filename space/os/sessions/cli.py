@@ -111,7 +111,7 @@ def show_session(query: str):
             return
 
     # Try as agent identity
-    from space.os.spawn.api import agents
+    from space.os.spawn import agents
 
     agent = agents.get_agent(query)
     if agent:
@@ -180,7 +180,7 @@ def _show_spawn_session(spawn):
 
 def _list_agent_spawns(agent):
     """List all spawns for an agent."""
-    from space.os.spawn.api import spawns
+    from space.os.spawn import spawns
 
     agent_spawns = spawns.get_spawns_for_agent(agent.agent_id, limit=20)
 

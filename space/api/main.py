@@ -17,7 +17,7 @@ START_TIME = time.time()
 async def _background_sync():
     """Sync sessions in background on API startup."""
     try:
-        from space.os.sessions.api import sync
+        from space.os.sessions import sync
 
         logger.info("Starting background session sync...")
         await asyncio.to_thread(sync.sync_all)
@@ -107,7 +107,7 @@ def health_check():
 
 @app.delete("/api/messages/{message_id}")
 async def delete_message(message_id: str):
-    from space.os.bridge.api import messaging
+    from space.os.bridge import messaging
 
     try:
         deleted = messaging.delete_message(message_id)

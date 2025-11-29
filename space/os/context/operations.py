@@ -18,7 +18,7 @@ def collect_timeline(query: str, identity: str | None, all_agents: bool) -> list
     timeline = []
 
     if identity:
-        for result in memory.api.search(query, identity, all_agents):
+        for result in memory.search(query, identity, all_agents):
             key = (result.source, result.metadata.get("memory_id"))
             if key not in seen:
                 seen.add(key)
@@ -33,7 +33,7 @@ def collect_timeline(query: str, identity: str | None, all_agents: bool) -> list
                     }
                 )
 
-    for result in knowledge.api.search(query, identity, all_agents):
+    for result in knowledge.search(query, identity, all_agents):
         key = (result.source, result.metadata.get("knowledge_id"))
         if key not in seen:
             seen.add(key)
@@ -48,7 +48,7 @@ def collect_timeline(query: str, identity: str | None, all_agents: bool) -> list
                 }
             )
 
-    for result in bridge.api.search(query, identity, all_agents):
+    for result in bridge.search(query, identity, all_agents):
         key = (result.source, result.metadata.get("message_id"))
         if key not in seen:
             seen.add(key)
@@ -63,7 +63,7 @@ def collect_timeline(query: str, identity: str | None, all_agents: bool) -> list
                 }
             )
 
-    for result in sessions.api.search(query, identity, all_agents):
+    for result in sessions.search(query, identity, all_agents):
         key = (result["source"], result.get("session_id"))
         if key not in seen:
             seen.add(key)
@@ -126,7 +126,7 @@ def collect_current_state(query: str, identity: str | None, all_agents: bool) ->
                 "message": r.content,
                 "reference": r.reference,
             }
-            for r in memory.api.search(query, identity, all_agents)
+            for r in memory.search(query, identity, all_agents)
         ]
 
     results["knowledge"] = [
@@ -136,7 +136,7 @@ def collect_current_state(query: str, identity: str | None, all_agents: bool) ->
             "contributor": r.identity,
             "reference": r.reference,
         }
-        for r in knowledge.api.search(query, identity, all_agents)
+        for r in knowledge.search(query, identity, all_agents)
     ]
 
     results["bridge"] = [
@@ -146,7 +146,7 @@ def collect_current_state(query: str, identity: str | None, all_agents: bool) ->
             "content": r.content,
             "reference": r.reference,
         }
-        for r in bridge.api.search(query, identity, all_agents)
+        for r in bridge.search(query, identity, all_agents)
     ]
 
     results["sessions"] = [
@@ -159,7 +159,7 @@ def collect_current_state(query: str, identity: str | None, all_agents: bool) ->
             "reference": r["reference"],
             "score": r.get("score"),
         }
-        for r in sessions.api.search(query, identity, all_agents)
+        for r in sessions.search(query, identity, all_agents)
     ]
 
     results["canon"] = [

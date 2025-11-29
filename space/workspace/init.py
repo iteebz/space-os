@@ -90,7 +90,7 @@ def _get_bin_dir() -> Path:
 def _list_agent_identities() -> list[str]:
     """Get all registered agent identities from spawn DB."""
     with store.ensure():
-        agents = spawn.api.list_agents()
+        agents = spawn.list_agents()
     return [agent.identity for agent in agents]
 
 
@@ -157,7 +157,7 @@ def init():
     typer.echo("Syncing provider sessions...")
     typer.echo(f"  {'Provider':<10} {'Discovered':<12} {'Synced'}")
 
-    sessions.api.sync.sync_all(on_progress=output.show_sync_progress)
+    sessions.sync.sync_all(on_progress=output.show_sync_progress)
 
     _install_shortcuts()
 

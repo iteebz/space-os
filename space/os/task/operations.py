@@ -26,7 +26,7 @@ def add_task(
             "INSERT INTO tasks (task_id, creator_id, content, project, agent_id, created_at, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (task_id, creator_id, content, project, agent_id, now, "open"),
         )
-    spawn.api.touch_agent(creator_id)
+    spawn.touch_agent(creator_id)
     return task_id
 
 
@@ -94,7 +94,7 @@ def start_task(task_id: str, agent_id: str) -> None:
         if cursor.rowcount == 0:
             raise ValueError(f"Task '{task_id}' not found")
 
-    spawn.api.touch_agent(agent_id)
+    spawn.touch_agent(agent_id)
 
 
 def remove_claim(task_id: str, agent_id: str) -> None:
@@ -110,7 +110,7 @@ def remove_claim(task_id: str, agent_id: str) -> None:
             if not task:
                 raise ValueError(f"Task '{task_id}' not found")
             raise ValueError(f"Task not claimed by {agent_id}")
-    spawn.api.touch_agent(agent_id)
+    spawn.touch_agent(agent_id)
 
 
 def done_task(task_id: str, agent_id: str) -> None:
@@ -127,4 +127,4 @@ def done_task(task_id: str, agent_id: str) -> None:
             if not task:
                 raise ValueError(f"Task '{task_id}' not found")
             raise ValueError(f"Task not claimed by {agent_id}")
-    spawn.api.touch_agent(agent_id)
+    spawn.touch_agent(agent_id)

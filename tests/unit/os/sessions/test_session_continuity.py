@@ -1,7 +1,7 @@
 """Unit tests for session continuity logic."""
 
-from space.os.sessions.api import operations
-from space.os.spawn.api import spawns
+from space.os.sessions import operations
+from space.os.spawn import spawns
 
 
 def test_active_spawn_session_used_for_continuity(test_space, default_agents):

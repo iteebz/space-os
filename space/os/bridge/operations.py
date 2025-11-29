@@ -33,7 +33,7 @@ def search(query: str, identity: str | None = None, all_agents: bool = False) ->
         except Exception:
             rows = []
 
-    agent_identities = spawn.api.agent_identities()
+    agent_identities = spawn.agent_identities()
     for row in rows:
         agent_identity = agent_identities.get(row["agent_id"], row["agent_id"])
         results.append(

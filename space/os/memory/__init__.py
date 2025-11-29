@@ -1,4 +1,35 @@
-from . import api
 from .cli import app
+from .operations import (
+    add_memory,
+    archive_memory,
+    count_memories,
+    delete_memory,
+    edit_memory,
+    find_related_memories,
+    get_agent_memories,
+    get_memory,
+    list_memories,
+    mark_memory_core,
+    search,
+    search_memories,
+    stats,
+    toggle_memory_core,
+)
 
-__all__ = ["api", "app"]
+__all__ = [
+    "add_memory",
+    "app",
+    "archive_memory",
+    "count_memories",
+    "delete_memory",
+    "edit_memory",
+    "find_related_memories",
+    "get_agent_memories",
+    "get_memory",
+    "list_memories",
+    "mark_memory_core",
+    "search",
+    "search_memories",
+    "stats",
+    "toggle_memory_core",
+]

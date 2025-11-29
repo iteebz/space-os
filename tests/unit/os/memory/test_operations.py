@@ -31,7 +31,7 @@ def mock_get_agent():
 
 
 def test_add_memory_creates_record(mock_db):
-    memory.api.add_memory("agent-123", "test message", topic="observations")
+    memory.add_memory("agent-123", "test message", topic="observations")
 
     calls = [call[0][0] for call in mock_db.execute.call_args_list]
     mem_call = [call for call in calls if "INSERT INTO memories" in call][0]
@@ -39,7 +39,7 @@ def test_add_memory_creates_record(mock_db):
 
 
 def test_add_memory_with_core_flag(mock_db):
-    memory.api.add_memory("agent-123", "message", core=True)
+    memory.add_memory("agent-123", "message", core=True)
 
     calls = [
         call[0] for call in mock_db.execute.call_args_list if "INSERT INTO memories" in call[0][0]
@@ -50,7 +50,7 @@ def test_add_memory_with_core_flag(mock_db):
 
 
 def test_add_memory_returns_id(mock_db):
-    result = memory.api.add_memory("agent-123", "test message")
+    result = memory.add_memory("agent-123", "test message")
     assert result is not None
 
 
@@ -74,14 +74,14 @@ def test_list_memories_basic(mock_db, mock_get_agent):
     )
     mock_db.execute.return_value.fetchall.return_value = [mock_row]
 
-    result = memory.api.list_memories("agent-123")
+    result = memory.list_memories("agent-123")
     assert len(result) == 1
 
 
 def test_list_memories_with_topic_filter(mock_db, mock_get_agent):
     mock_db.execute.return_value.fetchall.return_value = []
 
-    memory.api.list_memories("test-agent-id", topic="observations")
+    memory.list_memories("test-agent-id", topic="observations")
 
     args = mock_db.execute.call_args[0]
     assert "AND topic = ?" in args[0]
@@ -90,7 +90,7 @@ def test_list_memories_with_topic_filter(mock_db, mock_get_agent):
 def test_list_memories_with_core_filter(mock_db, mock_get_agent):
     mock_db.execute.return_value.fetchall.return_value = []
 
-    memory.api.list_memories("test-agent-id", filter_type="core")
+    memory.list_memories("test-agent-id", filter_type="core")
 
     args = mock_db.execute.call_args[0]
     assert "AND core = 1" in args[0]
@@ -99,7 +99,7 @@ def test_list_memories_with_core_filter(mock_db, mock_get_agent):
 def test_list_memories_excludes_archived_by_default(mock_db, mock_get_agent):
     mock_db.execute.return_value.fetchall.return_value = []
 
-    memory.api.list_memories("test-agent-id")
+    memory.list_memories("test-agent-id")
 
     args = mock_db.execute.call_args[0]
     assert "AND archived_at IS NULL" in args[0]
@@ -108,7 +108,7 @@ def test_list_memories_excludes_archived_by_default(mock_db, mock_get_agent):
 def test_list_memories_shows_all_when_requested(mock_db, mock_get_agent):
     mock_db.execute.return_value.fetchall.return_value = []
 
-    memory.api.list_memories("test-agent-id", show_all=True)
+    memory.list_memories("test-agent-id", show_all=True)
 
     args = mock_db.execute.call_args[0]
     assert "AND archived_at IS NULL" not in args[0]
@@ -118,7 +118,7 @@ def test_list_memories_agent_not_found_raises(mock_get_agent):
     mock_get_agent.return_value = None
 
     with pytest.raises(ValueError, match="not found"):
-        memory.api.list_memories("nonexistent")
+        memory.list_memories("nonexistent")
 
 
 def test_get_memory_returns_entry(mock_db):
@@ -143,7 +143,7 @@ def test_get_memory_returns_entry(mock_db):
 
     with patch("space.lib.uuid7.resolve_id") as mock_resolve:
         mock_resolve.return_value = "m-1"
-        result = memory.api.get_memory("m-1")
+        result = memory.get_memory("m-1")
         assert result is not None
         assert result.memory_id == "m-1"
 
@@ -153,7 +153,7 @@ def test_get_memory_not_found_returns_none(mock_db):
 
     with patch("space.lib.uuid7.resolve_id") as mock_resolve:
         mock_resolve.return_value = "m-notfound"
-        result = memory.api.get_memory("m-notfound")
+        result = memory.get_memory("m-notfound")
         assert result is None
 
 
@@ -178,7 +178,7 @@ def test_toggle_memory_core_flips_state(mock_db):
     mock_db.execute.return_value.fetchone.return_value = mock_row
 
     with patch("space.lib.uuid7.resolve_id"):
-        result = memory.api.toggle_memory_core("m-1")
+        result = memory.toggle_memory_core("m-1")
         assert result is True
 
 
@@ -204,7 +204,7 @@ def test_archive_memory_sets_timestamp(mock_db):
 
     with patch("space.lib.uuid7.resolve_id") as mock_resolve:
         mock_resolve.return_value = "m-1"
-        with patch("space.os.memory.api.operations.get_memory") as mock_get:
+        with patch("space.os.memory.operations.get_memory") as mock_get:
             from space.core.models import Memory
 
             mock_get.return_value = Memory(
@@ -217,6 +217,6 @@ def test_archive_memory_sets_timestamp(mock_db):
                 core=False,
                 source="manual",
             )
-            memory.api.archive_memory("m-1")
+            memory.archive_memory("m-1")
             calls = [call for call in mock_db.execute.call_args_list if "archived_at" in call[0][0]]
             assert any("UPDATE memories SET archived_at = ?" in call[0][0] for call in calls)

@@ -11,7 +11,7 @@ runner = CliRunner()
 
 def test_trace_agent_identity():
     """Trace command with agent identity shows recent spawns."""
-    with patch("space.os.spawn.api.trace_query") as mock_trace:
+    with patch("space.os.spawn.trace.trace_query") as mock_trace:
         mock_trace.return_value = {
             "type": "identity",
             "identity": "zealot",
@@ -47,7 +47,7 @@ def test_trace_agent_identity():
 
 def test_trace_session_id():
     """Trace command with session ID shows full context."""
-    with patch("space.os.spawn.api.trace_query") as mock_trace:
+    with patch("space.os.spawn.trace.trace_query") as mock_trace:
         mock_trace.return_value = {
             "type": "session",
             "session_id": "7a6a07de-1234-5678-90ab-cdef12345678",
@@ -88,7 +88,7 @@ def test_trace_session_id():
 
 def test_trace_channel_id():
     """Trace command with channel ID shows participants."""
-    with patch("space.os.spawn.api.trace_query") as mock_trace:
+    with patch("space.os.spawn.trace.trace_query") as mock_trace:
         mock_trace.return_value = {
             "type": "channel",
             "channel_id": "channel-123",
@@ -128,7 +128,7 @@ def test_trace_no_args_shows_help():
 
 def test_trace_invalid_query_error():
     """Trace command with invalid query shows error."""
-    with patch("space.os.spawn.api.trace_query") as mock_trace:
+    with patch("space.os.spawn.trace.trace_query") as mock_trace:
         mock_trace.side_effect = ValueError("Query 'invalid-query' not found")
 
         result = runner.invoke(app, ["trace", "invalid-query"])
@@ -139,7 +139,7 @@ def test_trace_invalid_query_error():
 
 def test_trace_agent_no_spawns():
     """Trace for agent with no spawns shows appropriate message."""
-    with patch("space.os.spawn.api.trace_query") as mock_trace:
+    with patch("space.os.spawn.trace.trace_query") as mock_trace:
         mock_trace.return_value = {
             "type": "identity",
             "identity": "new-agent",
@@ -155,7 +155,7 @@ def test_trace_agent_no_spawns():
 
 def test_trace_channel_no_activity():
     """Trace for channel with no activity shows appropriate message."""
-    with patch("space.os.spawn.api.trace_query") as mock_trace:
+    with patch("space.os.spawn.trace.trace_query") as mock_trace:
         mock_trace.return_value = {
             "type": "channel",
             "channel_id": "channel-999",
@@ -171,7 +171,7 @@ def test_trace_channel_no_activity():
 
 def test_trace_session_with_error():
     """Trace for failed session shows error details."""
-    with patch("space.os.spawn.api.trace_query") as mock_trace:
+    with patch("space.os.spawn.trace.trace_query") as mock_trace:
         mock_trace.return_value = {
             "type": "session",
             "session_id": "failed-session-id",
@@ -202,28 +202,31 @@ def test_trace_spawn_syncs_session():
     """Trace spawn should sync session to get latest data."""
     from unittest.mock import MagicMock
 
-    with patch("space.os.spawn.api.get_spawn") as mock_get_spawn:
-        with patch("space.os.sessions.api.sync.ingest") as mock_sync:
-            spawn_obj = MagicMock()
-            spawn_obj.id = "abc12345-def6-7890-ghij-klmnopqrstuv"
-            spawn_obj.session_id = "sess-123"
-            spawn_obj.agent_id = "agent-456"
-            spawn_obj.status = "completed"
-            spawn_obj.created_at = "2025-11-03T10:00:00"
-            spawn_obj.ended_at = "2025-11-03T10:00:05"
-            spawn_obj.channel_id = None
+    with patch("space.os.spawn.spawns.get_spawn") as mock_get_spawn:
+        with patch("space.lib.uuid7.resolve_id") as mock_resolve_id:
+            with patch("space.os.sessions.sync.ingest") as mock_sync:
+                mock_resolve_id.return_value = "abc12345-def6-7890-ghij-klmnopqrstuv"
 
-            mock_get_spawn.return_value = spawn_obj
+                spawn_obj = MagicMock()
+                spawn_obj.id = "abc12345-def6-7890-ghij-klmnopqrstuv"
+                spawn_obj.session_id = "sess-123"
+                spawn_obj.agent_id = "agent-456"
+                spawn_obj.status = "completed"
+                spawn_obj.created_at = "2025-11-03T10:00:00"
+                spawn_obj.ended_at = "2025-11-03T10:00:05"
+                spawn_obj.channel_id = None
 
-            with patch("space.os.spawn.api.get_agent") as mock_get_agent:
-                agent_obj = MagicMock()
-                agent_obj.identity = "zealot"
-                mock_get_agent.return_value = agent_obj
+                mock_get_spawn.return_value = spawn_obj
 
-                from space.os.spawn.api.trace import trace_spawn
+                with patch("space.os.spawn.agents.get_agent") as mock_get_agent:
+                    agent_obj = MagicMock()
+                    agent_obj.identity = "zealot"
+                    mock_get_agent.return_value = agent_obj
 
-                result = trace_spawn("abc12345")
+                    from space.os.spawn.trace import trace_spawn
 
-                mock_sync.assert_called_once_with("sess-123")
-                assert result["spawn_id"] == "abc12345"
-                assert result["session_id"] == "sess-123"
+                    result = trace_spawn("abc12345")
+
+                    mock_sync.assert_called_once_with("sess-123")
+                    assert result["spawn_id"] == "abc12345"
+                    assert result["session_id"] == "sess-123"

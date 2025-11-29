@@ -159,7 +159,7 @@ def show_context(identity: str):
         return
     agent_id = agent.agent_id
 
-    knowledge_entries = knowledge.api.query_knowledge_by_agent(agent_id)
+    knowledge_entries = knowledge.query_knowledge_by_agent(agent_id)
     if knowledge_entries:
         domains = {e.domain for e in knowledge_entries}
         typer.echo(

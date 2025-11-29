@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from space.core.models import Agent, SpawnStatus
 from space.os import bridge, spawn
-from space.os.spawn.api import spawns
+from space.os.spawn import spawns
 
 
 def test_create_spawn_with_channel(test_space, default_agents):
@@ -176,9 +176,9 @@ def test_list_spawns_by_channel(test_space, default_agents):
 
 def test_mention_spawns_worker():
     """Bridge detects @mention and builds spawn context."""
-    from space.os.spawn.api.prompt import build_spawn_context
+    from space.os.spawn.prompt import build_spawn_context
 
-    with patch("space.os.spawn.api.prompt.agents.get_agent") as mock_get_agent:
+    with patch("space.os.spawn.prompt.agents.get_agent") as mock_get_agent:
         mock_agent = Agent(
             agent_id="a-1",
             identity="zealot",

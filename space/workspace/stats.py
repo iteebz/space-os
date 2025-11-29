@@ -18,15 +18,15 @@ logger = logging.getLogger(__name__)
 
 
 def _get_agent_identities() -> dict[str, str]:
-    from space.os import spawn
+    from space.os.spawn import agents
 
-    return spawn.api.agent_identities()
+    return agents.agent_identities()
 
 
 def _get_archived_agents() -> set[str]:
-    from space.os import spawn
+    from space.os.spawn import agents
 
-    return spawn.api.archived_agents()
+    return agents.archived_agents()
 
 
 def _get_resource_stats(api_count_fn: callable, table: str, topic_column: str) -> dict:
@@ -47,13 +47,13 @@ def _get_resource_stats(api_count_fn: callable, table: str, topic_column: str) -
 def _get_memory_stats() -> dict:
     from space.os import memory
 
-    return _get_resource_stats(memory.api.count_memories, "memories", "topic")
+    return _get_resource_stats(memory.count_memories, "memories", "topic")
 
 
 def _get_knowledge_stats() -> dict:
     from space.os import knowledge
 
-    return _get_resource_stats(knowledge.api.count_knowledge, "knowledge", "domain")
+    return _get_resource_stats(knowledge.count_knowledge, "knowledge", "domain")
 
 
 def _aggregate_events(rows: list) -> tuple[int, list[dict]]:
@@ -71,8 +71,8 @@ def _aggregate_events(rows: list) -> tuple[int, list[dict]]:
 def _get_bridge_stats() -> dict:
     from space.os import bridge
 
-    total_msgs, active_msgs, archived_msgs = bridge.api.messaging.count_messages()
-    distinct_channels, active_channels, archived_channels = bridge.api.channels.count_channels()
+    total_msgs, active_msgs, archived_msgs = bridge.messaging.count_messages()
+    distinct_channels, active_channels, archived_channels = bridge.channels.count_channels()
 
     with store.ensure() as conn:
         msg_by_agent = conn.execute(
@@ -106,15 +106,15 @@ def _get_bridge_stats() -> dict:
 
 
 def _get_spawn_stats() -> dict:
-    from space.os import spawn
+    from space.os.spawn import spawns
 
-    return spawn.api.stats()
+    return spawns.stats()
 
 
 def _get_session_stats() -> dict:
     from space.os import sessions
 
-    stats_obj = sessions.api.stats()
+    stats_obj = sessions.stats()
     return {
         "total_sessions": stats_obj.total_sessions,
         "total_messages": stats_obj.total_messages,

@@ -3,8 +3,8 @@
 import logging
 import re
 
-from space.os.spawn.api import agents as spawn_agents
-from space.os.spawn.api import spawns
+from space.os.spawn import agents as spawn_agents
+from space.os.spawn import spawns
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ def process_mentions(channel_id: str, content: str, sender_agent_id: str | None 
 def attempt_relink_for_agent(agent_id: str) -> None:
     """Try to discover and link session_id for recent unlinked spawns."""
     from space.lib import store
-    from space.os.spawn.api.launch import _discover_recent_session
+    from space.os.spawn.launch import _discover_recent_session
 
     agent = spawn_agents.get_agent(agent_id)
     if not agent or not agent.model:

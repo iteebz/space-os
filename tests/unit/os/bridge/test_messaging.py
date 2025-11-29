@@ -39,7 +39,7 @@ def mock_get_agent():
 
 @pytest.fixture
 def mock_get_channel():
-    with patch("space.os.bridge.api.channels.get_channel") as mock:
+    with patch("space.os.bridge.channels.get_channel") as mock:
         mock.return_value = MagicMock(channel_id="ch-1")
         yield mock
 

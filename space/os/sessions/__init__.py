@@ -1,5 +1,5 @@
 """Sessions: conversation transcript indexing and search."""
 
-from . import api
+from .operations import resolve_session_id, search, stats
 
-__all__ = ["api"]
+__all__ = ["resolve_session_id", "search", "stats"]

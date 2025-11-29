@@ -54,7 +54,7 @@ def create_handoff(channel: str, from_identity: str, to_identity: str, summary: 
             ),
         )
 
-    spawn.api.touch_agent(from_agent.agent_id)
+    spawn.touch_agent(from_agent.agent_id)
 
     return get_handoff(handoff_id)
 

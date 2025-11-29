@@ -23,7 +23,7 @@ class RenameChannel(BaseModel):
 async def get_channels(archived: bool = False, reader_id: str | None = None):
     from dataclasses import asdict
 
-    from space.os.bridge.api import channels
+    from space.os.bridge import channels
 
     try:
         channels_list = channels.list_channels(archived=archived, reader_id=reader_id)
@@ -34,7 +34,7 @@ async def get_channels(archived: bool = False, reader_id: str | None = None):
 
 @router.post("")
 async def create_channel(body: CreateChannel):
-    from space.os.bridge.api import channels
+    from space.os.bridge import channels
 
     try:
         channel = channels.create_channel(body.name, body.topic)
@@ -45,7 +45,7 @@ async def create_channel(body: CreateChannel):
 
 @router.patch("/{channel}/topic")
 async def update_channel_topic(channel: str, body: UpdateTopic):
-    from space.os.bridge.api import channels
+    from space.os.bridge import channels
 
     try:
         channels.update_topic(channel, body.topic)
@@ -58,7 +58,7 @@ async def update_channel_topic(channel: str, body: UpdateTopic):
 
 @router.patch("/{channel}")
 async def rename_channel(channel: str, body: RenameChannel):
-    from space.os.bridge.api import channels
+    from space.os.bridge import channels
 
     try:
         channels.rename_channel(channel, body.new_name)
@@ -71,7 +71,7 @@ async def rename_channel(channel: str, body: RenameChannel):
 
 @router.delete("/{channel}")
 async def delete_channel(channel: str):
-    from space.os.bridge.api import channels
+    from space.os.bridge import channels
 
     try:
         channels.delete_channel(channel)
@@ -82,7 +82,7 @@ async def delete_channel(channel: str):
 
 @router.post("/{channel}/archive")
 async def archive_channel(channel: str):
-    from space.os.bridge.api import channels
+    from space.os.bridge import channels
 
     try:
         channels.archive_channel(channel)
@@ -93,7 +93,7 @@ async def archive_channel(channel: str):
 
 @router.post("/{channel}/restore")
 async def restore_channel(channel: str):
-    from space.os.bridge.api import channels
+    from space.os.bridge import channels
 
     try:
         channels.restore_channel(channel)
@@ -104,7 +104,7 @@ async def restore_channel(channel: str):
 
 @router.post("/{channel}/pin")
 async def toggle_pin_channel(channel: str):
-    from space.os.bridge.api import channels
+    from space.os.bridge import channels
 
     try:
         is_pinned = channels.toggle_pin_channel(channel)
@@ -115,7 +115,7 @@ async def toggle_pin_channel(channel: str):
 
 @router.post("/{channel}/read")
 async def mark_channel_read(channel: str, reader_id: str):
-    from space.os.bridge.api import channels, messaging
+    from space.os.bridge import channels, messaging
 
     try:
         channel_obj = channels.get_channel(channel)
@@ -137,7 +137,7 @@ async def mark_channel_read(channel: str, reader_id: str):
 async def get_messages_endpoint(channel: str):
     from dataclasses import asdict
 
-    from space.os.bridge.api import messaging
+    from space.os.bridge import messaging
 
     try:
         messages = messaging.get_messages(channel)
@@ -154,7 +154,7 @@ class SendMessage(BaseModel):
 @router.post("/{channel}/messages")
 async def send_message(channel: str, body: SendMessage):
     from space.lib import store
-    from space.os.bridge.api import messaging
+    from space.os.bridge import messaging
 
     try:
         sender = body.sender
@@ -173,8 +173,8 @@ async def send_message(channel: str, body: SendMessage):
 @router.get("/{channel_name}/agents/{agent_identity}/sessions")
 def get_channel_agent_sessions(channel_name: str, agent_identity: str):
     from space.lib import store
-    from space.os.bridge.api import channels
-    from space.os.spawn.api import agents
+    from space.os.bridge import channels
+    from space.os.spawn import agents
 
     channel = channels.get_channel(channel_name)
     if not channel:

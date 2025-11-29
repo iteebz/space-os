@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from space.core.models import Agent
-from space.os.bridge.api import control, delimiters, mentions
-from space.os.spawn.api.prompt import build_spawn_context
+from space.os.bridge import control, delimiters, mentions
+from space.os.spawn.prompt import build_spawn_context
 
 
 def test_parse_mentions_single():
@@ -39,7 +39,7 @@ def test_parse_mentions_none():
 
 def test_build_spawn_context_basic():
     """Build spawn context with agent identity."""
-    with patch("space.os.spawn.api.prompt.agents.get_agent") as mock_get_agent:
+    with patch("space.os.spawn.prompt.agents.get_agent") as mock_get_agent:
         mock_agent = Agent(
             agent_id="a-1",
             identity="zealot",
@@ -59,7 +59,7 @@ def test_build_spawn_context_basic():
 
 def test_build_spawn_context_with_task():
     """Build spawn context with task instruction."""
-    with patch("space.os.spawn.api.prompt.agents.get_agent") as mock_get_agent:
+    with patch("space.os.spawn.prompt.agents.get_agent") as mock_get_agent:
         mock_agent = Agent(
             agent_id="a-1",
             identity="zealot",
@@ -80,7 +80,7 @@ def test_build_spawn_context_with_task():
 
 def test_build_spawn_context_with_channel():
     """Build spawn context with channel context."""
-    with patch("space.os.spawn.api.prompt.agents.get_agent") as mock_get_agent:
+    with patch("space.os.spawn.prompt.agents.get_agent") as mock_get_agent:
         mock_agent = Agent(
             agent_id="a-1",
             identity="zealot",
@@ -101,9 +101,9 @@ def test_build_spawn_context_with_channel():
 def test_process_control_commands_stop():
     """Slash command processor stops running spawns."""
     with (
-        patch("space.os.bridge.api.control.spawn_agents.get_agent") as mock_get_agent,
-        patch("space.os.bridge.api.control.spawns.get_spawns_for_agent") as mock_get_spawns,
-        patch("space.os.bridge.api.control.spawns.terminate_spawn") as mock_terminate,
+        patch("space.os.bridge.control.spawn_agents.get_agent") as mock_get_agent,
+        patch("space.os.bridge.control.spawns.get_spawns_for_agent") as mock_get_spawns,
+        patch("space.os.bridge.control.spawns.terminate_spawn") as mock_terminate,
     ):
         mock_agent = MagicMock()
         mock_agent.agent_id = "agent-123"
@@ -124,10 +124,10 @@ def test_process_control_commands_stop():
 async def test_process_delimiters_async():
     """Verify async delimiter processing."""
     with (
-        patch("space.os.bridge.api.channels.get_channel") as mock_get_channel,
-        patch("space.os.bridge.api.delimiters.process_control_commands") as mock_control,
-        patch("space.os.bridge.api.delimiters.process_mentions") as mock_mentions,
-        patch("space.os.bridge.api.delimiters.process_signals") as mock_signals,
+        patch("space.os.bridge.channels.get_channel") as mock_get_channel,
+        patch("space.os.bridge.delimiters.process_control_commands") as mock_control,
+        patch("space.os.bridge.delimiters.process_mentions") as mock_mentions,
+        patch("space.os.bridge.delimiters.process_signals") as mock_signals,
     ):
         mock_channel = MagicMock()
         mock_channel.channel_id = "test-ch"

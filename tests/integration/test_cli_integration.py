@@ -24,15 +24,15 @@ def test_spawn_merge_agents(test_space, default_agents):
     agent_id_1 = zealot.agent_id
     agent_id_2 = spawn.register_agent("agent-target", "claude-haiku-4-5", "a.md")
 
-    memory.api.add_memory(agent_id_1, "memory from source 1", "topic-a")
-    memory.api.add_memory(agent_id_1, "memory from source 2", "topic-b")
-    memory.api.add_memory(agent_id_2, "memory from target", "topic-c")
+    memory.add_memory(agent_id_1, "memory from source 1", "topic-a")
+    memory.add_memory(agent_id_1, "memory from source 2", "topic-b")
+    memory.add_memory(agent_id_2, "memory from target", "topic-c")
 
     result = runner.invoke(spawn.app, ["merge", default_agents["zealot"], "agent-target"])
     assert result.exit_code == 0
     assert "Merged" in result.stdout
 
-    target_memories = memory.api.list_memories("agent-target")
+    target_memories = memory.list_memories("agent-target")
     assert len(target_memories) == 3
     assert any("memory from source 1" in m.message for m in target_memories)
     assert any("memory from source 2" in m.message for m in target_memories)
@@ -105,9 +105,9 @@ def test_bridge_recv_requires_identity():
 def test_spawn_chain_no_args(test_space, default_agents):
     """Chain command with no args shows root spawns."""
     agent = spawn.get_agent(default_agents["zealot"])
-    root1 = spawn.api.spawns.create_spawn(agent.agent_id)
-    root2 = spawn.api.spawns.create_spawn(agent.agent_id)
-    spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=root1.id)
+    root1 = spawn.spawns.create_spawn(agent.agent_id)
+    root2 = spawn.spawns.create_spawn(agent.agent_id)
+    spawn.spawns.create_spawn(agent.agent_id, parent_spawn_id=root1.id)
 
     result = runner.invoke(spawn.app, ["chain"])
     assert result.exit_code == 0
@@ -118,10 +118,10 @@ def test_spawn_chain_no_args(test_space, default_agents):
 def test_spawn_chain_by_spawn_id(test_space, default_agents):
     """Chain command with spawn ID shows tree rooted at that spawn."""
     agent = spawn.get_agent(default_agents["zealot"])
-    root = spawn.api.spawns.create_spawn(agent.agent_id)
-    child1 = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=root.id)
-    child2 = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=root.id)
-    grandchild = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=child1.id)
+    root = spawn.spawns.create_spawn(agent.agent_id)
+    child1 = spawn.spawns.create_spawn(agent.agent_id, parent_spawn_id=root.id)
+    child2 = spawn.spawns.create_spawn(agent.agent_id, parent_spawn_id=root.id)
+    grandchild = spawn.spawns.create_spawn(agent.agent_id, parent_spawn_id=child1.id)
 
     result = runner.invoke(spawn.app, ["chain", root.id])
     assert result.exit_code == 0
@@ -135,8 +135,8 @@ def test_spawn_chain_by_agent_identity(test_space, default_agents):
     """Chain command with agent identity shows all spawn chains for agent."""
     zealot_id = default_agents["zealot"]
     agent = spawn.get_agent(zealot_id)
-    root1 = spawn.api.spawns.create_spawn(agent.agent_id)
-    child1 = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=root1.id)
+    root1 = spawn.spawns.create_spawn(agent.agent_id)
+    child1 = spawn.spawns.create_spawn(agent.agent_id, parent_spawn_id=root1.id)
 
     result = runner.invoke(spawn.app, ["chain", zealot_id])
     assert result.exit_code == 0
@@ -155,24 +155,24 @@ def test_spawn_chain_status_symbols(test_space, default_agents):
     """Chain displays correct status symbols for all states."""
     agent = spawn.get_agent(default_agents["zealot"])
 
-    pending_spawn = spawn.api.spawns.create_spawn(agent.agent_id)
-    spawn.api.spawns.update_status(pending_spawn.id, "running")
-    spawn.api.spawns.create_spawn(agent.agent_id)
+    pending_spawn = spawn.spawns.create_spawn(agent.agent_id)
+    spawn.spawns.update_status(pending_spawn.id, "running")
+    spawn.spawns.create_spawn(agent.agent_id)
 
-    completed = spawn.api.spawns.create_spawn(agent.agent_id)
-    spawn.api.spawns.update_status(completed.id, "completed")
+    completed = spawn.spawns.create_spawn(agent.agent_id)
+    spawn.spawns.update_status(completed.id, "completed")
 
-    failed = spawn.api.spawns.create_spawn(agent.agent_id)
-    spawn.api.spawns.update_status(failed.id, "failed")
+    failed = spawn.spawns.create_spawn(agent.agent_id)
+    spawn.spawns.update_status(failed.id, "failed")
 
-    timeout = spawn.api.spawns.create_spawn(agent.agent_id)
-    spawn.api.spawns.update_status(timeout.id, "timeout")
+    timeout = spawn.spawns.create_spawn(agent.agent_id)
+    spawn.spawns.update_status(timeout.id, "timeout")
 
-    paused = spawn.api.spawns.create_spawn(agent.agent_id)
-    spawn.api.spawns.update_status(paused.id, "paused")
+    paused = spawn.spawns.create_spawn(agent.agent_id)
+    spawn.spawns.update_status(paused.id, "paused")
 
-    killed = spawn.api.spawns.create_spawn(agent.agent_id)
-    spawn.api.spawns.update_status(killed.id, "killed")
+    killed = spawn.spawns.create_spawn(agent.agent_id)
+    spawn.spawns.update_status(killed.id, "killed")
 
     result = runner.invoke(spawn.app, ["chain"])
     assert result.exit_code == 0
@@ -188,10 +188,10 @@ def test_spawn_chain_deep_tree(test_space, default_agents):
     """Chain renders deep trees (3+ levels) with correct indentation."""
     agent = spawn.get_agent(default_agents["zealot"])
 
-    root = spawn.api.spawns.create_spawn(agent.agent_id)
-    child = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=root.id)
-    grandchild = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=child.id)
-    great_grandchild = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=grandchild.id)
+    root = spawn.spawns.create_spawn(agent.agent_id)
+    child = spawn.spawns.create_spawn(agent.agent_id, parent_spawn_id=root.id)
+    grandchild = spawn.spawns.create_spawn(agent.agent_id, parent_spawn_id=child.id)
+    great_grandchild = spawn.spawns.create_spawn(agent.agent_id, parent_spawn_id=grandchild.id)
 
     result = runner.invoke(spawn.app, ["chain", root.id])
     assert result.exit_code == 0
@@ -214,8 +214,8 @@ def test_spawn_chain_mixed_agents(test_space, default_agents):
     spawn.register_agent("agent-other", "claude-haiku-4-5", None)
     agent2 = spawn.get_agent("agent-other")
 
-    root = spawn.api.spawns.create_spawn(agent1.agent_id)
-    child1 = spawn.api.spawns.create_spawn(agent2.agent_id, parent_spawn_id=root.id)
+    root = spawn.spawns.create_spawn(agent1.agent_id)
+    child1 = spawn.spawns.create_spawn(agent2.agent_id, parent_spawn_id=root.id)
 
     result = runner.invoke(spawn.app, ["chain", root.id])
     assert result.exit_code == 0
@@ -233,8 +233,8 @@ def test_spawn_chain_nonexistent_agent_identity(test_space):
 def test_spawn_chain_partial_spawn_id(test_space, default_agents):
     """Chain with partial spawn ID matches correctly."""
     agent = spawn.get_agent(default_agents["zealot"])
-    root = spawn.api.spawns.create_spawn(agent.agent_id)
-    child = spawn.api.spawns.create_spawn(agent.agent_id, parent_spawn_id=root.id)
+    root = spawn.spawns.create_spawn(agent.agent_id)
+    child = spawn.spawns.create_spawn(agent.agent_id, parent_spawn_id=root.id)
 
     result = runner.invoke(spawn.app, ["chain", root.id])
     assert result.exit_code == 0

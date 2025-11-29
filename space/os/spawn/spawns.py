@@ -93,7 +93,7 @@ def _finalize_session(spawn_id: str) -> None:
         return
 
     try:
-        from space.os.sessions.api import sync
+        from space.os.sessions import sync
 
         sync.ingest(spawn.session_id)
         sync.index(spawn.session_id)
@@ -108,7 +108,7 @@ def _sync_current_session(spawn_id: str) -> None:
         return
 
     try:
-        from space.os.sessions.api import sync
+        from space.os.sessions import sync
 
         sync.ingest(spawn.session_id)
     except Exception as e:
