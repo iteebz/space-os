@@ -14,7 +14,7 @@ from space.os.sessions.api import resolve_session_id
 from . import agents, spawns
 from .constitute import constitute
 from .environment import build_launch_env
-from .prompt import build_spawn_context
+from .prompt import build_resume_context, build_spawn_context
 
 logger = logging.getLogger(__name__)
 
@@ -160,9 +160,13 @@ def _run_ephemeral(
 ) -> None:
     instruction_text, image_paths = _extract_images_from_instruction(instruction)
 
-    # Resume: send only instruction. New session: full context + marker.
+    # Resume: minimal scaffold. New session: full context + marker.
     if session_id:
-        context = instruction_text
+        context = (
+            build_resume_context(channel_name, instruction_text)
+            if channel_name
+            else instruction_text
+        )
     else:
         context = build_spawn_context(
             agent.identity,

@@ -73,6 +73,17 @@ TASK:
 {task}
 """
 
+RESUME_CONTEXT_TEMPLATE = """\
+RESUMED SESSION in #{channel}.
+Run `bridge recv {channel}` for recent messages, then address:
+{task}
+"""
+
+
+def build_resume_context(channel: str, task: str) -> str:
+    """Build minimal context for resumed session."""
+    return RESUME_CONTEXT_TEMPLATE.format(channel=channel, task=task)
+
 
 def build_spawn_context(
     identity: str,

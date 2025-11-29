@@ -8,7 +8,7 @@ import { formatTimeRemaining } from '../../lib/time'
 interface Props {
   channel: Channel
   onInfoClick?: () => void
-  onExportClick?: () => void
+  onExportClick?: () => Promise<boolean | void>
   isCreating?: boolean
   onCreate?: (name: string, topic: string | null) => void
   onCancelCreate?: () => void
@@ -95,9 +95,9 @@ export function ChannelHeader({
     }
   }
 
-  const handleExportClick = () => {
-    onExportClick?.()
-    setShowCopied(true)
+  const handleExportClick = async () => {
+    const success = await onExportClick?.()
+    if (success !== false) setShowCopied(true)
   }
 
   useEffect(() => {

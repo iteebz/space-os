@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
-import { BsArchive, BsArchiveFill, BsList, BsChevronLeft } from 'react-icons/bs'
+import {
+  BsArchive,
+  BsArchiveFill,
+  BsList,
+  BsChevronLeft,
+  BsClipboard,
+  BsCheck,
+} from 'react-icons/bs'
 import {
   ChannelList,
   MessageList,
@@ -15,7 +22,7 @@ import {
 } from './features/channels'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { postApi } from './lib/api'
-import { SessionStream } from './features/sessions'
+import { SessionStream, ContextIndicator } from './features/sessions'
 import { useAgentMap } from './features/agents'
 import { useSpawns } from './features/spawns'
 import { useUrlState } from './lib/useUrlState'
@@ -31,6 +38,7 @@ interface AgentTab {
 export default function App() {
   const [showChannelDrawer, setShowChannelDrawer] = useState(false)
   const [showSessionModal, setShowSessionModal] = useState(false)
+  const [showMobileExportCopied, setShowMobileExportCopied] = useState(false)
   const { params, setParam } = useUrlState()
   const selectedChannel = params.get('channel')
   const showArchived = params.get('archived') === 'true'
@@ -129,7 +137,7 @@ export default function App() {
     }
   }, [autoSelectedChannel, messages.length, identity?.identity, markRead])
 
-  const handleExportChannel = () => {
+  const handleExportChannel = async () => {
     if (!messages.length) return
 
     const text = messages
@@ -141,18 +149,43 @@ export default function App() {
       })
       .join('\n')
 
-    void navigator.clipboard.writeText(text).then(() => {})
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      const success = document.execCommand('copy')
+      document.body.removeChild(textarea)
+      return success
+    }
   }
 
+  const handleMobileExport = async () => {
+    const success = await handleExportChannel()
+    if (success) setShowMobileExportCopied(true)
+  }
+
+  useEffect(() => {
+    if (showMobileExportCopied) {
+      const timer = window.setTimeout(() => setShowMobileExportCopied(false), 2000)
+      return () => window.clearTimeout(timer)
+    }
+  }, [showMobileExportCopied])
+
   return (
-    <div className="h-screen w-screen overflow-hidden">
+    <div className="h-screen w-screen overflow-hidden" style={{ height: '100dvh' }}>
       {showChannelDrawer && (
-        <div 
+        <div
           className="md:hidden fixed inset-0 bg-black/50 z-40"
           onClick={() => setShowChannelDrawer(false)}
         />
       )}
-      
+
       <div className="md:hidden fixed top-0 left-0 right-0 bg-neutral-900 border-b border-neutral-800 px-4 py-3 flex items-center gap-3 z-30">
         <button
           onClick={() => setShowChannelDrawer(true)}
@@ -163,6 +196,15 @@ export default function App() {
         <div className="flex-1 text-white font-semibold truncate">
           # {autoSelectedChannel || 'Select channel'}
         </div>
+        {currentChannel && messages.length > 0 && (
+          <button
+            onClick={handleMobileExport}
+            className="text-neutral-400 hover:text-white"
+            title={showMobileExportCopied ? 'Copied!' : 'Copy channel messages'}
+          >
+            {showMobileExportCopied ? <BsCheck size={20} /> : <BsClipboard size={18} />}
+          </button>
+        )}
       </div>
 
       {showSessionModal && selectedTab?.sessionId && (
@@ -179,7 +221,10 @@ export default function App() {
             </span>
           </div>
           <div className="flex-1 overflow-y-auto scrollable p-4">
-            <ErrorBoundary fallback={<div className="text-red-400 text-sm">Failed to load session</div>}>
+            <ContextIndicator sessionId={selectedTab.sessionId} />
+            <ErrorBoundary
+              fallback={<div className="text-red-400 text-sm">Failed to load session</div>}
+            >
               <SessionStream sessionId={selectedTab.sessionId} />
             </ErrorBoundary>
           </div>
@@ -228,7 +273,9 @@ export default function App() {
           </div>
         </Panel>
 
-        <div className={`md:hidden fixed top-0 left-0 bottom-0 w-80 bg-neutral-900 border-r border-neutral-800 z-50 transform transition-transform ${showChannelDrawer ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div
+          className={`md:hidden fixed top-0 left-0 bottom-0 w-80 bg-neutral-900 border-r border-neutral-800 z-50 transform transition-transform ${showChannelDrawer ? 'translate-x-0' : '-translate-x-full'}`}
+        >
           <div className="h-full p-4 flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide">
@@ -276,7 +323,7 @@ export default function App() {
         <PanelResizeHandle className="hidden md:block w-1 bg-neutral-800 hover:bg-neutral-700 transition-colors" />
 
         <Panel defaultSize={42} minSize={25}>
-          <div className="h-full flex flex-col md:p-4">
+          <div className="h-full flex flex-col md:p-4" style={{ height: '100%' }}>
             {isCreating && (
               <div className="hidden md:block">
                 <ChannelHeader
@@ -312,7 +359,7 @@ export default function App() {
                     channelId={currentChannel.channel_id}
                   />
                 </div>
-                
+
                 <div className="shrink-0">
                   {agentTabs.length > 0 && (
                     <div className="border-t border-neutral-800 overflow-x-auto flex gap-2 px-4 py-2 md:hidden">
@@ -335,9 +382,12 @@ export default function App() {
                       ))}
                     </div>
                   )}
-                  
+
                   <AgentStatus channel={currentChannel.name} />
-                  <div className="px-4 md:px-0" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}>
+                  <div
+                    className="px-4 md:px-0"
+                    style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}
+                  >
                     <ComposeBox channel={currentChannel.name} />
                   </div>
                 </div>
@@ -374,6 +424,7 @@ export default function App() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto scrollable p-4">
+                  {selectedTab?.sessionId && <ContextIndicator sessionId={selectedTab.sessionId} />}
                   <ErrorBoundary
                     fallback={<div className="text-red-400 text-sm">Failed to load session</div>}
                   >

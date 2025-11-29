@@ -20,17 +20,19 @@ def test_get_last_session_in_channel(test_space, default_agents):
 
     channel = bridge.create_channel("test-channel")
 
-    # Create two spawns in channel with different sessions
+    # Create two completed spawns in channel with different sessions
     spawn1 = spawns.create_spawn(
         agent_id=agent.agent_id,
         channel_id=channel.channel_id,
     )
+    spawns.update_status(spawn1.id, "completed")
     spawns.link_session_to_spawn(spawn1.id, "session-aaa")
 
     spawn2 = spawns.create_spawn(
         agent_id=agent.agent_id,
         channel_id=channel.channel_id,
     )
+    spawns.update_status(spawn2.id, "completed")
     spawns.link_session_to_spawn(spawn2.id, "session-bbb")
 
     # Should return most recent session
@@ -57,12 +59,14 @@ def test_get_last_session_different_channels_isolated(test_space, default_agents
         agent_id=agent.agent_id,
         channel_id=channel_a.channel_id,
     )
+    spawns.update_status(spawn_a.id, "completed")
     spawns.link_session_to_spawn(spawn_a.id, "session-a")
 
     spawn_b = spawns.create_spawn(
         agent_id=agent.agent_id,
         channel_id=channel_b.channel_id,
     )
+    spawns.update_status(spawn_b.id, "completed")
     spawns.link_session_to_spawn(spawn_b.id, "session-b")
 
     # Each channel should return its own session

@@ -197,11 +197,14 @@ def _kill_spawn(spawn_id: str) -> None:
 
 
 def _get_last_session_in_channel(agent_id: str, channel_id: str) -> str | None:
-    """Get most recent session for agent in channel.
+    """Get most recent completed session for agent in channel.
 
-    Returns None if no previous spawns or if last spawn has no session_id.
+    Returns None if no previous completed spawns with session_id.
+    Only looks at completed spawns - running spawns have NULL session_id until they finish.
     """
-    channel_spawns = spawns.get_channel_spawns(channel_id, agent_id=agent_id, limit=1)
+    channel_spawns = spawns.get_channel_spawns(
+        channel_id, agent_id=agent_id, status="completed", limit=1
+    )
     if channel_spawns and channel_spawns[0].session_id:
         return channel_spawns[0].session_id
     return None

@@ -137,13 +137,17 @@ export function ChannelList({
                   onContextMenu={(e) => handleContextMenu(e, channel)}
                   onTouchStart={(e) => {
                     const touch = e.touches[0]
-                    const timer = setTimeout(() => {
+                    const timer = globalThis.setTimeout(() => {
                       handleContextMenu(
-                        { clientX: touch.clientX, clientY: touch.clientY, preventDefault: () => {} } as any,
+                        {
+                          clientX: touch.clientX,
+                          clientY: touch.clientY,
+                          preventDefault: () => {},
+                        } as React.MouseEvent,
                         channel
                       )
                     }, 500)
-                    const cleanup = () => clearTimeout(timer)
+                    const cleanup = () => globalThis.clearTimeout(timer)
                     e.currentTarget.addEventListener('touchend', cleanup, { once: true })
                     e.currentTarget.addEventListener('touchmove', cleanup, { once: true })
                   }}
