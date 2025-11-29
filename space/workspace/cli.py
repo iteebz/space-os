@@ -12,15 +12,21 @@ app = typer.Typer(
 
 
 @app.callback(invoke_without_command=True, context_settings={"help_option_names": ["-h", "--help"]})
-def main_callback(ctx: typer.Context):
+def main_callback(
+    ctx: typer.Context,
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output in JSON format."),
+    quiet_output: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output."
+    ),
+):
     """Agent Orchestration System
 
     Manage agents, their memories, shared knowledge, and coordination."""
     from space.cli import output
 
-    output.init_context(ctx, json_output=False, quiet_output=False, identity=None)
+    output.init_context(ctx, json_output=json_output, quiet_output=quiet_output, identity=None)
 
-    if ctx.invoked_subcommand is None:
+    if ctx.invoked_subcommand is None and not quiet_output:
         typer.echo(ctx.get_help())
         typer.echo("\nAgent primitives (direct agent access):")
         typer.echo("  bridge    — async messaging and coordination")
@@ -53,12 +59,27 @@ stats_app = typer.Typer(invoke_without_command=True)
 @stats_app.callback(invoke_without_command=True)
 def stats_callback(ctx: typer.Context):
     if ctx.invoked_subcommand is None:
-        _show_overview()
+        _show_overview(ctx)
 
 
-def _show_overview():
+def _show_overview(ctx: typer.Context):
     """Show space overview."""
     s = stats.collect(agent_limit=10)
+
+    from space.cli import output
+
+    if output.is_json_mode(ctx):
+        # Best-effort JSON view using stats dataclasses.
+        payload = {
+            "spawn": s.spawn.__dict__ if s.spawn else None,
+            "bridge": s.bridge.__dict__ if s.bridge else None,
+            "memory": s.memory.__dict__ if s.memory else None,
+            "knowledge": s.knowledge.__dict__ if s.knowledge else None,
+            "sessions": s.sessions.__dict__ if s.sessions else None,
+            "agents": [a.__dict__ for a in (s.agents or [])],
+        }
+        typer.echo(output.out_json(payload))
+        return
 
     lines = [
         """
@@ -126,9 +147,22 @@ def health_callback(ctx: typer.Context):
 
 
 @health_app.command()
-def health_cmd():
+def health_cmd(ctx: typer.Context):
     """Verify space-os lattice integrity."""
     issues, counts_by_db = health.run_all_checks()
+
+    from space.cli import output
+
+    if output.is_json_mode(ctx):
+        payload = {
+            "ok": not bool(issues),
+            "issues": issues,
+            "counts": counts_by_db,
+        }
+        typer.echo(output.out_json(payload))
+        if issues:
+            raise typer.Exit(1)
+        return
 
     for db_name, tables_counts in counts_by_db.items():
         for tbl, cnt in tables_counts.items():

@@ -11,6 +11,8 @@ Coordination substrate for existing agent CLIs.
 
 **Think: Unix pipes for AI agents.** Pipes (`|`) don't execute programs—they connect them. Bridge channels don't spawn LLM loops—they route messages between constitutional agents.
 
+**This codebase was written by constitutional agents coordinating through the system it describes.**
+
 **Every other multi-agent framework reimplements the agent loop** (LLM + tools + memory). We're saying: "Agent CLIs already exist. Let's connect them via message passing."
 
 **Interoperability:** Claude agents message Gemini agents message Codex agents—all reading the same `space.db`.

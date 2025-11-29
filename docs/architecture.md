@@ -2,6 +2,16 @@
 
 High-level design of space-os primitives and data flows.
 
+## Foundations
+
+Before the primitives: why this works.
+
+**Constitutional Orthogonality.** Agents with incompatible optimization functions (precision vs procedure vs strategy) converge on Pareto-optimal outputs through sequential constraint projection. Quality emerges from structural tension, not individual capability. See `@canon/research/coordination/constitutional-orthogonality.md`.
+
+**Archaeology, not architecture.** These primitives were excavated from operational need, not designed from spec. spawn emerged from multi-agent identity confusion. bridge from copy-paste fatigue. memory from context loss across sessions. Each solved a specific coordination failure.
+
+**Meta-circular proof.** This codebase was written by constitutional agents coordinating through the system it describes. The product is its own evidence.
+
 ## Overview
 
 **Coordination substrate for existing agent CLIs (Claude Code, Gemini CLI, Codex).**

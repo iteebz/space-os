@@ -7,6 +7,7 @@ import typer
 
 from space.cli import argv, output
 from space.cli.errors import error_feedback
+from space.os import memory
 from space.os.context import display
 from space.os.memory.format import format_memory_entries
 
@@ -55,7 +56,7 @@ def add(
     from space.cli.identity import resolve_agent
 
     agent = resolve_agent(ctx)
-    memory_id = api.add_memory(agent.agent_id, message, topic=topic)
+    memory_id = memory.add_memory(agent.agent_id, message, topic=topic)
     topic_str = f" [{topic}]" if topic else ""
     output.respond(ctx, {"memory_id": memory_id}, f"Added{topic_str}: {memory_id[-8:]}")
 
@@ -68,11 +69,11 @@ def edit(
     message: str = typer.Argument(..., help="The new message content"),
 ):
     """Update memory content by UUID."""
-    entry = api.get_memory(uuid)
+    entry = memory.get_memory(uuid)
     if not entry:
         raise typer.BadParameter(f"Memory not found: {uuid}")
 
-    api.edit_memory(uuid, message)
+    memory.edit_memory(uuid, message)
     output.echo_text(f"Edited {uuid[-8:]}", ctx)
 
 
@@ -90,7 +91,7 @@ def list_cmd(
     from space.cli.identity import resolve_agent
 
     agent = resolve_agent(ctx)
-    entries = api.list_memories(agent.identity, topic=topic, show_all=show_all)
+    entries = memory.list_memories(agent.identity, topic=topic, show_all=show_all)
     entries = sorted(entries, key=lambda e: (not e.core, e.created_at), reverse=True)
 
     if not entries:
@@ -123,7 +124,7 @@ def search(
     from space.cli.identity import resolve_agent
 
     agent = resolve_agent(ctx)
-    entries = api.list_memories(agent.identity, show_all=show_all)
+    entries = memory.list_memories(agent.identity, show_all=show_all)
     results = [e for e in entries if query.lower() in e.message.lower()]
 
     if not results:
@@ -145,11 +146,11 @@ def archive(
     restore: bool = typer.Option(False, "--restore", help="Restore archived memory"),
 ):
     """Archive or restore memory."""
-    entry = api.get_memory(uuid)
+    entry = memory.get_memory(uuid)
     if not entry:
         raise typer.BadParameter(f"Memory not found: {uuid}")
 
-    api.archive_memory(uuid, restore=restore)
+    memory.archive_memory(uuid, restore=restore)
     action = "restored" if restore else "archived"
     output.echo_text(f"{action} {uuid[-8:]}", ctx)
 
@@ -161,11 +162,11 @@ def core(
     uuid: str = typer.Argument(..., help="UUID of the memory to mark core"),
 ):
     """Toggle core memory status (essential to agent identity)."""
-    entry = api.get_memory(uuid)
+    entry = memory.get_memory(uuid)
     if not entry:
         raise typer.BadParameter(f"Memory not found: {uuid}")
     try:
-        is_core = api.toggle_memory_core(uuid)
+        is_core = memory.toggle_memory_core(uuid)
         output.out_text(f"{'★' if is_core else ''} {uuid[-8:]}", ctx.obj)
     except ValueError as e:
         raise typer.BadParameter(str(e)) from e
@@ -181,7 +182,7 @@ def info(
 ):
     """View memory and find related entries."""
     try:
-        entry = api.get_memory(uuid)
+        entry = memory.get_memory(uuid)
     except ValueError as e:
         raise typer.BadParameter(str(e)) from e
 
@@ -189,7 +190,7 @@ def info(
         output.out_text("Not found", ctx.obj)
         return
 
-    related = api.find_related_memories(entry, limit=limit, show_all=show_all)
+    related = memory.find_related_memories(entry, limit=limit, show_all=show_all)
     if output.is_json_mode(ctx):
         payload = {
             "memory": asdict(entry),

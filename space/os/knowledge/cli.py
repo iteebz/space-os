@@ -7,7 +7,7 @@ import typer
 
 from space.cli import argv, output
 from space.cli.errors import error_feedback
-from space.os import spawn
+from space.os import knowledge, spawn
 
 argv.flex_args("as")
 
@@ -53,7 +53,7 @@ def add(
         raise typer.BadParameter(f"Invalid domain: {error}")
 
     agent = resolve_agent(ctx)
-    knowledge_id = api.add_knowledge(domain, agent.agent_id, content)
+    knowledge_id = knowledge.add_knowledge(domain, agent.agent_id, content)
     output.respond(
         ctx,
         {"knowledge_id": knowledge_id},
@@ -74,7 +74,7 @@ def tree(
       knowledge tree                      # Show all domains
       knowledge tree architecture         # Show architecture subtree
     """
-    tree_data = api.get_domain_tree(domain, show_all)
+    tree_data = knowledge.get_domain_tree(domain, show_all)
 
     def print_tree(node: dict, prefix: str = "", is_last: bool = True):
         items = [(k, v) for k, v in node.items() if k != "__ids"]
@@ -109,7 +109,7 @@ def list_knowledge(
     show_all: bool = typer.Option(False, "--all", help="Show all entries"),
 ):
     """List all knowledge entries (metadata only)."""
-    entries = api.list_knowledge(show_all=show_all)
+    entries = knowledge.list_knowledge(show_all=show_all)
     if not entries:
         if output.is_json_mode(ctx):
             output.echo_json([], ctx)
@@ -140,7 +140,7 @@ def query_domain(
       knowledge query architecture/caching           # Exact match
       knowledge query architecture/caching --all     # Include archived
     """
-    entries = api.query_knowledge(domain, show_all=show_all)
+    entries = knowledge.query_knowledge(domain, show_all=show_all)
     if not entries:
         output.echo_text(f"No entries for domain '{domain}'", ctx)
         return
@@ -172,7 +172,7 @@ def read(
         output.echo_text(f"Error: {e}", ctx)
         return
 
-    entry = api.get_knowledge(full_id)
+    entry = knowledge.get_knowledge(full_id)
     if not entry:
         output.echo_text(f"Not found: {knowledge_id}", ctx)
         return
@@ -209,12 +209,12 @@ def archive(
         output.echo_text(f"Error: {e}", ctx)
         return
 
-    entry = api.get_knowledge(full_id)
+    entry = knowledge.get_knowledge(full_id)
     if not entry:
         output.echo_text(f"Not found: {knowledge_id}", ctx)
         return
 
-    api.archive_knowledge(full_id, restore=restore)
+    knowledge.archive_knowledge(full_id, restore=restore)
     action = "restored" if restore else "archived"
     output.echo_text(f"{action} {knowledge_id[-8:]}", ctx)
 
