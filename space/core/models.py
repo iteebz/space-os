@@ -5,11 +5,17 @@ from enum import Enum
 class SpawnStatus(str, Enum):
     PENDING = "pending"
     RUNNING = "running"
-    ACTIVE = "active"  # Between CLI invocations, awaiting next @mention
+    ACTIVE = "active"
     COMPLETED = "completed"
     FAILED = "failed"
     TIMEOUT = "timeout"
     KILLED = "killed"
+
+
+SPAWN_LIVE_STATUSES = frozenset({SpawnStatus.RUNNING, SpawnStatus.ACTIVE, SpawnStatus.PENDING})
+SPAWN_TERMINAL_STATUSES = frozenset(
+    {SpawnStatus.COMPLETED, SpawnStatus.FAILED, SpawnStatus.TIMEOUT, SpawnStatus.KILLED}
+)
 
 
 class TaskStatus(str, Enum):

@@ -35,8 +35,7 @@ def find_session_for_spawn(
     if provider == "claude" and cwd:
         from space.lib.providers.claude import Claude
 
-        escaped_cwd = cwd.replace("/", "-").replace(".", "-")
-        native_dir = Claude.SESSIONS_DIR / escaped_cwd
+        native_dir = Claude.SESSIONS_DIR / Claude.escape_cwd(cwd)
         if native_dir.exists():
             search_dirs.append(native_dir)
 

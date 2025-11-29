@@ -149,7 +149,7 @@ def resolve_session_id(
     Raises:
         ValueError: If resume doesn't match any spawn or session
 
-    Note: Session auto-discovery for @mentions is in delimiters.py:_get_last_session_in_channel()
+    Note: For @mentions, session continuity uses spawn.session_id from get_active_spawn_in_channel()
     """
     from space.lib import paths
     from space.lib.providers.claude import Claude

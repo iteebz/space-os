@@ -17,6 +17,11 @@ class Claude(Provider):
     DISALLOWED_TOOLS = ["NotebookRead", "NotebookEdit", "Task", "TodoWrite"]
 
     @staticmethod
+    def escape_cwd(cwd: str) -> str:
+        """Escape CWD for Claude's project directory naming."""
+        return cwd.replace("/", "-").replace(".", "-")
+
+    @staticmethod
     def extract_session_id(output: str) -> str | None:
         """Extract session ID from Claude CLI JSONL output.
 
@@ -78,8 +83,7 @@ class Claude(Provider):
         candidates = []
 
         if cwd:
-            escaped_cwd = cwd.replace("/", "-").replace(".", "-")
-            project_dir = Claude.SESSIONS_DIR / escaped_cwd
+            project_dir = Claude.SESSIONS_DIR / Claude.escape_cwd(cwd)
             search_dirs = [project_dir] if project_dir.is_dir() else []
         else:
             search_dirs = [d for d in Claude.SESSIONS_DIR.iterdir() if d.is_dir()]

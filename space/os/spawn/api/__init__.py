@@ -17,7 +17,6 @@ from .launch import spawn_ephemeral
 from .prompt import build_spawn_context
 from .spawns import (
     create_spawn,
-    end_spawn,
     get_channel_spawns,
     get_spawn,
     get_spawn_count,
@@ -40,7 +39,6 @@ __all__ = [
     "build_spawn_context",
     "spawn_ephemeral",
     "create_spawn",
-    "end_spawn",
     "get_spawn",
     "get_spawns_for_agent",
     "get_channel_spawns",

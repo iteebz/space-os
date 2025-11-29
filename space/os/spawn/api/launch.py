@@ -264,8 +264,6 @@ def _link_session(spawn, resumed_session_id: str | None, provider: str, stdout: 
 
     Claude CLI creates NEW session files even when resuming. We must discover
     the actual session created by this spawn, not link to the resumed-from session.
-
-    Also records session in spawn_sessions table (many sessions per spawn).
     """
     from space.os.sessions.api import linker
 

@@ -27,7 +27,14 @@ class Storage(Protocol):
 
 @runtime_checkable
 class Provider(Protocol):
-    """LLM provider protocol (Claude, Codex, Gemini)."""
+    """LLM provider protocol (Claude, Codex, Gemini).
+
+    Session methods (sync):
+        discover, ingest, index, parse, tokens, session_id_from_*
+
+    Spawn methods (launch):
+        launch_args, task_launch_args, discover_session
+    """
 
     def discover(self) -> list[dict]: ...
 
@@ -42,3 +49,11 @@ class Provider(Protocol):
     def session_id_from_stream(self, output: str) -> str | None: ...
 
     def session_id_from_contents(self, file_path: Path) -> str | None: ...
+
+    def launch_args(self) -> list[str]: ...
+
+    def task_launch_args(self) -> list[str]: ...
+
+    def discover_session(
+        self, spawn: Any, start_ts: float, end_ts: float, cwd: str | None = None
+    ) -> str | None: ...

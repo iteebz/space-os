@@ -5,35 +5,35 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from space.core.models import Agent
-from space.os.bridge.api import delimiters
+from space.os.bridge.api import control, delimiters, mentions
 from space.os.spawn.api.prompt import build_spawn_context
 
 
 def test_parse_mentions_single():
     """Extract single @mention."""
     content = "@zealot can you help?"
-    parsed = delimiters._extract_mentions(content)
+    parsed = mentions.extract_mentions(content)
     assert parsed == ["zealot"]
 
 
 def test_parse_mentions_multiple():
     """Extract multiple @mentions."""
     content = "@zealot @sentinel what do you think?"
-    parsed = delimiters._extract_mentions(content)
+    parsed = mentions.extract_mentions(content)
     assert set(parsed) == {"zealot", "sentinel"}
 
 
 def test_parse_mentions_no_duplicates():
     """Deduplicate mentions."""
     content = "@zealot please respond. @zealot are you there?"
-    parsed = delimiters._extract_mentions(content)
+    parsed = mentions.extract_mentions(content)
     assert parsed == ["zealot"]
 
 
 def test_parse_mentions_none():
     """No mentions in content."""
     content = "just a regular message"
-    parsed = delimiters._extract_mentions(content)
+    parsed = mentions.extract_mentions(content)
     assert parsed == []
 
 
@@ -100,12 +100,10 @@ def test_build_spawn_context_with_channel():
 
 def test_process_control_commands_stop():
     """Slash command processor stops running spawns."""
-    from unittest.mock import MagicMock, patch
-
     with (
-        patch("space.os.bridge.api.delimiters.spawn_agents.get_agent") as mock_get_agent,
-        patch("space.os.bridge.api.delimiters.spawns.get_spawns_for_agent") as mock_get_spawns,
-        patch("space.os.bridge.api.delimiters._kill_spawn") as mock_kill,
+        patch("space.os.bridge.api.control.spawn_agents.get_agent") as mock_get_agent,
+        patch("space.os.bridge.api.control.spawns.get_spawns_for_agent") as mock_get_spawns,
+        patch("space.os.bridge.api.control.spawns.terminate_spawn") as mock_terminate,
     ):
         mock_agent = MagicMock()
         mock_agent.agent_id = "agent-123"
@@ -117,9 +115,9 @@ def test_process_control_commands_stop():
         mock_spawn.channel_id = "channel-1"
         mock_get_spawns.return_value = [mock_spawn]
 
-        delimiters._process_control_commands("channel-1", "/stop zealot")
+        control.process_control_commands("channel-1", "/stop zealot")
 
-        mock_kill.assert_called_once_with("spawn-456")
+        mock_terminate.assert_called_once_with("spawn-456", "killed")
 
 
 @pytest.mark.asyncio
@@ -127,8 +125,9 @@ async def test_process_delimiters_async():
     """Verify async delimiter processing."""
     with (
         patch("space.os.bridge.api.channels.get_channel") as mock_get_channel,
-        patch("space.os.bridge.api.delimiters._process_control_commands") as mock_control,
-        patch("space.os.bridge.api.delimiters._process_mentions") as mock_mentions,
+        patch("space.os.bridge.api.delimiters.process_control_commands") as mock_control,
+        patch("space.os.bridge.api.delimiters.process_mentions") as mock_mentions,
+        patch("space.os.bridge.api.delimiters.process_signals") as mock_signals,
     ):
         mock_channel = MagicMock()
         mock_channel.channel_id = "test-ch"
@@ -137,4 +136,5 @@ async def test_process_delimiters_async():
         await delimiters.process_delimiters("test-ch", "@zealot test", "agent-1")
 
         mock_control.assert_called_once_with("test-ch", "@zealot test", "agent-1")
+        mock_signals.assert_called_once_with("test-ch", "@zealot test", "agent-1")
         mock_mentions.assert_called_once_with("test-ch", "@zealot test", "agent-1")

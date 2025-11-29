@@ -131,3 +131,33 @@ def test_spawn_lifecycle_state_machine(test_space, default_agents):
     spawn = spawns.get_spawn(spawn.id)
     assert spawn.status == SpawnStatus.COMPLETED
     assert spawn.ended_at is not None
+
+
+def test_terminate_spawn_running_kills(test_space, default_agents, mocker):
+    """terminate_spawn kills running spawns."""
+    zealot = default_agents["zealot"]
+
+    spawn = spawns.create_spawn(agent_id=zealot)
+    spawns.update_status(spawn.id, "running")
+
+    mock_kill = mocker.patch.object(spawns, "kill_spawn")
+
+    spawns.terminate_spawn(spawn.id, "completed")
+
+    mock_kill.assert_called_once_with(spawn.id)
+
+
+def test_terminate_spawn_active_sets_status(test_space, default_agents, mocker):
+    """terminate_spawn sets final status for non-running spawns."""
+    zealot = default_agents["zealot"]
+
+    spawn = spawns.create_spawn(agent_id=zealot)
+    spawns.update_status(spawn.id, "active")
+
+    mocker.patch("space.os.sessions.api.sync.ingest")
+    mocker.patch("space.os.sessions.api.sync.index")
+
+    spawns.terminate_spawn(spawn.id, "completed")
+
+    spawn = spawns.get_spawn(spawn.id)
+    assert spawn.status == SpawnStatus.COMPLETED

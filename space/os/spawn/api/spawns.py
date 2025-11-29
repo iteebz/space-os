@@ -4,7 +4,7 @@ import logging
 from collections.abc import Sequence
 from datetime import datetime
 
-from space.core.models import Spawn
+from space.core.models import SPAWN_TERMINAL_STATUSES, Spawn, SpawnStatus
 from space.lib import store
 from space.lib.store import from_row
 from space.lib.uuid7 import uuid7
@@ -61,15 +61,16 @@ def create_spawn(
 def update_status(spawn_id: str, status: str) -> None:
     """Update spawn status. Terminal states trigger session indexing."""
     now = datetime.now().isoformat()
-    terminal_states = {"completed", "failed", "timeout", "killed"}
-    non_terminal_active = {"active"}  # Between CLI runs, not terminal
+    is_terminal = status in SPAWN_TERMINAL_STATUSES or status in {
+        s.value for s in SPAWN_TERMINAL_STATUSES
+    }
 
     with store.ensure() as conn:
         current = conn.execute("SELECT status FROM spawns WHERE id = ?", (spawn_id,)).fetchone()
-        if current and current[0] == "killed":
+        if current and current[0] == SpawnStatus.KILLED.value:
             return
 
-        if status in terminal_states:
+        if is_terminal:
             conn.execute(
                 "UPDATE spawns SET status = ?, ended_at = ? WHERE id = ?",
                 (status, now, spawn_id),
@@ -80,9 +81,9 @@ def update_status(spawn_id: str, status: str) -> None:
                 (status, spawn_id),
             )
 
-    if status in terminal_states:
+    if is_terminal:
         _finalize_session(spawn_id)
-    elif status in non_terminal_active:
+    elif status == SpawnStatus.ACTIVE.value or status == SpawnStatus.ACTIVE:
         _sync_current_session(spawn_id)
 
 
@@ -114,17 +115,65 @@ def _sync_current_session(spawn_id: str) -> None:
         logger.debug(f"Session sync for active spawn {spawn_id}: {e}")
 
 
-def end_spawn(spawn_id: str) -> None:
-    with store.ensure() as conn:
-        conn.execute(
-            "UPDATE spawns SET ended_at = ? WHERE id = ?",
-            (datetime.now().isoformat(), spawn_id),
-        )
-
-
 def set_pid(spawn_id: str, pid: int) -> None:
     with store.ensure() as conn:
         conn.execute("UPDATE spawns SET pid = ? WHERE id = ?", (pid, spawn_id))
+
+
+def terminate_spawn(spawn_id: str, final_status: str = "completed") -> None:
+    """Terminate spawn: kill if running, else set final status."""
+    spawn = get_spawn(spawn_id)
+    if not spawn:
+        return
+    if spawn.status == SpawnStatus.RUNNING:
+        kill_spawn(spawn_id)
+    else:
+        update_status(spawn_id, final_status)
+
+
+def kill_spawn(spawn_id: str) -> None:
+    """Kill spawn process with SIGTERM -> SIGKILL escalation."""
+    import os
+    import signal
+    import time
+
+    spawn = get_spawn(spawn_id)
+    if not spawn:
+        logger.warning(f"Cannot kill spawn {spawn_id}: not found")
+        return
+
+    if not spawn.pid:
+        logger.warning(f"Cannot kill spawn {spawn_id}: no PID")
+        update_status(spawn_id, "killed")
+        return
+
+    try:
+        os.kill(spawn.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        update_status(spawn_id, "killed")
+        return
+    except OSError as e:
+        logger.error(f"SIGTERM failed for spawn {spawn_id}: {e}")
+        update_status(spawn_id, "killed")
+        return
+
+    for _ in range(10):
+        time.sleep(0.5)
+        try:
+            os.kill(spawn.pid, 0)
+        except ProcessLookupError:
+            update_status(spawn_id, "killed")
+            return
+
+    try:
+        os.kill(spawn.pid, signal.SIGKILL)
+        logger.info(f"Spawn {spawn_id} required SIGKILL")
+    except ProcessLookupError:
+        pass
+    except OSError as e:
+        logger.error(f"SIGKILL failed for spawn {spawn_id}: {e}")
+
+    update_status(spawn_id, "killed")
 
 
 SPAWN_TIMEOUT_MINUTES = 10
