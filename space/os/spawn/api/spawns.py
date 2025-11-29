@@ -62,6 +62,7 @@ def update_status(spawn_id: str, status: str) -> None:
     """Update spawn status. Terminal states trigger session indexing."""
     now = datetime.now().isoformat()
     terminal_states = {"completed", "failed", "timeout", "killed"}
+    non_terminal_active = {"active"}  # Between CLI runs, not terminal
 
     with store.ensure() as conn:
         current = conn.execute("SELECT status FROM spawns WHERE id = ?", (spawn_id,)).fetchone()
@@ -81,6 +82,8 @@ def update_status(spawn_id: str, status: str) -> None:
 
     if status in terminal_states:
         _finalize_session(spawn_id)
+    elif status in non_terminal_active:
+        _sync_current_session(spawn_id)
 
 
 def _finalize_session(spawn_id: str) -> None:
@@ -95,6 +98,20 @@ def _finalize_session(spawn_id: str) -> None:
         sync.index(spawn.session_id)
     except Exception as e:
         logger.warning(f"Failed to finalize session {spawn.session_id} for spawn {spawn_id}: {e}")
+
+
+def _sync_current_session(spawn_id: str) -> None:
+    """Sync current session without finalizing (spawn stays active)."""
+    spawn = get_spawn(spawn_id)
+    if not spawn or not spawn.session_id:
+        return
+
+    try:
+        from space.os.sessions.api import sync
+
+        sync.ingest(spawn.session_id)
+    except Exception as e:
+        logger.debug(f"Session sync for active spawn {spawn_id}: {e}")
 
 
 def end_spawn(spawn_id: str) -> None:
@@ -340,3 +357,16 @@ def get_root_spawns_for_agent(agent_id: str, limit: int = 100) -> list[Spawn]:
             (agent_id, limit),
         ).fetchall()
         return [from_row(row, Spawn) for row in rows]
+
+
+def get_active_spawn_in_channel(agent_id: str, channel_id: str) -> Spawn | None:
+    """Get agent's active or running spawn in channel (for reuse on @mention)."""
+    with store.ensure() as conn:
+        row = conn.execute(
+            """SELECT id, agent_id, parent_spawn_id, session_id, channel_id, constitution_hash, status, pid, created_at, ended_at
+            FROM spawns
+            WHERE agent_id = ? AND channel_id = ? AND status IN ('active', 'running')
+            ORDER BY created_at DESC LIMIT 1""",
+            (agent_id, channel_id),
+        ).fetchone()
+        return from_row(row, Spawn) if row else None

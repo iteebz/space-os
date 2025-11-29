@@ -122,28 +122,34 @@ def _cancel_timer(channel_id: str) -> None:
 
 
 def _stop_all_agents_in_channel(channel_id: str) -> None:
-    """Emergency brake: kill all active spawns in channel."""
+    """Emergency brake: stop all spawns in channel."""
     from space.core.models import SpawnStatus
 
-    active_statuses = {SpawnStatus.RUNNING, SpawnStatus.PENDING}
+    stoppable = {SpawnStatus.RUNNING, SpawnStatus.PENDING, SpawnStatus.ACTIVE}
     for spawn in spawns.get_channel_spawns(channel_id):
-        if spawn.status in active_statuses:
-            _kill_spawn(spawn.id)
-    log.info(f"Killed all agents in channel {channel_id}")
+        if spawn.status in stoppable:
+            if spawn.status == SpawnStatus.RUNNING:
+                _kill_spawn(spawn.id)
+            else:
+                spawns.update_status(spawn.id, "killed")
+    log.info(f"Stopped all agents in channel {channel_id}")
 
 
 def _stop_agent_in_channel(channel_id: str, identity: str) -> None:
-    """Stop agent in channel (kill all active spawns)."""
+    """Stop agent in channel."""
     from space.core.models import SpawnStatus
 
     agent = spawn_agents.get_agent(identity)
     if not agent:
         return
 
-    active_statuses = {SpawnStatus.RUNNING, SpawnStatus.PENDING}
+    stoppable = {SpawnStatus.RUNNING, SpawnStatus.PENDING, SpawnStatus.ACTIVE}
     for spawn in spawns.get_spawns_for_agent(agent.agent_id):
-        if spawn.status in active_statuses and spawn.channel_id == channel_id:
-            _kill_spawn(spawn.id)
+        if spawn.channel_id == channel_id and spawn.status in stoppable:
+            if spawn.status == SpawnStatus.RUNNING:
+                _kill_spawn(spawn.id)
+            else:
+                spawns.update_status(spawn.id, "killed")
 
 
 def _kill_spawn(spawn_id: str) -> None:
@@ -211,9 +217,12 @@ def _get_last_session_in_channel(agent_id: str, channel_id: str) -> str | None:
 
 
 def _process_mentions(channel_id: str, content: str, sender_agent_id: str | None = None) -> None:
-    """Process @mentions: spawn agent if not already running in channel.
+    """Process @mentions: reuse active spawn or create new one.
 
-    Session continuity: @mention resumes last session in channel if one exists.
+    Spawn lifecycle:
+    - First @mention: create spawn, CLI runs, spawn becomes ACTIVE
+    - Subsequent @mentions: reuse ACTIVE spawn, CLI runs, spawn stays ACTIVE
+    - !compact/!handoff: spawn COMPLETED, successor created
     """
     from space.lib.detach import detach
 
@@ -228,16 +237,28 @@ def _process_mentions(channel_id: str, content: str, sender_agent_id: str | None
         if not agent.model:
             continue
 
-        if _has_running_spawn_in_channel(agent.agent_id, channel_id):
+        existing_spawn = spawns.get_active_spawn_in_channel(agent.agent_id, channel_id)
+
+        if existing_spawn and existing_spawn.status == "running":
             continue
 
-        cmd = ["spawn", "run", identity, content, "--channel", channel_id]
-
-        last_session = _get_last_session_in_channel(agent.agent_id, channel_id)
-        if last_session:
-            cmd.extend(["--resume", last_session])
-
-        detach(cmd)
+        if existing_spawn and existing_spawn.status == "active":
+            cmd = [
+                "spawn",
+                "run",
+                identity,
+                content,
+                "--channel",
+                channel_id,
+                "--spawn-id",
+                existing_spawn.id,
+            ]
+            if existing_spawn.session_id:
+                cmd.extend(["--resume", existing_spawn.session_id])
+            detach(cmd)
+        else:
+            cmd = ["spawn", "run", identity, content, "--channel", channel_id]
+            detach(cmd)
 
 
 def _attempt_relink_for_agent(agent_id: str) -> None:
@@ -401,13 +422,7 @@ def _compact_agent_in_channel(channel_id: str, identity: str) -> None:
     if not agent:
         return
 
-    # Find running spawn in channel
-    current_spawn = None
-    for spawn in spawns.get_spawns_for_agent(agent.agent_id):
-        if spawn.status == SpawnStatus.RUNNING and spawn.channel_id == channel_id:
-            current_spawn = spawn
-            break
-
+    current_spawn = spawns.get_active_spawn_in_channel(agent.agent_id, channel_id)
     if not current_spawn:
         return
 
@@ -425,8 +440,11 @@ def _compact_agent_in_channel(channel_id: str, identity: str) -> None:
         ]
     )
 
-    # Kill current spawn
-    _kill_spawn(current_spawn.id)
+    # Complete current spawn
+    if current_spawn.status == SpawnStatus.RUNNING:
+        _kill_spawn(current_spawn.id)
+    else:
+        spawns.update_status(current_spawn.id, "completed")
 
 
 def _process_compact_command(channel_id: str, content: str, sender_agent_id: str | None) -> None:
@@ -450,13 +468,8 @@ def _process_compact_command(channel_id: str, content: str, sender_agent_id: str
     if not sender_agent:
         return
 
-    # Get current spawn in this channel
-    current_spawn = None
-    for spawn in spawns.get_spawns_for_agent(sender_agent_id):
-        if spawn.status == SpawnStatus.RUNNING and spawn.channel_id == channel_id:
-            current_spawn = spawn
-            break
-
+    # Get current spawn in this channel (running or active)
+    current_spawn = spawns.get_active_spawn_in_channel(sender_agent_id, channel_id)
     if not current_spawn:
         return
 
@@ -474,8 +487,11 @@ def _process_compact_command(channel_id: str, content: str, sender_agent_id: str
         ]
     )
 
-    # Kill current spawn
-    _kill_spawn(current_spawn.id)
+    # Complete current spawn (compact = terminal)
+    if current_spawn.status == SpawnStatus.RUNNING:
+        _kill_spawn(current_spawn.id)
+    else:
+        spawns.update_status(current_spawn.id, "completed")
 
 
 def _process_handoff_command(channel_id: str, content: str, sender_agent_id: str | None) -> None:
@@ -511,11 +527,18 @@ def _process_handoff_command(channel_id: str, content: str, sender_agent_id: str
         log.error(f"Failed to create handoff: {e}")
         return
 
-    # Spawn target agent if not already running
-    if not _has_running_spawn_in_channel(target_agent.agent_id, channel_id):
+    # Spawn target agent if not already running/active
+    existing = spawns.get_active_spawn_in_channel(target_agent.agent_id, channel_id)
+    if not existing:
         detach(["spawn", "run", target_identity, content, "--channel", channel_id])
 
-    # Kill sender's spawn in this channel
+    # Complete sender's spawn in this channel (handoff = terminal)
     for spawn in spawns.get_spawns_for_agent(sender_agent_id):
-        if spawn.status == SpawnStatus.RUNNING and spawn.channel_id == channel_id:
-            _kill_spawn(spawn.id)
+        if spawn.channel_id == channel_id and spawn.status in (
+            SpawnStatus.RUNNING,
+            SpawnStatus.ACTIVE,
+        ):
+            if spawn.status == SpawnStatus.RUNNING:
+                _kill_spawn(spawn.id)
+            else:
+                spawns.update_status(spawn.id, "completed")

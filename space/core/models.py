@@ -5,6 +5,7 @@ from enum import Enum
 class SpawnStatus(str, Enum):
     PENDING = "pending"
     RUNNING = "running"
+    ACTIVE = "active"  # Between CLI invocations, awaiting next @mention
     COMPLETED = "completed"
     FAILED = "failed"
     TIMEOUT = "timeout"

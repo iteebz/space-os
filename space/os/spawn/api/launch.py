@@ -75,7 +75,18 @@ def spawn_ephemeral(
     resume: str | None = None,
     max_retries: int = 1,
     parent_spawn_id: str | None = None,
+    existing_spawn_id: str | None = None,
 ):
+    """Run agent CLI invocation.
+
+    Spawn lifecycle:
+    - First @mention: create spawn → run CLI → status=active
+    - Subsequent @mentions: reuse spawn → run CLI → status=active
+    - !compact/!handoff: status=completed, successor created
+
+    Args:
+        existing_spawn_id: Reuse this spawn instead of creating new (for @mention continuity)
+    """
     from space.os.bridge.api import channels
 
     agent = agents.get_agent(identity)
@@ -84,32 +95,38 @@ def spawn_ephemeral(
     if not agent.model:
         raise ValueError(f"Agent '{identity}' has no model (human identity, cannot spawn)")
 
-    # Use explicit parent_spawn_id if provided (compaction), else check env (nested spawn)
-    if not parent_spawn_id:
-        parent_spawn_id = os.environ.get("SPACE_SPAWN_ID")
+    if existing_spawn_id:
+        spawn = spawns.get_spawn(existing_spawn_id)
+        if not spawn:
+            raise ValueError(f"Spawn '{existing_spawn_id}' not found")
+        if spawn.status not in ("active", "running"):
+            raise ValueError(f"Spawn '{existing_spawn_id}' is {spawn.status}, cannot reuse")
+    else:
+        if not parent_spawn_id:
+            parent_spawn_id = os.environ.get("SPACE_SPAWN_ID")
 
-    if parent_spawn_id:
-        parent_spawn = spawns.get_spawn(parent_spawn_id)
-        if parent_spawn:
-            depth = spawns.get_spawn_depth(parent_spawn_id)
-            if depth >= spawns.MAX_SPAWN_DEPTH:
-                raise ValueError(
-                    f"Cannot spawn: max depth {spawns.MAX_SPAWN_DEPTH} reached (current depth: {depth})"
-                )
-        else:
-            parent_spawn_id = None
+        if parent_spawn_id:
+            parent_spawn = spawns.get_spawn(parent_spawn_id)
+            if parent_spawn:
+                depth = spawns.get_spawn_depth(parent_spawn_id)
+                if depth >= spawns.MAX_SPAWN_DEPTH:
+                    raise ValueError(
+                        f"Cannot spawn: max depth {spawns.MAX_SPAWN_DEPTH} reached (current depth: {depth})"
+                    )
+            else:
+                parent_spawn_id = None
 
-    constitution_hash = agents.compute_constitution_hash(agent.constitution)
+        constitution_hash = agents.compute_constitution_hash(agent.constitution)
 
-    spawn = spawns.create_spawn(
-        agent_id=agent.agent_id,
-        channel_id=channel_id,
-        constitution_hash=constitution_hash,
-        parent_spawn_id=parent_spawn_id,
-    )
+        spawn = spawns.create_spawn(
+            agent_id=agent.agent_id,
+            channel_id=channel_id,
+            constitution_hash=constitution_hash,
+            parent_spawn_id=parent_spawn_id,
+        )
+        constitute(spawn, agent)
+
     spawns.update_status(spawn.id, "running")
-
-    constitute(spawn, agent)
 
     env = build_launch_env()
     env["SPACE_SPAWN_ID"] = spawn.id
@@ -128,24 +145,18 @@ def spawn_ephemeral(
     if session_id:
         _copy_bookmarks_from_session(session_id, spawn.id)
 
-    last_error = None
     for attempt in range(max_retries + 1):
         try:
             _run_ephemeral(agent, instruction, spawn, channel_name, session_id, env)
-            spawns.update_status(spawn.id, "completed")
-            _auto_sync_session(spawn)
+            spawns.update_status(spawn.id, "active")
             return spawn
         except Exception as e:
-            last_error = e
             if attempt < max_retries:
                 logger.warning(f"Spawn {identity} failed (attempt {attempt + 1}), retrying: {e}")
                 continue
             logger.error(f"Spawn {identity} failed after {max_retries + 1} attempts: {e}")
             spawns.update_status(spawn.id, "failed")
             raise
-        finally:
-            if attempt == max_retries or last_error is None:
-                spawns.end_spawn(spawn.id)
     return None
 
 
@@ -253,6 +264,8 @@ def _link_session(spawn, resumed_session_id: str | None, provider: str, stdout: 
 
     Claude CLI creates NEW session files even when resuming. We must discover
     the actual session created by this spawn, not link to the resumed-from session.
+
+    Also records session in spawn_sessions table (many sessions per spawn).
     """
     from space.os.sessions.api import linker
 

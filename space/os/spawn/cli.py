@@ -600,11 +600,19 @@ def run(
     parent_spawn: str | None = typer.Option(
         None, "--parent-spawn", help="Parent spawn ID for compaction chain"
     ),
+    spawn_id: str | None = typer.Option(
+        None, "--spawn-id", help="Existing spawn ID to reuse (for @mention continuity)"
+    ),
 ):
     """Run spawn directly (used by detached processes)."""
     try:
         spawn = api.spawn_ephemeral(
-            identity, instruction, channel_id=channel, resume=resume, parent_spawn_id=parent_spawn
+            identity,
+            instruction,
+            channel_id=channel,
+            resume=resume,
+            parent_spawn_id=parent_spawn,
+            existing_spawn_id=spawn_id,
         )
         typer.echo(f"spawn:{spawn.id}")
     except Exception as e:
