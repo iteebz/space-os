@@ -177,7 +177,13 @@ class Codex(Provider):
                 events.extend(Codex._parse_tool_result_message(obj, timestamp))
 
             payload = obj.get("payload", {})
-            if payload.get("type") == "message":
+            payload_type = payload.get("type")
+
+            if payload_type == "function_call":
+                events.extend(Codex._parse_function_call(payload, timestamp))
+            elif payload_type == "function_call_output":
+                events.extend(Codex._parse_function_output(payload, timestamp))
+            elif payload_type == "message":
                 payload_role = payload.get("role", "").lower()
                 if payload_role in ("user", "assistant"):
                     text = Codex._extract_payload_text(payload)
@@ -313,9 +319,7 @@ class Codex(Provider):
     @staticmethod
     def _parse_tool_result_message(message: dict, timestamp: str | None) -> list[SessionMessage]:
         """Extract tool result from tool message."""
-        messages = []
-
-        messages.append(
+        return [
             SessionMessage(
                 type="tool_result",
                 timestamp=timestamp,
@@ -324,6 +328,54 @@ class Codex(Provider):
                     "is_error": False,
                 },
             )
-        )
+        ]
 
-        return messages
+    @staticmethod
+    def _parse_function_call(payload: dict, timestamp: str | None) -> list[SessionMessage]:
+        """Parse function_call payload (Codex native format)."""
+        raw_name = payload.get("name", "")
+        normalized_name = TOOL_NAME_MAP.get(raw_name, raw_name)
+        arguments = payload.get("arguments", "{}")
+
+        try:
+            parsed_args = json.loads(arguments) if isinstance(arguments, str) else arguments
+        except json.JSONDecodeError:
+            parsed_args = {"raw": arguments}
+
+        if normalized_name == "Bash" and "command" in parsed_args:
+            cmd = parsed_args["command"]
+            if isinstance(cmd, list):
+                parsed_args["command"] = " ".join(cmd[2:]) if len(cmd) > 2 else " ".join(cmd)
+
+        return [
+            SessionMessage(
+                type="tool_call",
+                timestamp=timestamp,
+                content={"tool_name": normalized_name, "input": parsed_args},
+            )
+        ]
+
+    @staticmethod
+    def _parse_function_output(payload: dict, timestamp: str | None) -> list[SessionMessage]:
+        """Parse function_call_output payload."""
+        output_str = payload.get("output", "")
+        is_error = False
+
+        try:
+            output_obj = json.loads(output_str) if isinstance(output_str, str) else output_str
+            if isinstance(output_obj, dict):
+                actual_output = output_obj.get("output", output_str)
+                metadata = output_obj.get("metadata", {})
+                is_error = metadata.get("exit_code", 0) != 0
+            else:
+                actual_output = output_str
+        except json.JSONDecodeError:
+            actual_output = output_str
+
+        return [
+            SessionMessage(
+                type="tool_result",
+                timestamp=timestamp,
+                content={"output": actual_output, "is_error": is_error},
+            )
+        ]

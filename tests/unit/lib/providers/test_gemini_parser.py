@@ -233,3 +233,127 @@ def test_ingest():
         content = (dest_dir / "test-ingest.jsonl").read_text()
         lines = content.strip().split("\n")
         assert len(lines) == 2
+
+
+def test_tool_name_normalization_shell():
+    """Contract: Gemini 'Shell' normalizes to 'Bash'."""
+    jsonl_content = json.dumps(
+        {
+            "type": "model",
+            "timestamp": "2025-11-04T10:00:00Z",
+            "parts": [
+                {
+                    "functionCall": {
+                        "name": "Shell",
+                        "args": {"command": "ls -la"},
+                    }
+                }
+            ],
+        }
+    )
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+        f.write(jsonl_content)
+        f.flush()
+        temp_path = Path(f.name)
+
+    try:
+        events = Gemini.parse(temp_path)
+        assert len(events) == 1
+        assert events[0].type == "tool_call"
+        assert events[0].content["tool_name"] == "Bash"
+    finally:
+        temp_path.unlink()
+
+
+def test_tool_name_normalization_write_file():
+    """Contract: Gemini 'WriteFile' normalizes to 'Write'."""
+    jsonl_content = json.dumps(
+        {
+            "type": "model",
+            "timestamp": "2025-11-04T10:00:00Z",
+            "parts": [
+                {
+                    "functionCall": {
+                        "name": "WriteFile",
+                        "args": {"path": "/tmp/test.txt", "content": "hello"},
+                    }
+                }
+            ],
+        }
+    )
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+        f.write(jsonl_content)
+        f.flush()
+        temp_path = Path(f.name)
+
+    try:
+        events = Gemini.parse(temp_path)
+        assert len(events) == 1
+        assert events[0].type == "tool_call"
+        assert events[0].content["tool_name"] == "Write"
+    finally:
+        temp_path.unlink()
+
+
+def test_tool_name_normalization_read_file():
+    """Contract: Gemini 'ReadFile' normalizes to 'Read'."""
+    jsonl_content = json.dumps(
+        {
+            "type": "model",
+            "timestamp": "2025-11-04T10:00:00Z",
+            "parts": [
+                {
+                    "functionCall": {
+                        "name": "ReadFile",
+                        "args": {"path": "/tmp/test.txt"},
+                    }
+                }
+            ],
+        }
+    )
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+        f.write(jsonl_content)
+        f.flush()
+        temp_path = Path(f.name)
+
+    try:
+        events = Gemini.parse(temp_path)
+        assert len(events) == 1
+        assert events[0].type == "tool_call"
+        assert events[0].content["tool_name"] == "Read"
+    finally:
+        temp_path.unlink()
+
+
+def test_tool_name_normalization_search_text():
+    """Contract: Gemini 'SearchText' normalizes to 'Grep'."""
+    jsonl_content = json.dumps(
+        {
+            "type": "model",
+            "timestamp": "2025-11-04T10:00:00Z",
+            "parts": [
+                {
+                    "functionCall": {
+                        "name": "SearchText",
+                        "args": {"pattern": "TODO", "path": "/tmp"},
+                    }
+                }
+            ],
+        }
+    )
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+        f.write(jsonl_content)
+        f.flush()
+        temp_path = Path(f.name)
+
+    try:
+        events = Gemini.parse(temp_path)
+        assert len(events) == 1
+        assert events[0].type == "tool_call"
+        assert events[0].content["tool_name"] == "Grep"
+    finally:
+        temp_path.unlink()

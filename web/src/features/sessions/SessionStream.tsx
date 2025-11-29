@@ -1,5 +1,16 @@
 import React, { useEffect, useState } from 'react'
-import { BashCall, BashResult, EditCall, GenericTool, MetadataResult } from './ToolRenderers'
+import {
+  BashCall,
+  BashResult,
+  EditCall,
+  GenericTool,
+  GlobCall,
+  GrepCall,
+  LSCall,
+  MetadataResult,
+  ReadCall,
+  WriteCall,
+} from './ToolRenderers'
 import { formatLocalDate } from '../../lib/utils'
 
 interface SessionEvent {
@@ -194,13 +205,13 @@ export function SessionStream({ sessionId }: Props) {
 const TOOL_RENDERERS: Record<string, (input: Record<string, unknown>) => React.JSX.Element> = {
   Bash: (input) => (
     <BashCall
-      command={String(input.command || '')}
+      command={String(input.command || input.cmd || '')}
       description={input.description ? String(input.description) : undefined}
     />
   ),
   Edit: (input) => (
     <EditCall
-      file_path={String(input.file_path || '')}
+      file_path={String(input.file_path || input.path || '')}
       old_string={input.old_string ? String(input.old_string) : undefined}
       new_string={input.new_string ? String(input.new_string) : undefined}
     />
@@ -211,6 +222,11 @@ const TOOL_RENDERERS: Record<string, (input: Record<string, unknown>) => React.J
       edits={input.edits as Array<{ old_string: string; new_string: string }> | undefined}
     />
   ),
+  Read: (input) => <ReadCall input={input} />,
+  Write: (input) => <WriteCall input={input} />,
+  Grep: (input) => <GrepCall input={input} />,
+  Glob: (input) => <GlobCall input={input} />,
+  LS: (input) => <LSCall input={input} />,
 }
 
 function EventContent({ event, prevToolCall }: { event: SessionEvent; prevToolCall?: string }) {
