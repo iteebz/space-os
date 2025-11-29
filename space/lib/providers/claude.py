@@ -61,18 +61,30 @@ class Claude(Provider):
         ]
 
     @staticmethod
-    def discover_session(spawn, start_ts: float, end_ts: float) -> str | None:
+    def discover_session(
+        spawn, start_ts: float, end_ts: float, cwd: str | None = None
+    ) -> str | None:
         """Discover Claude session created during spawn window.
 
+        Args:
+            spawn: Spawn object (unused, kept for interface compatibility)
+            start_ts: Window start timestamp
+            end_ts: Window end timestamp
+            cwd: If provided, only search in project dir for this CWD
+
         Strategy: Match sessions by mtime within spawn time window.
-        Returns None if no unique match (avoids collision).
+        Returns closest match to spawn start time.
         """
         candidates = []
 
-        for project_dir in Claude.SESSIONS_DIR.iterdir():
-            if not project_dir.is_dir():
-                continue
+        if cwd:
+            escaped_cwd = cwd.replace("/", "-").replace(".", "-")
+            project_dir = Claude.SESSIONS_DIR / escaped_cwd
+            search_dirs = [project_dir] if project_dir.is_dir() else []
+        else:
+            search_dirs = [d for d in Claude.SESSIONS_DIR.iterdir() if d.is_dir()]
 
+        for project_dir in search_dirs:
             for session_file in project_dir.glob("*.jsonl"):
                 try:
                     mtime = session_file.stat().st_mtime
@@ -81,7 +93,6 @@ class Claude(Provider):
                 except OSError:
                     continue
 
-        # Return closest match to spawn start time
         if not candidates:
             return None
         candidates.sort(key=lambda x: x[1])

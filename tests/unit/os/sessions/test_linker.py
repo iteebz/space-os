@@ -27,14 +27,24 @@ def test_extract_session_id_from_jsonl():
         assert session_id == "session-abc-123"
 
 
-def test_extract_session_id_returns_none():
-    """Return None if no id field."""
+def test_extract_session_id_from_claude_format():
+    """Extract sessionId from Claude JSONL format."""
     with tempfile.TemporaryDirectory() as tmp:
         session_file = Path(tmp) / "test.jsonl"
+        session_file.write_text('{"sessionId": "b03449c9-c20d-4ce9-9f22-6246ea1295f6"}\n')
+
+        session_id = linker._extract_session_id(session_file)
+        assert session_id == "b03449c9-c20d-4ce9-9f22-6246ea1295f6"
+
+
+def test_extract_session_id_falls_back_to_filename():
+    """Fall back to filename stem if no id/sessionId field."""
+    with tempfile.TemporaryDirectory() as tmp:
+        session_file = Path(tmp) / "abc12345.jsonl"
         session_file.write_text('{"type": "message"}\n')
 
         session_id = linker._extract_session_id(session_file)
-        assert session_id is None
+        assert session_id == "abc12345"
 
 
 def test_parse_spawn_marker_claude_format():

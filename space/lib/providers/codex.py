@@ -40,12 +40,14 @@ class Codex(Provider):
             return None
 
     @staticmethod
-    def discover_session(spawn, start_ts: float, end_ts: float) -> str | None:
+    def discover_session(
+        spawn, start_ts: float, end_ts: float, cwd: str | None = None
+    ) -> str | None:
         """Discover Codex session created during spawn window.
 
         Strategy: Match by filename timestamp.
         Codex filenames: rollout-YYYY-MM-DDTHH-MM-SS-{uuid}.jsonl
-        Returns None if no unique match (avoids collision).
+        Note: cwd param unused (Codex organizes by date, not CWD).
         """
         import re
         from datetime import datetime

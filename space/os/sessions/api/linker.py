@@ -10,40 +10,60 @@ from space.lib import paths, store
 logger = logging.getLogger(__name__)
 
 
-def find_session_for_spawn(spawn_id: str, provider: str, created_at: str) -> str | None:
-    """Find session_id via marker-based matching (mtime fallback).
+def find_session_for_spawn(
+    spawn_id: str, provider: str, created_at: str, cwd: str | None = None
+) -> str | None:
+    """Find session_id via marker-based matching.
 
     Strategy:
-    1. Marker match: Parse spawn_marker from session content (deterministic)
-    2. Mtime fallback: Closest file modification time (heuristic)
+    1. Search provider's native session dir (Claude: ~/.claude/projects/{cwd}/)
+    2. Fall back to our archive (~/.space/sessions/)
+
+    Args:
+        spawn_id: Spawn UUID to find session for
+        provider: Provider name (claude, codex, gemini)
+        created_at: Spawn creation timestamp for mtime fallback
+        cwd: Working directory to scope search (Claude only)
     """
     from space.lib.uuid7 import short_id
 
     marker = short_id(spawn_id)
-    session_dir = paths.sessions_dir()
-    provider_dir = session_dir / provider
+    created_ts = _parse_iso_timestamp(created_at)
 
-    if not provider_dir.exists():
-        logger.warning(f"Provider session dir not found: {provider_dir}")
+    search_dirs: list[Path] = []
+
+    if provider == "claude" and cwd:
+        from space.lib.providers.claude import Claude
+
+        escaped_cwd = cwd.replace("/", "-").replace(".", "-")
+        native_dir = Claude.SESSIONS_DIR / escaped_cwd
+        if native_dir.exists():
+            search_dirs.append(native_dir)
+
+    archive_dir = paths.sessions_dir() / provider
+    if archive_dir.exists():
+        search_dirs.append(archive_dir)
+
+    if not search_dirs:
         return None
 
-    created_ts = _parse_iso_timestamp(created_at)
     closest_file = None
     closest_distance = float("inf")
 
-    for session_file in provider_dir.glob("*.jsonl"):
-        found_marker = _parse_spawn_marker(session_file)
-        if found_marker == marker:
-            session_id = _extract_session_id(session_file)
-            if session_id:
-                logger.info(f"Matched spawn {spawn_id[:8]} to session {session_id} via marker")
-                return session_id
+    for search_dir in search_dirs:
+        for session_file in search_dir.glob("*.jsonl"):
+            found_marker = _parse_spawn_marker(session_file)
+            if found_marker == marker:
+                session_id = _extract_session_id(session_file)
+                if session_id:
+                    logger.info(f"Matched spawn {spawn_id[:8]} to session {session_id} via marker")
+                    return session_id
 
-        file_mtime = session_file.stat().st_mtime
-        distance = abs(file_mtime - created_ts)
-        if distance < closest_distance:
-            closest_distance = distance
-            closest_file = session_file
+            file_mtime = session_file.stat().st_mtime
+            distance = abs(file_mtime - created_ts)
+            if distance < closest_distance:
+                closest_distance = distance
+                closest_file = session_file
 
     if closest_file:
         session_id = _extract_session_id(closest_file)
@@ -90,14 +110,17 @@ def _truncate_spawn_id(spawn_id: str) -> str:
 
 
 def _extract_session_id(session_file: Path) -> str | None:
+    """Extract session ID from JSONL file (first line or filename)."""
     try:
         first_line = session_file.read_text().split("\n")[0]
-        if not first_line:
-            return None
-        data = json.loads(first_line)
-        return data.get("id")
+        if first_line:
+            data = json.loads(first_line)
+            session_id = data.get("sessionId") or data.get("id")
+            if session_id:
+                return session_id
+        return session_file.stem
     except (json.JSONDecodeError, OSError, IndexError):
-        return None
+        return session_file.stem
 
 
 def _parse_spawn_marker(session_file: Path) -> str | None:

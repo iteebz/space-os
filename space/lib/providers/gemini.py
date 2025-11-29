@@ -38,10 +38,13 @@ class Gemini(Provider):
         return None
 
     @staticmethod
-    def discover_session(spawn, start_ts: float, end_ts: float) -> str | None:
+    def discover_session(
+        spawn, start_ts: float, end_ts: float, cwd: str | None = None
+    ) -> str | None:
         """Discover Gemini session created during spawn window.
 
         Strategy: Match by mtime within spawn time window, return closest to start.
+        Note: cwd param unused (Gemini doesn't organize by CWD).
         """
         if not Gemini.SESSIONS_DIR.exists():
             return None

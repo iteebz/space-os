@@ -248,22 +248,34 @@ def _execute_spawn(cmd: list[str], context: str, agent, spawn_id: str, env: dict
             os.unlink(context_file)
 
 
-def _link_session(spawn, session_id: str | None, provider: str, stdout: str = "") -> None:
-    """Link spawn to session via marker → stdout → file discovery."""
+def _link_session(spawn, resumed_session_id: str | None, provider: str, stdout: str = "") -> None:
+    """Link spawn to actual session file created (not resumed-from session).
+
+    Claude CLI creates NEW session files even when resuming. We must discover
+    the actual session created by this spawn, not link to the resumed-from session.
+    """
     from space.os.sessions.api import linker
 
+    cwd = None
+    if provider == "claude":
+        agent = agents.get_agent(spawn.agent_id)
+        if agent:
+            cwd = str(paths.identity_dir(agent.identity))
+
     try:
-        if not session_id:
-            # 1. Try marker-based matching (most reliable)
-            session_id = linker.find_session_for_spawn(spawn.id, provider, spawn.created_at)
+        session_id = linker.find_session_for_spawn(spawn.id, provider, spawn.created_at, cwd=cwd)
 
         if not session_id:
-            # 2. Try extracting from stdout (Codex only)
             session_id = _extract_session_from_output(provider, stdout)
 
         if not session_id:
-            # 3. Fall back to file discovery by mtime
             session_id = _discover_spawn_session(spawn, provider)
+
+        if not session_id and resumed_session_id:
+            logger.debug(
+                f"No new session found, falling back to resumed session {resumed_session_id}"
+            )
+            session_id = resumed_session_id
 
         if session_id:
             linker.link_spawn_to_session(spawn.id, session_id)
@@ -295,7 +307,7 @@ def _discover_spawn_session(spawn, provider: str) -> str | None:
     For Codex: ~/.codex/sessions/YYYY/MM/DD/
     For Gemini: ~/.gemini/tmp/{hash}/chats/
 
-    Strategy: Find newest session file created during/after spawn.
+    Strategy: Find newest session file created during/after spawn, filtered by CWD.
     """
     from datetime import datetime, timedelta
 
@@ -303,14 +315,11 @@ def _discover_spawn_session(spawn, provider: str) -> str | None:
     if not provider_cls or not hasattr(provider_cls, "discover_session"):
         return None
 
-    # Use spawn creation time as start, spawn end time as finish
-    # This catches files created during spawn execution
     try:
         start_dt = datetime.fromisoformat(spawn.created_at.replace("Z", "+00:00"))
         if start_dt.tzinfo:
             start_dt = start_dt.replace(tzinfo=None)
 
-        # If spawn has ended, use end time; otherwise use now
         if spawn.ended_at:
             end_dt = datetime.fromisoformat(spawn.ended_at.replace("Z", "+00:00"))
             if end_dt.tzinfo:
@@ -318,7 +327,6 @@ def _discover_spawn_session(spawn, provider: str) -> str | None:
         else:
             end_dt = datetime.now()
 
-        # Expand window: -1s (filename second precision) to +2s (file write delay)
         start_dt = start_dt - timedelta(seconds=1)
         end_dt = end_dt + timedelta(seconds=2)
     except (ValueError, AttributeError):
@@ -327,7 +335,13 @@ def _discover_spawn_session(spawn, provider: str) -> str | None:
     start_ts = start_dt.timestamp()
     end_ts = end_dt.timestamp()
 
-    return provider_cls.discover_session(spawn, start_ts, end_ts)
+    cwd = None
+    if provider == "claude":
+        agent = agents.get_agent(spawn.agent_id)
+        if agent:
+            cwd = str(paths.identity_dir(agent.identity))
+
+    return provider_cls.discover_session(spawn, start_ts, end_ts, cwd=cwd)
 
 
 def _build_resume_args(provider: str, session_id: str | None) -> list[str]:
