@@ -12,6 +12,17 @@ from . import base
 logger = logging.getLogger(__name__)
 
 
+TOOL_NAME_MAP = {
+    "Shell": "Bash",
+    "WriteFile": "Write",
+    "ReadFile": "Read",
+    "ReadManyFiles": "Read",
+    "ReadFolder": "LS",
+    "FindFiles": "Glob",
+    "SearchText": "Grep",
+}
+
+
 def is_system_bloat(content: str) -> bool:
     """Filter out Gemini's system messages.
 
@@ -36,6 +47,22 @@ class Gemini(Provider):
         Returns None - must rely on file discovery.
         """
         return None
+
+    @staticmethod
+    def native_session_dirs(cwd: str | None = None) -> list[Path]:
+        """Return native session directories to search."""
+        if not Gemini.SESSIONS_DIR.exists():
+            return []
+        return [
+            d / "chats"
+            for d in Gemini.SESSIONS_DIR.iterdir()
+            if d.is_dir() and (d / "chats").is_dir()
+        ]
+
+    @staticmethod
+    def parse_spawn_marker(session_file: Path) -> str | None:
+        """Extract spawn_marker from Gemini session."""
+        return base.parse_spawn_marker(session_file)
 
     @staticmethod
     def discover_session(
@@ -295,12 +322,14 @@ class Gemini(Provider):
 
                 elif "functionCall" in part:
                     fn_call = part.get("functionCall", {})
+                    raw_name = fn_call.get("name", "")
+                    normalized_name = TOOL_NAME_MAP.get(raw_name, raw_name)
                     messages.append(
                         SessionMessage(
                             type="tool_call",
                             timestamp=timestamp,
                             content={
-                                "tool_name": fn_call.get("name", ""),
+                                "tool_name": normalized_name,
                                 "input": fn_call.get("args", {}),
                             },
                         )

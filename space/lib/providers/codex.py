@@ -12,6 +12,15 @@ from . import base
 logger = logging.getLogger(__name__)
 
 
+TOOL_NAME_MAP = {
+    "shell": "Bash",
+    "container.exec": "Bash",
+    "str_replace_editor": "Edit",
+    "write_file": "Write",
+    "read_file": "Read",
+}
+
+
 class Codex(Provider):
     """Codex provider: chat discovery and message parsing.
 
@@ -21,6 +30,7 @@ class Codex(Provider):
     """
 
     SESSIONS_DIR = Path.home() / ".codex" / "sessions"
+    SESSION_FILE_PATTERN = "*.jsonl"
 
     @staticmethod
     def extract_session_id(output: str) -> str | None:
@@ -38,6 +48,18 @@ class Codex(Provider):
             return payload.get("id")
         except (json.JSONDecodeError, KeyError, IndexError):
             return None
+
+    @staticmethod
+    def native_session_dirs(cwd: str | None = None) -> list[Path]:
+        """Return native session directories to search."""
+        if not Codex.SESSIONS_DIR.exists():
+            return []
+        return [Codex.SESSIONS_DIR]
+
+    @staticmethod
+    def parse_spawn_marker(session_file: Path) -> str | None:
+        """Extract spawn_marker from Codex session."""
+        return base.parse_spawn_marker(session_file)
 
     @staticmethod
     def discover_session(
@@ -260,12 +282,14 @@ class Codex(Provider):
                 except json.JSONDecodeError:
                     parsed_args = {"raw": arguments}
 
+                raw_name = fn.get("name", "")
+                normalized_name = TOOL_NAME_MAP.get(raw_name, raw_name)
                 messages.append(
                     SessionMessage(
                         type="tool_call",
                         timestamp=timestamp,
                         content={
-                            "tool_name": fn.get("name", ""),
+                            "tool_name": normalized_name,
                             "input": parsed_args,
                         },
                     )

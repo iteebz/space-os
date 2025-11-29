@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 class Claude(Provider):
     SESSIONS_DIR = Path.home() / ".claude" / "projects"
+    SESSION_FILE_PATTERN = "*.jsonl"
     DISALLOWED_TOOLS = ["NotebookRead", "NotebookEdit", "Task", "TodoWrite"]
 
     @staticmethod
@@ -64,6 +65,23 @@ class Claude(Provider):
             "--disallowedTools",
             ",".join(Claude.DISALLOWED_TOOLS),
         ]
+
+    @staticmethod
+    def native_session_dirs(cwd: str | None = None) -> list[Path]:
+        """Return native session directories to search."""
+        if cwd:
+            project_dir = Claude.SESSIONS_DIR / Claude.escape_cwd(cwd)
+            return [project_dir] if project_dir.is_dir() else []
+        return (
+            [d for d in Claude.SESSIONS_DIR.iterdir() if d.is_dir()]
+            if Claude.SESSIONS_DIR.exists()
+            else []
+        )
+
+    @staticmethod
+    def parse_spawn_marker(session_file: Path) -> str | None:
+        """Extract spawn_marker from Claude session."""
+        return base.parse_spawn_marker(session_file)
 
     @staticmethod
     def discover_session(

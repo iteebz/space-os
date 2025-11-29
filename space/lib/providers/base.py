@@ -10,16 +10,105 @@ from space.core.models import SessionMessage
 logger = logging.getLogger(__name__)
 
 
+def parse_spawn_marker(session_file: Path) -> str | None:
+    """Extract spawn_marker from session file (auto-detects JSON vs JSONL)."""
+    if session_file.suffix == ".json":
+        return _parse_marker_json(session_file)
+    return _parse_marker_jsonl(session_file)
+
+
+def _parse_marker_jsonl(session_file: Path) -> str | None:
+    """Extract spawn_marker from JSONL file. Scans first 10 lines."""
+    try:
+        with open(session_file) as f:
+            for i, line in enumerate(f):
+                if i >= 10:
+                    break
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                    marker = _extract_marker_from_dict(data)
+                    if marker:
+                        return marker
+                except json.JSONDecodeError:
+                    continue
+        return None
+    except OSError:
+        return None
+
+
+def _parse_marker_json(session_file: Path) -> str | None:
+    """Extract spawn_marker from JSON file (Gemini format)."""
+    try:
+        with open(session_file) as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            return None
+        for msg in data.get("messages", []):
+            if msg.get("type") != "user":
+                continue
+            content = msg.get("content", "")
+            if isinstance(content, str):
+                marker = _parse_marker_from_text(content)
+                if marker:
+                    return marker
+            elif isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        marker = _parse_marker_from_text(block.get("text", ""))
+                        if marker:
+                            return marker
+            return None
+        return None
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _extract_marker_from_dict(data: dict) -> str | None:
+    """Extract marker from JSONL line (Claude/Codex formats)."""
+    # Claude: {"message": {"content": "..."}}
+    if "message" in data:
+        msg = data["message"]
+        if isinstance(msg, dict):
+            content = msg.get("content", "")
+            if isinstance(content, str):
+                marker = _parse_marker_from_text(content)
+                if marker:
+                    return marker
+
+    # Codex: {"payload": {"content": [{"text": "..."}]}}
+    payload = data.get("payload", {})
+    if isinstance(payload, dict):
+        content = payload.get("content", [])
+        if isinstance(content, list):
+            for item in content:
+                if isinstance(item, dict):
+                    text = item.get("text", "")
+                    if isinstance(text, str):
+                        marker = _parse_marker_from_text(text)
+                        if marker:
+                            return marker
+
+    # Simple: {"content": "..."}
+    content = data.get("content", "")
+    if isinstance(content, str):
+        return _parse_marker_from_text(content)
+    return None
+
+
+def _parse_marker_from_text(text: str) -> str | None:
+    """Extract 8-char marker from 'spawn_marker: <marker>' text."""
+    if "spawn_marker:" not in text:
+        return None
+    marker_part = text.split("spawn_marker:")[-1].strip()
+    marker = marker_part.split()[0] if marker_part else ""
+    return marker if len(marker) == 8 else None
+
+
 def index_session(session_id: str, provider: str) -> int:
-    """Index provider session into database.
-
-    Args:
-        session_id: Session UUID
-        provider: Provider name (claude, codex, gemini)
-
-    Returns:
-        Number of transcripts indexed
-    """
+    """Index provider session into database."""
     from space.os.sessions.sync import _index_transcripts
 
     sessions_dir = Path.home() / ".space" / "sessions" / provider
@@ -41,16 +130,7 @@ def parse_jsonl_file(
     parse_line_fn: callable,
     from_offset: int = 0,
 ) -> list[SessionMessage]:
-    """Parse JSONL file using provider-specific line parser.
-
-    Args:
-        file_path: Path to JSONL file or raw JSONL string
-        parse_line_fn: Function(json_obj, line_num) -> list[SessionMessage]
-        from_offset: Line offset to start parsing from
-
-    Returns:
-        List of parsed SessionMessage objects
-    """
+    """Parse JSONL file using provider-specific line parser."""
     messages = []
 
     if isinstance(file_path, str):
@@ -87,17 +167,7 @@ def ingest_session_copy(
     provider: str,
     extract_session_id_fn: callable,
 ) -> bool:
-    """Ingest session by copying to destination with normalized filename.
-
-    Args:
-        session: Session dict with 'file_path' key
-        dest_dir: Destination directory
-        provider: Provider name (for logging)
-        extract_session_id_fn: Function(src_path) -> session_id | None
-
-    Returns:
-        True if ingestion succeeded
-    """
+    """Ingest session by copying to destination with normalized filename."""
     import shutil
 
     try:
@@ -127,18 +197,7 @@ def ingest_session_transform(
     extract_session_id_fn: callable,
     transform_fn: callable,
 ) -> bool:
-    """Ingest session by transforming content and writing to destination.
-
-    Args:
-        session: Session dict with 'file_path' key
-        dest_dir: Destination directory
-        provider: Provider name (for logging)
-        extract_session_id_fn: Function(src_path) -> session_id | None
-        transform_fn: Function(src_path) -> transformed_content
-
-    Returns:
-        True if ingestion succeeded
-    """
+    """Ingest session by transforming content and writing to destination."""
     try:
         src_file = Path(session.get("file_path", ""))
 
