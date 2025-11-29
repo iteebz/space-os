@@ -113,10 +113,6 @@ export function ChannelList({
                     type="text"
                     value={createName}
                     onChange={(e) => setCreateName(e.target.value)}
-                    onBlur={() => {
-                      setCreateName('')
-                      onCancelCreate()
-                    }}
                     onKeyDown={(e) => {
                       if (e.key === 'Escape') {
                         setCreateName('')

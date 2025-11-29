@@ -24,7 +24,7 @@ export function ChannelHeader({
   onCancelCreate,
   createError,
 }: Props) {
-  const [isEditingTopic, setIsEditingTopic] = useState(isCreating)
+  const [isEditingTopic, setIsEditingTopic] = useState(false)
   const [isEditingName, setIsEditingName] = useState(isCreating)
   const [topic, setTopic] = useState(channel.topic ?? '')
   const [name, setName] = useState(channel.name)

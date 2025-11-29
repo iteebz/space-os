@@ -48,8 +48,9 @@ export default function App() {
   const { data: identity } = useHumanIdentity()
   const { data: channels } = useChannels(showArchived, identity?.identity)
 
-  const autoSelectedChannel =
-    !selectedChannel && channels && channels.length > 0 && !isCreating
+  const autoSelectedChannel = isCreating
+    ? null
+    : !selectedChannel && channels && channels.length > 0
       ? [...channels].sort((a, b) => {
           if (!a.last_activity) return 1
           if (!b.last_activity) return -1
@@ -250,7 +251,12 @@ export default function App() {
                 >
                   {showArchived ? <BsArchiveFill size={16} /> : <BsArchive size={16} />}
                 </button>
-                <CreateChannel onClick={() => setParam('create', 'true')} />
+                <CreateChannel
+                  onClick={() => {
+                    setParam('channel', null)
+                    setParam('create', 'true')
+                  }}
+                />
               </div>
             </div>
             <div className="flex-1 min-h-0">
@@ -293,7 +299,13 @@ export default function App() {
                 >
                   {showArchived ? <BsArchiveFill size={16} /> : <BsArchive size={16} />}
                 </button>
-                <CreateChannel onClick={() => setParam('create', 'true')} />
+                <CreateChannel
+                  onClick={() => {
+                    setParam('channel', null)
+                    setParam('create', 'true')
+                    setShowChannelDrawer(false)
+                  }}
+                />
               </div>
             </div>
             <div className="flex-1 min-h-0">
@@ -308,12 +320,9 @@ export default function App() {
                     setShowChannelDrawer(false)
                   }}
                   showArchived={showArchived}
-                  isCreating={isCreating}
-                  onCreateChannel={(name) => {
-                    createChannel({ name, topic: null })
-                    setShowChannelDrawer(false)
-                  }}
-                  onCancelCreate={() => setParam('create', null)}
+                  isCreating={false}
+                  onCreateChannel={() => {}}
+                  onCancelCreate={() => {}}
                 />
               </ErrorBoundary>
             </div>
