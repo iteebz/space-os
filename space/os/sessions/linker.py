@@ -57,7 +57,7 @@ def _search_dir_for_marker(
     """
     file_pattern = pattern or getattr(provider_cls, "SESSION_FILE_PATTERN", "*.jsonl")
 
-    for session_file in search_dir.rglob(file_pattern):
+    files = list(search_dir.rglob(file_pattern))
     files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
 
     for session_file in files:

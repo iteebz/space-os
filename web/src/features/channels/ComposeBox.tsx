@@ -10,16 +10,30 @@ interface Props {
 }
 
 export function ComposeBox({ channel }: Props) {
-  const [drafts, setDrafts] = useState<Map<string, string>>(new Map())
+  const [drafts, setDrafts] = useState<Map<string, string>>(() => {
+    const stored = localStorage.getItem('space-os:drafts')
+    return stored ? new Map(JSON.parse(stored)) : new Map()
+  })
   const [cursorPosition, setCursorPosition] = useState(0)
   const [showAutocomplete, setShowAutocomplete] = useState(false)
-  const [uploadedImages, setUploadedImages] = useState<Map<string, string[]>>(new Map())
+  const [uploadedImages, setUploadedImages] = useState<Map<string, string[]>>(() => {
+    const stored = localStorage.getItem('space-os:images')
+    return stored ? new Map(JSON.parse(stored)) : new Map()
+  })
 
   const content = drafts.get(channel) ?? ''
-  const setContent = (value: string) => setDrafts((prev) => new Map(prev).set(channel, value))
+  const setContent = (value: string) => setDrafts((prev) => {
+    const updated = new Map(prev).set(channel, value)
+    localStorage.setItem('space-os:drafts', JSON.stringify(Array.from(updated.entries())))
+    return updated
+  })
   const currentImages = uploadedImages.get(channel) ?? []
   const setCurrentImages = (images: string[]) =>
-    setUploadedImages((prev) => new Map(prev).set(channel, images))
+    setUploadedImages((prev) => {
+      const updated = new Map(prev).set(channel, images)
+      localStorage.setItem('space-os:images', JSON.stringify(Array.from(updated.entries())))
+      return updated
+    })
   const [isUploading, setIsUploading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const textareaRef = useRef<globalThis.HTMLTextAreaElement>(null)

@@ -25,6 +25,7 @@ def create_channel(
     if " " in name:
         raise ValueError("Channel name cannot contain spaces")
 
+    name = name.lower()
     channel_id = uuid7()
     with store.ensure() as conn:
         conn.execute(
@@ -44,8 +45,8 @@ def rename_channel(old_name: str, new_name: str) -> None:
     Raises:
         ValueError: If old_name not found or new_name exists or contains spaces.
     """
-    old_name = old_name.lstrip("#")
-    new_name = new_name.lstrip("#")
+    old_name = old_name.lstrip("#").lower()
+    new_name = new_name.lstrip("#").lower()
     if " " in new_name:
         raise ValueError("Channel name cannot contain spaces")
     with store.ensure() as conn:

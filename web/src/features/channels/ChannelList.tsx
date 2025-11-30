@@ -112,7 +112,7 @@ export function ChannelList({
                   <input
                     type="text"
                     value={createName}
-                    onChange={(e) => setCreateName(e.target.value)}
+                    onChange={(e) => setCreateName(e.target.value.toLowerCase())}
                     onKeyDown={(e) => {
                       if (e.key === 'Escape') {
                         setCreateName('')
