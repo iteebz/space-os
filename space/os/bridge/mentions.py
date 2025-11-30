@@ -19,7 +19,7 @@ def process_mentions(channel_id: str, content: str, sender_agent_id: str | None 
     Spawn lifecycle:
     - First @mention: create spawn, CLI runs, spawn becomes ACTIVE
     - Subsequent @mentions: reuse ACTIVE spawn, CLI runs, spawn stays ACTIVE
-    - !compact/!handoff: spawn COMPLETED, successor created
+    - !compact: spawn COMPLETED, successor created
     """
     from space.lib.detach import detach
 

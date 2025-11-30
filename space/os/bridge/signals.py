@@ -1,9 +1,8 @@
-"""!bang agent signals: !compact, !compact-channel, !handoff."""
+"""!bang agent signals: !compact, !compact-channel."""
 
 import logging
 import re
 
-from space.core.models import SPAWN_LIVE_STATUSES
 from space.os.spawn import agents as spawn_agents
 from space.os.spawn import spawns
 
@@ -16,9 +15,6 @@ def process_signals(channel_id: str, content: str, agent_id: str | None = None) 
         _process_compact_channel(channel_id, content, agent_id)
     elif "!compact" in content:
         _process_compact(channel_id, content, agent_id)
-
-    if "!handoff" in content:
-        _process_handoff(channel_id, content, agent_id)
 
 
 def _get_base_identity(identity: str) -> str:
@@ -141,42 +137,3 @@ def _process_compact(channel_id: str, content: str, sender_agent_id: str | None)
     )
 
     spawns.terminate_spawn(current_spawn.id, "completed")
-
-
-def _process_handoff(channel_id: str, content: str, sender_agent_id: str | None) -> None:
-    """Parse !handoff @target summary and create handoff + spawn target + complete sender."""
-    from space.lib.detach import detach
-
-    from . import handoffs
-
-    if not sender_agent_id:
-        return
-
-    match = re.search(r"!handoff\s+@([\w-]+)\s+(.+)", content, re.DOTALL)
-    if not match:
-        return
-
-    target_identity = match.group(1)
-    summary = match.group(2).strip()
-
-    sender_agent = spawn_agents.get_agent(sender_agent_id)
-    if not sender_agent:
-        return
-
-    target_agent = spawn_agents.get_agent(target_identity)
-    if not target_agent or not target_agent.model:
-        return
-
-    try:
-        handoffs.create_handoff(channel_id, sender_agent.identity, target_identity, summary)
-    except ValueError as e:
-        log.error(f"Failed to create handoff: {e}")
-        return
-
-    existing = spawns.get_active_spawn_in_channel(target_agent.agent_id, channel_id)
-    if not existing:
-        detach(["spawn", "run", target_identity, content, "--channel", channel_id])
-
-    for spawn in spawns.get_spawns_for_agent(sender_agent_id):
-        if spawn.channel_id == channel_id and spawn.status in SPAWN_LIVE_STATUSES:
-            spawns.terminate_spawn(spawn.id, "completed")

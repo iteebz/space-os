@@ -30,7 +30,7 @@ BEFORE ACTING:
 
 BEFORE EXIT:
 1. memory add anything worth remembering (skip if nothing)
-2. bridge send with completion status and @handoff
+2. bridge send with completion status
    → @{human_identity} if uncertain who's next
 
 {task}{channel}"""
@@ -43,7 +43,6 @@ All communication via: bridge send {channel} "message"
 
 AGENT SIGNALS (you post these in bridge messages):
 - !compact summary → Continue task with fresh context (you terminate, successor spawns with same identity)
-- !handoff @agent summary → Transfer task ownership (you terminate, they spawn)
 
 LIFECYCLE:
 1. bridge recv {channel} (see why summoned)
@@ -52,19 +51,17 @@ LIFECYCLE:
 4. Work, bridge send progress
 5. Context management:
    - If worked >7min OR processed >50 messages: !compact <state summary>
-6. When YOUR work is done: !handoff @next-agent <summary>
-7. When ALL work is done: @{human_identity} <summary>
+6. When ALL work is done: @{human_identity} <summary>
 
 ESCALATION:
 - @{human_identity} = task complete OR blocked, needs human
-- !handoff @agent = passing to specific agent (you terminate, they spawn)
 - !compact = continue with fresh session (you terminate, successor spawns)
 - Do NOT @{human_identity} until work is actually done or you're truly blocked
 
 EXIT RULES:
 1. After YOU post @{human_identity} → TERMINATE immediately
 2. If ANOTHER AGENT posts @{human_identity} (task complete) → TERMINATE (don't respond to completion)
-3. After YOU post !handoff or !compact → TERMINATE (next spawn takes over)
+3. After YOU post !compact → TERMINATE (next spawn takes over)
 Note: @{human_identity} in the ORIGINAL TASK doesn't count - only agent completion messages."""
 
 TASK_TEMPLATE = """\

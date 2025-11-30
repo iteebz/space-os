@@ -79,14 +79,6 @@ def test_bridge_list_channels(test_space):
     assert result.exit_code == 0
 
 
-def test_bridge_inbox_requires_identity(monkeypatch):
-    """Inbox command requires --as identity."""
-    monkeypatch.delenv("SPACE_IDENTITY", raising=False)
-    result = runner.invoke(bridge.app, ["inbox"])
-    assert result.exit_code != 0
-    assert "Identity required" in result.output
-
-
 def test_bridge_send_fails_missing_channel(test_space, default_agents):
     """Send fails when channel doesn't exist."""
     result = runner.invoke(

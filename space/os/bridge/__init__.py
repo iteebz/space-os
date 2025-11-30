@@ -11,7 +11,6 @@ from .channels import (
 )
 from .cli import app
 from .delimiters import process_delimiters
-from .handoffs import close_handoff, create_handoff, get_handoff, list_pending
 from .messaging import (
     export_messages,
     format_messages,
@@ -27,18 +26,14 @@ __all__ = [
     "app",
     "archive_channel",
     "channels",
-    "close_handoff",
     "create_channel",
-    "create_handoff",
     "delete_channel",
     "format_messages",
     "get_channel",
-    "get_handoff",
     "export_messages",
     "get_messages",
     "get_sender_history",
     "list_channels",
-    "list_pending",
     "process_delimiters",
     "recv_messages",
     "rename_channel",

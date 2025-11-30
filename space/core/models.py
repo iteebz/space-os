@@ -24,11 +24,6 @@ class TaskStatus(str, Enum):
     DONE = "done"
 
 
-class HandoffStatus(str, Enum):
-    PENDING = "pending"
-    CLOSED = "closed"
-
-
 @dataclass
 class Agent:
     agent_id: str
@@ -127,19 +122,6 @@ class Task:
     agent_id: str | None = None
     started_at: str | None = None
     completed_at: str | None = None
-
-
-@dataclass
-class Handoff:
-    handoff_id: str
-    channel_id: str
-    from_agent: str
-    to_agent: str
-    summary: str
-    message_id: str
-    status: HandoffStatus | str = HandoffStatus.PENDING
-    created_at: str | None = None
-    closed_at: str | None = None
 
 
 @dataclass

@@ -82,7 +82,7 @@ def spawn_ephemeral(
     Spawn lifecycle:
     - First @mention: create spawn → run CLI → status=active
     - Subsequent @mentions: reuse spawn → run CLI → status=active
-    - !compact/!handoff: status=completed, successor created
+    - !compact: status=completed, successor created
 
     Args:
         existing_spawn_id: Reuse this spawn instead of creating new (for @mention continuity)

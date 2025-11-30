@@ -29,7 +29,6 @@ const SLASH_COMMANDS: Suggestion[] = [
 
 const AGENT_SIGNALS: Suggestion[] = [
   { value: 'compact', label: 'compact <summary>', description: 'Agent self-compaction' },
-  { value: 'handoff', label: 'handoff @agent <summary>', description: 'Transfer ownership' },
 ]
 
 export function DelimiterAutocomplete({
