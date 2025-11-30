@@ -154,6 +154,7 @@ export function MessageList({ channelName, channelId }: Props) {
               className="border-b border-neutral-800 pb-4 relative group"
               onMouseEnter={() => setHoveredId(msg.message_id)}
               onMouseLeave={() => setHoveredId(null)}
+              onTouchStart={() => setHoveredId(msg.message_id)}
             >
               <div className="flex items-center gap-2 mb-2">
                 <div className="flex items-center gap-2">
@@ -172,9 +173,9 @@ export function MessageList({ channelName, channelId }: Props) {
                     />
                   )}
                 </div>
-                <span className="text-xs text-neutral-500">{formatLocalTime(msg.created_at)}</span>
+                <span className="text-sm text-neutral-500">{formatLocalTime(msg.created_at)}</span>
                 {hoveredId === msg.message_id && (
-                  <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity">
                     <button
                       onClick={() => navigator.clipboard.writeText(msg.content)}
                       className="text-neutral-400 hover:text-neutral-200 p-1"
@@ -198,7 +199,7 @@ export function MessageList({ channelName, channelId }: Props) {
                   </div>
                 )}
               </div>
-              <div className="text-neutral-300 text-sm prose prose-invert prose-sm max-w-none prose-strong:text-white prose-headings:text-white prose-p:my-2 prose-li:my-1 break-words overflow-wrap-anywhere">
+              <div className="text-neutral-300 text-base prose prose-invert max-w-none prose-strong:text-white prose-headings:text-white prose-p:my-2 prose-li:my-1 break-words overflow-wrap-anywhere">
                 <Markdown
                   components={{
                     p: ({ children }) => (

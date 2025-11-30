@@ -190,7 +190,7 @@ export default function App() {
         />
       )}
 
-      <div className="md:hidden fixed top-0 left-0 right-0 bg-neutral-900 border-b border-neutral-800 px-4 py-3 flex items-center gap-3 z-30">
+      <div className="fixed top-0 left-0 right-0 bg-neutral-900 border-b border-neutral-800 px-4 py-3 flex items-center gap-3 z-30 md:hidden">
         <button
           onClick={() => setShowChannelDrawer(true)}
           className="text-neutral-400 hover:text-white"
@@ -210,6 +210,40 @@ export default function App() {
           </button>
         )}
       </div>
+
+      {isCreating && (
+        <div className="md:hidden fixed inset-0 bg-neutral-900 z-50 flex flex-col">
+          <div className="border-b border-neutral-800 px-4 py-3 flex items-center gap-3">
+            <button
+              onClick={() => setParam('create', null)}
+              className="text-neutral-400 hover:text-white"
+            >
+              <BsChevronLeft size={20} />
+            </button>
+            <span className="text-white font-semibold">New Channel</span>
+          </div>
+          <div className="flex-1 overflow-y-auto scrollable p-4">
+            <ChannelHeader
+              channel={{
+                name: '',
+                topic: null,
+                channel_id: '',
+                message_count: 0,
+                last_activity: null,
+                unread_count: 0,
+                archived_at: null,
+                pinned_at: null,
+                timer_expires_at: null,
+                timer_set_by_message_id: null,
+              }}
+              isCreating={true}
+              onCreate={(name, topic) => createChannel({ name, topic })}
+              onCancelCreate={() => setParam('create', null)}
+              createError={createError}
+            />
+          </div>
+        </div>
+      )}
 
       {showSessionModal && selectedTab?.sessionId && (
         <div className="md:hidden fixed inset-0 bg-neutral-900 z-50 flex flex-col">
@@ -335,7 +369,7 @@ export default function App() {
         <PanelResizeHandle className="hidden md:block w-1 bg-neutral-800 hover:bg-neutral-700 transition-colors" />
 
         <Panel defaultSize={42} minSize={25}>
-          <div className="h-full flex flex-col md:p-4" style={{ height: '100%' }}>
+          <div className="h-full flex flex-col md:p-4 pt-[60px] md:pt-4" style={{ height: '100%' }}>
             {isCreating && (
               <div className="hidden md:block">
                 <ChannelHeader

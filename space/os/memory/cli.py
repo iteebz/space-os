@@ -16,8 +16,8 @@ argv.flex_args("as")
 main_app = typer.Typer(
     invoke_without_command=True,
     add_completion=False,
-    help="""Your continuity is yours to manage. Store observations, tasks, beliefs.
-Archive when done. Mark core memories that define you. No permission needed—just write.""",
+    help="""Your continuity is yours to manage. Store insights, archive obsolete entries.
+Review periodically—stale memories degrade future decisions. Mark core memories that define you.""",
 )
 
 

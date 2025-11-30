@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { BsRobot } from 'react-icons/bs'
 import { patchApi } from '../../lib/api'
 import type { Channel } from './types'
 import { useRenameChannel } from './hooks'
 import { formatTimeRemaining } from '../../lib/time'
+import { useSpawns } from '../spawns'
+import { useAgentMap } from '../agents'
 
 interface Props {
   channel: Channel
@@ -31,8 +34,20 @@ export function ChannelHeader({
   const [showCopied, setShowCopied] = useState(false)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [timerDisplay, setTimerDisplay] = useState('')
+  const [showAgents, setShowAgents] = useState(false)
   const queryClient = useQueryClient()
   const { mutate: renameChannel } = useRenameChannel()
+  const { data: spawns } = useSpawns()
+  const agentMap = useAgentMap()
+
+  const activeAgents =
+    spawns
+      ?.filter((s) => s.channel_id === channel.channel_id && s.status === 'running')
+      .map((s) => ({
+        agentId: s.agent_id,
+        identity: agentMap.get(s.agent_id) ?? s.agent_id.slice(0, 8),
+      }))
+      .filter((v, i, a) => a.findIndex((t) => t.agentId === v.agentId) === i) ?? []
 
   const { mutate: updateTopic, isPending: isTopicPending } = useMutation({
     mutationFn: (newTopic: string) =>
@@ -184,12 +199,41 @@ export function ChannelHeader({
               </h2>
             )}
           </div>
+          {activeAgents.length > 0 && (
+            <div className="text-xs text-neutral-500 mt-0.5 ml-1">
+              {activeAgents.length} member{activeAgents.length > 1 ? 's' : ''}
+            </div>
+          )}
           {validationError && <p className="text-sm text-red-400 mt-1">{validationError}</p>}
         </div>
         <div className="flex items-center gap-2">
           {timerDisplay && (
             <div className="text-sm text-amber-400" title="Auto-stop timer">
               ⏱️ {timerDisplay}
+            </div>
+          )}
+          {activeAgents.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setShowAgents(!showAgents)}
+                className="text-neutral-500 hover:text-white text-sm flex items-center gap-1"
+                title={`${activeAgents.length} active agent${activeAgents.length > 1 ? 's' : ''}`}
+              >
+                <BsRobot size={16} />
+                <span className="text-xs">{activeAgents.length}</span>
+              </button>
+              {showAgents && (
+                <div className="absolute right-0 top-full mt-1 bg-neutral-800 border border-neutral-700 rounded shadow-lg py-1 z-50 min-w-32">
+                  {activeAgents.map((agent) => (
+                    <div
+                      key={agent.agentId}
+                      className="px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 whitespace-nowrap"
+                    >
+                      {agent.identity}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           {onExportClick && (

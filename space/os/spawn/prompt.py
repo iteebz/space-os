@@ -29,7 +29,9 @@ BEFORE ACTING:
 2. context search if needed (keywords like "auth token" not "how do I fix auth")
 
 BEFORE EXIT:
-1. memory add anything worth remembering (skip if nothing)
+1. memory add INSIGHTS ONLY (skip implementation details):
+   - Generalizable patterns, failures, decisions
+   - NOT: bug fixes, config changes, routine work
 2. bridge send with completion status
    → @{human_identity} if uncertain who's next
 

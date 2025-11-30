@@ -153,6 +153,16 @@ async def stream_session(session_id: str) -> StreamingResponse:
             provider_name = provider
             break
 
+        provider_class = providers.get_provider(provider)
+        for native_dir in provider_class.native_session_dirs(None):
+            candidate = native_dir / f"{session_id}.jsonl"
+            if candidate.exists():
+                session_path = candidate
+                provider_name = provider
+                break
+        if session_path:
+            break
+
     if not session_path or not provider_name:
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 

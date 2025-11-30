@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
+import { BsArrowUp, BsPlus } from 'react-icons/bs'
 import { useSendMessage, useHumanIdentity } from './hooks'
 import { useAgents } from '../agents'
 import { useChannels } from './hooks'
@@ -90,10 +91,9 @@ export function ComposeBox({ channel }: Props) {
 
     if (e.key === 'Enter') {
       if (e.shiftKey) {
-        return
+        e.preventDefault()
+        handleSubmit(e)
       }
-      e.preventDefault()
-      handleSubmit(e)
     }
   }
 
@@ -107,6 +107,13 @@ export function ComposeBox({ channel }: Props) {
     const hasDelimiter = /[@!#/][\w-]*$/.test(beforeCursor)
     setShowAutocomplete(hasDelimiter)
   }
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
+    }
+  }, [content])
 
   const handleAutocompleteSelect = (completion: string) => {
     if (!textareaRef.current) return
@@ -198,7 +205,7 @@ export function ComposeBox({ channel }: Props) {
         </div>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-end relative">
         <input
           ref={fileInputRef}
           type="file"
@@ -206,6 +213,15 @@ export function ComposeBox({ channel }: Props) {
           onChange={handleFileSelect}
           className="hidden"
         />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isPending || isUploading}
+          className="w-10 h-10 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+          title="Attach image"
+        >
+          {isUploading ? '...' : <BsPlus size={20} />}
+        </button>
         <textarea
           ref={textareaRef}
           value={content}
@@ -216,24 +232,22 @@ export function ComposeBox({ channel }: Props) {
           onDragOver={handleDragOver}
           onDrop={handleDrop}
           onPaste={handlePaste}
-          placeholder={`Message #${channel}... (@mention !command #channel)`}
-          className={`flex-1 bg-neutral-900 border rounded px-3 py-2 text-sm text-neutral-200 placeholder-neutral-500 resize-none focus:outline-none transition-colors ${
+          placeholder={`Message #${channel}`}
+          className={`flex-1 bg-neutral-900 border rounded-xl px-3 py-2.5 text-base text-neutral-200 placeholder-neutral-500 resize-none focus:outline-none transition-colors max-h-[200px] overflow-y-auto min-h-0 ${
             isDragging
               ? 'border-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.3)]'
               : 'border-neutral-700 focus:border-cyan-500'
           }`}
-          rows={3}
           disabled={isPending}
+          rows={1}
         />
-
         <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isPending || isUploading}
-          className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-neutral-400 hover:text-neutral-200 hover:border-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Attach image"
+          type="submit"
+          disabled={!content.trim() || isPending}
+          className="w-10 h-10 rounded-full flex items-center justify-center transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed bg-cyan-600 hover:bg-cyan-500 disabled:bg-neutral-800 text-white disabled:text-neutral-600"
+          title="Send message"
         >
-          {isUploading ? '...' : '📎'}
+          <BsArrowUp size={20} />
         </button>
       </div>
     </form>

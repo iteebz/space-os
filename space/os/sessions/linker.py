@@ -51,10 +51,16 @@ def _search_dir_for_marker(
     spawn_id: str,
     pattern: str | None = None,
 ) -> str | None:
-    """Search directory for session with matching marker."""
+    """Search directory for session with matching marker.
+
+    Searches newest files first (most likely to contain the marker).
+    """
     file_pattern = pattern or getattr(provider_cls, "SESSION_FILE_PATTERN", "*.jsonl")
 
     for session_file in search_dir.rglob(file_pattern):
+    files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+
+    for session_file in files:
         found_marker = provider_cls.parse_spawn_marker(session_file)
         if found_marker == marker:
             session_id = provider_cls.session_id_from_contents(session_file) or session_file.stem

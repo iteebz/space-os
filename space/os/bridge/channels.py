@@ -163,6 +163,11 @@ def list_channels(archived: bool = False, reader_id: str | None = None) -> list[
         archived_filter = (
             "WHERE c.archived_at IS NOT NULL" if archived else "WHERE c.archived_at IS NULL"
         )
+        order_clause = (
+            "c.name"
+            if archived
+            else "c.pinned_at DESC NULLS LAST, COALESCE(MAX(m.created_at), c.created_at) DESC"
+        )
         query = f"""
             SELECT
                 c.channel_id,
@@ -180,7 +185,7 @@ def list_channels(archived: bool = False, reader_id: str | None = None) -> list[
             LEFT JOIN messages m ON c.channel_id = m.channel_id
             {archived_filter}
             GROUP BY c.channel_id
-            ORDER BY c.pinned_at DESC NULLS LAST, COALESCE(MAX(m.created_at), c.created_at) DESC
+            ORDER BY {order_clause}
         """
         channels = [_row_to_channel(row) for row in conn.execute(query).fetchall()]
 
