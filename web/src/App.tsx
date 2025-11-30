@@ -31,6 +31,7 @@ import { ErrorBoundary } from './lib/ErrorBoundary'
 interface AgentTab {
   agentId: string
   identity: string | null
+  spawnId: string
   sessionId: string | null
   isRunning: boolean
 }
@@ -81,7 +82,7 @@ export default function App() {
 
     const agentSpawnsMap = new Map<
       string,
-      { sessionId: string | null; isRunning: boolean; lastActivity: number }
+      { spawnId: string; sessionId: string | null; isRunning: boolean; lastActivity: number }
     >()
 
     spawns
@@ -93,6 +94,7 @@ export default function App() {
 
         if (!existing || spawnTime > existing.lastActivity || (isRunning && !existing.isRunning)) {
           agentSpawnsMap.set(s.agent_id, {
+            spawnId: s.id,
             sessionId: s.session_id,
             isRunning,
             lastActivity: spawnTime,
@@ -105,6 +107,7 @@ export default function App() {
       tabs.push({
         agentId,
         identity: agentMap.get(agentId) ?? null,
+        spawnId: data.spawnId,
         sessionId: data.sessionId,
         isRunning: data.isRunning,
       })
@@ -222,11 +225,11 @@ export default function App() {
             </span>
           </div>
           <div className="flex-1 overflow-y-auto scrollable p-4">
-            <ContextIndicator sessionId={selectedTab.sessionId} />
+            {selectedTab.sessionId && <ContextIndicator sessionId={selectedTab.sessionId} />}
             <ErrorBoundary
               fallback={<div className="text-red-400 text-sm">Failed to load session</div>}
             >
-              <SessionStream sessionId={selectedTab.sessionId} />
+              <SessionStream sessionId={selectedTab.sessionId} spawnId={selectedTab.spawnId} />
             </ErrorBoundary>
           </div>
         </div>
@@ -437,10 +440,11 @@ export default function App() {
                   <ErrorBoundary
                     fallback={<div className="text-red-400 text-sm">Failed to load session</div>}
                   >
-                    {selectedTab?.sessionId ? (
-                      <SessionStream sessionId={selectedTab.sessionId} />
-                    ) : (
-                      <div className="text-neutral-500 text-sm">Waiting for session...</div>
+                    {selectedTab && (
+                      <SessionStream
+                        sessionId={selectedTab.sessionId}
+                        spawnId={selectedTab.spawnId}
+                      />
                     )}
                   </ErrorBoundary>
                 </div>

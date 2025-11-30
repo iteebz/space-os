@@ -20,7 +20,8 @@ interface SessionEvent {
 }
 
 interface Props {
-  sessionId: string
+  sessionId?: string | null
+  spawnId?: string | null
 }
 
 function formatRelativeTime(timestamp: string | null): string {
@@ -41,7 +42,7 @@ function formatRelativeTime(timestamp: string | null): string {
 const MAX_RETRIES = 10
 const BASE_DELAY = 2000
 
-export function SessionStream({ sessionId }: Props) {
+export function SessionStream({ sessionId, spawnId }: Props) {
   const [events, setEvents] = useState<SessionEvent[]>([])
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
@@ -54,7 +55,15 @@ export function SessionStream({ sessionId }: Props) {
       eventSourceRef.current.close()
     }
 
-    const eventSource = new globalThis.EventSource(`/api/sessions/${sessionId}/stream`)
+    const streamUrl = sessionId
+      ? `/api/sessions/${sessionId}/stream`
+      : spawnId
+        ? `/api/spawns/${spawnId}/stream`
+        : null
+
+    if (!streamUrl) return
+
+    const eventSource = new globalThis.EventSource(streamUrl)
     eventSourceRef.current = eventSource
 
     eventSource.onmessage = (event) => {
@@ -81,7 +90,7 @@ export function SessionStream({ sessionId }: Props) {
         return next
       })
     }
-  }, [sessionId])
+  }, [sessionId, spawnId])
 
   useEffect(() => {
     setEvents([])
@@ -92,7 +101,7 @@ export function SessionStream({ sessionId }: Props) {
     return () => {
       eventSourceRef.current?.close()
     }
-  }, [sessionId, connect])
+  }, [sessionId, spawnId, connect])
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'auto' })

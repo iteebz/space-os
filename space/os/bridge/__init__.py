@@ -13,10 +13,10 @@ from .cli import app
 from .delimiters import process_delimiters
 from .handoffs import close_handoff, create_handoff, get_handoff, list_pending
 from .messaging import (
+    export_messages,
     format_messages,
     get_messages,
     get_sender_history,
-    export_messages,
     recv_messages,
     send_message,
     wait_for_message,

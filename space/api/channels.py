@@ -186,7 +186,7 @@ async def stream_channel_messages(channel_id: str) -> AsyncGenerator[str, None]:
                     yield f"data: {json.dumps(event_data)}\n\n"
                 sent_count = len(messages)
 
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.1)
     except asyncio.CancelledError:
         pass
 
